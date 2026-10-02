@@ -3,7 +3,7 @@
   "environment_id": "bark_001",
   "display_name_ja": "樹皮 001",
   "background": {
-    "src": "img/backgrounds/bg_001.png",
+    "src": "img/backgrounds/bg_preview.svg",
     "source_width": 1024,
     "source_height": 1736
   },
@@ -20,6 +20,5 @@
       "width": 422.04,
       "height": 351.12
     }
-  ],
-  "background_image": "img/backgrounds/bg_preview.svg"
+  ]
 }
