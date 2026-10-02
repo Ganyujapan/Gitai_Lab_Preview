@@ -105,13 +105,13 @@
 
     .generation {
       color: var(--accent);
-      font-size: clamp(14px, 2.8vw, 20px);
+      font-size: clamp(16px, 3.2vw, 22px);
       margin-bottom: 14px;
     }
 
     .subtle {
       color: var(--muted);
-      font-size: clamp(11px, 2.2vw, 16px);
+      font-size: clamp(14px, 2.8vw, 18px);
       line-height: 1.55;
     }
 
@@ -217,8 +217,8 @@
 
     .ranking-note {
       margin: 0 0 10px;
-      color: rgba(255,255,255,0.48);
-      font-size: clamp(9px, 1.8vw, 12px);
+      color: rgba(255,255,255,0.58);
+      font-size: clamp(12px, 2.2vw, 15px);
       line-height: 1.5;
     }
 
@@ -256,8 +256,8 @@
     .ranking-names {
       margin-top: 5px;
       padding-left: 80px;
-      color: rgba(255,255,255,0.78);
-      font-size: clamp(10px, 2.0vw, 13px);
+      color: rgba(255,255,255,0.82);
+      font-size: clamp(12px, 2.3vw, 15px);
       line-height: 1.55;
       overflow-wrap: anywhere;
     }
@@ -325,13 +325,13 @@
 
     .author-news-teaser {
       flex: 0 0 auto;
-      margin-top: 6px;
-      padding: 5px 8px;
+      margin-top: 8px;
+      padding: 7px 8px;
       text-align: center;
-      color: rgba(184,247,255,0.44);
-      font-size: clamp(9px, 1.55vw, 11px);
+      color: rgba(184,247,255,0.62);
+      font-size: clamp(11px, 2vw, 13px);
       letter-spacing: 0.04em;
-      line-height: 1.2;
+      line-height: 1.25;
     }
 
     .author-news-teaser[hidden] {
@@ -669,7 +669,7 @@
   }
 
   function leaderboardKey() {
-    return `gitai-preview-leaderboard-v2-${CONFIG.ROUND_TIME_MS}ms`;
+    return `gitai-preview-leaderboard-v3-solo-${CONFIG.ROUND_TIME_MS}ms`;
   }
 
   function activePlaySeconds() {
