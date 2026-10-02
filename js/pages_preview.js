@@ -169,7 +169,11 @@
   }
 
   function resolveAsset(generationId, index, fallbackPath) {
-    if (generationId === 'gen00001') return fallbackPath;
+    if (generationId === 'gen00001') {
+      const embedded = window.GitaiGen1Images
+        && window.GitaiGen1Images[index];
+      return embedded || fallbackPath;
+    }
     return currentObjectUrls.get(imageKey(generationId, index)) || fallbackPath;
   }
 
@@ -265,9 +269,9 @@
 
   async function ensureMask() {
     if (mask) return mask;
-    const maskData = await loadImageDataFromUrl(
-      baseUrl(speciesConfig.genetics.mask_source),
-    );
+    const maskSource = window.GitaiPreviewMaskDataUri
+      || baseUrl(speciesConfig.genetics.mask_source);
+    const maskData = await loadImageDataFromUrl(maskSource);
     mask = new Uint8Array(SIZE * SIZE);
     for (let i = 0; i < SIZE * SIZE; i += 1) {
       mask[i] = maskData.data[i * 4 + 3] > 0 ? 1 : 0;
