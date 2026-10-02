@@ -430,6 +430,9 @@
     CONFIG = Object.freeze({
       ROUND_LIMIT: rounds,
       ROUND_TIME_MS: Number(game.round_time_ms),
+      INTER_ROUND_DELAY_MS: Number(
+        game.inter_round_delay_ms ?? 250
+      ),
       MOTHS_PER_ROUND: perRound,
       TOTAL_MOTHS: population,
       MOTH_SIZE: Number(game.display_size_px),
@@ -727,7 +730,7 @@
       setTimeout(() => {
         state.uiTransitionLocked = false;
         startRound();
-      }, 250);
+      }, CONFIG.INTER_ROUND_DELAY_MS);
     }
   }
 
