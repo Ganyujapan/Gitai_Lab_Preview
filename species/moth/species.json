@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "species_id": "moth",
+  "display_name_ja": "蛾",
+  "population_size": 60,
+  "image": {
+    "width": 128,
+    "height": 128,
+    "format": "png",
+    "asset_template": "img/moths/{generation_id}_moth_{index_2d}.png"
+  },
+  "genetics": {
+    "symmetry": "vertical_mirror_full",
+    "mask_source": "data/parents/moth_parent1.png"
+  }
+}
