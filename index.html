@@ -779,7 +779,7 @@
 
     const label = String(speciesConfig.display_name_ja || '個体');
     reviewTitle.textContent = `この世代を生き残った${label}`;
-    reviewMessage.textContent = '5ラウンドが終了しました。この生存結果から次の世代をつくります。';
+    reviewMessage.textContent = `あなたに見つからなかった${label}です。この生存結果から次の世代をつくります。`;
     continueButton.textContent = '次世代を生成中…';
     continueButton.disabled = true;
 
@@ -898,7 +898,9 @@
       state.nextGenerationId = String(data.next_generation_id || '');
       state.submitStatus = 'success';
       authorNewsTeaser.hidden = false;
-      evolutionStatus.textContent = `次の世代 ${state.nextGenerationId} が誕生しました。`;
+      const successLabel = String(speciesConfig.display_name_ja || '個体');
+      evolutionStatus.textContent =
+        `生き残った${successLabel}だけから、次の世代 ${state.nextGenerationId} が誕生しました。`;
       state.uiTransitionLocked = false;
       continueButton.textContent = '次の人へ';
       continueButton.disabled = false;
