@@ -94,6 +94,28 @@
     });
   }
 
+  async function resetAllPreviewData() {
+    releaseObjectUrls();
+    await clearDb();
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+        const key = localStorage.key(i);
+        if (
+          key
+          && (
+            key.startsWith('gitai-preview-leaderboard-')
+            || key.startsWith('gitai-preview-share-name-')
+          )
+        ) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (_) {}
+
+    location.href = location.pathname
+      + (location.search.includes('fast=1') ? '?fast=1' : '');
+  }
+
   function imageKey(generationId, index) {
     return `${generationId}:${String(index).padStart(2, '0')}`;
   }
@@ -741,22 +763,10 @@
       color: '#e7ffff',
       font: 'inherit',
     });
-    button.addEventListener('click', async (event) => {
+    button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      button.disabled = true;
-      button.textContent = 'リセット中…';
-      releaseObjectUrls();
-      await clearDb();
-      try {
-        for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('gitai-preview-leaderboard-')) {
-            localStorage.removeItem(key);
-          }
-        }
-      } catch (_) {}
-      location.href = location.pathname + (location.search.includes('fast=1') ? '?fast=1' : '');
+      window.dispatchEvent(new CustomEvent('gitai:request-reset'));
     });
     document.body.appendChild(badge);
   }
@@ -765,6 +775,7 @@
     fetch: apiFetch,
     resolveAsset,
     reset: clearDb,
+    resetAll: resetAllPreviewData,
   };
 
   window.fetch = apiFetch;
