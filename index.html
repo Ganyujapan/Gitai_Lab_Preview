@@ -1855,8 +1855,10 @@
   });
 
   window.addEventListener('gitai:request-reset', () => {
+    const resetGenerationId = state.nextGenerationId || state.currentGenerationId;
+    const resetGenerationNumber = Number(resetGenerationId.slice(3));
     resetConfirmText.textContent =
-      `現在の第${state.generationNumber}世代までの進化と、この端末のPreviewランキングが消え、第1世代に戻ります。本当に戻しますか？`;
+      `現在の第${resetGenerationNumber}世代までの進化と、この端末のPreviewランキングが消え、第1世代に戻ります。本当に戻しますか？`;
     resetConfirmOverlay.classList.add('visible');
   });
 
