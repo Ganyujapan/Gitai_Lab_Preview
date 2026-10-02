@@ -436,6 +436,7 @@
       MOTHS_PER_ROUND: perRound,
       TOTAL_MOTHS: population,
       MOTH_SIZE: Number(game.display_size_px),
+      MOTH_Y_MIN: Number(game.display_y_min_px ?? 0),
       MOTH_Y_MAX: Number(game.display_y_max_px),
       BG_TRUE_WIDTH: Number(background.source_width),
       BG_TRUE_HEIGHT: Number(background.source_height),
@@ -595,11 +596,16 @@
     let attempts = 0;
     const maxAttempts = 10000;
     const size = CONFIG.MOTH_SIZE;
-    const yRange = Math.max(0, Math.min(CONFIG.MOTH_Y_MAX, GAME_HEIGHT) - size);
+    const yMin = Math.max(0, CONFIG.MOTH_Y_MIN);
+    const yMax = Math.max(
+      yMin,
+      Math.min(CONFIG.MOTH_Y_MAX, GAME_HEIGHT) - size
+    );
+    const yRange = yMax - yMin;
 
     while (placed.length < CONFIG.MOTHS_PER_ROUND && attempts < maxAttempts) {
       const x = Math.random() * (GAME_WIDTH - size);
-      const y = Math.random() * yRange;
+      const y = yMin + Math.random() * yRange;
 
       if (!isInForbiddenArea(x, y, size) && !isOverlapping(x, y, size, placed)) {
         const index = indices[placed.length];
