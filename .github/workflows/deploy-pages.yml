@@ -68,6 +68,8 @@ jobs:
           )
           if int(config["game"]["round_time_ms"]) != 2000:
               raise SystemExit("Preview must use 2-second rounds")
+          if int(config["game"]["inter_round_delay_ms"]) != 250:
+              raise SystemExit("Preview must use 250ms inter-round delay")
 
           html = Path("index.html").read_text(encoding="utf-8")
           if "作者からのお知らせ" not in html:
