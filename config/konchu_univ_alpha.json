@@ -10,7 +10,9 @@
     "display_size_px": 38,
     "display_y_max_px": 564,
     "inter_round_delay_ms": 250,
-    "display_y_min_px": 76
+    "display_y_min_px": 76,
+    "hud_bar_height_px": 36,
+    "hud_clearance_px": 40
   },
   "species_config": "species/moth/species.json",
   "environment_config": "environments/bark_001/environment.json",
