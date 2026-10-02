@@ -148,7 +148,14 @@
     };
 
     const params = new URLSearchParams(location.search);
-    if (params.get('fast') === '1') {
+    const seconds = Number(params.get('seconds'));
+    if (
+      Number.isFinite(seconds)
+      && seconds >= 0.5
+      && seconds <= 10
+    ) {
+      appConfig.game.round_time_ms = Math.round(seconds * 1000);
+    } else if (params.get('fast') === '1') {
       appConfig.game.round_time_ms = 500;
     }
   }
