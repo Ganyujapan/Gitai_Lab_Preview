@@ -1,0 +1,38 @@
+{
+  "config_id": "evo_config_v1",
+  "symmetry": "vertical_mirror_full",
+  "inheritance": "pixelwise_50_50",
+  "p_mut_individual": 0.6,
+  "k_min": 12,
+  "k_max": 48,
+  "delta_h_deg": 10,
+  "delta_s": 0.18,
+  "delta_v": 0.18,
+  "p_macro_given_mut": 0.015,
+  "macro_modes": [
+    {
+      "mode": "melanism_darkening",
+      "p": 0.45,
+      "strength": 0.65
+    },
+    {
+      "mode": "pallor_lightening",
+      "p": 0.25,
+      "strength": 1.25
+    },
+    {
+      "mode": "contrast_boost",
+      "p": 0.2,
+      "strength": 1.25
+    },
+    {
+      "mode": "hue_shift_small",
+      "p": 0.1,
+      "shift_deg": 15
+    }
+  ],
+  "parent_pool_size": 12,
+  "cartridge_id": "pixel_v1",
+  "parent_shortfall_policy": "repeat_survivors",
+  "minimum_survivors_for_reproduction": 2
+}
