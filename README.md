@@ -1,3 +1,46 @@
 # Gitai_Lab Preview
 
-Public static preview for GitHub Pages. Generated from the private Gitai_Lab development repository.
+Gitai_Lab（ギタイラボ）のiPhone / iPad向け公開プレビューです。
+
+Play:
+
+https://ganyujapan.github.io/Gitai_Lab_Preview/
+
+## 現在のPreview条件
+
+- 1世代 = 5ラウンド
+- 1ラウンド = 12個体
+- 1ラウンド = 2.0秒
+- ラウンド間 = 250ms
+- ラウンド間の操作画面なし
+- 世代終了時だけ生存個体を表示
+- 生存個体だけから次世代を生成
+- 生存0〜1個体は同じ世代を再試行
+- 世代終了後に「作者からのお知らせ」を控えめに表示
+
+時間比較:
+
+- `?seconds=2`
+- `?seconds=2.5`
+- `?seconds=3`
+- `?fast=1` = 0.5秒
+
+## 本番実験との分離
+
+このPublic repositoryは静的Preview専用です。
+
+- 昆虫大学の本番run/state/archiveは入っていません
+- Experiment Session IDは使いません
+- 進化はブラウザ内JavaScriptで実行します
+- 現在世代はその端末のIndexedDBに保存します
+- 本番実験の世代には影響しません
+
+Privateの開発repositoryがsource of truthです。
+
+## Preview固有の差異
+
+Privateの本番背景は公開していません。
+
+現在のPages版は軽量な仮樹皮背景 `bg_preview.svg` を使用しています。
+したがって、Pages版はUI・テンポ・進化体験の確認用であり、
+背景そのものの見え方を最終判断する用途には使いません。
