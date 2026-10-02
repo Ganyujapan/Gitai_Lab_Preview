@@ -8,7 +8,18 @@
     "source_height": 1736
   },
   "forbidden_areas": [
-    { "x": 0, "y": 1649.2, "width": 1024, "height": 86.8 },
-    { "x": 279.78, "y": 386.74, "width": 422.04, "height": 351.12 }
-  ]
+    {
+      "x": 0,
+      "y": 1649.2,
+      "width": 1024,
+      "height": 86.8
+    },
+    {
+      "x": 279.78,
+      "y": 386.74,
+      "width": 422.04,
+      "height": 351.12
+    }
+  ],
+  "background_image": "img/backgrounds/bg_preview.svg"
 }
