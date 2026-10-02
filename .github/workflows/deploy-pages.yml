@@ -68,6 +68,10 @@ jobs:
           )
           if int(config["game"]["round_time_ms"]) != 2000:
               raise SystemExit("Preview must use 2-second rounds")
+          if int(config["game"]["display_y_min_px"]) != 76:
+              raise SystemExit("Top HUD-safe placement zone must start at y=76")
+          if int(config["game"]["display_y_max_px"]) != 564:
+              raise SystemExit("Bottom HUD-safe placement zone must end at y=564")
           if int(config["game"]["inter_round_delay_ms"]) != 250:
               raise SystemExit("Preview must use 250ms inter-round delay")
 
