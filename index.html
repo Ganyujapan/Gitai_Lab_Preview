@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#090b0c">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>ギタイラボ — 昆虫大学 α</title>
+  <style>
+    @font-face {
+      font-family: 'PixelMplus';
+      src: url('fonts/PixelMplus12-Regular.ttf') format('truetype');
+      font-display: swap;
+    }
+
+    :root {
+      --panel: rgba(8, 12, 14, 0.88);
+      --line: rgba(255,255,255,0.18);
+      --text: #fff;
+      --muted: rgba(255,255,255,0.72);
+      --accent: #b8f7ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: #090b0c;
+      color: var(--text);
+      font-family: 'PixelMplus', monospace;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    #stage {
+      position: relative;
+      width: min(100vw, calc(100dvh * 0.5625));
+      height: min(100dvh, calc(100vw * 1.7777778));
+      aspect-ratio: 9 / 16;
+      background: #111;
+      overflow: hidden;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: pixelated;
+      touch-action: manipulation;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      padding:
+        calc(env(safe-area-inset-top) + 20px)
+        18px
+        calc(env(safe-area-inset-bottom) + 20px);
+      background: rgba(0, 0, 0, 0.48);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overlay.visible { display: flex; }
+
+    .panel {
+      width: min(92%, 520px);
+      max-height: 92%;
+      overflow: hidden;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.42);
+    }
+
+    h1, h2, p { margin-top: 0; }
+
+    h1 {
+      font-size: clamp(22px, 4.4vw, 34px);
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: clamp(18px, 3.6vw, 28px);
+      margin-bottom: 10px;
+    }
+
+    .lead {
+      line-height: 1.8;
+      font-size: clamp(14px, 2.7vw, 20px);
+      margin-bottom: 20px;
+    }
+
+    .generation {
+      color: var(--accent);
+      font-size: clamp(14px, 2.8vw, 20px);
+      margin-bottom: 14px;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: clamp(11px, 2.2vw, 16px);
+      line-height: 1.55;
+    }
+
+    .survivor-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 5px;
+      width: min(100%, 330px);
+      align-self: center;
+      margin: 12px 0 14px;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .survivor-grid img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      image-rendering: pixelated;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+    }
+
+    .empty {
+      padding: 22px 8px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    button {
+      width: 100%;
+      min-height: 58px;
+      flex: 0 0 auto;
+      border: 1px solid rgba(184,247,255,0.48);
+      border-radius: 12px;
+      background: rgba(184,247,255,0.16);
+      color: #fff;
+      font-family: 'PixelMplus', monospace;
+      font-size: clamp(15px, 2.8vw, 20px);
+      padding: 12px 16px;
+      touch-action: manipulation;
+    }
+
+    button:disabled {
+      opacity: 0.48;
+    }
+
+    .review-actions {
+      flex: 0 0 auto;
+    }
+
+    .secondary-action {
+      min-height: 34px;
+      margin-top: 4px;
+      padding: 4px 8px;
+      border-color: transparent;
+      background: transparent;
+      color: rgba(255,255,255,0.42);
+      font-size: clamp(10px, 1.9vw, 13px);
+    }
+
+    .secondary-action:active {
+      color: rgba(255,255,255,0.72);
+    }
+
+    #evolutionOverlay {
+      z-index: 30;
+      background: rgba(5, 8, 9, 0.97);
+      cursor: pointer;
+    }
+
+    .evolution-panel {
+      width: min(96%, 540px);
+      max-height: 96%;
+      padding: 14px;
+    }
+
+    .evolution-title {
+      margin: 0 0 4px;
+      font-size: clamp(17px, 3.2vw, 24px);
+    }
+
+    .evolution-hint {
+      margin: 0 0 8px;
+      color: rgba(255,255,255,0.42);
+      font-size: clamp(9px, 1.7vw, 12px);
+    }
+
+    .evolution-columns {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .evolution-columns::before {
+      content: "";
+      position: absolute;
+      top: 24px;
+      bottom: 0;
+      left: 50%;
+      width: 1px;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.16);
+      pointer-events: none;
+    }
+
+    .evolution-column {
+      min-width: 0;
+      padding: 0 5px;
+    }
+
+    .evolution-column h3 {
+      margin: 0 0 5px;
+      color: var(--accent);
+      font-size: clamp(10px, 1.9vw, 14px);
+      font-weight: normal;
+    }
+
+    .evolution-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 2px;
+    }
+
+    .evolution-grid img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      image-rendering: pixelated;
+      background: rgba(255,255,255,0.045);
+      border-radius: 3px;
+    }
+
+    #errorText {
+      color: #ffb2b2;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <main id="stage" aria-label="ギタイラボ">
+    <canvas id="gameCanvas" width="360" height="640"></canvas>
+
+    <section id="startOverlay" class="overlay visible">
+      <div class="panel">
+        <div id="startGeneration" class="generation">GENERATION --</div>
+        <h1>ギタイラボ</h1>
+        <p id="introLead" class="lead">見つけた生き物を<br>タップしてください。</p>
+        <p id="introSubtle" class="subtle">見つからなかった個体が生き残り、<br>次の世代へ子孫を残します。</p>
+        <button id="startButton" type="button" disabled>準備中…</button>
+      </div>
+    </section>
+
+    <section id="reviewOverlay" class="overlay">
+      <div class="panel">
+        <div id="reviewGeneration" class="generation">GENERATION --</div>
+        <h2 id="reviewTitle">生き残った蛾</h2>
+        <p id="reviewMessage" class="subtle"></p>
+        <div id="survivorGrid" class="survivor-grid"></div>
+        <div id="reviewEmpty" class="empty" hidden></div>
+        <p id="evolutionStatus" class="subtle"></p>
+        <div class="review-actions">
+          <button id="continueButton" type="button">次のラウンドへ</button>
+          <button id="compareButton" class="secondary-action" type="button" hidden>これまでの進化を見る</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="evolutionOverlay" class="overlay" aria-label="世代比較">
+      <div class="panel evolution-panel">
+        <h2 class="evolution-title">第1世代から現在まで</h2>
+        <p class="evolution-hint">画面のどこかをタップすると戻ります</p>
+        <div class="evolution-columns">
+          <section class="evolution-column">
+            <h3>第1世代</h3>
+            <div id="firstGenerationGrid" class="evolution-grid"></div>
+          </section>
+          <section class="evolution-column">
+            <h3 id="latestGenerationTitle">現在世代</h3>
+            <div id="latestGenerationGrid" class="evolution-grid"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="errorOverlay" class="overlay">
+      <div class="panel">
+        <h2>エラー</h2>
+        <p id="errorText"></p>
+        <button id="reloadButton" type="button">再読み込み</button>
+      </div>
+    </section>
+  </main>
+
+<script src="js/pages_preview.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  let CONFIG = null;
+  let speciesConfig = null;
+  let environmentConfig = null;
+  let submitTimeoutMs = 30000;
+  let scaledForbiddenAreas = [];
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const startOverlay = document.getElementById('startOverlay');
+  const startGeneration = document.getElementById('startGeneration');
+  const startButton = document.getElementById('startButton');
+  const introLead = document.getElementById('introLead');
+  const introSubtle = document.getElementById('introSubtle');
+
+  const reviewOverlay = document.getElementById('reviewOverlay');
+  const reviewGeneration = document.getElementById('reviewGeneration');
+  const reviewTitle = document.getElementById('reviewTitle');
+  const reviewMessage = document.getElementById('reviewMessage');
+  const survivorGrid = document.getElementById('survivorGrid');
+  const reviewEmpty = document.getElementById('reviewEmpty');
+  const evolutionStatus = document.getElementById('evolutionStatus');
+  const continueButton = document.getElementById('continueButton');
+  const compareButton = document.getElementById('compareButton');
+
+  const evolutionOverlay = document.getElementById('evolutionOverlay');
+  const firstGenerationGrid = document.getElementById('firstGenerationGrid');
+  const latestGenerationGrid = document.getElementById('latestGenerationGrid');
+  const latestGenerationTitle = document.getElementById('latestGenerationTitle');
+
+  const errorOverlay = document.getElementById('errorOverlay');
+  const errorText = document.getElementById('errorText');
+  const reloadButton = document.getElementById('reloadButton');
+
+  const GAME_WIDTH = canvas.width;
+  const GAME_HEIGHT = canvas.height;
+
+  const state = {
+    currentGenerationId: 'gen00001',
+    generationNumber: 1,
+    backgroundImage: null,
+    mothImages: [],
+    rounds: [],
+    currentRoundIndex: 0,
+    activeMoths: [],
+    eatenIndices: new Set(),
+    allSurvivorIndices: [],
+    roundRecords: [],
+    roundTapEvents: [],
+    roundStartedAt: 0,
+    roundActive: false,
+    remainingSeconds: 0,
+    countdownIntervalId: null,
+    roundTimeoutId: null,
+    nextGenerationId: null,
+    submitStatus: 'idle',
+    runId: null,
+    bootReady: false,
+    uiTransitionLocked: false,
+    wakeLock: null,
+  };
+
+  function applyAppConfig(appConfig) {
+    if (!appConfig || !appConfig.game || !appConfig.species || !appConfig.environment) {
+      throw new Error('アプリ設定が不正です');
+    }
+
+    speciesConfig = appConfig.species;
+    environmentConfig = appConfig.environment;
+    submitTimeoutMs = Number(
+      appConfig.network?.submit_timeout_ms || 30000
+    );
+
+    const game = appConfig.game;
+    const background = environmentConfig.background;
+    const population = Number(speciesConfig.population_size);
+    const rounds = Number(game.rounds_per_generation);
+    const perRound = Number(game.individuals_per_round);
+
+    if (!Number.isInteger(population) || population <= 0) {
+      throw new Error('population_size が不正です');
+    }
+    if (rounds * perRound !== population) {
+      throw new Error('ラウンド構成と個体数が一致しません');
+    }
+
+    CONFIG = Object.freeze({
+      ROUND_LIMIT: rounds,
+      ROUND_TIME_MS: Number(game.round_time_ms),
+      MOTHS_PER_ROUND: perRound,
+      TOTAL_MOTHS: population,
+      MOTH_SIZE: Number(game.display_size_px),
+      MOTH_Y_MAX: Number(game.display_y_max_px),
+      BG_TRUE_WIDTH: Number(background.source_width),
+      BG_TRUE_HEIGHT: Number(background.source_height),
+      BACKGROUND_SRC: String(background.src),
+    });
+
+    const sx = GAME_WIDTH / CONFIG.BG_TRUE_WIDTH;
+    const sy = GAME_HEIGHT / CONFIG.BG_TRUE_HEIGHT;
+    scaledForbiddenAreas = (environmentConfig.forbidden_areas || []).map((area) => ({
+      x: Number(area.x) * sx,
+      y: Number(area.y) * sy,
+      width: Number(area.width) * sx,
+      height: Number(area.height) * sy,
+    }));
+
+    const label = String(speciesConfig.display_name_ja || '生き物');
+    document.title = appConfig.title || 'ギタイラボ';
+    introLead.innerHTML = `見つけた${label}を<br>タップしてください。`;
+    introSubtle.innerHTML = `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
+  }
+
+  async function fetchAppConfig() {
+    const res = await fetch('/api/app_config', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`設定を取得できません (HTTP ${res.status})`);
+    const data = await res.json();
+    applyAppConfig(data);
+  }
+
+  function individualAssetPath(generationId, index) {
+    const template = String(speciesConfig.image.asset_template || '');
+    const path = template
+      .replaceAll('{generation_id}', generationId)
+      .replaceAll('{index_2d}', String(index).padStart(2, '0'))
+      .replaceAll('{index}', String(index));
+    return window.GitaiPagesPreview
+      ? window.GitaiPagesPreview.resolveAsset(generationId, index, path)
+      : path;
+  }
+
+  function generationLabel() {
+    return `GENERATION ${String(state.generationNumber).padStart(5, '0')}`;
+  }
+
+  function cacheBustUrl(path) {
+    const value = String(path);
+    if (value.startsWith('blob:') || value.startsWith('data:')) return value;
+    const separator = value.includes('?') ? '&' : '?';
+    return `${value}${separator}v=${Date.now()}`;
+  }
+
+  async function requestScreenWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+
+    try {
+      if (state.wakeLock && !state.wakeLock.released) return;
+      state.wakeLock = await navigator.wakeLock.request('screen');
+      state.wakeLock.addEventListener('release', () => {
+        state.wakeLock = null;
+      });
+    } catch (_) {
+      // Optional enhancement only. The game remains usable when Safari,
+      // battery policy, or device settings reject the request.
+      state.wakeLock = null;
+    }
+  }
+
+  function showFatal(message) {
+    clearTimers();
+    state.roundActive = false;
+    errorText.textContent = message;
+    errorOverlay.classList.add('visible');
+  }
+
+  function clearTimers() {
+    if (state.countdownIntervalId !== null) {
+      clearInterval(state.countdownIntervalId);
+      state.countdownIntervalId = null;
+    }
+    if (state.roundTimeoutId !== null) {
+      clearTimeout(state.roundTimeoutId);
+      state.roundTimeoutId = null;
+    }
+  }
+
+  function shuffle(array) {
+    const a = [...array];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function buildRounds() {
+    const order = shuffle(Array.from({ length: CONFIG.TOTAL_MOTHS }, (_, i) => i + 1));
+    state.rounds = [];
+    for (let r = 0; r < CONFIG.ROUND_LIMIT; r++) {
+      state.rounds.push(order.slice(r * CONFIG.MOTHS_PER_ROUND, (r + 1) * CONFIG.MOTHS_PER_ROUND));
+    }
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`画像を読み込めません: ${src}`));
+      img.src = src;
+    });
+  }
+
+  async function fetchCurrentGeneration() {
+    const res = await fetch('/api/current_generation', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`世代情報を取得できません (HTTP ${res.status})`);
+    const data = await res.json();
+    const id = String(data.current_generation_id || '');
+    if (!/^gen\d{5}$/.test(id)) throw new Error('世代IDが不正です');
+    return id;
+  }
+
+  async function preloadAssets() {
+    state.backgroundImage = await loadImage(cacheBustUrl(CONFIG.BACKGROUND_SRC));
+
+    const promises = [];
+    for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i++) {
+      const src = cacheBustUrl(individualAssetPath(state.currentGenerationId, i));
+      promises.push(loadImage(src));
+    }
+
+    state.mothImages = await Promise.all(promises);
+  }
+
+  function isInForbiddenArea(x, y, size) {
+    const centerX = x + size / 2;
+    const centerY = y + size / 2;
+    return scaledForbiddenAreas.some((a) =>
+      centerX >= a.x && centerX <= a.x + a.width &&
+      centerY >= a.y && centerY <= a.y + a.height
+    );
+  }
+
+  function isOverlapping(x, y, size, moths) {
+    return moths.some((m) => !(
+      x + size <= m.x ||
+      x >= m.x + m.size ||
+      y + size <= m.y ||
+      y >= m.y + m.size
+    ));
+  }
+
+  function placeRoundMoths() {
+    const indices = state.rounds[state.currentRoundIndex];
+    if (!indices || indices.length !== CONFIG.MOTHS_PER_ROUND) {
+      throw new Error('ラウンド個体データが不正です');
+    }
+
+    const placed = [];
+    let attempts = 0;
+    const maxAttempts = 10000;
+    const size = CONFIG.MOTH_SIZE;
+    const yRange = Math.max(0, Math.min(CONFIG.MOTH_Y_MAX, GAME_HEIGHT) - size);
+
+    while (placed.length < CONFIG.MOTHS_PER_ROUND && attempts < maxAttempts) {
+      const x = Math.random() * (GAME_WIDTH - size);
+      const y = Math.random() * yRange;
+
+      if (!isInForbiddenArea(x, y, size) && !isOverlapping(x, y, size, placed)) {
+        const index = indices[placed.length];
+        placed.push({
+          index,
+          x, y, size,
+          clicked: false,
+          image: state.mothImages[index - 1],
+        });
+      }
+      attempts++;
+    }
+
+    if (placed.length !== CONFIG.MOTHS_PER_ROUND) {
+      throw new Error(`${CONFIG.MOTHS_PER_ROUND}個体を安全に配置できませんでした`);
+    }
+
+    state.activeMoths = placed;
+  }
+
+  function drawBackground() {
+    if (!state.backgroundImage) {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+      return;
+    }
+    ctx.drawImage(state.backgroundImage, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+  }
+
+  function drawMoths() {
+    for (const moth of state.activeMoths) {
+      if (!moth.clicked) {
+        ctx.drawImage(moth.image, moth.x, moth.y, moth.size, moth.size);
+      }
+    }
+  }
+
+  function drawHud() {
+    ctx.save();
+
+    ctx.fillStyle = 'rgba(0,0,0,0.52)';
+    ctx.fillRect(0, 0, GAME_WIDTH, 36);
+    ctx.fillRect(0, GAME_HEIGHT - 36, GAME_WIDTH, 36);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '13px "PixelMplus", monospace';
+    ctx.textBaseline = 'middle';
+
+    ctx.textAlign = 'left';
+    ctx.fillText(generationLabel(), 12, 18);
+
+    ctx.textAlign = 'left';
+    ctx.fillText(`ROUND ${state.currentRoundIndex + 1} / ${CONFIG.ROUND_LIMIT}`, 12, GAME_HEIGHT - 18);
+
+    ctx.textAlign = 'right';
+    ctx.fillText(`残り ${state.remainingSeconds} 秒`, GAME_WIDTH - 12, GAME_HEIGHT - 18);
+
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    drawBackground();
+    if (state.roundActive) drawMoths();
+    drawHud();
+  }
+
+  function startRound() {
+    reviewOverlay.classList.remove('visible');
+    clearTimers();
+
+    try {
+      placeRoundMoths();
+    } catch (err) {
+      showFatal(err.message || String(err));
+      return;
+    }
+
+    state.remainingSeconds = Math.ceil(CONFIG.ROUND_TIME_MS / 1000);
+    state.roundTapEvents = [];
+    state.roundStartedAt = performance.now();
+    state.roundActive = true;
+    render();
+
+    state.countdownIntervalId = setInterval(() => {
+      state.remainingSeconds = Math.max(0, state.remainingSeconds - 1);
+      render();
+    }, 1000);
+
+    state.roundTimeoutId = setTimeout(endRound, CONFIG.ROUND_TIME_MS);
+  }
+
+  function endRound() {
+    if (!state.roundActive) return;
+
+    clearTimers();
+    state.roundActive = false;
+
+    const roundSurvivors = state.activeMoths
+      .filter((m) => !m.clicked)
+      .map((m) => m.index)
+      .sort((a, b) => a - b);
+
+    state.roundRecords.push({
+      round_index: state.currentRoundIndex + 1,
+      configured_duration_ms: CONFIG.ROUND_TIME_MS,
+      individuals: state.activeMoths.map((m) => ({
+        index: m.index,
+        x: Math.round(m.x * 100) / 100,
+        y: Math.round(m.y * 100) / 100,
+        size: m.size,
+        eaten: Boolean(m.clicked),
+      })),
+      tap_events: state.roundTapEvents.map((event) => ({ ...event })),
+    });
+
+    state.allSurvivorIndices.push(...roundSurvivors);
+    render();
+
+    const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
+    if (isFinalRound) {
+      showSurvivorReview(state.allSurvivorIndices, true);
+      sendEvolutionData();
+    } else {
+      showSurvivorReview(roundSurvivors, false);
+    }
+  }
+
+  function renderSurvivors(indices) {
+    survivorGrid.innerHTML = '';
+    reviewEmpty.hidden = indices.length > 0;
+
+    if (indices.length === 0) {
+      const label = String(speciesConfig.display_name_ja || '個体');
+      reviewEmpty.textContent = `このラウンドでは、すべての${label}が見つかりました。`;
+      return;
+    }
+
+    for (const index of indices) {
+      const img = document.createElement('img');
+      img.src = state.mothImages[index - 1].src;
+      img.alt = `生存個体 ${index}`;
+      survivorGrid.appendChild(img);
+    }
+  }
+
+  function fillEvolutionGrid(element, generationId) {
+    element.innerHTML = '';
+    for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i++) {
+      const img = document.createElement('img');
+      img.src = cacheBustUrl(individualAssetPath(generationId, i));
+      img.alt = `${generationId} 個体 ${i}`;
+      element.appendChild(img);
+    }
+  }
+
+  function showEvolutionComparison() {
+    const latestId = state.nextGenerationId || state.currentGenerationId;
+    const latestNumber = Number(latestId.slice(3));
+
+    fillEvolutionGrid(firstGenerationGrid, 'gen00001');
+    fillEvolutionGrid(latestGenerationGrid, latestId);
+    latestGenerationTitle.textContent = `第${latestNumber}世代`;
+    evolutionOverlay.classList.add('visible');
+  }
+
+  function showSurvivorReview(indices, finalRound) {
+    state.uiTransitionLocked = false;
+    reviewGeneration.textContent = generationLabel();
+    evolutionStatus.textContent = '';
+    compareButton.hidden = true;
+    renderSurvivors(indices);
+
+    if (finalRound) {
+      const label = String(speciesConfig.display_name_ja || '個体');
+      reviewTitle.textContent = `この世代を生き残った${label}`;
+      reviewMessage.textContent = 'この個体たちの生存結果から、次の世代をつくります。';
+      continueButton.textContent = '次世代を生成中…';
+      continueButton.disabled = true;
+    } else {
+      reviewTitle.textContent = `ROUND ${state.currentRoundIndex + 1} の生存者`;
+      const label = String(speciesConfig.display_name_ja || '個体');
+      reviewMessage.textContent = `あなたに見つからなかった${label}です。`;
+      continueButton.textContent = '次のラウンドへ';
+      continueButton.disabled = false;
+    }
+
+    reviewOverlay.classList.add('visible');
+  }
+
+  async function sendEvolutionData() {
+    state.submitStatus = 'sending';
+
+    const eaten = Array.from(state.eatenIndices).sort((a, b) => a - b);
+    if (!state.runId) {
+      state.runId = `exhibit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+    const runId = state.runId;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        submitTimeoutMs,
+      );
+
+      let res;
+      try {
+        res = await fetch('/api/submit_run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          signal: controller.signal,
+          body: JSON.stringify({
+            run_id: runId,
+            generation_id: state.currentGenerationId,
+            eaten_indices: eaten,
+            round_records: state.roundRecords,
+          }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (
+        res.status === 422 &&
+        data.error === 'insufficient_survivors' &&
+        data.retry_same_generation
+      ) {
+        state.submitStatus = 'retry_generation';
+        state.nextGenerationId = null;
+
+        const survivorCount = Number(data.survivor_count || 0);
+        const label = String(speciesConfig.display_name_ja || '個体');
+        reviewTitle.textContent = 'この世代はもう一度';
+        reviewMessage.textContent =
+          `生き残った${label}が${survivorCount}匹だったため、繁殖が成立しませんでした。`;
+        evolutionStatus.textContent =
+          '世代は進みません。同じ60個体で、もう一度5ラウンドを行います。';
+        state.uiTransitionLocked = false;
+        continueButton.textContent = '同じ世代でもう一度';
+        continueButton.disabled = false;
+        compareButton.hidden = false;
+        return;
+      }
+
+      if (
+        res.status === 409 &&
+        data.error === 'generation_mismatch'
+      ) {
+        state.submitStatus = 'stale_generation';
+        state.nextGenerationId = null;
+
+        reviewTitle.textContent = '世代が更新されています';
+        reviewMessage.textContent =
+          'サーバー側では別の世代へ進んでいます。現在の結果は送信しません。';
+        evolutionStatus.textContent =
+          '最新世代 '
+          + String(data.server_current_generation_id || '')
+          + ' を読み込み直してください。';
+        state.uiTransitionLocked = false;
+        continueButton.textContent = '最新世代を読み込む';
+        continueButton.disabled = false;
+        compareButton.hidden = false;
+        return;
+      }
+
+      if (
+        res.status === 507 &&
+        data.error === 'insufficient_storage'
+      ) {
+        state.submitStatus = 'failed';
+        state.nextGenerationId = null;
+
+        reviewTitle.textContent = 'スタッフにお知らせください';
+        reviewMessage.textContent =
+          'Macの保存容量が安全基準を下回ったため、世代更新を停止しました。';
+        evolutionStatus.textContent =
+          '空き '
+          + String(data.free_disk_mb ?? '?')
+          + ' MB / 必要 '
+          + String(data.minimum_free_disk_mb ?? '?')
+          + ' MB。現在世代は保持されています。';
+        state.uiTransitionLocked = false;
+        continueButton.textContent = '容量確認後にもう一度';
+        continueButton.disabled = false;
+        compareButton.hidden = false;
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error ? `${data.error} (HTTP ${res.status})` : `HTTP ${res.status}`);
+      }
+
+      state.nextGenerationId = String(data.next_generation_id || '');
+      state.submitStatus = 'success';
+      evolutionStatus.textContent = `次の世代 ${state.nextGenerationId} が誕生しました。`;
+      state.uiTransitionLocked = false;
+      continueButton.textContent = '次の人へ';
+      continueButton.disabled = false;
+      compareButton.hidden = false;
+
+    } catch (err) {
+      state.submitStatus = 'failed';
+      const message = err && err.name === 'AbortError'
+        ? 'サーバー応答がタイムアウトしました'
+        : (err.message || err);
+      evolutionStatus.textContent = `次世代の生成に失敗しました：${message}`;
+      state.uiTransitionLocked = false;
+      continueButton.textContent = 'もう一度送信';
+      continueButton.disabled = false;
+    }
+  }
+
+  function handleTap(clientX, clientY) {
+    if (!state.roundActive) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    for (const moth of state.activeMoths) {
+      if (
+        !moth.clicked &&
+        x >= moth.x - 1 && x <= moth.x + moth.size + 1 &&
+        y >= moth.y - 1 && y <= moth.y + moth.size + 1
+      ) {
+        moth.clicked = true;
+        state.eatenIndices.add(moth.index);
+        state.roundTapEvents.push({
+          index: moth.index,
+          elapsed_ms: Math.max(
+            0,
+            Math.round(performance.now() - state.roundStartedAt),
+          ),
+        });
+        render();
+        break;
+      }
+    }
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handleTap(e.clientX, e.clientY);
+  });
+
+  startButton.addEventListener('click', () => {
+    if (!state.bootReady || state.uiTransitionLocked) return;
+    state.uiTransitionLocked = true;
+    startButton.disabled = true;
+    requestScreenWakeLock();
+    startOverlay.classList.remove('visible');
+    buildRounds();
+    state.currentRoundIndex = 0;
+    state.eatenIndices = new Set();
+    state.allSurvivorIndices = [];
+    state.roundRecords = [];
+    state.roundTapEvents = [];
+    state.runId = null;
+    state.submitStatus = 'idle';
+    startRound();
+  });
+
+  continueButton.addEventListener('click', () => {
+    if (state.uiTransitionLocked || continueButton.disabled) return;
+    state.uiTransitionLocked = true;
+
+    const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
+
+    if (!isFinalRound) {
+      state.currentRoundIndex += 1;
+      startRound();
+      return;
+    }
+
+    if (state.submitStatus === 'retry_generation') {
+      reviewOverlay.classList.remove('visible');
+      buildRounds();
+      state.currentRoundIndex = 0;
+      state.eatenIndices = new Set();
+      state.allSurvivorIndices = [];
+      state.roundRecords = [];
+      state.roundTapEvents = [];
+      state.runId = null;
+      state.nextGenerationId = null;
+      state.submitStatus = 'idle';
+      startRound();
+      return;
+    }
+
+    if (state.submitStatus === 'stale_generation') {
+      const u = new URL(location.href);
+      u.searchParams.set('v', String(Date.now()));
+      location.href = u.toString();
+      return;
+    }
+
+    if (state.submitStatus === 'failed') {
+      continueButton.disabled = true;
+      continueButton.textContent = '再送中…';
+      sendEvolutionData();
+      return;
+    }
+
+    if (state.submitStatus !== 'success') {
+      state.uiTransitionLocked = false;
+      return;
+    }
+
+    const u = new URL(location.href);
+    u.searchParams.set('v', String(Date.now()));
+    location.href = u.toString();
+  });
+
+  compareButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showEvolutionComparison();
+  });
+
+  evolutionOverlay.addEventListener('pointerdown', () => {
+    evolutionOverlay.classList.remove('visible');
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.bootReady) {
+      requestScreenWakeLock();
+    }
+  });
+
+  reloadButton.addEventListener('click', () => {
+    location.reload();
+  });
+
+  async function boot() {
+    try {
+      await fetchAppConfig();
+      state.currentGenerationId = await fetchCurrentGeneration();
+      state.generationNumber = Number(state.currentGenerationId.slice(3));
+      startGeneration.textContent = generationLabel();
+
+      await preloadAssets();
+      render();
+
+      state.bootReady = true;
+      state.uiTransitionLocked = false;
+      startButton.disabled = false;
+      startButton.textContent = 'はじめる';
+      requestScreenWakeLock();
+
+    } catch (err) {
+      showFatal(
+        '初期化に失敗しました。\n' +
+        (err && err.message ? err.message : String(err)) +
+        '\n\nPagesプレビューのデータを確認してください。'
+      );
+    }
+  }
+
+  boot();
+})();
+</script>
+
+<!--
+  フォント：PixelMplus12-Regular（M+ FONT LICENSE）
+  作者：M+ FONTS Project / 改変者 itouhiro
+-->
+</body>
+</html>
