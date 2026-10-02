@@ -1,0 +1,31 @@
+{
+  "config_id": "evo_preview_solo_v2",
+  "engine_version": 2,
+  "profile_id": "solo",
+  "symmetry": "vertical_mirror_full",
+  "inheritance": "pixelwise_50_50",
+  "parent_pool_size": 12,
+  "parent_shortfall_policy": "repeat_survivors",
+  "minimum_survivors_for_reproduction": 2,
+  "p_mut_individual": 0.88,
+  "k_min": 48,
+  "k_max": 160,
+  "delta_h_deg": 18,
+  "delta_s": 0.24,
+  "delta_v": 0.22,
+  "p_patch_given_mut": 0.32,
+  "patch_count_min": 1,
+  "patch_count_max": 3,
+  "patch_radius_min": 3,
+  "patch_radius_max": 12,
+  "patch_delta_h_deg": 24,
+  "patch_delta_s": 0.28,
+  "patch_delta_v": 0.28,
+  "p_macro_given_mut": 0.10,
+  "macro_modes": [
+    { "mode": "hue_shift_small", "p": 0.35, "shift_deg": 24 },
+    { "mode": "saturation_shift_small", "p": 0.25, "shift": 0.22 },
+    { "mode": "value_shift_small", "p": 0.25, "shift": 0.22 },
+    { "mode": "contrast_boost", "p": 0.15, "strength": 1.25 }
+  ]
+}
