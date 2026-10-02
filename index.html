@@ -340,72 +340,230 @@
 
     #evolutionOverlay {
       z-index: 30;
-      background: rgba(5, 8, 9, 0.97);
-      cursor: pointer;
+      background: rgba(5, 8, 9, 0.98);
     }
 
     .evolution-panel {
       width: min(96%, 540px);
+      height: min(96%, 760px);
       max-height: 96%;
-      padding: 14px;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .evolution-toolbar {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 42px 1fr 42px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
     }
 
     .evolution-title {
-      margin: 0 0 4px;
-      font-size: clamp(17px, 3.2vw, 24px);
+      margin: 0;
+      font-size: clamp(18px, 3.5vw, 25px);
+    }
+
+    .overlay-close {
+      width: 42px;
+      min-height: 42px;
+      padding: 0;
+      border-color: rgba(255,255,255,0.20);
+      background: rgba(255,255,255,0.06);
+      font-size: 20px;
     }
 
     .evolution-hint {
+      flex: 0 0 auto;
       margin: 0 0 8px;
-      color: rgba(255,255,255,0.42);
-      font-size: clamp(9px, 1.7vw, 12px);
+      color: rgba(255,255,255,0.60);
+      font-size: clamp(12px, 2.3vw, 15px);
+      line-height: 1.45;
     }
 
-    .evolution-columns {
-      position: relative;
+    .evolution-scroll {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 2px 2px 18px;
+    }
+
+    .evolution-headings {
+      position: sticky;
+      top: 0;
+      z-index: 2;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      min-height: 0;
+      gap: 10px;
+      padding: 7px 0 8px;
+      background: rgba(8,12,14,0.96);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
     }
 
-    .evolution-columns::before {
-      content: "";
-      position: absolute;
-      top: 24px;
-      bottom: 0;
-      left: 50%;
-      width: 1px;
-      transform: translateX(-50%);
-      background: rgba(255,255,255,0.16);
-      pointer-events: none;
-    }
-
-    .evolution-column {
-      min-width: 0;
-      padding: 0 5px;
-    }
-
-    .evolution-column h3 {
-      margin: 0 0 5px;
+    .evolution-heading {
       color: var(--accent);
-      font-size: clamp(10px, 1.9vw, 14px);
-      font-weight: normal;
+      font-size: clamp(13px, 2.6vw, 17px);
     }
 
-    .evolution-grid {
+    .evolution-pairs {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 2px;
+      gap: 12px;
+      padding-top: 10px;
     }
 
-    .evolution-grid img {
-      width: 100%;
+    .evolution-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .moth-preview-button {
+      min-height: 0;
+      padding: 8px 8px 6px;
+      border-color: rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.045);
+      border-radius: 10px;
+    }
+
+    .moth-preview-button img {
+      display: block;
+      width: min(100%, 150px);
       aspect-ratio: 1;
+      margin: 0 auto;
       object-fit: contain;
       image-rendering: pixelated;
-      background: rgba(255,255,255,0.045);
-      border-radius: 3px;
+    }
+
+    .moth-preview-index {
+      display: block;
+      margin-top: 4px;
+      color: rgba(255,255,255,0.55);
+      font-size: 11px;
+    }
+
+    #mothShareOverlay {
+      z-index: 45;
+      background: rgba(3, 5, 6, 0.99);
+    }
+
+    .share-panel {
+      width: min(96%, 540px);
+      max-height: 96%;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .share-card {
+      width: 100%;
+      aspect-ratio: 4 / 5;
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 18px 20px;
+      border: 2px solid rgba(184,247,255,0.38);
+      background:
+        radial-gradient(circle at 50% 36%, rgba(184,247,255,0.10), transparent 42%),
+        #0a0d0f;
+      text-align: center;
+    }
+
+    .share-card-title {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(20px, 4.5vw, 30px);
+      line-height: 1.35;
+    }
+
+    .share-moth-wrap {
+      width: min(78%, 300px);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+    }
+
+    #shareMothImage {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .share-generation {
+      color: var(--accent);
+      font-size: clamp(18px, 4vw, 26px);
+    }
+
+    .share-controls {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .share-name-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    #shareNameInput {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid rgba(255,255,255,0.24);
+      border-radius: 9px;
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      font: inherit;
+      font-size: 16px;
+      padding: 9px 10px;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    .share-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    #shareStatus {
+      min-height: 18px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    #resetConfirmOverlay {
+      z-index: 60;
+      background: rgba(0,0,0,0.78);
+    }
+
+    .confirm-panel {
+      width: min(90%, 430px);
+    }
+
+    .confirm-warning {
+      color: #ffd6d6;
+      line-height: 1.7;
+      font-size: clamp(14px, 2.8vw, 18px);
+    }
+
+    .confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .danger-action {
+      border-color: rgba(255,120,120,0.55);
+      background: rgba(255,90,90,0.14);
     }
 
     #errorText {
@@ -470,17 +628,57 @@
 
     <section id="evolutionOverlay" class="overlay" aria-label="世代比較">
       <div class="panel evolution-panel">
-        <h2 class="evolution-title">第1世代から現在まで</h2>
-        <p class="evolution-hint">画面のどこかをタップすると戻ります</p>
-        <div class="evolution-columns">
-          <section class="evolution-column">
-            <h3>第1世代</h3>
-            <div id="firstGenerationGrid" class="evolution-grid"></div>
-          </section>
-          <section class="evolution-column">
-            <h3 id="latestGenerationTitle">現在世代</h3>
-            <div id="latestGenerationGrid" class="evolution-grid"></div>
-          </section>
+        <div class="evolution-toolbar">
+          <button id="evolutionCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 class="evolution-title">世代を比較する</h2>
+          <span></span>
+        </div>
+        <p class="evolution-hint">縦にスクロールできます。気になる蛾をタップすると、1個体を大きく表示できます。</p>
+        <div class="evolution-scroll">
+          <div class="evolution-headings">
+            <div class="evolution-heading">第1世代</div>
+            <div id="latestGenerationTitle" class="evolution-heading">現在世代</div>
+          </div>
+          <div id="evolutionPairs" class="evolution-pairs"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="mothShareOverlay" class="overlay" aria-label="蛾をシェア">
+      <div class="panel share-panel">
+        <div id="shareCard" class="share-card">
+          <h2 id="shareCardTitle" class="share-card-title">あなたのギタイラボ</h2>
+          <div class="share-moth-wrap">
+            <img id="shareMothImage" alt="選択した蛾">
+          </div>
+          <div>
+            <div id="shareGeneration" class="share-generation">第--世代</div>
+            <div id="shareMothIndex" class="subtle">MOTH --</div>
+          </div>
+        </div>
+
+        <div class="share-controls">
+          <label class="share-name-row">
+            <span>表示名</span>
+            <input id="shareNameInput" type="text" maxlength="16" autocomplete="off" placeholder="任意">
+          </label>
+          <div class="share-actions">
+            <button id="shareBackButton" type="button">戻る</button>
+            <button id="shareButton" type="button">SNSへシェア</button>
+          </div>
+          <p id="shareStatus">表示名は任意です。この画面をスクリーンショットしても使えます。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="resetConfirmOverlay" class="overlay" aria-label="リセット確認">
+      <div class="panel confirm-panel">
+        <h2>第1世代に戻しますか？</h2>
+        <p id="resetConfirmText" class="confirm-warning"></p>
+        <p class="subtle">この操作は元に戻せません。</p>
+        <div class="confirm-actions">
+          <button id="resetCancelButton" type="button">キャンセル</button>
+          <button id="resetConfirmButton" class="danger-action" type="button">第1世代に戻す</button>
         </div>
       </div>
     </section>
@@ -547,9 +745,25 @@
   const authorNewsTeaser = document.getElementById('authorNewsTeaser');
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
-  const firstGenerationGrid = document.getElementById('firstGenerationGrid');
-  const latestGenerationGrid = document.getElementById('latestGenerationGrid');
+  const evolutionCloseButton = document.getElementById('evolutionCloseButton');
+  const evolutionPairs = document.getElementById('evolutionPairs');
   const latestGenerationTitle = document.getElementById('latestGenerationTitle');
+
+  const mothShareOverlay = document.getElementById('mothShareOverlay');
+  const shareCard = document.getElementById('shareCard');
+  const shareCardTitle = document.getElementById('shareCardTitle');
+  const shareMothImage = document.getElementById('shareMothImage');
+  const shareGeneration = document.getElementById('shareGeneration');
+  const shareMothIndex = document.getElementById('shareMothIndex');
+  const shareNameInput = document.getElementById('shareNameInput');
+  const shareBackButton = document.getElementById('shareBackButton');
+  const shareButton = document.getElementById('shareButton');
+  const shareStatus = document.getElementById('shareStatus');
+
+  const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
+  const resetConfirmText = document.getElementById('resetConfirmText');
+  const resetCancelButton = document.getElementById('resetCancelButton');
+  const resetConfirmButton = document.getElementById('resetConfirmButton');
 
   const rankingOverlay = document.getElementById('rankingOverlay');
   const rankingList = document.getElementById('rankingList');
@@ -584,6 +798,7 @@
     runId: null,
     scoreRecordId: null,
     scoreSummary: null,
+    selectedShare: null,
     bootReady: false,
     uiTransitionLocked: false,
     wakeLock: null,
@@ -1153,13 +1368,38 @@
     }
   }
 
-  function fillEvolutionGrid(element, generationId) {
-    element.innerHTML = '';
-    for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i++) {
-      const img = document.createElement('img');
-      img.src = cacheBustUrl(individualAssetPath(generationId, i));
-      img.alt = `${generationId} 個体 ${i}`;
-      element.appendChild(img);
+  function createEvolutionMothButton(generationId, index) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'moth-preview-button';
+
+    const img = document.createElement('img');
+    img.src = cacheBustUrl(individualAssetPath(generationId, index));
+    img.alt = `第${Number(generationId.slice(3))}世代 個体${index}`;
+
+    const label = document.createElement('span');
+    label.className = 'moth-preview-index';
+    label.textContent = `MOTH ${String(index).padStart(2, '0')}`;
+
+    button.append(img, label);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showMothShare(generationId, index, img.src);
+    });
+    return button;
+  }
+
+  function renderEvolutionPairs(latestId) {
+    evolutionPairs.innerHTML = '';
+    for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i += 1) {
+      const row = document.createElement('div');
+      row.className = 'evolution-pair';
+      row.append(
+        createEvolutionMothButton('gen00001', i),
+        createEvolutionMothButton(latestId, i),
+      );
+      evolutionPairs.appendChild(row);
     }
   }
 
@@ -1167,10 +1407,158 @@
     const latestId = state.nextGenerationId || state.currentGenerationId;
     const latestNumber = Number(latestId.slice(3));
 
-    fillEvolutionGrid(firstGenerationGrid, 'gen00001');
-    fillEvolutionGrid(latestGenerationGrid, latestId);
     latestGenerationTitle.textContent = `第${latestNumber}世代`;
+    renderEvolutionPairs(latestId);
     evolutionOverlay.classList.add('visible');
+
+    const scroller = evolutionOverlay.querySelector('.evolution-scroll');
+    if (scroller) scroller.scrollTop = 0;
+  }
+
+  function shareNameStorageKey() {
+    return 'gitai-preview-share-name-v1';
+  }
+
+  function getShareDisplayName() {
+    const value = shareNameInput.value.trim();
+    return value;
+  }
+
+  function updateShareCardTitle() {
+    const name = getShareDisplayName();
+    shareCardTitle.textContent = name
+      ? `${name}さんのギタイラボ`
+      : 'あなたのギタイラボ';
+  }
+
+  function showMothShare(generationId, index, src) {
+    const generationNumber = Number(generationId.slice(3));
+    state.selectedShare = { generationId, generationNumber, index, src };
+
+    let savedName = '';
+    try {
+      savedName = localStorage.getItem(shareNameStorageKey()) || '';
+    } catch (_) {}
+
+    shareNameInput.value = savedName;
+    updateShareCardTitle();
+    shareMothImage.src = src;
+    shareGeneration.textContent = `第${generationNumber}世代`;
+    shareMothIndex.textContent = `MOTH ${String(index).padStart(2, '0')}`;
+    shareStatus.textContent =
+      '表示名は任意です。この画面をスクリーンショットしても使えます。';
+
+    mothShareOverlay.classList.add('visible');
+  }
+
+  function loadShareImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('シェア画像を読み込めませんでした'));
+      img.src = src;
+    });
+  }
+
+  async function buildShareImageBlob() {
+    if (!state.selectedShare) throw new Error('蛾が選択されていません');
+
+    const source = await loadShareImage(state.selectedShare.src);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const c2d = canvas.getContext('2d');
+
+    c2d.fillStyle = '#0a0d0f';
+    c2d.fillRect(0, 0, canvas.width, canvas.height);
+
+    const glow = c2d.createRadialGradient(540, 570, 40, 540, 570, 470);
+    glow.addColorStop(0, 'rgba(184,247,255,0.16)');
+    glow.addColorStop(1, 'rgba(184,247,255,0)');
+    c2d.fillStyle = glow;
+    c2d.fillRect(0, 0, canvas.width, canvas.height);
+
+    const name = getShareDisplayName();
+    const title = name ? `${name}さんのギタイラボ` : 'あなたのギタイラボ';
+
+    c2d.textAlign = 'center';
+    c2d.fillStyle = '#ffffff';
+    c2d.font = 'bold 64px sans-serif';
+    c2d.fillText(title, 540, 110);
+
+    c2d.imageSmoothingEnabled = false;
+    const size = 720;
+    c2d.drawImage(source, 180, 260, size, size);
+
+    c2d.fillStyle = '#b8f7ff';
+    c2d.font = 'bold 58px sans-serif';
+    c2d.fillText(`第${state.selectedShare.generationNumber}世代`, 540, 1110);
+
+    c2d.fillStyle = 'rgba(255,255,255,0.72)';
+    c2d.font = '36px monospace';
+    c2d.fillText(
+      `MOTH ${String(state.selectedShare.index).padStart(2, '0')}`,
+      540,
+      1170,
+    );
+
+    c2d.fillStyle = 'rgba(255,255,255,0.46)';
+    c2d.font = '30px sans-serif';
+    c2d.fillText('ギタイラボ', 540, 1280);
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('シェア画像を作成できませんでした'));
+      }, 'image/png');
+    });
+  }
+
+  async function shareSelectedMoth() {
+    if (!state.selectedShare) return;
+
+    shareButton.disabled = true;
+    shareButton.textContent = '画像を準備中…';
+    shareStatus.textContent = '';
+
+    try {
+      const name = getShareDisplayName();
+      try {
+        localStorage.setItem(shareNameStorageKey(), name);
+      } catch (_) {}
+
+      const blob = await buildShareImageBlob();
+      const file = new File(
+        [blob],
+        `gitailab_gen${state.selectedShare.generationNumber}_moth${String(state.selectedShare.index).padStart(2, '0')}.png`,
+        { type: 'image/png' },
+      );
+
+      if (
+        navigator.share
+        && (!navigator.canShare || navigator.canShare({ files: [file] }))
+      ) {
+        await navigator.share({
+          files: [file],
+          title: shareCardTitle.textContent,
+          text: `ギタイラボ 第${state.selectedShare.generationNumber}世代`,
+        });
+        shareStatus.textContent = 'シェア画面を開きました。';
+      } else {
+        shareStatus.textContent =
+          'この端末では画像共有を直接開けません。このカードをスクリーンショットしてください。';
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        shareStatus.textContent = 'シェアをキャンセルしました。';
+      } else {
+        shareStatus.textContent =
+          '共有できませんでした。このカードをスクリーンショットしてください。';
+      }
+    } finally {
+      shareButton.disabled = false;
+      shareButton.textContent = 'SNSへシェア';
+    }
   }
 
   function showResults() {
@@ -1447,8 +1835,46 @@
     showEvolutionComparison();
   });
 
-  evolutionOverlay.addEventListener('pointerdown', () => {
+  evolutionCloseButton.addEventListener('click', () => {
     evolutionOverlay.classList.remove('visible');
+  });
+
+  shareBackButton.addEventListener('click', () => {
+    mothShareOverlay.classList.remove('visible');
+  });
+
+  shareNameInput.addEventListener('input', () => {
+    updateShareCardTitle();
+    try {
+      localStorage.setItem(shareNameStorageKey(), getShareDisplayName());
+    } catch (_) {}
+  });
+
+  shareButton.addEventListener('click', () => {
+    shareSelectedMoth();
+  });
+
+  window.addEventListener('gitai:request-reset', () => {
+    resetConfirmText.textContent =
+      `現在の第${state.generationNumber}世代までの進化と、この端末のPreviewランキングが消え、第1世代に戻ります。本当に戻しますか？`;
+    resetConfirmOverlay.classList.add('visible');
+  });
+
+  resetCancelButton.addEventListener('click', () => {
+    resetConfirmOverlay.classList.remove('visible');
+  });
+
+  resetConfirmButton.addEventListener('click', async () => {
+    resetConfirmButton.disabled = true;
+    resetConfirmButton.textContent = 'リセット中…';
+    try {
+      await window.GitaiPagesPreview.resetAll();
+    } catch (err) {
+      resetConfirmButton.disabled = false;
+      resetConfirmButton.textContent = '第1世代に戻す';
+      resetConfirmText.textContent =
+        'リセットに失敗しました。もう一度お試しください。';
+    }
   });
 
   document.addEventListener('visibilitychange', () => {
