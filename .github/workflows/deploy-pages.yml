@@ -22,6 +22,67 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate preview contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          required = [
+              "index.html",
+              "js/pages_preview.js",
+              "js/gen1_01.js",
+              "js/gen1_02.js",
+              "js/gen1_03.js",
+              "js/gen1_04.js",
+              "js/gen1_05.js",
+              "js/gen1_06.js",
+              "js/mask_data.js",
+              "config/konchu_univ_alpha.json",
+              "species/moth/species.json",
+              "environments/bark_001/environment.json",
+              "data/evo_config/evo_config_v1.json",
+              "img/backgrounds/bg_preview.svg",
+              "manifest.webmanifest",
+          ]
+
+          missing = [p for p in required if not Path(p).is_file()]
+          if missing:
+              raise SystemExit(f"Missing preview files: {missing}")
+
+          forbidden = [
+              Path("data/runs"),
+              Path("data/state"),
+              Path("data/generations"),
+              Path("exports"),
+              Path("admin.html"),
+          ]
+          leaked = [str(p) for p in forbidden if p.exists()]
+          if leaked:
+              raise SystemExit(f"Private/runtime content leaked: {leaked}")
+
+          config = json.loads(
+              Path("config/konchu_univ_alpha.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          if int(config["game"]["round_time_ms"]) != 2000:
+              raise SystemExit("Preview must use 2-second rounds")
+
+          html = Path("index.html").read_text(encoding="utf-8")
+          if "作者からのお知らせ" not in html:
+              raise SystemExit("Author-news teaser is missing")
+          if "ADVERTISEMENT" in html:
+              raise SystemExit("Direct ad label must not appear")
+          if "『光と闇の生き物図鑑』" in html:
+              raise SystemExit("Book title must not appear in game UI")
+          if "次のラウンドへ" in html:
+              raise SystemExit("Inter-round button must not appear")
+          PY
+
+      - name: Check preview JavaScript syntax
+        run: node --check js/pages_preview.js
+
       - uses: actions/configure-pages@v5
         with:
           enablement: true
