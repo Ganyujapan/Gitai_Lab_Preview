@@ -178,60 +178,19 @@
       color: rgba(255,255,255,0.72);
     }
 
-    .ad-banner {
+    .author-news-teaser {
       flex: 0 0 auto;
-      margin-top: 8px;
-      min-height: 52px;
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      align-items: center;
-      gap: 9px;
-      padding: 7px 10px;
-      border: 1px solid rgba(184,247,255,0.20);
-      border-radius: 8px;
-      background:
-        linear-gradient(
-          90deg,
-          rgba(184,247,255,0.045),
-          rgba(255,255,255,0.018)
-        );
-      text-align: left;
-      color: rgba(255,255,255,0.76);
-    }
-
-    .ad-banner[hidden] { display: none; }
-
-    .ad-mark {
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      color: rgba(184,247,255,0.38);
-      font-size: clamp(7px, 1.25vw, 9px);
-      letter-spacing: 0.08em;
-    }
-
-    .ad-copy { min-width: 0; }
-
-    .ad-kicker {
-      margin: 0 0 2px;
-      color: rgba(184,247,255,0.50);
-      font-size: clamp(8px, 1.45vw, 10px);
+      margin-top: 6px;
+      padding: 5px 8px;
+      text-align: center;
+      color: rgba(184,247,255,0.44);
+      font-size: clamp(9px, 1.55vw, 11px);
+      letter-spacing: 0.04em;
       line-height: 1.2;
     }
 
-    .ad-title {
-      margin: 0;
-      color: rgba(255,255,255,0.88);
-      font-size: clamp(10px, 1.85vw, 13px);
-      line-height: 1.25;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .ad-brand {
-      color: rgba(255,255,255,0.34);
-      font-size: clamp(8px, 1.35vw, 10px);
-      white-space: nowrap;
+    .author-news-teaser[hidden] {
+      display: none;
     }
 
     #evolutionOverlay {
@@ -337,14 +296,9 @@
           <button id="continueButton" type="button">次の人へ</button>
           <button id="compareButton" class="secondary-action" type="button" hidden>これまでの進化を見る</button>
         </div>
-        <aside id="adBanner" class="ad-banner" aria-label="作者からのお知らせ" hidden>
-          <span class="ad-mark">ADVERTISEMENT</span>
-          <div class="ad-copy">
-            <p class="ad-kicker">作者からのお知らせ</p>
-            <p class="ad-title">『光と闇の生き物図鑑』</p>
-          </div>
-          <span class="ad-brand">GANYU</span>
-        </aside>
+        <div id="authorNewsTeaser" class="author-news-teaser" hidden>
+          作者からのお知らせ
+        </div>
       </div>
     </section>
 
@@ -410,7 +364,7 @@
   const evolutionStatus = document.getElementById('evolutionStatus');
   const continueButton = document.getElementById('continueButton');
   const compareButton = document.getElementById('compareButton');
-  const adBanner = document.getElementById('adBanner');
+  const authorNewsTeaser = document.getElementById('authorNewsTeaser');
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
   const firstGenerationGrid = document.getElementById('firstGenerationGrid');
@@ -820,7 +774,7 @@
     reviewGeneration.textContent = generationLabel();
     evolutionStatus.textContent = '';
     compareButton.hidden = true;
-    adBanner.hidden = true;
+    authorNewsTeaser.hidden = true;
     renderSurvivors(indices);
 
     const label = String(speciesConfig.display_name_ja || '個体');
@@ -874,7 +828,7 @@
         data.retry_same_generation
       ) {
         state.submitStatus = 'retry_generation';
-        adBanner.hidden = true;
+        authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
 
         const survivorCount = Number(data.survivor_count || 0);
@@ -896,7 +850,7 @@
         data.error === 'generation_mismatch'
       ) {
         state.submitStatus = 'stale_generation';
-        adBanner.hidden = true;
+        authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
 
         reviewTitle.textContent = '世代が更新されています';
@@ -918,7 +872,7 @@
         data.error === 'insufficient_storage'
       ) {
         state.submitStatus = 'failed';
-        adBanner.hidden = true;
+        authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
 
         reviewTitle.textContent = 'スタッフにお知らせください';
@@ -943,7 +897,7 @@
 
       state.nextGenerationId = String(data.next_generation_id || '');
       state.submitStatus = 'success';
-      adBanner.hidden = false;
+      authorNewsTeaser.hidden = false;
       evolutionStatus.textContent = `次の世代 ${state.nextGenerationId} が誕生しました。`;
       state.uiTransitionLocked = false;
       continueButton.textContent = '次の人へ';
@@ -952,7 +906,7 @@
 
     } catch (err) {
       state.submitStatus = 'failed';
-      adBanner.hidden = true;
+      authorNewsTeaser.hidden = true;
       const message = err && err.name === 'AbortError'
         ? 'サーバー応答がタイムアウトしました'
         : (err.message || err);
@@ -1019,7 +973,7 @@
 
     if (state.submitStatus === 'retry_generation') {
       reviewOverlay.classList.remove('visible');
-      adBanner.hidden = true;
+      authorNewsTeaser.hidden = true;
       buildRounds();
       state.currentRoundIndex = 0;
       state.eatenIndices = new Set();
