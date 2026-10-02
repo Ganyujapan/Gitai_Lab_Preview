@@ -115,30 +115,157 @@
       line-height: 1.55;
     }
 
-    .survivor-grid {
+    .score-card {
+      margin: 4px 0 10px;
+      padding: 18px 12px 16px;
+      border: 1px solid rgba(184,247,255,0.30);
+      border-radius: 14px;
+      background: rgba(184,247,255,0.07);
+    }
+
+    .score-label {
+      color: var(--muted);
+      font-size: clamp(11px, 2.2vw, 15px);
+      margin-bottom: 3px;
+    }
+
+    .score-main {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    #scoreValue {
+      color: var(--accent);
+      font-size: clamp(38px, 10vw, 62px);
+      line-height: 1;
+      letter-spacing: 0.02em;
+    }
+
+    .score-unit {
+      font-size: clamp(13px, 2.8vw, 18px);
+    }
+
+    .rank-text {
+      margin-top: 10px;
+      font-size: clamp(13px, 2.7vw, 18px);
+      line-height: 1.45;
+    }
+
+    .name-entry {
+      margin: 4px 0 8px;
+      padding: 10px;
+      border: 1px solid rgba(255,223,128,0.38);
+      border-radius: 12px;
+      background: rgba(255,223,128,0.07);
+    }
+
+    .name-entry[hidden] { display: none; }
+
+    .name-entry-title {
+      color: #ffe9a8;
+      font-size: clamp(13px, 2.7vw, 18px);
+      margin-bottom: 3px;
+    }
+
+    .name-entry-sub {
+      color: var(--muted);
+      font-size: clamp(10px, 2vw, 13px);
+      margin-bottom: 8px;
+    }
+
+    .name-entry-row {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 5px;
-      width: min(100%, 330px);
-      align-self: center;
-      margin: 12px 0 14px;
+      grid-template-columns: 1fr auto;
+      gap: 7px;
+    }
+
+    #playerName {
+      min-width: 0;
+      border: 1px solid rgba(255,255,255,0.24);
+      border-radius: 9px;
+      background: rgba(0,0,0,0.28);
+      color: #fff;
+      font: inherit;
+      font-size: 16px;
+      padding: 9px 10px;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    #saveNameButton {
+      width: auto;
+      min-height: 42px;
+      padding: 7px 12px;
+      border-color: rgba(255,223,128,0.52);
+      background: rgba(255,223,128,0.14);
+      font-size: 13px;
+    }
+
+    .name-saved {
+      margin: 7px 0 0;
+      color: #ffe9a8;
+      font-size: 11px;
+    }
+
+    .ranking-panel {
+      width: min(94%, 520px);
+      max-height: 92%;
+    }
+
+    .ranking-note {
+      margin: 0 0 10px;
+      color: rgba(255,255,255,0.48);
+      font-size: clamp(9px, 1.8vw, 12px);
+      line-height: 1.5;
+    }
+
+    .ranking-list {
       min-height: 0;
       overflow-y: auto;
       overscroll-behavior: contain;
+      margin-bottom: 12px;
+      text-align: left;
     }
 
-    .survivor-grid img {
-      width: 100%;
-      aspect-ratio: 1;
-      object-fit: contain;
-      image-rendering: pixelated;
-      background: rgba(255,255,255,0.05);
-      border-radius: 6px;
+    .ranking-group {
+      padding: 9px 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
     }
 
-    .empty {
-      padding: 22px 8px;
+    .ranking-group-head {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .ranking-rank {
+      color: #ffe9a8;
+      font-size: clamp(14px, 2.8vw, 18px);
+    }
+
+    .ranking-score {
+      color: var(--accent);
+      font-size: clamp(14px, 2.8vw, 18px);
+      text-align: right;
+    }
+
+    .ranking-names {
+      margin-top: 5px;
+      padding-left: 80px;
+      color: rgba(255,255,255,0.78);
+      font-size: clamp(10px, 2.0vw, 13px);
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .ranking-empty {
+      padding: 28px 8px;
       color: var(--muted);
+      text-align: center;
       line-height: 1.6;
     }
 
@@ -162,20 +289,38 @@
 
     .review-actions {
       flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: 6px;
     }
 
-    .secondary-action {
-      min-height: 34px;
-      margin-top: 4px;
-      padding: 4px 8px;
+    .compare-action {
+      border-color: rgba(255,223,128,0.52);
+      background: rgba(255,196,64,0.18);
+    }
+
+    .continue-action {
+      border-color: rgba(184,247,255,0.48);
+      background: rgba(184,247,255,0.16);
+    }
+
+    .text-action {
+      width: auto;
+      min-height: 30px;
+      align-self: center;
+      margin: 0 0 7px;
+      padding: 3px 8px;
       border-color: transparent;
       background: transparent;
-      color: rgba(255,255,255,0.42);
-      font-size: clamp(10px, 1.9vw, 13px);
+      color: rgba(184,247,255,0.72);
+      font-size: clamp(10px, 2vw, 13px);
+      text-decoration: underline;
+      text-underline-offset: 3px;
     }
 
-    .secondary-action:active {
-      color: rgba(255,255,255,0.72);
+    .text-action:active {
+      color: #fff;
     }
 
     .author-news-teaser {
@@ -287,15 +432,36 @@
     <section id="reviewOverlay" class="overlay">
       <div class="panel">
         <div id="reviewGeneration" class="generation">GENERATION --</div>
-        <h2 id="reviewTitle">生き残った蛾</h2>
+        <h2 id="reviewTitle">成績発表</h2>
         <p id="reviewMessage" class="subtle"></p>
-        <div id="survivorGrid" class="survivor-grid"></div>
-        <div id="reviewEmpty" class="empty" hidden></div>
-        <p id="evolutionStatus" class="subtle"></p>
-        <div class="review-actions">
-          <button id="continueButton" type="button">次の人へ</button>
-          <button id="compareButton" class="secondary-action" type="button" hidden>これまでの進化を見る</button>
+
+        <div class="score-card">
+          <div class="score-label">1秒あたり</div>
+          <div class="score-main">
+            <span id="scoreValue">--</span>
+            <span class="score-unit">匹 捕食</span>
+          </div>
+          <div id="rankText" class="rank-text">順位を計算中…</div>
         </div>
+
+        <div id="nameEntry" class="name-entry" hidden>
+          <div class="name-entry-title">歴代20位以内！</div>
+          <div class="name-entry-sub">なまえをのこせます</div>
+          <div class="name-entry-row">
+            <input id="playerName" type="text" maxlength="12" autocomplete="off" placeholder="なまえ">
+            <button id="saveNameButton" type="button">記録</button>
+          </div>
+          <p id="nameSaved" class="name-saved" hidden>なまえを記録しました</p>
+        </div>
+
+        <button id="rankingButton" class="text-action" type="button">ランキングを見る</button>
+        <p id="evolutionStatus" class="subtle"></p>
+
+        <div class="review-actions">
+          <button id="compareButton" class="compare-action" type="button" hidden>世代を比較する</button>
+          <button id="continueButton" class="continue-action" type="button">次の人へ</button>
+        </div>
+
         <div id="authorNewsTeaser" class="author-news-teaser" hidden>
           作者からのお知らせ
         </div>
@@ -316,6 +482,15 @@
             <div id="latestGenerationGrid" class="evolution-grid"></div>
           </section>
         </div>
+      </div>
+    </section>
+
+    <section id="rankingOverlay" class="overlay" aria-label="歴代ランキング">
+      <div class="panel ranking-panel">
+        <h2>歴代ランキング</h2>
+        <p class="ranking-note">同じ捕食数は同順位です<br>テスト版では、この端末・同じ制限時間の記録を表示します</p>
+        <div id="rankingList" class="ranking-list"></div>
+        <button id="rankingCloseButton" type="button">戻る</button>
       </div>
     </section>
 
@@ -359,8 +534,13 @@
   const reviewGeneration = document.getElementById('reviewGeneration');
   const reviewTitle = document.getElementById('reviewTitle');
   const reviewMessage = document.getElementById('reviewMessage');
-  const survivorGrid = document.getElementById('survivorGrid');
-  const reviewEmpty = document.getElementById('reviewEmpty');
+  const scoreValue = document.getElementById('scoreValue');
+  const rankText = document.getElementById('rankText');
+  const nameEntry = document.getElementById('nameEntry');
+  const playerName = document.getElementById('playerName');
+  const saveNameButton = document.getElementById('saveNameButton');
+  const nameSaved = document.getElementById('nameSaved');
+  const rankingButton = document.getElementById('rankingButton');
   const evolutionStatus = document.getElementById('evolutionStatus');
   const continueButton = document.getElementById('continueButton');
   const compareButton = document.getElementById('compareButton');
@@ -370,6 +550,10 @@
   const firstGenerationGrid = document.getElementById('firstGenerationGrid');
   const latestGenerationGrid = document.getElementById('latestGenerationGrid');
   const latestGenerationTitle = document.getElementById('latestGenerationTitle');
+
+  const rankingOverlay = document.getElementById('rankingOverlay');
+  const rankingList = document.getElementById('rankingList');
+  const rankingCloseButton = document.getElementById('rankingCloseButton');
 
   const errorOverlay = document.getElementById('errorOverlay');
   const errorText = document.getElementById('errorText');
@@ -398,6 +582,8 @@
     nextGenerationId: null,
     submitStatus: 'idle',
     runId: null,
+    scoreRecordId: null,
+    scoreSummary: null,
     bootReady: false,
     uiTransitionLocked: false,
     wakeLock: null,
@@ -480,6 +666,204 @@
 
   function generationLabel() {
     return `GENERATION ${String(state.generationNumber).padStart(5, '0')}`;
+  }
+
+  function leaderboardKey() {
+    return `gitai-preview-leaderboard-v2-${CONFIG.ROUND_TIME_MS}ms`;
+  }
+
+  function activePlaySeconds() {
+    return (CONFIG.ROUND_LIMIT * CONFIG.ROUND_TIME_MS) / 1000;
+  }
+
+  function scoreRate(eatenCount) {
+    const seconds = activePlaySeconds();
+    return seconds > 0 ? eatenCount / seconds : 0;
+  }
+
+  function ensureRunId() {
+    if (!state.runId) {
+      state.runId = `exhibit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+    return state.runId;
+  }
+
+  function loadLeaderboard() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(leaderboardKey()) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((record) =>
+        record &&
+        typeof record.id === 'string' &&
+        Number.isInteger(Number(record.eaten))
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveLeaderboard(records) {
+    try {
+      localStorage.setItem(leaderboardKey(), JSON.stringify(records));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function recordCurrentScore() {
+    const eaten = state.eatenIndices.size;
+    const id = ensureRunId();
+    let records = loadLeaderboard();
+    let record = records.find((item) => item.id === id);
+
+    if (!record) {
+      record = {
+        id,
+        generation_id: state.currentGenerationId,
+        eaten,
+        rate: scoreRate(eaten),
+        name: '',
+        created_at: Date.now(),
+      };
+      records.push(record);
+      saveLeaderboard(records);
+    }
+
+    const rank = 1 + records.filter(
+      (item) => Number(item.eaten) > eaten
+    ).length;
+
+    state.scoreRecordId = id;
+    state.scoreSummary = {
+      eaten,
+      rate: scoreRate(eaten),
+      rank,
+      total: records.length,
+      eligible: rank <= 20,
+    };
+    return state.scoreSummary;
+  }
+
+  function renderScoreSummary() {
+    const summary = state.scoreSummary || recordCurrentScore();
+    scoreValue.textContent = summary.rate.toFixed(2);
+    rankText.textContent =
+      `全${summary.total.toLocaleString('ja-JP')}プレイ中 `
+      + `${summary.rank.toLocaleString('ja-JP')}位`;
+
+    const records = loadLeaderboard();
+    const current = records.find((item) => item.id === state.scoreRecordId);
+    const existingName = current && typeof current.name === 'string'
+      ? current.name.trim()
+      : '';
+
+    nameEntry.hidden = !summary.eligible;
+    nameSaved.hidden = true;
+    saveNameButton.disabled = false;
+    playerName.disabled = false;
+    playerName.value = existingName;
+
+    if (summary.eligible && existingName) {
+      nameSaved.hidden = false;
+      playerName.disabled = true;
+      saveNameButton.disabled = true;
+    }
+  }
+
+  function saveCurrentName() {
+    if (!state.scoreRecordId || !state.scoreSummary?.eligible) return;
+
+    const name = playerName.value.trim().slice(0, 12);
+    if (!name) {
+      playerName.focus();
+      return;
+    }
+
+    const records = loadLeaderboard();
+    const record = records.find((item) => item.id === state.scoreRecordId);
+    if (!record) return;
+
+    record.name = name;
+    saveLeaderboard(records);
+    playerName.value = name;
+    playerName.disabled = true;
+    saveNameButton.disabled = true;
+    nameSaved.hidden = false;
+  }
+
+  function renderRanking() {
+    const records = loadLeaderboard()
+      .slice()
+      .sort((a, b) =>
+        Number(b.eaten) - Number(a.eaten)
+        || Number(a.created_at || 0) - Number(b.created_at || 0)
+      );
+
+    rankingList.innerHTML = '';
+    if (!records.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ranking-empty';
+      empty.textContent = 'まだ記録がありません。';
+      rankingList.appendChild(empty);
+      return;
+    }
+
+    let consumed = 0;
+    let index = 0;
+
+    while (index < records.length) {
+      const eaten = Number(records[index].eaten);
+      const group = [];
+      while (
+        index < records.length &&
+        Number(records[index].eaten) === eaten
+      ) {
+        group.push(records[index]);
+        index += 1;
+      }
+
+      const rank = consumed + 1;
+      consumed += group.length;
+      if (rank > 20) break;
+
+      const block = document.createElement('div');
+      block.className = 'ranking-group';
+
+      const head = document.createElement('div');
+      head.className = 'ranking-group-head';
+
+      const rankEl = document.createElement('div');
+      rankEl.className = 'ranking-rank';
+      rankEl.textContent = `${rank}位`;
+
+      const scoreEl = document.createElement('div');
+      scoreEl.className = 'ranking-score';
+      scoreEl.textContent = `1秒あたり ${scoreRate(eaten).toFixed(2)}匹`;
+
+      head.append(rankEl, scoreEl);
+      block.appendChild(head);
+
+      const names = group
+        .map((record) => String(record.name || '').trim())
+        .filter(Boolean);
+      const unnamed = group.length - names.length;
+
+      const namesEl = document.createElement('div');
+      namesEl.className = 'ranking-names';
+      const displayNames = [...names];
+      if (unnamed === 1) displayNames.push('NO NAME');
+      else if (unnamed > 1) displayNames.push(`NO NAME ×${unnamed}`);
+      namesEl.textContent = displayNames.join(' / ');
+
+      block.appendChild(namesEl);
+      rankingList.appendChild(block);
+    }
+  }
+
+  function showRanking() {
+    renderRanking();
+    rankingOverlay.classList.add('visible');
   }
 
   function cacheBustUrl(path) {
@@ -756,7 +1140,7 @@
 
     const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
     if (isFinalRound) {
-      showSurvivorReview(state.allSurvivorIndices);
+      showResults();
       sendEvolutionData();
     } else {
       state.uiTransitionLocked = true;
@@ -766,24 +1150,6 @@
         state.uiTransitionLocked = false;
         startRound();
       }, CONFIG.INTER_ROUND_DELAY_MS);
-    }
-  }
-
-  function renderSurvivors(indices) {
-    survivorGrid.innerHTML = '';
-    reviewEmpty.hidden = indices.length > 0;
-
-    if (indices.length === 0) {
-      const label = String(speciesConfig.display_name_ja || '個体');
-      reviewEmpty.textContent = `この世代では、すべての${label}が見つかりました。`;
-      return;
-    }
-
-    for (const index of indices) {
-      const img = document.createElement('img');
-      img.src = state.mothImages[index - 1].src;
-      img.alt = `生存個体 ${index}`;
-      survivorGrid.appendChild(img);
     }
   }
 
@@ -807,20 +1173,20 @@
     evolutionOverlay.classList.add('visible');
   }
 
-  function showSurvivorReview(indices) {
+  function showResults() {
     state.uiTransitionLocked = false;
     reviewGeneration.textContent = generationLabel();
+    reviewTitle.textContent = '成績発表';
+    reviewMessage.textContent = '';
     evolutionStatus.textContent = '';
     compareButton.hidden = true;
     authorNewsTeaser.hidden = true;
-    renderSurvivors(indices);
 
-    const label = String(speciesConfig.display_name_ja || '個体');
-    reviewTitle.textContent = `この世代を生き残った${label}`;
-    reviewMessage.textContent = `あなたに見つからなかった${label}です。この生存結果から次の世代をつくります。`;
+    recordCurrentScore();
+    renderScoreSummary();
+
     continueButton.textContent = '次世代を生成中…';
     continueButton.disabled = true;
-
     reviewOverlay.classList.add('visible');
   }
 
@@ -828,10 +1194,7 @@
     state.submitStatus = 'sending';
 
     const eaten = Array.from(state.eatenIndices).sort((a, b) => a - b);
-    if (!state.runId) {
-      state.runId = `exhibit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    }
-    const runId = state.runId;
+    const runId = ensureRunId();
 
     try {
       const controller = new AbortController();
@@ -936,9 +1299,8 @@
       state.nextGenerationId = String(data.next_generation_id || '');
       state.submitStatus = 'success';
       authorNewsTeaser.hidden = false;
-      const successLabel = String(speciesConfig.display_name_ja || '個体');
       evolutionStatus.textContent =
-        `生き残った${successLabel}だけから、次の世代 ${state.nextGenerationId} が誕生しました。`;
+        `次の世代 ${state.nextGenerationId} が誕生しました。`;
       state.uiTransitionLocked = false;
       continueButton.textContent = '次の人へ';
       continueButton.disabled = false;
@@ -1003,6 +1365,8 @@
     state.roundRecords = [];
     state.roundTapEvents = [];
     state.runId = null;
+    state.scoreRecordId = null;
+    state.scoreSummary = null;
     state.submitStatus = 'idle';
     startRound();
   });
@@ -1021,6 +1385,8 @@
       state.roundRecords = [];
       state.roundTapEvents = [];
       state.runId = null;
+      state.scoreRecordId = null;
+      state.scoreSummary = null;
       state.nextGenerationId = null;
       state.submitStatus = 'idle';
       startRound();
@@ -1049,6 +1415,30 @@
     const u = new URL(location.href);
     u.searchParams.set('v', String(Date.now()));
     location.href = u.toString();
+  });
+
+  rankingButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showRanking();
+  });
+
+  rankingCloseButton.addEventListener('click', () => {
+    rankingOverlay.classList.remove('visible');
+  });
+
+  saveNameButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    saveCurrentName();
+    renderRanking();
+  });
+
+  playerName.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveCurrentName();
+      renderRanking();
+    }
   });
 
   compareButton.addEventListener('click', (event) => {
