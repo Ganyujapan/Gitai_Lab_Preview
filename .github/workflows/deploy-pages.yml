@@ -41,7 +41,7 @@ jobs:
               "config/konchu_univ_alpha.json",
               "species/moth/species.json",
               "environments/bark_001/environment.json",
-              "data/evo_config/evo_config_v1.json",
+              "data/evo_config/evo_config_v2.json",
               "img/backgrounds/bg_preview.svg",
               "manifest.webmanifest",
           ]
@@ -68,6 +68,12 @@ jobs:
           )
           if int(config["game"]["round_time_ms"]) != 2000:
               raise SystemExit("Preview must use 2-second rounds")
+          if config.get("mode") != "solo_preview":
+              raise SystemExit("Public Preview must stay SOLO-only")
+          if config.get("evolution_profile") != "solo":
+              raise SystemExit("Public Preview must use SOLO evolution profile")
+          if config.get("evolution_config") != "data/evo_config/evo_config_v2.json":
+              raise SystemExit("Public Preview must use v2 evolution config")
           if int(config["game"]["display_y_min_px"]) != 76:
               raise SystemExit("Top HUD-safe placement zone must start at y=76")
           if int(config["game"]["display_y_max_px"]) != 564:
