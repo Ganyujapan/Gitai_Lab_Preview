@@ -2,7 +2,7 @@
   'use strict';
 
   const nativeFetch = window.fetch.bind(window);
-  const DB_NAME = 'gitai-pages-preview-v1';
+  const DB_NAME = 'gitai-pages-preview-v2';
   const DB_VERSION = 1;
   const IMAGE_STORE = 'images';
   const META_STORE = 'meta';
@@ -379,6 +379,63 @@
     return true;
   }
 
+  function applyPatchMutation(data, maskData, coords, microMutated) {
+    if (!microMutated) return false;
+    if (Math.random() >= Number(evolutionConfig.p_patch_given_mut || 0)) {
+      return false;
+    }
+    if (!coords.length) return false;
+
+    const count = randomInt(
+      Number(evolutionConfig.patch_count_min || 1),
+      Number(evolutionConfig.patch_count_max || 1),
+    );
+    const rMin = Number(evolutionConfig.patch_radius_min || 2);
+    const rMax = Number(evolutionConfig.patch_radius_max || 6);
+    const dH = Number(
+      evolutionConfig.patch_delta_h_deg ?? evolutionConfig.delta_h_deg ?? 10
+    );
+    const dS = Number(
+      evolutionConfig.patch_delta_s ?? evolutionConfig.delta_s ?? 0.18
+    );
+    const dV = Number(
+      evolutionConfig.patch_delta_v ?? evolutionConfig.delta_v ?? 0.18
+    );
+
+    for (let n = 0; n < count; n += 1) {
+      const [cx, cy] = coords[Math.floor(Math.random() * coords.length)];
+      const rx = Math.max(1, randomInt(rMin, rMax));
+      const ry = Math.max(1, randomInt(rMin, rMax));
+      const hueDelta = (Math.random() * 2 - 1) * dH;
+      const satDelta = (Math.random() * 2 - 1) * dS;
+      const valDelta = (Math.random() * 2 - 1) * dV;
+
+      const x0 = Math.max(0, cx - rx);
+      const x1 = Math.min(HALF - 1, cx + rx);
+      const y0 = Math.max(0, cy - ry);
+      const y1 = Math.min(SIZE - 1, cy + ry);
+
+      for (let y = y0; y <= y1; y += 1) {
+        for (let x = x0; x <= x1; x += 1) {
+          if (!maskData[y * SIZE + x]) continue;
+          const dx = (x - cx) / rx;
+          const dy = (y - cy) / ry;
+          if (dx * dx + dy * dy > 1) continue;
+
+          const [r, g, b, a] = getPixel(data, x, y);
+          if (a === 0) continue;
+          let [h, s, v] = rgbToHsv(r, g, b);
+          h = (h + hueDelta + 360) % 360;
+          s = Math.max(0, Math.min(1, s + satDelta));
+          v = Math.max(0, Math.min(1, v + valDelta));
+          const [nr, ng, nb] = hsvToRgb(h, s, v);
+          setPixelMirrored(data, x, y, [nr, ng, nb, a]);
+        }
+      }
+    }
+    return true;
+  }
+
   function chooseMacroMode() {
     let r = Math.random();
     for (const mode of evolutionConfig.macro_modes) {
@@ -417,17 +474,54 @@
       return;
     }
 
+    let hueShift = 0;
+    let saturationShift = 0;
+    let valueShift = 0;
+
+    if (mode === 'melanism_darkening') {
+      for (const [x, y] of coords) {
+        const [r, g, b, a] = getPixel(data, x, y);
+        if (a === 0) continue;
+        let [h, s, v] = rgbToHsv(r, g, b);
+        v *= Number(selected.strength || 0.65);
+        const [nr, ng, nb] = hsvToRgb(h, s, v);
+        setPixelMirrored(data, x, y, [nr, ng, nb, a]);
+      }
+      return;
+    }
+
+    if (mode === 'pallor_lightening') {
+      for (const [x, y] of coords) {
+        const [r, g, b, a] = getPixel(data, x, y);
+        if (a === 0) continue;
+        let [h, s, v] = rgbToHsv(r, g, b);
+        v *= Number(selected.strength || 1.25);
+        const [nr, ng, nb] = hsvToRgb(h, s, v);
+        setPixelMirrored(data, x, y, [nr, ng, nb, a]);
+      }
+      return;
+    }
+
+    if (mode === 'hue_shift_small') {
+      hueShift =
+        (Math.random() * 2 - 1) * Number(selected.shift_deg || 15);
+    } else if (mode === 'saturation_shift_small') {
+      saturationShift =
+        (Math.random() * 2 - 1) * Number(selected.shift || 0.12);
+    } else if (mode === 'value_shift_small') {
+      valueShift =
+        (Math.random() * 2 - 1) * Number(selected.shift || 0.12);
+    } else {
+      return;
+    }
+
     for (const [x, y] of coords) {
       const [r, g, b, a] = getPixel(data, x, y);
       if (a === 0) continue;
       let [h, s, v] = rgbToHsv(r, g, b);
-      if (mode === 'melanism_darkening') {
-        v *= Number(selected.strength || 0.65);
-      } else if (mode === 'pallor_lightening') {
-        v *= Number(selected.strength || 1.25);
-      } else if (mode === 'hue_shift_small') {
-        h += Number(selected.shift_deg || 15);
-      }
+      h = (h + hueShift + 360) % 360;
+      s = Math.max(0, Math.min(1, s + saturationShift));
+      v = Math.max(0, Math.min(1, v + valueShift));
       const [nr, ng, nb] = hsvToRgb(h, s, v);
       setPixelMirrored(data, x, y, [nr, ng, nb, a]);
     }
@@ -493,6 +587,7 @@
       }
 
       const micro = applyMicroMutation(child.data, mask, coords);
+      applyPatchMutation(child.data, mask, coords, micro);
       applyMacroMutation(child.data, mask, coords, micro);
       blobs.set(item.childIndex, await imageDataToBlob(child));
 
@@ -616,10 +711,10 @@
     }
 
     badge.innerHTML =
-      '<span>PAGES PREVIEW · '
+      '<span>SOLO PREVIEW · '
       + previewSeconds.toFixed(1)
       + 's</span>'
-      + '<button type="button">Gen1へリセット</button>';
+      + '<button type="button">テストをリセット</button>';
     Object.assign(badge.style, {
       position: 'fixed',
       left: '8px',
@@ -653,6 +748,14 @@
       button.textContent = 'リセット中…';
       releaseObjectUrls();
       await clearDb();
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('gitai-preview-leaderboard-')) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (_) {}
       location.href = location.pathname + (location.search.includes('fast=1') ? '?fast=1' : '');
     });
     document.body.appendChild(badge);
