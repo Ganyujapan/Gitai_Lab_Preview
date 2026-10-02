@@ -741,7 +741,7 @@
       position: 'fixed',
       left: '8px',
       bottom: '8px',
-      zIndex: '9999',
+      zIndex: '20',
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
