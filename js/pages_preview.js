@@ -604,9 +604,22 @@
   function installPreviewBadge() {
     const badge = document.createElement('div');
     badge.id = 'pagesPreviewBadge';
+
+    const params = new URLSearchParams(location.search);
+    let previewSeconds = Number(params.get('seconds'));
+    if (
+      !Number.isFinite(previewSeconds)
+      || previewSeconds < 0.5
+      || previewSeconds > 10
+    ) {
+      previewSeconds = params.get('fast') === '1' ? 0.5 : 2.0;
+    }
+
     badge.innerHTML =
-      '<span>PAGES PREVIEW</span>' +
-      '<button type="button">Gen1へリセット</button>';
+      '<span>PAGES PREVIEW · '
+      + previewSeconds.toFixed(1)
+      + 's</span>'
+      + '<button type="button">Gen1へリセット</button>';
     Object.assign(badge.style, {
       position: 'fixed',
       left: '8px',
