@@ -438,6 +438,8 @@
       MOTH_SIZE: Number(game.display_size_px),
       MOTH_Y_MIN: Number(game.display_y_min_px ?? 0),
       MOTH_Y_MAX: Number(game.display_y_max_px),
+      HUD_BAR_HEIGHT: Number(game.hud_bar_height_px ?? 36),
+      HUD_CLEARANCE: Number(game.hud_clearance_px ?? 40),
       BG_TRUE_WIDTH: Number(background.source_width),
       BG_TRUE_HEIGHT: Number(background.source_height),
       BACKGROUND_SRC: String(background.src),
@@ -569,12 +571,12 @@
   }
 
   function isInForbiddenArea(x, y, size) {
-    const centerX = x + size / 2;
-    const centerY = y + size / 2;
-    return scaledForbiddenAreas.some((a) =>
-      centerX >= a.x && centerX <= a.x + a.width &&
-      centerY >= a.y && centerY <= a.y + a.height
-    );
+    return scaledForbiddenAreas.some((a) => !(
+      x + size <= a.x ||
+      x >= a.x + a.width ||
+      y + size <= a.y ||
+      y >= a.y + a.height
+    ));
   }
 
   function isOverlapping(x, y, size, moths) {
@@ -596,10 +598,23 @@
     let attempts = 0;
     const maxAttempts = 10000;
     const size = CONFIG.MOTH_SIZE;
-    const yMin = Math.max(0, CONFIG.MOTH_Y_MIN);
+    const hudSafeTop =
+      CONFIG.HUD_BAR_HEIGHT + CONFIG.HUD_CLEARANCE;
+    const hudSafeBottom =
+      GAME_HEIGHT - CONFIG.HUD_BAR_HEIGHT - CONFIG.HUD_CLEARANCE;
+
+    const yMin = Math.max(
+      0,
+      CONFIG.MOTH_Y_MIN,
+      hudSafeTop
+    );
     const yMax = Math.max(
       yMin,
-      Math.min(CONFIG.MOTH_Y_MAX, GAME_HEIGHT) - size
+      Math.min(
+        CONFIG.MOTH_Y_MAX,
+        hudSafeBottom,
+        GAME_HEIGHT
+      ) - size
     );
     const yRange = yMax - yMin;
 
@@ -647,8 +662,13 @@
     ctx.save();
 
     ctx.fillStyle = 'rgba(0,0,0,0.52)';
-    ctx.fillRect(0, 0, GAME_WIDTH, 36);
-    ctx.fillRect(0, GAME_HEIGHT - 36, GAME_WIDTH, 36);
+    ctx.fillRect(0, 0, GAME_WIDTH, CONFIG.HUD_BAR_HEIGHT);
+    ctx.fillRect(
+      0,
+      GAME_HEIGHT - CONFIG.HUD_BAR_HEIGHT,
+      GAME_WIDTH,
+      CONFIG.HUD_BAR_HEIGHT
+    );
 
     ctx.fillStyle = '#fff';
     ctx.font = '13px "PixelMplus", monospace';
