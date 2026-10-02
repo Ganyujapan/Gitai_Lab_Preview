@@ -178,6 +178,62 @@
       color: rgba(255,255,255,0.72);
     }
 
+    .ad-banner {
+      flex: 0 0 auto;
+      margin-top: 8px;
+      min-height: 52px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 10px;
+      border: 1px solid rgba(184,247,255,0.20);
+      border-radius: 8px;
+      background:
+        linear-gradient(
+          90deg,
+          rgba(184,247,255,0.045),
+          rgba(255,255,255,0.018)
+        );
+      text-align: left;
+      color: rgba(255,255,255,0.76);
+    }
+
+    .ad-banner[hidden] { display: none; }
+
+    .ad-mark {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      color: rgba(184,247,255,0.38);
+      font-size: clamp(7px, 1.25vw, 9px);
+      letter-spacing: 0.08em;
+    }
+
+    .ad-copy { min-width: 0; }
+
+    .ad-kicker {
+      margin: 0 0 2px;
+      color: rgba(184,247,255,0.50);
+      font-size: clamp(8px, 1.45vw, 10px);
+      line-height: 1.2;
+    }
+
+    .ad-title {
+      margin: 0;
+      color: rgba(255,255,255,0.88);
+      font-size: clamp(10px, 1.85vw, 13px);
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ad-brand {
+      color: rgba(255,255,255,0.34);
+      font-size: clamp(8px, 1.35vw, 10px);
+      white-space: nowrap;
+    }
+
     #evolutionOverlay {
       z-index: 30;
       background: rgba(5, 8, 9, 0.97);
@@ -278,9 +334,17 @@
         <div id="reviewEmpty" class="empty" hidden></div>
         <p id="evolutionStatus" class="subtle"></p>
         <div class="review-actions">
-          <button id="continueButton" type="button">次のラウンドへ</button>
+          <button id="continueButton" type="button">次の人へ</button>
           <button id="compareButton" class="secondary-action" type="button" hidden>これまでの進化を見る</button>
         </div>
+        <aside id="adBanner" class="ad-banner" aria-label="作者からのお知らせ" hidden>
+          <span class="ad-mark">ADVERTISEMENT</span>
+          <div class="ad-copy">
+            <p class="ad-kicker">作者からのお知らせ</p>
+            <p class="ad-title">『光と闇の生き物図鑑』</p>
+          </div>
+          <span class="ad-brand">GANYU</span>
+        </aside>
       </div>
     </section>
 
@@ -346,6 +410,7 @@
   const evolutionStatus = document.getElementById('evolutionStatus');
   const continueButton = document.getElementById('continueButton');
   const compareButton = document.getElementById('compareButton');
+  const adBanner = document.getElementById('adBanner');
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
   const firstGenerationGrid = document.getElementById('firstGenerationGrid');
@@ -699,10 +764,16 @@
 
     const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
     if (isFinalRound) {
-      showSurvivorReview(state.allSurvivorIndices, true);
+      showSurvivorReview(state.allSurvivorIndices);
       sendEvolutionData();
     } else {
-      showSurvivorReview(roundSurvivors, false);
+      state.uiTransitionLocked = true;
+      state.currentRoundIndex += 1;
+
+      setTimeout(() => {
+        state.uiTransitionLocked = false;
+        startRound();
+      }, 250);
     }
   }
 
@@ -712,7 +783,7 @@
 
     if (indices.length === 0) {
       const label = String(speciesConfig.display_name_ja || '個体');
-      reviewEmpty.textContent = `このラウンドでは、すべての${label}が見つかりました。`;
+      reviewEmpty.textContent = `この世代では、すべての${label}が見つかりました。`;
       return;
     }
 
@@ -744,26 +815,19 @@
     evolutionOverlay.classList.add('visible');
   }
 
-  function showSurvivorReview(indices, finalRound) {
+  function showSurvivorReview(indices) {
     state.uiTransitionLocked = false;
     reviewGeneration.textContent = generationLabel();
     evolutionStatus.textContent = '';
     compareButton.hidden = true;
+    adBanner.hidden = true;
     renderSurvivors(indices);
 
-    if (finalRound) {
-      const label = String(speciesConfig.display_name_ja || '個体');
-      reviewTitle.textContent = `この世代を生き残った${label}`;
-      reviewMessage.textContent = 'この個体たちの生存結果から、次の世代をつくります。';
-      continueButton.textContent = '次世代を生成中…';
-      continueButton.disabled = true;
-    } else {
-      reviewTitle.textContent = `ROUND ${state.currentRoundIndex + 1} の生存者`;
-      const label = String(speciesConfig.display_name_ja || '個体');
-      reviewMessage.textContent = `あなたに見つからなかった${label}です。`;
-      continueButton.textContent = '次のラウンドへ';
-      continueButton.disabled = false;
-    }
+    const label = String(speciesConfig.display_name_ja || '個体');
+    reviewTitle.textContent = `この世代を生き残った${label}`;
+    reviewMessage.textContent = '5ラウンドが終了しました。この生存結果から次の世代をつくります。';
+    continueButton.textContent = '次世代を生成中…';
+    continueButton.disabled = true;
 
     reviewOverlay.classList.add('visible');
   }
@@ -810,6 +874,7 @@
         data.retry_same_generation
       ) {
         state.submitStatus = 'retry_generation';
+        adBanner.hidden = true;
         state.nextGenerationId = null;
 
         const survivorCount = Number(data.survivor_count || 0);
@@ -831,6 +896,7 @@
         data.error === 'generation_mismatch'
       ) {
         state.submitStatus = 'stale_generation';
+        adBanner.hidden = true;
         state.nextGenerationId = null;
 
         reviewTitle.textContent = '世代が更新されています';
@@ -852,6 +918,7 @@
         data.error === 'insufficient_storage'
       ) {
         state.submitStatus = 'failed';
+        adBanner.hidden = true;
         state.nextGenerationId = null;
 
         reviewTitle.textContent = 'スタッフにお知らせください';
@@ -876,6 +943,7 @@
 
       state.nextGenerationId = String(data.next_generation_id || '');
       state.submitStatus = 'success';
+      adBanner.hidden = false;
       evolutionStatus.textContent = `次の世代 ${state.nextGenerationId} が誕生しました。`;
       state.uiTransitionLocked = false;
       continueButton.textContent = '次の人へ';
@@ -884,6 +952,7 @@
 
     } catch (err) {
       state.submitStatus = 'failed';
+      adBanner.hidden = true;
       const message = err && err.name === 'AbortError'
         ? 'サーバー応答がタイムアウトしました'
         : (err.message || err);
@@ -948,16 +1017,9 @@
     if (state.uiTransitionLocked || continueButton.disabled) return;
     state.uiTransitionLocked = true;
 
-    const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
-
-    if (!isFinalRound) {
-      state.currentRoundIndex += 1;
-      startRound();
-      return;
-    }
-
     if (state.submitStatus === 'retry_generation') {
       reviewOverlay.classList.remove('visible');
+      adBanner.hidden = true;
       buildRounds();
       state.currentRoundIndex = 0;
       state.eatenIndices = new Set();
