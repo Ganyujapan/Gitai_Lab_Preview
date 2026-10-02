@@ -675,13 +675,22 @@
     ctx.textBaseline = 'middle';
 
     ctx.textAlign = 'left';
-    ctx.fillText(generationLabel(), 12, 18);
+    const hudMidY = CONFIG.HUD_BAR_HEIGHT / 2;
+    ctx.fillText(generationLabel(), 12, hudMidY);
 
     ctx.textAlign = 'left';
-    ctx.fillText(`ROUND ${state.currentRoundIndex + 1} / ${CONFIG.ROUND_LIMIT}`, 12, GAME_HEIGHT - 18);
+    ctx.fillText(
+      `ROUND ${state.currentRoundIndex + 1} / ${CONFIG.ROUND_LIMIT}`,
+      12,
+      GAME_HEIGHT - hudMidY
+    );
 
     ctx.textAlign = 'right';
-    ctx.fillText(`残り ${state.remainingSeconds} 秒`, GAME_WIDTH - 12, GAME_HEIGHT - 18);
+    ctx.fillText(
+      `残り ${state.remainingSeconds} 秒`,
+      GAME_WIDTH - 12,
+      GAME_HEIGHT - hudMidY
+    );
 
     ctx.restore();
   }
