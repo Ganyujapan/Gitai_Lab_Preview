@@ -19,6 +19,7 @@
   let currentGenerationId = 'gen00001';
   let currentObjectUrls = new Map();
   let mask = null;
+  let templateAlpha = null;
   const completedRuns = new Map();
 
   function baseUrl(path) {
@@ -333,17 +334,18 @@
   }
 
   function buildPairingPlan(parentIndices) {
-    const repeats = TOTAL / parentIndices.length;
-    const parentA = [];
-    for (const index of parentIndices) {
-      for (let r = 0; r < repeats; r += 1) parentA.push(index);
-    }
-    const shuffledA = shuffle(parentA);
-    return shuffledA.map((a, offset) => {
+    const parents = shuffle(parentIndices);
+    const plan = [];
+    for (let childIndex = 1; childIndex <= TOTAL; childIndex += 1) {
+      const a = parents[(childIndex - 1) % parents.length];
       const choices = parentIndices.filter((b) => b !== a);
       const b = choices[Math.floor(Math.random() * choices.length)];
-      return { childIndex: offset + 1, parentA: a, parentB: b };
-    });
+      plan.push({ childIndex, parentA: a, parentB: b });
+    }
+    return shuffle(plan).map((item, offset) => ({
+      ...item,
+      childIndex: offset + 1,
+    }));
   }
 
   function setPixelMirrored(data, x, y, rgba) {
@@ -710,14 +712,19 @@
     });
   }
 
+  function genomeKey(generationId, index) {
+    return `genome:${generationId}:${String(index).padStart(2, '0')}`;
+  }
+
   async function deleteGeneration(generationId) {
     if (!generationId || generationId === 'gen00001') return;
     for (let i = 1; i <= TOTAL; i += 1) {
       await idbDelete(IMAGE_STORE, imageKey(generationId, i));
+      await idbDelete(META_STORE, genomeKey(generationId, i));
     }
   }
 
-  async function evolveGeneration(generationId, eatenIndices) {
+  async function evolveGenerationLegacy(generationId, eatenIndices) {
     await ensureConfig();
     await ensureMask();
 
@@ -777,6 +784,511 @@
     currentGenerationId = nextId;
     await loadGeneratedGeneration(nextId);
     return nextId;
+  }
+
+
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, Number(value)));
+  }
+
+  function clamp(value, minValue, maxValue) {
+    return Math.max(minValue, Math.min(maxValue, Number(value)));
+  }
+
+  function generationNumber(generationId) {
+    const match = String(generationId || '').match(/(\d+)$/);
+    return match ? Number(match[1]) : 1;
+  }
+
+  function seededUnit(seed, salt) {
+    const x = Math.sin((seed + 1) * 12.9898 + salt * 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  function circularLerpDeg(a, b, t) {
+    let delta = ((Number(b) - Number(a) + 540) % 360) - 180;
+    return (Number(a) + delta * t + 360) % 360;
+  }
+
+  function inheritLinear(a, b) {
+    const lo = Math.min(Number(a), Number(b));
+    const hi = Math.max(Number(a), Number(b));
+    return lo + Math.random() * (hi - lo);
+  }
+
+  function mutateAllele(value, genetics) {
+    let allele = value ? 1 : 0;
+    if (
+      allele === 0
+      && Math.random() < Number(genetics.pattern_allele_gain_p || 0)
+    ) {
+      allele = 1;
+    } else if (
+      allele === 1
+      && Math.random() < Number(genetics.pattern_allele_loss_p || 0)
+    ) {
+      allele = 0;
+    }
+    return allele;
+  }
+
+  function locusExpression(locus, alleles) {
+    const dosage = Number(Boolean(alleles[0])) + Number(Boolean(alleles[1]));
+    if (locus.dominance === 'dominant') return dosage > 0 ? 1 : 0;
+    if (locus.dominance === 'recessive') return dosage === 2 ? 1 : 0;
+    return dosage / 2;
+  }
+
+  function defaultModuleParams(id, seed) {
+    const j = (salt, amount) => (seededUnit(seed, salt) * 2 - 1) * amount;
+    if (id === 'central_blotch') {
+      return {
+        cx: clamp(0.48 + j(1, 0.12), 0.20, 0.78),
+        cy: clamp(0.52 + j(2, 0.12), 0.25, 0.78),
+        rx: clamp(0.22 + j(3, 0.08), 0.08, 0.38),
+        ry: clamp(0.16 + j(4, 0.07), 0.06, 0.32),
+        valueEffect: clamp(-0.24 + j(5, 0.12), -0.45, 0.30),
+        hueEffect: j(6, 18),
+        saturationEffect: j(7, 0.10),
+        phase: seededUnit(seed, 8) * Math.PI * 2,
+      };
+    }
+    if (id === 'transverse_band') {
+      return {
+        cx: 0.50,
+        cy: clamp(0.50 + j(11, 0.16), 0.20, 0.80),
+        rx: 0.50,
+        ry: clamp(0.075 + j(12, 0.035), 0.035, 0.16),
+        valueEffect: clamp(-0.20 + j(13, 0.14), -0.45, 0.30),
+        hueEffect: j(14, 20),
+        saturationEffect: j(15, 0.11),
+        phase: seededUnit(seed, 16) * Math.PI * 2,
+      };
+    }
+    if (id === 'outer_edge') {
+      return {
+        cx: 0.14,
+        cy: 0.52,
+        rx: clamp(0.18 + j(21, 0.07), 0.07, 0.34),
+        ry: 0.48,
+        valueEffect: clamp(-0.18 + j(22, 0.12), -0.40, 0.28),
+        hueEffect: j(23, 16),
+        saturationEffect: j(24, 0.09),
+        phase: seededUnit(seed, 25) * Math.PI * 2,
+      };
+    }
+    return {
+      cx: clamp(0.48 + j(31, 0.18), 0.12, 0.85),
+      cy: clamp(0.50 + j(32, 0.18), 0.15, 0.85),
+      rx: clamp(0.30 + j(33, 0.10), 0.12, 0.48),
+      ry: clamp(0.30 + j(34, 0.10), 0.12, 0.48),
+      valueEffect: clamp(-0.16 + j(35, 0.14), -0.40, 0.30),
+      hueEffect: j(36, 22),
+      saturationEffect: j(37, 0.12),
+      phase: seededUnit(seed, 38) * Math.PI * 2,
+    };
+  }
+
+  async function ensureTemplateAlpha() {
+    if (templateAlpha) return templateAlpha;
+    const source = await parentImageData('gen00001', 1);
+    templateAlpha = new Uint8Array(SIZE * SIZE);
+    for (let i = 0; i < SIZE * SIZE; i += 1) {
+      templateAlpha[i] = source.data[i * 4 + 3];
+    }
+    return templateAlpha;
+  }
+
+  function inferGenomeFromImage(imageData, generationId, index) {
+    const genetics = evolutionConfig.trait_genetics || {};
+    let totalS = 0;
+    let totalV = 0;
+    let hueX = 0;
+    let hueY = 0;
+    let hueWeight = 0;
+    let count = 0;
+
+    for (let y = 0; y < SIZE; y += 1) {
+      for (let x = 0; x < HALF; x += 1) {
+        if (!mask[y * SIZE + x]) continue;
+        const [r, g, b, a] = getPixel(imageData.data, x, y);
+        if (a === 0) continue;
+        const [h, sat, value] = rgbToHsv(r, g, b);
+        totalS += sat;
+        totalV += value;
+        const weight = Math.max(0.001, sat);
+        hueX += Math.cos(h * Math.PI / 180) * weight;
+        hueY += Math.sin(h * Math.PI / 180) * weight;
+        hueWeight += weight;
+        count += 1;
+      }
+    }
+
+    const seed = generationNumber(generationId) * 1000 + index;
+    const meanS = count ? totalS / count : 0.02;
+    const meanV = count ? totalV / count : 0.96;
+    let meanH = (index * 137.507764 + generationNumber(generationId) * 17) % 360;
+    if (hueWeight > 0.02 && Math.hypot(hueX, hueY) > 0.01) {
+      meanH = (Math.atan2(hueY, hueX) * 180 / Math.PI + 360) % 360;
+    }
+
+    const modules = {};
+    for (const locus of genetics.pattern_loci || []) {
+      modules[locus.id] = {
+        alleles: [0, 0],
+        ...defaultModuleParams(locus.id, seed + modules.length),
+      };
+    }
+
+    return {
+      schema_version: 1,
+      baseHue: meanH,
+      baseSaturation: clamp(meanS, 0, 0.35),
+      baseValue: clamp(meanV, 0.15, 1),
+      patternContrast: 0.26,
+      textureStrength: 0.035,
+      textureSeed: seed,
+      modules,
+    };
+  }
+
+  async function loadGenomeOrInfer(generationId, index, imageData) {
+    const stored = await idbGet(META_STORE, genomeKey(generationId, index));
+    if (
+      stored
+      && typeof stored === 'object'
+      && Number(stored.schema_version) === 1
+    ) {
+      return stored;
+    }
+    const genome = inferGenomeFromImage(
+      imageData,
+      generationId,
+      index,
+    );
+    await idbPut(META_STORE, genomeKey(generationId, index), genome);
+    return genome;
+  }
+
+  function inheritModule(parentA, parentB, locus, genetics, childSeed) {
+    const a = parentA.modules[locus.id]
+      || { alleles: [0, 0], ...defaultModuleParams(locus.id, childSeed + 1) };
+    const b = parentB.modules[locus.id]
+      || { alleles: [0, 0], ...defaultModuleParams(locus.id, childSeed + 2) };
+
+    const alleleA = a.alleles[Math.floor(Math.random() * 2)] || 0;
+    const alleleB = b.alleles[Math.floor(Math.random() * 2)] || 0;
+    const module = {
+      alleles: [
+        mutateAllele(alleleA, genetics),
+        mutateAllele(alleleB, genetics),
+      ],
+      cx: inheritLinear(a.cx, b.cx),
+      cy: inheritLinear(a.cy, b.cy),
+      rx: inheritLinear(a.rx, b.rx),
+      ry: inheritLinear(a.ry, b.ry),
+      valueEffect: inheritLinear(a.valueEffect, b.valueEffect),
+      hueEffect: inheritLinear(a.hueEffect, b.hueEffect),
+      saturationEffect: inheritLinear(a.saturationEffect, b.saturationEffect),
+      phase: Math.random() < 0.5 ? Number(a.phase || 0) : Number(b.phase || 0),
+    };
+
+    if (
+      Math.random()
+      < Number(genetics.pattern_parameter_mutation_p || 0)
+    ) {
+      const posStep = Number(genetics.pattern_position_step || 0.03);
+      const sizeStep = Number(genetics.pattern_size_step || 0.03);
+      const effectStep = Number(genetics.pattern_effect_step || 0.03);
+      module.cx = clamp(module.cx + (Math.random() * 2 - 1) * posStep, 0.08, 0.92);
+      module.cy = clamp(module.cy + (Math.random() * 2 - 1) * posStep, 0.10, 0.90);
+      module.rx = clamp(module.rx + (Math.random() * 2 - 1) * sizeStep, 0.035, 0.50);
+      module.ry = clamp(module.ry + (Math.random() * 2 - 1) * sizeStep, 0.035, 0.50);
+      module.valueEffect = clamp(
+        module.valueEffect + (Math.random() * 2 - 1) * effectStep,
+        -0.55,
+        0.45,
+      );
+      module.hueEffect = clamp(
+        module.hueEffect + (Math.random() * 2 - 1) * effectStep * 120,
+        -60,
+        60,
+      );
+      module.saturationEffect = clamp(
+        module.saturationEffect + (Math.random() * 2 - 1) * effectStep,
+        -0.30,
+        0.30,
+      );
+    }
+
+    return module;
+  }
+
+  function makeChildGenome(parentA, parentB, childIndex, nextId) {
+    const genetics = evolutionConfig.trait_genetics || {};
+    const hueT = Math.random();
+    let baseHue = circularLerpDeg(parentA.baseHue, parentB.baseHue, hueT);
+    let baseSaturation = inheritLinear(
+      parentA.baseSaturation,
+      parentB.baseSaturation,
+    );
+    let baseValue = inheritLinear(parentA.baseValue, parentB.baseValue);
+    let patternContrast = inheritLinear(
+      parentA.patternContrast,
+      parentB.patternContrast,
+    );
+    let textureStrength = inheritLinear(
+      parentA.textureStrength,
+      parentB.textureStrength,
+    );
+
+    if (Math.random() < Number(genetics.base_hue_small_mutation_p || 0)) {
+      baseHue = (
+        baseHue
+        + (Math.random() * 2 - 1)
+        * Number(genetics.base_hue_small_mutation_deg || 0)
+        + 360
+      ) % 360;
+    }
+    if (Math.random() < Number(genetics.base_hue_global_mutation_p || 0)) {
+      baseHue = Math.random() * 360;
+    }
+    if (
+      Math.random()
+      < Number(genetics.base_saturation_mutation_p || 0)
+    ) {
+      baseSaturation = clamp01(
+        baseSaturation
+        + (Math.random() * 2 - 1)
+        * Number(genetics.base_saturation_mutation_step || 0),
+      );
+    }
+    if (
+      Math.random()
+      < Number(genetics.base_value_small_mutation_p || 0)
+    ) {
+      const delta = Number(genetics.base_value_small_scale_delta || 0);
+      baseValue = clamp01(
+        baseValue * (1 + (Math.random() * 2 - 1) * delta),
+      );
+    }
+    if (
+      Math.random()
+      < Number(genetics.base_value_global_mutation_p || 0)
+    ) {
+      const minV = Number(genetics.base_value_global_min ?? 0.15);
+      const maxV = Number(genetics.base_value_global_max ?? 0.92);
+      baseValue = minV + Math.random() * (maxV - minV);
+    }
+    if (
+      Math.random()
+      < Number(genetics.contrast_mutation_p || 0)
+    ) {
+      patternContrast = clamp(
+        patternContrast
+        + (Math.random() * 2 - 1)
+        * Number(genetics.contrast_mutation_step || 0),
+        0.02,
+        0.80,
+      );
+    }
+    if (
+      Math.random()
+      < Number(genetics.texture_mutation_p || 0)
+    ) {
+      textureStrength = clamp(
+        textureStrength
+        + (Math.random() * 2 - 1)
+        * Number(genetics.texture_mutation_step || 0),
+        0,
+        0.16,
+      );
+    }
+
+    const childSeed = generationNumber(nextId) * 1000 + childIndex;
+    const modules = {};
+    for (const locus of genetics.pattern_loci || []) {
+      modules[locus.id] = inheritModule(
+        parentA,
+        parentB,
+        locus,
+        genetics,
+        childSeed,
+      );
+    }
+
+    return {
+      schema_version: 1,
+      baseHue,
+      baseSaturation,
+      baseValue,
+      patternContrast,
+      textureStrength,
+      textureSeed: Math.random() < 0.5
+        ? Number(parentA.textureSeed || childSeed)
+        : Number(parentB.textureSeed || childSeed),
+      modules,
+    };
+  }
+
+  function moduleMaskValue(id, module, xNorm, yNorm, xPx, yPx) {
+    if (id === 'central_blotch') {
+      const dx = (xNorm - module.cx) / Math.max(0.02, module.rx);
+      const dy = (yNorm - module.cy) / Math.max(0.02, module.ry);
+      const d2 = dx * dx + dy * dy;
+      return d2 >= 1 ? 0 : Math.pow(1 - d2, 0.65);
+    }
+
+    if (id === 'transverse_band') {
+      const wave = 0.035 * Math.sin(xNorm * Math.PI * 2 + module.phase);
+      const center = module.cy + wave;
+      const distance = Math.abs(yNorm - center);
+      if (distance >= module.ry) return 0;
+      return 1 - distance / Math.max(0.01, module.ry);
+    }
+
+    if (id === 'outer_edge') {
+      const distance = Math.abs(xNorm - module.cx);
+      if (distance >= module.rx) return 0;
+      return Math.pow(1 - distance / Math.max(0.01, module.rx), 0.7);
+    }
+
+    const dx = (xNorm - module.cx) / Math.max(0.03, module.rx);
+    const dy = (yNorm - module.cy) / Math.max(0.03, module.ry);
+    if (dx * dx + dy * dy > 1) return 0;
+    const cellX = Math.floor(xPx / 4);
+    const cellY = Math.floor(yPx / 4);
+    const noise = seededUnit(
+      Number(module.phase || 0) * 1000 + cellX * 31 + cellY * 101,
+      41,
+    );
+    return noise > 0.62 ? (noise - 0.62) / 0.38 : 0;
+  }
+
+  function renderGenome(genome) {
+    const genetics = evolutionConfig.trait_genetics || {};
+    const child = new ImageData(SIZE, SIZE);
+
+    for (let y = 0; y < SIZE; y += 1) {
+      for (let x = 0; x < HALF; x += 1) {
+        if (!mask[y * SIZE + x]) continue;
+        const alpha = templateAlpha[y * SIZE + x] || 255;
+        const xNorm = x / Math.max(1, HALF - 1);
+        const yNorm = y / Math.max(1, SIZE - 1);
+
+        const smoothTexture =
+          0.55 * Math.sin(
+            x * 0.20
+            + y * 0.055
+            + Number(genome.textureSeed || 0) * 0.017
+          )
+          + 0.45 * Math.sin(
+            y * 0.145
+            - x * 0.035
+            + Number(genome.textureSeed || 0) * 0.031
+          );
+
+        let hue = Number(genome.baseHue);
+        let sat = Number(genome.baseSaturation);
+        let value = Number(genome.baseValue)
+          * (1 + smoothTexture * Number(genome.textureStrength || 0));
+
+        for (const locus of genetics.pattern_loci || []) {
+          const module = genome.modules[locus.id];
+          if (!module) continue;
+          const expression = locusExpression(locus, module.alleles || [0, 0]);
+          if (expression <= 0) continue;
+
+          const maskValue = moduleMaskValue(
+            locus.id,
+            module,
+            xNorm,
+            yNorm,
+            x,
+            y,
+          );
+          if (maskValue <= 0) continue;
+
+          const amount = expression
+            * Number(genome.patternContrast || 0)
+            * maskValue;
+          value += Number(module.valueEffect || 0) * amount;
+          sat += Number(module.saturationEffect || 0) * amount;
+          hue = (
+            hue + Number(module.hueEffect || 0) * amount + 360
+          ) % 360;
+        }
+
+        value = clamp01(value);
+        sat = clamp01(sat);
+        const [r, g, b] = hsvToRgb(hue, sat, value);
+        setPixelMirrored(child.data, x, y, [r, g, b, alpha]);
+      }
+    }
+
+    return child;
+  }
+
+  async function evolveGenerationByGenome(generationId, eatenIndices) {
+    await ensureConfig();
+    await ensureMask();
+    await ensureTemplateAlpha();
+
+    const parentIndices = selectParents(eatenIndices);
+    if (!parentIndices) return null;
+
+    const uniqueParents = [...new Set(parentIndices)];
+    const parentData = new Map();
+    const parentGenomes = new Map();
+
+    for (const index of uniqueParents) {
+      const imageData = await parentImageData(generationId, index);
+      parentData.set(index, imageData);
+      parentGenomes.set(
+        index,
+        await loadGenomeOrInfer(generationId, index, imageData),
+      );
+    }
+
+    const plan = buildPairingPlan(parentIndices);
+    const nextId = nextGenerationId(generationId);
+    const blobs = new Map();
+    const genomes = new Map();
+
+    for (const item of plan) {
+      const genome = makeChildGenome(
+        parentGenomes.get(item.parentA),
+        parentGenomes.get(item.parentB),
+        item.childIndex,
+        nextId,
+      );
+      const child = renderGenome(genome);
+      genomes.set(item.childIndex, genome);
+      blobs.set(item.childIndex, await imageDataToBlob(child));
+
+      if (item.childIndex % 8 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    for (const [index, blob] of blobs.entries()) {
+      await idbPut(IMAGE_STORE, imageKey(nextId, index), blob);
+      await idbPut(META_STORE, genomeKey(nextId, index), genomes.get(index));
+    }
+
+    await idbPut(META_STORE, 'current_generation_id', nextId);
+    await deleteGeneration(generationId);
+
+    currentGenerationId = nextId;
+    await loadGeneratedGeneration(nextId);
+    return nextId;
+  }
+
+  async function evolveGeneration(generationId, eatenIndices) {
+    if (evolutionConfig?.inheritance === 'trait_genotype_v1') {
+      return evolveGenerationByGenome(generationId, eatenIndices);
+    }
+    return evolveGenerationLegacy(generationId, eatenIndices);
   }
 
   async function apiFetch(input, init = {}) {
