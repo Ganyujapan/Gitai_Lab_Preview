@@ -6,7 +6,7 @@
   "game": {
     "rounds_per_generation": 5,
     "individuals_per_round": 12,
-    "round_time_ms": 3000,
+    "round_time_ms": 4000,
     "display_size_px": 38,
     "display_y_max_px": 564,
     "inter_round_delay_ms": 250,
