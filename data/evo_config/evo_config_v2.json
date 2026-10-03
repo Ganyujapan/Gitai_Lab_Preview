@@ -45,5 +45,8 @@
     }
   ],
   "p_global_hue_mutation": 0.003,
-  "global_hue_min_saturation": 0.15
+  "global_hue_min_saturation": 0.15,
+  "p_global_value_mutation": 0.003,
+  "global_value_mean_min": 0.35,
+  "global_value_mean_max": 0.9
 }
