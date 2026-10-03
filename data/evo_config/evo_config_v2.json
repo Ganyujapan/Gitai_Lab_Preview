@@ -1,5 +1,5 @@
 {
-  "config_id": "evo_preview_solo_v13",
+  "config_id": "evo_preview_solo_v14",
   "engine_version": 3,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
@@ -18,13 +18,13 @@
     "base_value_global_mutation_p": 0.016,
     "base_value_global_min": 0.15,
     "base_value_global_max": 0.92,
-    "contrast_mutation_p": 0.08,
+    "contrast_mutation_p": 0.12,
     "contrast_mutation_step": 0.05,
     "texture_mutation_p": 0.1,
     "texture_mutation_step": 0.015,
-    "pattern_allele_gain_p": 0.006,
+    "pattern_allele_gain_p": 0.012,
     "pattern_allele_loss_p": 0.001,
-    "pattern_parameter_mutation_p": 0.12,
+    "pattern_parameter_mutation_p": 0.16,
     "pattern_position_step": 0.035,
     "pattern_size_step": 0.03,
     "pattern_effect_step": 0.035,
@@ -54,5 +54,13 @@
     "patch_count_max": 2,
     "patch_radius_min": 3,
     "patch_radius_max": 9
+  },
+  "founder_model": {
+    "generation_1": "offspring_of_two_pure_white_founders",
+    "founder_base_hue": 0,
+    "founder_base_saturation": 0,
+    "founder_base_value": 1,
+    "founder_pattern_contrast": 0.32,
+    "founder_texture_strength": 0
   }
 }
