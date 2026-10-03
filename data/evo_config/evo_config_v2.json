@@ -1,33 +1,39 @@
 {
-  "config_id": "evo_preview_solo_v14",
-  "engine_version": 3,
+  "config_id": "evo_preview_solo_v15",
+  "engine_version": 4,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
-  "inheritance": "trait_genotype_v1",
-  "parent_pool_size": 8,
+  "inheritance": "trait_procedural_genotype_v2",
   "parent_shortfall_policy": "repeat_survivors",
   "minimum_survivors_for_reproduction": 2,
   "trait_genetics": {
-    "base_hue_small_mutation_p": 0.08,
-    "base_hue_small_mutation_deg": 10,
-    "base_hue_global_mutation_p": 0.003,
-    "base_saturation_mutation_p": 0.07,
-    "base_saturation_mutation_step": 0.06,
-    "base_value_small_mutation_p": 0.04,
-    "base_value_small_scale_delta": 0.24,
-    "base_value_global_mutation_p": 0.016,
-    "base_value_global_min": 0.15,
-    "base_value_global_max": 0.92,
-    "contrast_mutation_p": 0.12,
-    "contrast_mutation_step": 0.05,
-    "texture_mutation_p": 0.1,
-    "texture_mutation_step": 0.015,
-    "pattern_allele_gain_p": 0.012,
-    "pattern_allele_loss_p": 0.001,
-    "pattern_parameter_mutation_p": 0.16,
-    "pattern_position_step": 0.035,
-    "pattern_size_step": 0.03,
-    "pattern_effect_step": 0.035,
+    "base_hue_small_mutation_p": 0.2,
+    "base_hue_small_mutation_deg": 14,
+    "base_hue_global_mutation_p": 0.01,
+    "base_saturation_mutation_p": 0.2,
+    "base_saturation_mutation_step": 0.1,
+    "pigment_expression_p": 0.02,
+    "pigment_expression_saturation_min": 0.08,
+    "pigment_expression_saturation_max": 0.25,
+    "base_value_small_mutation_p": 0.1,
+    "base_value_small_scale_delta": 0.16,
+    "base_value_global_mutation_p": 0.018,
+    "base_value_global_min": 0.1,
+    "base_value_global_max": 0.95,
+    "contrast_mutation_p": 0.2,
+    "contrast_mutation_step": 0.08,
+    "texture_mutation_p": 0.2,
+    "texture_mutation_step": 0.02,
+    "pattern_birth_p_per_child": 0.05,
+    "pattern_birth_contrast_floor": 0.4,
+    "pattern_allele_loss_p": 0.006,
+    "pattern_parameter_mutation_p": 0.25,
+    "pattern_position_step": 0.025,
+    "pattern_size_step": 0.04,
+    "pattern_effect_step": 0.04,
+    "pattern_angle_step_deg": 10,
+    "pattern_frequency_step": 0.35,
+    "pattern_roughness_step": 0.08,
     "pattern_loci": [
       {
         "id": "central_blotch",
@@ -35,7 +41,7 @@
       },
       {
         "id": "transverse_band",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "outer_edge",
@@ -44,6 +50,22 @@
       {
         "id": "speckle_cluster",
         "dominance": "recessive"
+      },
+      {
+        "id": "longitudinal_streaks",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "cloud_mottle",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "ring_spots",
+        "dominance": "recessive"
+      },
+      {
+        "id": "diagonal_streak",
+        "dominance": "dominant"
       }
     ]
   },
@@ -60,7 +82,15 @@
     "founder_base_hue": 0,
     "founder_base_saturation": 0,
     "founder_base_value": 1,
-    "founder_pattern_contrast": 0.32,
+    "founder_pattern_contrast": 0.44,
     "founder_texture_strength": 0
+  },
+  "parent_selection": "all_survivors",
+  "design_targets": {
+    "visible_change_children_per_generation": "5-10",
+    "visible_lineage_change_generations": "3-5",
+    "lineage_structure_generations": "5-10",
+    "background_convergence_generations": "20-40",
+    "target_predation_rate": "0.40-0.60"
   }
 }
