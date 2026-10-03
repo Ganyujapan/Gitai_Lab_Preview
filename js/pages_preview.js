@@ -623,6 +623,59 @@
     return true;
   }
 
+  function applyGlobalValueMutation(data, coords) {
+    const probability = Number(
+      evolutionConfig.p_global_value_mutation || 0
+    );
+    if (probability <= 0 || Math.random() >= probability) {
+      return false;
+    }
+
+    const minMean = Math.max(
+      0,
+      Math.min(
+        1,
+        Number(evolutionConfig.global_value_mean_min ?? 0.35),
+      ),
+    );
+    const maxMean = Math.max(
+      minMean,
+      Math.min(
+        1,
+        Number(evolutionConfig.global_value_mean_max ?? 0.90),
+      ),
+    );
+
+    let totalValue = 0;
+    let pixelCount = 0;
+    for (const [x, y] of coords) {
+      const [r, g, b, a] = getPixel(data, x, y);
+      if (a === 0) continue;
+      totalValue += rgbToHsv(r, g, b)[2];
+      pixelCount += 1;
+    }
+    if (!pixelCount) return false;
+
+    const currentMean = totalValue / pixelCount;
+    const targetMean = minMean + Math.random() * (maxMean - minMean);
+    const valueDelta = targetMean - currentMean;
+
+    for (const [x, y] of coords) {
+      const [r, g, b, a] = getPixel(data, x, y);
+      if (a === 0) continue;
+
+      const [h, sat, value] = rgbToHsv(r, g, b);
+      const newValue = Math.max(
+        0,
+        Math.min(1, value + valueDelta),
+      );
+      const [nr, ng, nb] = hsvToRgb(h, sat, newValue);
+      setPixelMirrored(data, x, y, [nr, ng, nb, a]);
+    }
+
+    return true;
+  }
+
   function imageDataToBlob(imageData) {
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
@@ -686,6 +739,7 @@
       applyPatchMutation(child.data, mask, coords, micro);
       applyMacroMutation(child.data, mask, coords, micro);
       applyGlobalHueMutation(child.data, coords);
+      applyGlobalValueMutation(child.data, coords);
       blobs.set(item.childIndex, await imageDataToBlob(child));
 
       if (item.childIndex % 8 === 0) {
