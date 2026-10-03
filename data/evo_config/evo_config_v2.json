@@ -1,5 +1,5 @@
 {
-  "config_id": "evo_preview_solo_v8",
+  "config_id": "evo_preview_solo_v9",
   "engine_version": 2,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
@@ -13,7 +13,7 @@
   "delta_h_deg": 18,
   "delta_s": 0.24,
   "delta_v": 0.22,
-  "p_patch_given_mut": 0.32,
+  "p_patch_given_mut": 0.16,
   "patch_count_min": 1,
   "patch_count_max": 3,
   "patch_radius_min": 3,
