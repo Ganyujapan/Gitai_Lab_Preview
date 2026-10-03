@@ -7,7 +7,7 @@
   "parent_pool_size": 12,
   "parent_shortfall_policy": "repeat_survivors",
   "minimum_survivors_for_reproduction": 2,
-  "p_mut_individual": 0.92,
+  "p_mut_individual": 0.88,
   "k_min": 48,
   "k_max": 160,
   "delta_h_deg": 18,
@@ -20,22 +20,22 @@
   "patch_radius_max": 12,
   "patch_delta_h_deg": 24,
   "patch_delta_s": 0.28,
-  "patch_delta_v": 0.38,
-  "p_macro_given_mut": 0.14,
+  "patch_delta_v": 0.28,
+  "p_macro_given_mut": 0.1,
   "macro_modes": [
     {
       "mode": "hue_shift_small",
-      "p": 0.25,
+      "p": 0.35,
       "shift_deg": 24
     },
     {
       "mode": "saturation_shift_small",
-      "p": 0.2,
+      "p": 0.25,
       "shift": 0.22
     },
     {
       "mode": "value_shift_small",
-      "p": 0.4,
+      "p": 0.25,
       "shift": 0.3
     },
     {
