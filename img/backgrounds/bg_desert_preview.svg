@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1736" viewBox="0 0 1024 1736" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sandBase" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b88952"/>
+      <stop offset=".26" stop-color="#d0a66f"/>
+      <stop offset=".52" stop-color="#b98b57"/>
+      <stop offset=".78" stop-color="#d8b47c"/>
+      <stop offset="1" stop-color="#a97a49"/>
+    </linearGradient>
+
+    <radialGradient id="lightPatch" cx="52%" cy="44%" r="72%">
+      <stop offset="0" stop-color="#efd3a0" stop-opacity=".34"/>
+      <stop offset=".48" stop-color="#d2a875" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#6f4b31" stop-opacity=".22"/>
+    </radialGradient>
+
+    <filter id="sandNoise" x="-15%" y="-15%" width="130%" height="130%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.095" numOctaves="4" seed="47"/>
+      <feColorMatrix type="matrix" values="
+        0.35 0 0 0 0.42
+        0 0.28 0 0 0.28
+        0 0 0.19 0 0.14
+        0 0 0 0.62 0"/>
+      <feComponentTransfer>
+        <feFuncR type="gamma" amplitude="1.05" exponent="1.2" offset="0"/>
+        <feFuncG type="gamma" amplitude="1.00" exponent="1.25" offset="0"/>
+        <feFuncB type="gamma" amplitude=".92" exponent="1.35" offset="0"/>
+      </feComponentTransfer>
+    </filter>
+
+    <filter id="fineGrain" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="turbulence" baseFrequency="0.32" numOctaves="2" seed="91"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 .18"/>
+      </feComponentTransfer>
+    </filter>
+
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1736" fill="url(#sandBase)"/>
+  <rect width="1024" height="1736" fill="url(#lightPatch)"/>
+  <rect x="-30" y="-30" width="1084" height="1796" filter="url(#sandNoise)" opacity=".48"/>
+
+  <!-- broad wind-shaped tonal bands -->
+  <g fill="none" stroke-linecap="round" opacity=".22" filter="url(#soft)">
+    <path d="M-100 210 C170 130 420 300 720 210 S1110 180 1170 265" stroke="#f1d5a1" stroke-width="34"/>
+    <path d="M-120 430 C190 360 380 520 690 438 S1050 390 1160 470" stroke="#8f603b" stroke-width="28"/>
+    <path d="M-100 690 C185 610 440 785 760 685 S1090 650 1160 730" stroke="#edc890" stroke-width="31"/>
+    <path d="M-120 980 C210 900 425 1080 760 975 S1090 940 1160 1010" stroke="#8f6241" stroke-width="26"/>
+    <path d="M-120 1280 C185 1210 420 1375 735 1280 S1080 1235 1160 1325" stroke="#e8c38d" stroke-width="32"/>
+    <path d="M-110 1530 C215 1450 445 1630 775 1520 S1080 1490 1160 1560" stroke="#8d5e3d" stroke-width="24"/>
+  </g>
+
+  <!-- finer wind ripples -->
+  <g fill="none" stroke-linecap="round" opacity=".20">
+    <path d="M-40 150 C180 102 360 210 590 156 S860 106 1080 168" stroke="#f7ddb0" stroke-width="6"/>
+    <path d="M-45 184 C190 138 355 238 605 188 S870 144 1080 198" stroke="#93643f" stroke-width="4"/>
+    <path d="M-40 565 C170 515 390 620 635 558 S860 522 1080 578" stroke="#f3d59f" stroke-width="6"/>
+    <path d="M-40 603 C190 552 395 663 645 602 S870 560 1080 622" stroke="#966743" stroke-width="4"/>
+    <path d="M-40 845 C170 792 385 902 625 843 S860 805 1080 865" stroke="#f5d9a8" stroke-width="6"/>
+    <path d="M-40 885 C180 834 390 944 640 884 S870 845 1080 905" stroke="#94623f" stroke-width="4"/>
+    <path d="M-40 1165 C170 1112 385 1224 630 1165 S855 1122 1080 1184" stroke="#f3d29a" stroke-width="6"/>
+    <path d="M-40 1205 C175 1153 390 1262 640 1203 S865 1160 1080 1224" stroke="#91603d" stroke-width="4"/>
+    <path d="M-40 1450 C180 1398 390 1508 640 1450 S870 1408 1080 1470" stroke="#f5d9a6" stroke-width="6"/>
+    <path d="M-40 1490 C180 1438 390 1548 650 1490 S875 1448 1080 1510" stroke="#94633f" stroke-width="4"/>
+  </g>
+
+  <!-- scattered pebbles / darker grains -->
+  <g opacity=".28">
+    <ellipse cx="96" cy="338" rx="8" ry="4" fill="#6f4a30"/>
+    <ellipse cx="245" cy="270" rx="5" ry="3" fill="#e8c58f"/>
+    <ellipse cx="814" cy="355" rx="7" ry="4" fill="#765034"/>
+    <ellipse cx="902" cy="778" rx="9" ry="5" fill="#6b472e"/>
+    <ellipse cx="155" cy="912" rx="6" ry="4" fill="#efd19d"/>
+    <ellipse cx="420" cy="1098" rx="9" ry="4" fill="#765034"/>
+    <ellipse cx="762" cy="1260" rx="6" ry="3" fill="#efd09b"/>
+    <ellipse cx="300" cy="1455" rx="8" ry="4" fill="#714b31"/>
+    <ellipse cx="918" cy="1588" rx="7" ry="4" fill="#7c5235"/>
+  </g>
+
+  <rect width="1024" height="1736" filter="url(#fineGrain)" opacity=".23"/>
+</svg>
