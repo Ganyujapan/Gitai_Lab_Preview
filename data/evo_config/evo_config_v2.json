@@ -1,5 +1,5 @@
 {
-  "config_id": "evo_preview_solo_v7",
+  "config_id": "evo_preview_solo_v8",
   "engine_version": 2,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
@@ -12,7 +12,7 @@
   "k_max": 160,
   "delta_h_deg": 18,
   "delta_s": 0.24,
-  "delta_v": 0.3,
+  "delta_v": 0.22,
   "p_patch_given_mut": 0.32,
   "patch_count_min": 1,
   "patch_count_max": 3,
@@ -36,17 +36,18 @@
     {
       "mode": "value_shift_small",
       "p": 0.25,
-      "shift": 0.3
+      "scale_delta": 0.18
     },
     {
-      "mode": "contrast_boost",
+      "mode": "contrast_shift_small",
       "p": 0.15,
-      "strength": 1.25
+      "strength_delta": 0.06
     }
   ],
   "p_global_hue_mutation": 0.003,
   "global_hue_min_saturation": 0.15,
   "p_global_value_mutation": 0.006,
   "global_value_mean_min": 0.35,
-  "global_value_mean_max": 0.9
+  "global_value_mean_max": 0.9,
+  "global_value_mode": "multiplicative_mean_target"
 }
