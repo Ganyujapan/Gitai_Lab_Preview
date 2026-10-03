@@ -1,6 +1,6 @@
 {
-  "config_id": "evo_preview_solo_v18",
-  "engine_version": 7,
+  "config_id": "evo_preview_solo_v19",
+  "engine_version": 8,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
   "inheritance": "trait_procedural_genotype_v2",
@@ -79,7 +79,10 @@
     "pattern_pigment_saturation_step": 0.05,
     "pattern_pigment_global_hue_mutation_p": 0.012,
     "pattern_pigment_global_min_jump_deg": 70,
-    "pattern_pigment_global_max_jump_deg": 180
+    "pattern_pigment_global_max_jump_deg": 180,
+    "base_value_dark_bias_p": 0.15,
+    "base_value_dark_min": 0.1,
+    "base_value_dark_max": 0.28
   },
   "legacy_reference": {
     "note": "v12 image-level mutation settings retained only as historical reference; trait_genotype_v1 does not use them.",
@@ -108,13 +111,14 @@
     "target_predation_rate": "0.40-0.60",
     "color_goal": "preserve_multiple_hue_lineages_until_visual_selection acts",
     "pattern_goal": "new coherent pattern variants should remain visibly distinct",
-    "brightness_goal": "unchanged from v15/v16",
+    "brightness_goal": "keep v15-v18 brightness behavior except for mild dark-tail enrichment",
     "round_time_goal": "4 seconds unchanged",
     "color_phase_goal": "brightness should usually converge before visible hue/saturation",
     "saturation_goal": "muted moth-like body colors; avoid neon/high-chroma convergence",
     "major_color_mutation_goal": "large hue mutations preserve value and saturation and jump far enough to reopen hue space",
     "pattern_color_goal": "patterns may carry heritable local pigment color independent of body ground color",
-    "comparison_preview_goal": "moths are shown on the actual game background for visual camouflage comparison"
+    "comparison_preview_goal": "moths are shown on the actual game background for visual camouflage comparison",
+    "black_mutation_goal": "a conspicuously dark mutant should appear somewhat earlier/often while preserving brightness-first convergence"
   },
   "color_inheritance": "single_parent_haplotype"
 }
