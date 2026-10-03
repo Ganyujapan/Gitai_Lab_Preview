@@ -1,53 +1,58 @@
 {
-  "config_id": "evo_preview_solo_v12",
-  "engine_version": 2,
+  "config_id": "evo_preview_solo_v13",
+  "engine_version": 3,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
-  "inheritance": "pixelwise_50_50",
-  "parent_pool_size": 12,
+  "inheritance": "trait_genotype_v1",
+  "parent_pool_size": 8,
   "parent_shortfall_policy": "repeat_survivors",
   "minimum_survivors_for_reproduction": 2,
-  "p_mut_individual": 0.88,
-  "k_min": 48,
-  "k_max": 160,
-  "delta_h_deg": 18,
-  "delta_s": 0.24,
-  "delta_v": 0.22,
-  "p_patch_given_mut": 0.08,
-  "patch_count_min": 1,
-  "patch_count_max": 2,
-  "patch_radius_min": 3,
-  "patch_radius_max": 9,
-  "patch_delta_h_deg": 18,
-  "patch_delta_s": 0.2,
-  "patch_delta_v": 0.2,
-  "p_macro_given_mut": 0.1,
-  "macro_modes": [
-    {
-      "mode": "hue_shift_small",
-      "p": 0.3,
-      "shift_deg": 24
-    },
-    {
-      "mode": "saturation_shift_small",
-      "p": 0.2,
-      "shift": 0.22
-    },
-    {
-      "mode": "value_shift_small",
-      "p": 0.35,
-      "scale_delta": 0.24
-    },
-    {
-      "mode": "contrast_shift_small",
-      "p": 0.15,
-      "strength_delta": 0.06
-    }
-  ],
-  "p_global_hue_mutation": 0.003,
-  "global_hue_min_saturation": 0.15,
-  "p_global_value_mutation": 0.012,
-  "global_value_mean_min": 0.25,
-  "global_value_mean_max": 0.92,
-  "global_value_mode": "multiplicative_mean_target"
+  "trait_genetics": {
+    "base_hue_small_mutation_p": 0.08,
+    "base_hue_small_mutation_deg": 10,
+    "base_hue_global_mutation_p": 0.003,
+    "base_saturation_mutation_p": 0.07,
+    "base_saturation_mutation_step": 0.06,
+    "base_value_small_mutation_p": 0.04,
+    "base_value_small_scale_delta": 0.24,
+    "base_value_global_mutation_p": 0.016,
+    "base_value_global_min": 0.15,
+    "base_value_global_max": 0.92,
+    "contrast_mutation_p": 0.08,
+    "contrast_mutation_step": 0.05,
+    "texture_mutation_p": 0.1,
+    "texture_mutation_step": 0.015,
+    "pattern_allele_gain_p": 0.006,
+    "pattern_allele_loss_p": 0.001,
+    "pattern_parameter_mutation_p": 0.12,
+    "pattern_position_step": 0.035,
+    "pattern_size_step": 0.03,
+    "pattern_effect_step": 0.035,
+    "pattern_loci": [
+      {
+        "id": "central_blotch",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "transverse_band",
+        "dominance": "dominant"
+      },
+      {
+        "id": "outer_edge",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "speckle_cluster",
+        "dominance": "recessive"
+      }
+    ]
+  },
+  "legacy_reference": {
+    "note": "v12 image-level mutation settings retained only as historical reference; trait_genotype_v1 does not use them.",
+    "p_patch_given_mut": 0.08,
+    "patch_count_min": 1,
+    "patch_count_max": 2,
+    "patch_radius_min": 3,
+    "patch_radius_max": 9
+  }
 }
