@@ -943,7 +943,7 @@
     return {
       schema_version: 1,
       baseHue: meanH,
-      baseSaturation: clamp(meanS, 0, 0.35),
+      baseSaturation: clamp01(meanS),
       baseValue: clamp(meanV, 0.15, 1),
       patternContrast: 0.26,
       textureStrength: 0.035,
