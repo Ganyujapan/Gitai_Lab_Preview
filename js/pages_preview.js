@@ -933,12 +933,12 @@
     }
 
     const modules = {};
-    for (const locus of genetics.pattern_loci || []) {
+    (genetics.pattern_loci || []).forEach((locus, locusIndex) => {
       modules[locus.id] = {
         alleles: [0, 0],
-        ...defaultModuleParams(locus.id, seed + modules.length),
+        ...defaultModuleParams(locus.id, seed + locusIndex),
       };
-    }
+    });
 
     return {
       schema_version: 1,
