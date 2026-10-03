@@ -504,7 +504,10 @@
     const selected = chooseMacroMode();
     const mode = selected.mode;
 
-    if (mode === 'contrast_boost') {
+    if (
+      mode === 'contrast_shift_small'
+      || mode === 'contrast_boost'
+    ) {
       const values = [];
       for (const [x, y] of coords) {
         const [r, g, b, a] = getPixel(data, x, y);
@@ -514,13 +517,27 @@
       const mean = values.length
         ? values.reduce((sum, v) => sum + v, 0) / values.length
         : 0.5;
-      const strength = Number(selected.strength || 1.25);
+
+      let strength;
+      if (mode === 'contrast_shift_small') {
+        const delta = Math.max(
+          0,
+          Number(selected.strength_delta || 0.06),
+        );
+        strength = 1 + (Math.random() * 2 - 1) * delta;
+      } else {
+        strength = Number(selected.strength || 1.25);
+      }
+
       for (const [x, y] of coords) {
         const [r, g, b, a] = getPixel(data, x, y);
         if (a === 0) continue;
-        let [h, s, v] = rgbToHsv(r, g, b);
-        v = mean + (v - mean) * strength;
-        const [nr, ng, nb] = hsvToRgb(h, s, v);
+        const [h, sat, value] = rgbToHsv(r, g, b);
+        const shiftedValue = Math.max(
+          0,
+          Math.min(1, mean + (value - mean) * strength),
+        );
+        const [nr, ng, nb] = hsvToRgb(h, sat, shiftedValue);
         setPixelMirrored(data, x, y, [nr, ng, nb, a]);
       }
       return;
@@ -528,7 +545,7 @@
 
     let hueShift = 0;
     let saturationShift = 0;
-    let valueShift = 0;
+    let valueScale = 1;
     const achromaticHue = Math.random() * 360;
 
     if (mode === 'melanism_darkening') {
@@ -562,8 +579,11 @@
       saturationShift =
         (Math.random() * 2 - 1) * Number(selected.shift || 0.12);
     } else if (mode === 'value_shift_small') {
-      valueShift =
-        (Math.random() * 2 - 1) * Number(selected.shift || 0.12);
+      const scaleDelta = Math.max(
+        0,
+        Number(selected.scale_delta ?? selected.shift ?? 0.12),
+      );
+      valueScale = 1 + (Math.random() * 2 - 1) * scaleDelta;
     } else {
       return;
     }
@@ -573,7 +593,7 @@
       if (a === 0) continue;
       let [h, s, v] = rgbToHsv(r, g, b);
       const newS = Math.max(0, Math.min(1, s + saturationShift));
-      const newV = Math.max(0, Math.min(1, v + valueShift));
+      const newV = Math.max(0, Math.min(1, v * valueScale));
 
       if (
         mode === 'saturation_shift_small'
@@ -658,7 +678,7 @@
 
     const currentMean = totalValue / pixelCount;
     const targetMean = minMean + Math.random() * (maxMean - minMean);
-    const valueDelta = targetMean - currentMean;
+    const valueScale = targetMean / Math.max(currentMean, 1e-6);
 
     for (const [x, y] of coords) {
       const [r, g, b, a] = getPixel(data, x, y);
@@ -667,7 +687,7 @@
       const [h, sat, value] = rgbToHsv(r, g, b);
       const newValue = Math.max(
         0,
-        Math.min(1, value + valueDelta),
+        Math.min(1, value * valueScale),
       );
       const [nr, ng, nb] = hsvToRgb(h, sat, newValue);
       setPixelMirrored(data, x, y, [nr, ng, nb, a]);
