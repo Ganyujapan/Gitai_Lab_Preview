@@ -131,7 +131,6 @@
 
   async function loadGeneratedGeneration(generationId) {
     releaseObjectUrls();
-    if (generationId === 'gen00001') return true;
 
     const loaded = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
@@ -191,21 +190,38 @@
       currentGenerationId = stored;
     }
 
-    const loaded = await loadGeneratedGeneration(currentGenerationId);
+    if (
+      evolutionConfig?.inheritance === 'trait_genotype_v1'
+      && currentGenerationId === 'gen00001'
+    ) {
+      await ensureFounderGeneration();
+    }
+
+    let loaded = await loadGeneratedGeneration(currentGenerationId);
     if (!loaded) {
       currentGenerationId = 'gen00001';
+      if (evolutionConfig?.inheritance === 'trait_genotype_v1') {
+        await ensureFounderGeneration();
+      }
       await idbPut(META_STORE, 'current_generation_id', currentGenerationId);
-      await loadGeneratedGeneration(currentGenerationId);
+      loaded = await loadGeneratedGeneration(currentGenerationId);
+    }
+
+    if (!loaded) {
+      throw new Error('第1世代の生成に失敗しました');
     }
   }
 
   function resolveAsset(generationId, index, fallbackPath) {
+    const generated = currentObjectUrls.get(imageKey(generationId, index));
+    if (generated) return generated;
+
     if (generationId === 'gen00001') {
       const embedded = window.GitaiGen1Images
         && window.GitaiGen1Images[index];
       return embedded || fallbackPath;
     }
-    return currentObjectUrls.get(imageKey(generationId, index)) || fallbackPath;
+    return fallbackPath;
   }
 
   function shuffle(values) {
@@ -891,7 +907,16 @@
 
   async function ensureTemplateAlpha() {
     if (templateAlpha) return templateAlpha;
-    const source = await parentImageData('gen00001', 1);
+
+    const embedded = window.GitaiGen1Images
+      && window.GitaiGen1Images[1];
+    const fallback = speciesConfig.image.asset_template
+      .replaceAll('{generation_id}', 'gen00001')
+      .replaceAll('{index_2d}', '01')
+      .replaceAll('{index}', '1');
+    const sourceUrl = embedded || baseUrl(fallback);
+    const source = await loadImageDataFromUrl(sourceUrl);
+
     templateAlpha = new Uint8Array(SIZE * SIZE);
     for (let i = 0; i < SIZE * SIZE; i += 1) {
       templateAlpha[i] = source.data[i * 4 + 3];
@@ -1092,6 +1117,7 @@
         0.80,
       );
     }
+    let textureMutated = false;
     if (
       Math.random()
       < Number(genetics.texture_mutation_p || 0)
@@ -1103,6 +1129,7 @@
         0,
         0.16,
       );
+      textureMutated = true;
     }
 
     const childSeed = generationNumber(nextId) * 1000 + childIndex;
@@ -1124,11 +1151,101 @@
       baseValue,
       patternContrast,
       textureStrength,
-      textureSeed: Math.random() < 0.5
-        ? Number(parentA.textureSeed || childSeed)
-        : Number(parentB.textureSeed || childSeed),
+      textureSeed: textureMutated
+        ? childSeed
+        : (
+          Math.random() < 0.5
+            ? Number(parentA.textureSeed || childSeed)
+            : Number(parentB.textureSeed || childSeed)
+        ),
       modules,
     };
+  }
+
+  function makePureWhiteFounderGenome(founderIndex) {
+    const genetics = evolutionConfig.trait_genetics || {};
+    const founder = evolutionConfig.founder_model || {};
+    const seed = 100 + founderIndex;
+    const modules = {};
+
+    for (const locus of genetics.pattern_loci || []) {
+      modules[locus.id] = {
+        alleles: [0, 0],
+        ...defaultModuleParams(locus.id, seed),
+      };
+    }
+
+    return {
+      schema_version: 1,
+      baseHue: Number(founder.founder_base_hue ?? 0),
+      baseSaturation: Number(founder.founder_base_saturation ?? 0),
+      baseValue: Number(founder.founder_base_value ?? 1),
+      patternContrast: Number(
+        founder.founder_pattern_contrast ?? 0.32
+      ),
+      textureStrength: Number(
+        founder.founder_texture_strength ?? 0
+      ),
+      textureSeed: seed,
+      modules,
+    };
+  }
+
+  async function ensureFounderGeneration() {
+    await ensureConfig();
+    await ensureMask();
+    await ensureTemplateAlpha();
+
+    const markerKey = 'founder_generation_config_id';
+    const expectedMarker = String(evolutionConfig.config_id || 'unknown');
+    const storedMarker = await idbGet(META_STORE, markerKey);
+
+    if (storedMarker === expectedMarker) {
+      const first = await idbGet(
+        IMAGE_STORE,
+        imageKey('gen00001', 1),
+      );
+      const last = await idbGet(
+        IMAGE_STORE,
+        imageKey('gen00001', TOTAL),
+      );
+      if (first instanceof Blob && last instanceof Blob) {
+        return true;
+      }
+    }
+
+    const founderA = makePureWhiteFounderGenome(1);
+    const founderB = makePureWhiteFounderGenome(2);
+
+    for (let i = 1; i <= TOTAL; i += 1) {
+      const genome = makeChildGenome(
+        founderA,
+        founderB,
+        i,
+        'gen00001',
+      );
+      const imageData = renderGenome(genome);
+      const blob = await imageDataToBlob(imageData);
+
+      await idbPut(IMAGE_STORE, imageKey('gen00001', i), blob);
+      await idbPut(
+        META_STORE,
+        genomeKey('gen00001', i),
+        genome,
+      );
+
+      if (i % 8 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    await idbPut(META_STORE, markerKey, expectedMarker);
+    await idbPut(
+      META_STORE,
+      'current_generation_id',
+      'gen00001',
+    );
+    return true;
   }
 
   function moduleMaskValue(id, module, xNorm, yNorm, xPx, yPx) {
