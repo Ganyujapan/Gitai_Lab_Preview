@@ -1724,7 +1724,7 @@
           const amount = expression
             * Number(genome.patternContrast || 0)
             * maskValue;
-          value += Number(module.valueEffect || 0) * amount;
+          value += Number(module.valueEffect || 0) * amount * 0.75;
 
           if (
             Number.isFinite(Number(module.pigmentHue))
