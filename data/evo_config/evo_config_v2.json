@@ -1,6 +1,6 @@
 {
-  "config_id": "evo_preview_solo_v16",
-  "engine_version": 5,
+  "config_id": "evo_preview_solo_v17",
+  "engine_version": 6,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
   "inheritance": "trait_procedural_genotype_v2",
@@ -10,11 +10,11 @@
     "base_hue_small_mutation_p": 0.3,
     "base_hue_small_mutation_deg": 22,
     "base_hue_global_mutation_p": 0.025,
-    "base_saturation_mutation_p": 0.32,
-    "base_saturation_mutation_step": 0.16,
-    "pigment_expression_p": 0.035,
-    "pigment_expression_saturation_min": 0.16,
-    "pigment_expression_saturation_max": 0.45,
+    "base_saturation_mutation_p": 0.18,
+    "base_saturation_mutation_step": 0.08,
+    "pigment_expression_p": 0.015,
+    "pigment_expression_saturation_min": 0.08,
+    "pigment_expression_saturation_max": 0.24,
     "base_value_small_mutation_p": 0.1,
     "base_value_small_scale_delta": 0.16,
     "base_value_global_mutation_p": 0.018,
@@ -67,7 +67,8 @@
         "id": "diagonal_streak",
         "dominance": "dominant"
       }
-    ]
+    ],
+    "base_saturation_max": 0.32
   },
   "legacy_reference": {
     "note": "v12 image-level mutation settings retained only as historical reference; trait_genotype_v1 does not use them.",
@@ -96,8 +97,10 @@
     "target_predation_rate": "0.40-0.60",
     "color_goal": "preserve_multiple_hue_lineages_until_visual_selection acts",
     "pattern_goal": "new coherent pattern variants should remain visibly distinct",
-    "brightness_goal": "unchanged from v15",
-    "round_time_goal": "4 seconds unchanged"
+    "brightness_goal": "unchanged from v15/v16",
+    "round_time_goal": "4 seconds unchanged",
+    "color_phase_goal": "brightness should usually converge before visible hue/saturation",
+    "saturation_goal": "muted moth-like body colors; avoid neon/high-chroma convergence"
   },
   "color_inheritance": "single_parent_haplotype"
 }
