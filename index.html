@@ -390,46 +390,43 @@
       padding: 2px 2px 18px;
     }
 
-    .evolution-headings {
-      position: sticky;
-      top: 0;
-      z-index: 2;
+    .evolution-generation-block {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      padding: 7px 0 8px;
-      background: rgba(8,12,14,0.96);
-      border-bottom: 1px solid rgba(255,255,255,0.12);
+      gap: 7px;
+      margin-bottom: 14px;
     }
 
     .evolution-heading {
+      padding: 6px 0 7px;
       color: var(--accent);
       font-size: clamp(13px, 2.6vw, 17px);
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
     }
 
-    .evolution-pairs {
+    .evolution-gen1,
+    .evolution-latest-grid {
       display: grid;
-      gap: 12px;
-      padding-top: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
     }
 
-    .evolution-pair {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+    .evolution-gen1 .moth-preview-button {
+      grid-column: 2;
     }
 
     .moth-preview-button {
+      width: 100%;
       min-height: 0;
-      padding: 8px 8px 6px;
+      padding: 5px 4px 4px;
       border-color: rgba(255,255,255,0.14);
       background: rgba(255,255,255,0.045);
-      border-radius: 10px;
+      border-radius: 8px;
     }
 
     .moth-preview-button img {
       display: block;
-      width: min(100%, 150px);
+      width: 100%;
       aspect-ratio: 1;
       margin: 0 auto;
       object-fit: contain;
@@ -438,9 +435,9 @@
 
     .moth-preview-index {
       display: block;
-      margin-top: 4px;
+      margin-top: 3px;
       color: rgba(255,255,255,0.55);
-      font-size: 11px;
+      font-size: clamp(8px, 1.9vw, 10px);
     }
 
     #mothShareOverlay {
@@ -635,11 +632,14 @@
         </div>
         <p class="evolution-hint">縦にスクロールできます。気になる蛾をタップすると、1個体を大きく表示できます。</p>
         <div class="evolution-scroll">
-          <div class="evolution-headings">
+          <section class="evolution-generation-block">
             <div class="evolution-heading">第1世代</div>
+            <div id="evolutionGen1" class="evolution-gen1"></div>
+          </section>
+          <section class="evolution-generation-block">
             <div id="latestGenerationTitle" class="evolution-heading">現在世代</div>
-          </div>
-          <div id="evolutionPairs" class="evolution-pairs"></div>
+            <div id="evolutionLatestGrid" class="evolution-latest-grid"></div>
+          </section>
         </div>
       </div>
     </section>
@@ -746,7 +746,8 @@
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
   const evolutionCloseButton = document.getElementById('evolutionCloseButton');
-  const evolutionPairs = document.getElementById('evolutionPairs');
+  const evolutionGen1 = document.getElementById('evolutionGen1');
+  const evolutionLatestGrid = document.getElementById('evolutionLatestGrid');
   const latestGenerationTitle = document.getElementById('latestGenerationTitle');
 
   const mothShareOverlay = document.getElementById('mothShareOverlay');
@@ -1390,16 +1391,20 @@
     return button;
   }
 
-  function renderEvolutionPairs(latestId) {
-    evolutionPairs.innerHTML = '';
+  function renderEvolutionComparison(latestId) {
+    evolutionGen1.innerHTML = '';
+    evolutionLatestGrid.innerHTML = '';
+
+    // Gen1 is nearly uniform, so one representative is enough.
+    // Keep it the same thumbnail size as the current-generation grid.
+    evolutionGen1.appendChild(
+      createEvolutionMothButton('gen00001', 1),
+    );
+
     for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i += 1) {
-      const row = document.createElement('div');
-      row.className = 'evolution-pair';
-      row.append(
-        createEvolutionMothButton('gen00001', i),
+      evolutionLatestGrid.appendChild(
         createEvolutionMothButton(latestId, i),
       );
-      evolutionPairs.appendChild(row);
     }
   }
 
@@ -1408,7 +1413,7 @@
     const latestNumber = Number(latestId.slice(3));
 
     latestGenerationTitle.textContent = `第${latestNumber}世代`;
-    renderEvolutionPairs(latestId);
+    renderEvolutionComparison(latestId);
     evolutionOverlay.classList.add('visible');
 
     const scroller = evolutionOverlay.querySelector('.evolution-scroll');
