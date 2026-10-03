@@ -9,6 +9,7 @@
   const TOTAL = 60;
   const SIZE = 128;
   const HALF = SIZE / 2;
+  const ACHROMATIC_SATURATION_EPSILON = 1 / 255;
 
   let dbPromise = null;
   let appConfig = null;
@@ -392,10 +393,29 @@
       const [r, g, b, a] = getPixel(data, x, y);
       if (a === 0) continue;
       let [h, s, v] = rgbToHsv(r, g, b);
-      h = (h + (Math.random() * 2 - 1) * dh + 360) % 360;
-      s = Math.max(0, Math.min(1, s + (Math.random() * 2 - 1) * ds));
-      v = Math.max(0, Math.min(1, v + (Math.random() * 2 - 1) * dv));
-      const [nr, ng, nb] = hsvToRgb(h, s, v);
+      const hueDelta = (Math.random() * 2 - 1) * dh;
+      const newS = Math.max(
+        0,
+        Math.min(1, s + (Math.random() * 2 - 1) * ds),
+      );
+      const newV = Math.max(
+        0,
+        Math.min(1, v + (Math.random() * 2 - 1) * dv),
+      );
+
+      // White/gray pixels have no meaningful hue. rgbToHsv represents
+      // achromatic colors as H=0, which would otherwise bias the first
+      // visible color mutation toward red.
+      if (
+        s <= ACHROMATIC_SATURATION_EPSILON
+        && newS > ACHROMATIC_SATURATION_EPSILON
+      ) {
+        h = Math.random() * 360;
+      } else {
+        h = (h + hueDelta + 360) % 360;
+      }
+
+      const [nr, ng, nb] = hsvToRgb(h, newS, newV);
       setPixelMirrored(data, x, y, [nr, ng, nb, a]);
     }
     return true;
@@ -429,6 +449,7 @@
       const rx = Math.max(1, randomInt(rMin, rMax));
       const ry = Math.max(1, randomInt(rMin, rMax));
       const hueDelta = (Math.random() * 2 - 1) * dH;
+      const achromaticHue = Math.random() * 360;
       const satDelta = (Math.random() * 2 - 1) * dS;
       const valDelta = (Math.random() * 2 - 1) * dV;
 
@@ -447,10 +468,19 @@
           const [r, g, b, a] = getPixel(data, x, y);
           if (a === 0) continue;
           let [h, s, v] = rgbToHsv(r, g, b);
-          h = (h + hueDelta + 360) % 360;
-          s = Math.max(0, Math.min(1, s + satDelta));
-          v = Math.max(0, Math.min(1, v + valDelta));
-          const [nr, ng, nb] = hsvToRgb(h, s, v);
+          const newS = Math.max(0, Math.min(1, s + satDelta));
+          const newV = Math.max(0, Math.min(1, v + valDelta));
+
+          if (
+            s <= ACHROMATIC_SATURATION_EPSILON
+            && newS > ACHROMATIC_SATURATION_EPSILON
+          ) {
+            h = achromaticHue;
+          } else {
+            h = (h + hueDelta + 360) % 360;
+          }
+
+          const [nr, ng, nb] = hsvToRgb(h, newS, newV);
           setPixelMirrored(data, x, y, [nr, ng, nb, a]);
         }
       }
@@ -499,6 +529,7 @@
     let hueShift = 0;
     let saturationShift = 0;
     let valueShift = 0;
+    const achromaticHue = Math.random() * 360;
 
     if (mode === 'melanism_darkening') {
       for (const [x, y] of coords) {
@@ -541,10 +572,20 @@
       const [r, g, b, a] = getPixel(data, x, y);
       if (a === 0) continue;
       let [h, s, v] = rgbToHsv(r, g, b);
-      h = (h + hueShift + 360) % 360;
-      s = Math.max(0, Math.min(1, s + saturationShift));
-      v = Math.max(0, Math.min(1, v + valueShift));
-      const [nr, ng, nb] = hsvToRgb(h, s, v);
+      const newS = Math.max(0, Math.min(1, s + saturationShift));
+      const newV = Math.max(0, Math.min(1, v + valueShift));
+
+      if (
+        mode === 'saturation_shift_small'
+        && s <= ACHROMATIC_SATURATION_EPSILON
+        && newS > ACHROMATIC_SATURATION_EPSILON
+      ) {
+        h = achromaticHue;
+      } else {
+        h = (h + hueShift + 360) % 360;
+      }
+
+      const [nr, ng, nb] = hsvToRgb(h, newS, newV);
       setPixelMirrored(data, x, y, [nr, ng, nb, a]);
     }
   }
