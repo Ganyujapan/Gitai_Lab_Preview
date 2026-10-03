@@ -1111,6 +1111,27 @@
       return Math.random() < 0.5 ? av : bv;
     };
 
+    const chooseHue = (key, fallback) => {
+      const av = Number(a[key] ?? fallback);
+      const bv = Number(b[key] ?? fallback);
+      if (childAlleleA && childAlleleB) {
+        return circularLerpDeg(av, bv, Math.random());
+      }
+      if (childAlleleA) return av;
+      if (childAlleleB) return bv;
+      return Math.random() < 0.5 ? av : bv;
+    };
+
+    const patternSatMin = Number(
+      genetics.pattern_pigment_saturation_min ?? 0.06
+    );
+    const patternSatMax = Math.max(
+      patternSatMin,
+      Number(genetics.pattern_pigment_saturation_max ?? 0.26),
+    );
+    const fallbackPigmentSat = patternSatMin
+      + seededUnit(childSeed, 211) * (patternSatMax - patternSatMin);
+
     const module = {
       alleles: [childAlleleA, childAlleleB],
       cx: chooseNumber('cx', 0.5),
@@ -1120,6 +1141,14 @@
       valueEffect: chooseNumber('valueEffect', -0.2),
       hueEffect: chooseNumber('hueEffect', 0),
       saturationEffect: chooseNumber('saturationEffect', 0),
+      pigmentHue: chooseHue(
+        'pigmentHue',
+        seededUnit(childSeed, 210) * 360,
+      ),
+      pigmentSaturation: chooseNumber(
+        'pigmentSaturation',
+        fallbackPigmentSat,
+      ),
       phase: chooseCircularPhase(),
       angle: chooseNumber('angle', 0),
       frequency: chooseNumber('frequency', 1),
@@ -1173,6 +1202,46 @@
       module.roughness = clamp01(
         module.roughness + (Math.random() * 2 - 1) * roughnessStep,
       );
+
+      const pigmentHueStep = Number(
+        genetics.pattern_pigment_hue_step_deg ?? 24
+      );
+      const pigmentSatStep = Number(
+        genetics.pattern_pigment_saturation_step ?? 0.05
+      );
+      const pigmentSatCap = Number(
+        genetics.pattern_pigment_saturation_cap ?? 0.30
+      );
+      module.pigmentHue = (
+        Number(module.pigmentHue || 0)
+        + (Math.random() * 2 - 1) * pigmentHueStep
+        + 360
+      ) % 360;
+      module.pigmentSaturation = clamp(
+        Number(module.pigmentSaturation || 0)
+        + (Math.random() * 2 - 1) * pigmentSatStep,
+        0,
+        pigmentSatCap,
+      );
+    }
+
+    if (
+      dosage > 0
+      && Math.random()
+      < Number(genetics.pattern_pigment_global_hue_mutation_p || 0)
+    ) {
+      const minJump = Number(
+        genetics.pattern_pigment_global_min_jump_deg ?? 70
+      );
+      const maxJump = Math.max(
+        minJump,
+        Number(genetics.pattern_pigment_global_max_jump_deg ?? 180),
+      );
+      const jump = minJump + Math.random() * (maxJump - minJump);
+      const sign = Math.random() < 0.5 ? -1 : 1;
+      module.pigmentHue = (
+        Number(module.pigmentHue || 0) + sign * jump + 360
+      ) % 360;
     }
 
     return module;
@@ -1212,11 +1281,24 @@
       ) % 360;
     }
 
+    let majorHueMutation = false;
     if (Math.random() < Number(genetics.base_hue_global_mutation_p || 0)) {
-      // A hue mutation can remain latent while saturation is near zero.
-      // Do not force visible pigment at the same time: this lets brightness
-      // selection act first while preserving broad hidden hue diversity.
-      baseHue = Math.random() * 360;
+      const minJump = Number(
+        genetics.base_hue_global_min_jump_deg ?? 70
+      );
+      const maxJump = Math.max(
+        minJump,
+        Number(genetics.base_hue_global_max_jump_deg ?? 180),
+      );
+      const jump = minJump + Math.random() * (maxJump - minJump);
+      const sign = Math.random() < 0.5 ? -1 : 1;
+      baseHue = (baseHue + sign * jump + 360) % 360;
+
+      // A major color mutation changes hue only. Preserve the chosen
+      // color parent's brightness and saturation so selection can compare
+      // a new hue at essentially the same camouflage brightness.
+      baseValue = Number(colorParent.baseValue || baseValue);
+      majorHueMutation = true;
     }
 
     const saturationCap = clamp(
@@ -1227,7 +1309,8 @@
     baseSaturation = clamp(baseSaturation, 0, saturationCap);
 
     if (
-      Math.random()
+      !majorHueMutation
+      && Math.random()
       < Number(genetics.base_saturation_mutation_p || 0)
     ) {
       baseSaturation = clamp(
@@ -1251,7 +1334,8 @@
       ),
     );
     if (
-      baseSaturation < pigmentMin
+      !majorHueMutation
+      && baseSaturation < pigmentMin
       && Math.random() < Number(genetics.pigment_expression_p || 0)
     ) {
       // Reveal the hue already carried by this lineage instead of assigning
@@ -1261,7 +1345,8 @@
     }
 
     if (
-      Math.random()
+      !majorHueMutation
+      && Math.random()
       < Number(genetics.base_value_small_mutation_p || 0)
     ) {
       const delta = Number(genetics.base_value_small_scale_delta || 0);
@@ -1271,7 +1356,8 @@
     }
 
     if (
-      Math.random()
+      !majorHueMutation
+      && Math.random()
       < Number(genetics.base_value_global_mutation_p || 0)
     ) {
       const minV = Number(genetics.base_value_global_min ?? 0.10);
@@ -1347,9 +1433,19 @@
         );
         const newAlleles = [0, 0];
         newAlleles[Math.floor(Math.random() * 2)] = 1;
+        const patternSatMin = Number(
+          genetics.pattern_pigment_saturation_min ?? 0.06
+        );
+        const patternSatMax = Math.max(
+          patternSatMin,
+          Number(genetics.pattern_pigment_saturation_max ?? 0.26),
+        );
         modules[locus.id] = {
           alleles: newAlleles,
           ...fresh,
+          pigmentHue: Math.random() * 360,
+          pigmentSaturation: patternSatMin
+            + Math.random() * (patternSatMax - patternSatMin),
         };
 
         patternContrast = Math.max(
@@ -1626,10 +1722,35 @@
             * Number(genome.patternContrast || 0)
             * maskValue;
           value += Number(module.valueEffect || 0) * amount;
-          sat += Number(module.saturationEffect || 0) * amount;
-          hue = (
-            hue + Number(module.hueEffect || 0) * amount + 360
-          ) % 360;
+
+          if (
+            Number.isFinite(Number(module.pigmentHue))
+            && Number.isFinite(Number(module.pigmentSaturation))
+          ) {
+            const colorMix = clamp01(
+              amount
+              * Number(genetics.pattern_pigment_mix_scale ?? 1.0)
+            );
+            hue = circularLerpDeg(
+              hue,
+              Number(module.pigmentHue),
+              colorMix,
+            );
+            const patternSatCap = Number(
+              genetics.pattern_pigment_saturation_cap ?? 0.30
+            );
+            const targetSat = clamp(
+              Number(module.pigmentSaturation),
+              0,
+              patternSatCap,
+            );
+            sat += (targetSat - sat) * colorMix;
+          } else {
+            sat += Number(module.saturationEffect || 0) * amount;
+            hue = (
+              hue + Number(module.hueEffect || 0) * amount + 360
+            ) % 360;
+          }
         }
 
         value = clamp01(value);
