@@ -1,6 +1,6 @@
 {
-  "config_id": "evo_preview_solo_v19",
-  "engine_version": 8,
+  "config_id": "evo_preview_solo_v20",
+  "engine_version": 9,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
   "inheritance": "trait_procedural_genotype_v2",
@@ -71,10 +71,10 @@
     "base_saturation_max": 0.32,
     "base_hue_global_min_jump_deg": 70,
     "base_hue_global_max_jump_deg": 180,
-    "pattern_pigment_saturation_min": 0.06,
-    "pattern_pigment_saturation_max": 0.26,
-    "pattern_pigment_saturation_cap": 0.3,
-    "pattern_pigment_mix_scale": 1.1,
+    "pattern_pigment_saturation_min": 0.1,
+    "pattern_pigment_saturation_max": 0.34,
+    "pattern_pigment_saturation_cap": 0.38,
+    "pattern_pigment_mix_scale": 1.45,
     "pattern_pigment_hue_step_deg": 24,
     "pattern_pigment_saturation_step": 0.05,
     "pattern_pigment_global_hue_mutation_p": 0.012,
@@ -119,7 +119,8 @@
     "pattern_color_goal": "patterns may carry heritable local pigment color independent of body ground color",
     "comparison_preview_goal": "moths are shown on the actual game background for visual camouflage comparison",
     "black_mutation_goal": "a conspicuously dark mutant should appear somewhat earlier/often while preserving brightness-first convergence",
-    "mutation_independence_goal": "major hue, saturation, and brightness mutations are sampled independently"
+    "mutation_independence_goal": "major hue, saturation, and brightness mutations are sampled independently",
+    "pattern_color_visibility_goal": "make inherited pattern pigment visibly distinguishable without changing pattern birth or hue mutation rates"
   },
   "color_inheritance": "single_parent_haplotype"
 }
