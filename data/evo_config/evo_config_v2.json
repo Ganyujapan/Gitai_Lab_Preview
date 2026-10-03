@@ -1,5 +1,5 @@
 {
-  "config_id": "evo_preview_solo_v2",
+  "config_id": "evo_preview_solo_v3",
   "engine_version": 2,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
@@ -7,12 +7,12 @@
   "parent_pool_size": 12,
   "parent_shortfall_policy": "repeat_survivors",
   "minimum_survivors_for_reproduction": 2,
-  "p_mut_individual": 0.88,
+  "p_mut_individual": 0.92,
   "k_min": 48,
   "k_max": 160,
   "delta_h_deg": 18,
   "delta_s": 0.24,
-  "delta_v": 0.22,
+  "delta_v": 0.3,
   "p_patch_given_mut": 0.32,
   "patch_count_min": 1,
   "patch_count_max": 3,
@@ -20,23 +20,23 @@
   "patch_radius_max": 12,
   "patch_delta_h_deg": 24,
   "patch_delta_s": 0.28,
-  "patch_delta_v": 0.28,
-  "p_macro_given_mut": 0.1,
+  "patch_delta_v": 0.38,
+  "p_macro_given_mut": 0.14,
   "macro_modes": [
     {
       "mode": "hue_shift_small",
-      "p": 0.35,
+      "p": 0.25,
       "shift_deg": 24
     },
     {
       "mode": "saturation_shift_small",
-      "p": 0.25,
+      "p": 0.2,
       "shift": 0.22
     },
     {
       "mode": "value_shift_small",
-      "p": 0.25,
-      "shift": 0.22
+      "p": 0.4,
+      "shift": 0.3
     },
     {
       "mode": "contrast_boost",
@@ -46,7 +46,7 @@
   ],
   "p_global_hue_mutation": 0.003,
   "global_hue_min_saturation": 0.15,
-  "p_global_value_mutation": 0.003,
+  "p_global_value_mutation": 0.006,
   "global_value_mean_min": 0.35,
   "global_value_mean_max": 0.9
 }
