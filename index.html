@@ -419,9 +419,14 @@
       width: 100%;
       min-height: 0;
       padding: 5px 4px 4px;
-      border-color: rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.045);
+      border-color: rgba(255,255,255,0.24);
+      background-color: rgba(0,0,0,0.22);
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
       border-radius: 8px;
+      overflow: hidden;
     }
 
     .moth-preview-button img {
@@ -436,7 +441,10 @@
     .moth-preview-index {
       display: block;
       margin-top: 3px;
-      color: rgba(255,255,255,0.55);
+      padding: 2px 3px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.58);
+      color: rgba(255,255,255,0.88);
       font-size: clamp(8px, 1.9vw, 10px);
     }
 
@@ -480,6 +488,14 @@
       aspect-ratio: 1;
       display: grid;
       place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 12px;
+      background-color: rgba(0,0,0,0.22);
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
     }
 
     #shareMothImage {
@@ -846,6 +862,11 @@
       BG_TRUE_HEIGHT: Number(background.source_height),
       BACKGROUND_SRC: String(background.src),
     });
+
+    document.documentElement.style.setProperty(
+      '--gitai-preview-bg',
+      'url("' + CONFIG.BACKGROUND_SRC.replace(/"/g, '%22') + '")',
+    );
 
     const sx = GAME_WIDTH / CONFIG.BG_TRUE_WIDTH;
     const sy = GAME_HEIGHT / CONFIG.BG_TRUE_HEIGHT;
@@ -1491,8 +1512,30 @@
     c2d.font = 'bold 64px sans-serif';
     c2d.fillText(title, 540, 110);
 
-    c2d.imageSmoothingEnabled = false;
+    c2d.imageSmoothingEnabled = true;
     const size = 720;
+    const bg = state.backgroundImage;
+    if (bg && bg.width && bg.height) {
+      const srcSize = Math.min(bg.width, bg.height);
+      const sx = Math.max(0, (bg.width - srcSize) / 2);
+      const sy = Math.max(0, (bg.height - srcSize) / 2);
+      c2d.drawImage(
+        bg,
+        sx,
+        sy,
+        srcSize,
+        srcSize,
+        180,
+        260,
+        size,
+        size,
+      );
+    } else {
+      c2d.fillStyle = '#182019';
+      c2d.fillRect(180, 260, size, size);
+    }
+
+    c2d.imageSmoothingEnabled = false;
     c2d.drawImage(source, 180, 260, size, size);
 
     c2d.fillStyle = '#b8f7ff';
