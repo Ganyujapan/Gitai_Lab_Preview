@@ -118,7 +118,8 @@
     "major_color_mutation_goal": "large hue mutations preserve value and saturation and jump far enough to reopen hue space",
     "pattern_color_goal": "patterns may carry heritable local pigment color independent of body ground color",
     "comparison_preview_goal": "moths are shown on the actual game background for visual camouflage comparison",
-    "black_mutation_goal": "a conspicuously dark mutant should appear somewhat earlier/often while preserving brightness-first convergence"
+    "black_mutation_goal": "a conspicuously dark mutant should appear somewhat earlier/often while preserving brightness-first convergence",
+    "mutation_independence_goal": "major hue, saturation, and brightness mutations are sampled independently"
   },
   "color_inheritance": "single_parent_haplotype"
 }
