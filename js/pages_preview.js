@@ -1345,8 +1345,7 @@
     }
 
     if (
-      !majorHueMutation
-      && Math.random()
+      Math.random()
       < Number(genetics.base_value_small_mutation_p || 0)
     ) {
       const delta = Number(genetics.base_value_small_scale_delta || 0);
@@ -1356,13 +1355,23 @@
     }
 
     if (
-      !majorHueMutation
-      && Math.random()
+      Math.random()
       < Number(genetics.base_value_global_mutation_p || 0)
     ) {
       const minV = Number(genetics.base_value_global_min ?? 0.10);
       const maxV = Number(genetics.base_value_global_max ?? 0.95);
-      baseValue = minV + Math.random() * (maxV - minV);
+      const darkBiasP = Number(genetics.base_value_dark_bias_p || 0);
+
+      if (Math.random() < darkBiasP) {
+        const darkMin = Number(genetics.base_value_dark_min ?? minV);
+        const darkMax = Math.max(
+          darkMin,
+          Number(genetics.base_value_dark_max ?? 0.28),
+        );
+        baseValue = darkMin + Math.random() * (darkMax - darkMin);
+      } else {
+        baseValue = minV + Math.random() * (maxV - minV);
+      }
     }
 
     if (
