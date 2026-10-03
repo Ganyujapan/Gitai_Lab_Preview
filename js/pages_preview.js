@@ -1087,24 +1087,43 @@
     const b = parentB.modules[locus.id]
       || { alleles: [0, 0], ...defaultModuleParams(locus.id, childSeed + 2) };
 
-    const alleleA = a.alleles[Math.floor(Math.random() * 2)] || 0;
-    const alleleB = b.alleles[Math.floor(Math.random() * 2)] || 0;
+    const alleleAIndex = Math.floor(Math.random() * 2);
+    const alleleBIndex = Math.floor(Math.random() * 2);
+    const inheritedA = a.alleles[alleleAIndex] || 0;
+    const inheritedB = b.alleles[alleleBIndex] || 0;
+    const childAlleleA = mutateAllele(inheritedA, genetics);
+    const childAlleleB = mutateAllele(inheritedB, genetics);
+
+    const chooseNumber = (key, fallback) => {
+      const av = Number(a[key] ?? fallback);
+      const bv = Number(b[key] ?? fallback);
+      if (childAlleleA && childAlleleB) return inheritLinear(av, bv);
+      if (childAlleleA) return av;
+      if (childAlleleB) return bv;
+      return Math.random() < 0.5 ? av : bv;
+    };
+
+    const chooseCircularPhase = () => {
+      const av = Number(a.phase || 0);
+      const bv = Number(b.phase || 0);
+      if (childAlleleA && !childAlleleB) return av;
+      if (!childAlleleA && childAlleleB) return bv;
+      return Math.random() < 0.5 ? av : bv;
+    };
+
     const module = {
-      alleles: [
-        mutateAllele(alleleA, genetics),
-        mutateAllele(alleleB, genetics),
-      ],
-      cx: inheritLinear(a.cx, b.cx),
-      cy: inheritLinear(a.cy, b.cy),
-      rx: inheritLinear(a.rx, b.rx),
-      ry: inheritLinear(a.ry, b.ry),
-      valueEffect: inheritLinear(a.valueEffect, b.valueEffect),
-      hueEffect: inheritLinear(a.hueEffect, b.hueEffect),
-      saturationEffect: inheritLinear(a.saturationEffect, b.saturationEffect),
-      phase: Math.random() < 0.5 ? Number(a.phase || 0) : Number(b.phase || 0),
-      angle: inheritLinear(a.angle || 0, b.angle || 0),
-      frequency: inheritLinear(a.frequency || 1, b.frequency || 1),
-      roughness: inheritLinear(a.roughness || 0, b.roughness || 0),
+      alleles: [childAlleleA, childAlleleB],
+      cx: chooseNumber('cx', 0.5),
+      cy: chooseNumber('cy', 0.5),
+      rx: chooseNumber('rx', 0.2),
+      ry: chooseNumber('ry', 0.2),
+      valueEffect: chooseNumber('valueEffect', -0.2),
+      hueEffect: chooseNumber('hueEffect', 0),
+      saturationEffect: chooseNumber('saturationEffect', 0),
+      phase: chooseCircularPhase(),
+      angle: chooseNumber('angle', 0),
+      frequency: chooseNumber('frequency', 1),
+      roughness: chooseNumber('roughness', 0),
     };
 
     const dosage = Number(Boolean(module.alleles[0]))
@@ -1161,12 +1180,19 @@
 
   function makeChildGenome(parentA, parentB, childIndex, nextId) {
     const genetics = evolutionConfig.trait_genetics || {};
-    const hueT = Math.random();
-    let baseHue = circularLerpDeg(parentA.baseHue, parentB.baseHue, hueT);
-    let baseSaturation = inheritLinear(
-      parentA.baseSaturation,
-      parentB.baseSaturation,
-    );
+    const colorParent = Math.random() < 0.5 ? parentA : parentB;
+    let baseHue = Number(colorParent.baseHue || 0);
+    let baseSaturation = Number(colorParent.baseSaturation || 0);
+
+    if (
+      generationNumber(nextId) === 1
+      && evolutionConfig.founder_model?.latent_hue_diversity
+    ) {
+      // Pure white has no visible hue at S=0, so Generation 1 can carry
+      // broad hidden hue potential without ceasing to be phenotypically white.
+      baseHue = Math.random() * 360;
+    }
+
     let baseValue = inheritLinear(parentA.baseValue, parentB.baseValue);
     let patternContrast = inheritLinear(
       parentA.patternContrast,
@@ -1297,8 +1323,22 @@
 
       if (candidates.length) {
         const locus = candidates[Math.floor(Math.random() * candidates.length)];
-        const module = modules[locus.id];
-        module.alleles[Math.floor(Math.random() * 2)] = 1;
+        const locusIndex = Math.max(
+          0,
+          (genetics.pattern_loci || []).findIndex(
+            (item) => item.id === locus.id
+          ),
+        );
+        const fresh = defaultModuleParams(
+          locus.id,
+          childSeed + (locusIndex + 1) * 997 + Math.floor(Math.random() * 997),
+        );
+        const newAlleles = [0, 0];
+        newAlleles[Math.floor(Math.random() * 2)] = 1;
+        modules[locus.id] = {
+          alleles: newAlleles,
+          ...fresh,
+        };
 
         patternContrast = Math.max(
           patternContrast,
