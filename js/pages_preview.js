@@ -2,7 +2,12 @@
   'use strict';
 
   const nativeFetch = window.fetch.bind(window);
-  const DB_NAME = 'gitai-pages-preview-v2';
+  const PREVIEW_ENV = new URLSearchParams(location.search).get('env') === 'sand'
+    ? 'sand'
+    : 'bark';
+  const DB_NAME = PREVIEW_ENV === 'sand'
+    ? 'gitai-pages-preview-v2-sand'
+    : 'gitai-pages-preview-v2';
   const DB_VERSION = 1;
   const IMAGE_STORE = 'images';
   const META_STORE = 'meta';
@@ -114,8 +119,10 @@
       }
     } catch (_) {}
 
-    location.href = location.pathname
-      + (location.search.includes('fast=1') ? '?fast=1' : '');
+    const u = new URL(location.href);
+    u.searchParams.delete('v');
+    const query = u.searchParams.toString();
+    location.href = u.pathname + (query ? '?' + query : '');
   }
 
   function imageKey(generationId, index) {
@@ -159,18 +166,23 @@
     if (appConfig) return;
     appConfig = await loadJson('config/konchu_univ_alpha.json');
     speciesConfig = await loadJson(appConfig.species_config);
-    environmentConfig = await loadJson(appConfig.environment_config);
+
+    const params = new URLSearchParams(location.search);
+    const environmentPath = PREVIEW_ENV === 'sand'
+      ? 'environments/sand_001/environment.json'
+      : appConfig.environment_config;
+    environmentConfig = await loadJson(environmentPath);
     evolutionConfig = await loadJson(appConfig.evolution_config);
 
     appConfig = JSON.parse(JSON.stringify(appConfig));
     appConfig.mode = 'pages_preview';
+    appConfig.environment_config = environmentPath;
     appConfig.title = `${appConfig.title} — Pages Preview`;
     appConfig.network = {
       ...(appConfig.network || {}),
       submit_timeout_ms: 120000,
     };
 
-    const params = new URLSearchParams(location.search);
     const seconds = Number(params.get('seconds'));
     if (
       Number.isFinite(seconds)
@@ -1930,11 +1942,22 @@
       previewSeconds = params.get('fast') === '1' ? 0.5 : 4.0;
     }
 
+    const envLabel = PREVIEW_ENV === 'sand' ? '砂漠' : '樹皮';
+    const switchLabel = PREVIEW_ENV === 'sand'
+      ? '背景: 樹皮へ'
+      : '背景: 砂漠へ';
+
     badge.innerHTML =
       '<span>SOLO PREVIEW · '
       + previewSeconds.toFixed(1)
-      + 's</span>'
-      + '<button type="button">テストをリセット</button>';
+      + 's · '
+      + envLabel
+      + '</span>'
+      + '<button type="button" data-action="environment">'
+      + switchLabel
+      + '</button>'
+      + '<button type="button" data-action="reset">テストをリセット</button>';
+
     Object.assign(badge.style, {
       position: 'fixed',
       left: '8px',
@@ -1942,7 +1965,9 @@
       zIndex: '20',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
+      flexWrap: 'wrap',
+      gap: '6px',
+      maxWidth: 'calc(100vw - 16px)',
       padding: '6px 8px',
       borderRadius: '8px',
       background: 'rgba(0,0,0,.72)',
@@ -1952,20 +1977,44 @@
       letterSpacing: '.04em',
       boxShadow: '0 1px 8px rgba(0,0,0,.3)',
     });
-    const button = badge.querySelector('button');
-    Object.assign(button.style, {
-      border: '1px solid rgba(183,242,244,.55)',
-      borderRadius: '6px',
-      padding: '3px 6px',
-      background: 'transparent',
-      color: '#e7ffff',
-      font: 'inherit',
+
+    for (const button of badge.querySelectorAll('button')) {
+      Object.assign(button.style, {
+        width: 'auto',
+        minHeight: '0',
+        border: '1px solid rgba(183,242,244,.55)',
+        borderRadius: '6px',
+        padding: '3px 6px',
+        background: 'transparent',
+        color: '#e7ffff',
+        font: 'inherit',
+      });
+    }
+
+    const environmentButton = badge.querySelector(
+      '[data-action="environment"]'
+    );
+    environmentButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const u = new URL(location.href);
+      if (PREVIEW_ENV === 'sand') {
+        u.searchParams.delete('env');
+      } else {
+        u.searchParams.set('env', 'sand');
+      }
+      u.searchParams.set('v', String(Date.now()));
+      location.href = u.toString();
     });
-    button.addEventListener('click', (event) => {
+
+    const resetButton = badge.querySelector('[data-action="reset"]');
+    resetButton.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       window.dispatchEvent(new CustomEvent('gitai:request-reset'));
     });
+
     document.body.appendChild(badge);
   }
 
