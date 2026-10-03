@@ -191,7 +191,7 @@
     }
 
     if (
-      evolutionConfig?.inheritance === 'trait_genotype_v1'
+      String(evolutionConfig?.inheritance || '').startsWith('trait_')
       && currentGenerationId === 'gen00001'
     ) {
       await ensureFounderGeneration();
@@ -200,7 +200,7 @@
     let loaded = await loadGeneratedGeneration(currentGenerationId);
     if (!loaded) {
       currentGenerationId = 'gen00001';
-      if (evolutionConfig?.inheritance === 'trait_genotype_v1') {
+      if (String(evolutionConfig?.inheritance || '').startsWith('trait_')) {
         await ensureFounderGeneration();
       }
       await idbPut(META_STORE, 'current_generation_id', currentGenerationId);
@@ -333,6 +333,10 @@
       if (!eaten.has(i)) survivors.push(i);
     }
     if (survivors.length < 2) return null;
+
+    if (evolutionConfig.parent_selection === 'all_survivors') {
+      return shuffle(survivors);
+    }
 
     const poolSize = Number(evolutionConfig.parent_pool_size || 12);
     const shuffled = shuffle(survivors);
@@ -857,51 +861,133 @@
 
   function defaultModuleParams(id, seed) {
     const j = (salt, amount) => (seededUnit(seed, salt) * 2 - 1) * amount;
+    const phase = seededUnit(seed, 90) * Math.PI * 2;
+
     if (id === 'central_blotch') {
       return {
         cx: clamp(0.48 + j(1, 0.12), 0.20, 0.78),
         cy: clamp(0.52 + j(2, 0.12), 0.25, 0.78),
         rx: clamp(0.22 + j(3, 0.08), 0.08, 0.38),
         ry: clamp(0.16 + j(4, 0.07), 0.06, 0.32),
-        valueEffect: clamp(-0.24 + j(5, 0.12), -0.45, 0.30),
-        hueEffect: j(6, 18),
-        saturationEffect: j(7, 0.10),
-        phase: seededUnit(seed, 8) * Math.PI * 2,
+        valueEffect: clamp(-0.30 + j(5, 0.14), -0.55, 0.35),
+        hueEffect: j(6, 22),
+        saturationEffect: j(7, 0.12),
+        phase,
+        angle: j(8, 18),
+        frequency: clamp(1.3 + j(9, 0.4), 0.6, 2.5),
+        roughness: clamp(0.18 + j(10, 0.10), 0, 0.5),
       };
     }
+
     if (id === 'transverse_band') {
       return {
         cx: 0.50,
         cy: clamp(0.50 + j(11, 0.16), 0.20, 0.80),
         rx: 0.50,
-        ry: clamp(0.075 + j(12, 0.035), 0.035, 0.16),
-        valueEffect: clamp(-0.20 + j(13, 0.14), -0.45, 0.30),
-        hueEffect: j(14, 20),
-        saturationEffect: j(15, 0.11),
-        phase: seededUnit(seed, 16) * Math.PI * 2,
+        ry: clamp(0.085 + j(12, 0.04), 0.035, 0.18),
+        valueEffect: clamp(-0.27 + j(13, 0.15), -0.55, 0.35),
+        hueEffect: j(14, 22),
+        saturationEffect: j(15, 0.12),
+        phase,
+        angle: j(16, 10),
+        frequency: clamp(1.4 + j(17, 0.5), 0.6, 3.0),
+        roughness: clamp(0.18 + j(18, 0.10), 0, 0.55),
       };
     }
+
     if (id === 'outer_edge') {
       return {
         cx: 0.14,
         cy: 0.52,
         rx: clamp(0.18 + j(21, 0.07), 0.07, 0.34),
         ry: 0.48,
-        valueEffect: clamp(-0.18 + j(22, 0.12), -0.40, 0.28),
-        hueEffect: j(23, 16),
-        saturationEffect: j(24, 0.09),
-        phase: seededUnit(seed, 25) * Math.PI * 2,
+        valueEffect: clamp(-0.24 + j(22, 0.14), -0.50, 0.32),
+        hueEffect: j(23, 18),
+        saturationEffect: j(24, 0.10),
+        phase,
+        angle: j(25, 8),
+        frequency: clamp(1.2 + j(26, 0.4), 0.6, 2.5),
+        roughness: clamp(0.20 + j(27, 0.12), 0, 0.55),
       };
     }
+
+    if (id === 'longitudinal_streaks') {
+      return {
+        cx: 0.50,
+        cy: 0.50,
+        rx: 0.50,
+        ry: 0.50,
+        valueEffect: clamp(-0.22 + j(41, 0.16), -0.52, 0.35),
+        hueEffect: j(42, 20),
+        saturationEffect: j(43, 0.11),
+        phase,
+        angle: clamp(j(44, 12), -25, 25),
+        frequency: clamp(3.5 + j(45, 1.4), 1.5, 7.0),
+        roughness: clamp(0.20 + j(46, 0.14), 0, 0.6),
+      };
+    }
+
+    if (id === 'cloud_mottle') {
+      return {
+        cx: 0.50,
+        cy: 0.52,
+        rx: 0.50,
+        ry: 0.48,
+        valueEffect: clamp(-0.20 + j(51, 0.18), -0.50, 0.38),
+        hueEffect: j(52, 24),
+        saturationEffect: j(53, 0.13),
+        phase,
+        angle: j(54, 45),
+        frequency: clamp(2.5 + j(55, 1.0), 1.0, 5.5),
+        roughness: clamp(0.45 + j(56, 0.20), 0.10, 0.85),
+      };
+    }
+
+    if (id === 'ring_spots') {
+      return {
+        cx: clamp(0.50 + j(61, 0.20), 0.15, 0.85),
+        cy: clamp(0.50 + j(62, 0.22), 0.15, 0.85),
+        rx: clamp(0.20 + j(63, 0.08), 0.07, 0.38),
+        ry: clamp(0.15 + j(64, 0.07), 0.05, 0.32),
+        valueEffect: clamp(-0.30 + j(65, 0.16), -0.58, 0.38),
+        hueEffect: j(66, 26),
+        saturationEffect: j(67, 0.14),
+        phase,
+        angle: j(68, 30),
+        frequency: 1,
+        roughness: clamp(0.12 + j(69, 0.08), 0, 0.4),
+      };
+    }
+
+    if (id === 'diagonal_streak') {
+      return {
+        cx: clamp(0.50 + j(71, 0.14), 0.22, 0.78),
+        cy: clamp(0.50 + j(72, 0.14), 0.22, 0.78),
+        rx: clamp(0.09 + j(73, 0.035), 0.035, 0.18),
+        ry: 0.55,
+        valueEffect: clamp(-0.25 + j(74, 0.16), -0.55, 0.36),
+        hueEffect: j(75, 22),
+        saturationEffect: j(76, 0.12),
+        phase,
+        angle: clamp(35 + j(77, 22), 8, 72),
+        frequency: clamp(1.2 + j(78, 0.4), 0.7, 2.4),
+        roughness: clamp(0.16 + j(79, 0.10), 0, 0.5),
+      };
+    }
+
+    // speckle_cluster
     return {
       cx: clamp(0.48 + j(31, 0.18), 0.12, 0.85),
       cy: clamp(0.50 + j(32, 0.18), 0.15, 0.85),
       rx: clamp(0.30 + j(33, 0.10), 0.12, 0.48),
       ry: clamp(0.30 + j(34, 0.10), 0.12, 0.48),
-      valueEffect: clamp(-0.16 + j(35, 0.14), -0.40, 0.30),
-      hueEffect: j(36, 22),
-      saturationEffect: j(37, 0.12),
-      phase: seededUnit(seed, 38) * Math.PI * 2,
+      valueEffect: clamp(-0.22 + j(35, 0.16), -0.50, 0.36),
+      hueEffect: j(36, 24),
+      saturationEffect: j(37, 0.13),
+      phase,
+      angle: j(38, 25),
+      frequency: clamp(4.0 + j(39, 1.4), 1.8, 8.0),
+      roughness: clamp(0.52 + j(40, 0.20), 0.15, 0.9),
     };
   }
 
@@ -1016,33 +1102,57 @@
       hueEffect: inheritLinear(a.hueEffect, b.hueEffect),
       saturationEffect: inheritLinear(a.saturationEffect, b.saturationEffect),
       phase: Math.random() < 0.5 ? Number(a.phase || 0) : Number(b.phase || 0),
+      angle: inheritLinear(a.angle || 0, b.angle || 0),
+      frequency: inheritLinear(a.frequency || 1, b.frequency || 1),
+      roughness: inheritLinear(a.roughness || 0, b.roughness || 0),
     };
 
+    const dosage = Number(Boolean(module.alleles[0]))
+      + Number(Boolean(module.alleles[1]));
+
     if (
-      Math.random()
+      dosage > 0
+      && Math.random()
       < Number(genetics.pattern_parameter_mutation_p || 0)
     ) {
-      const posStep = Number(genetics.pattern_position_step || 0.03);
-      const sizeStep = Number(genetics.pattern_size_step || 0.03);
-      const effectStep = Number(genetics.pattern_effect_step || 0.03);
-      module.cx = clamp(module.cx + (Math.random() * 2 - 1) * posStep, 0.08, 0.92);
-      module.cy = clamp(module.cy + (Math.random() * 2 - 1) * posStep, 0.10, 0.90);
-      module.rx = clamp(module.rx + (Math.random() * 2 - 1) * sizeStep, 0.035, 0.50);
-      module.ry = clamp(module.ry + (Math.random() * 2 - 1) * sizeStep, 0.035, 0.50);
+      const posStep = Number(genetics.pattern_position_step || 0.025);
+      const sizeStep = Number(genetics.pattern_size_step || 0.04);
+      const effectStep = Number(genetics.pattern_effect_step || 0.04);
+      const angleStep = Number(genetics.pattern_angle_step_deg || 10);
+      const frequencyStep = Number(genetics.pattern_frequency_step || 0.35);
+      const roughnessStep = Number(genetics.pattern_roughness_step || 0.08);
+
+      module.cx = clamp(module.cx + (Math.random() * 2 - 1) * posStep, 0.06, 0.94);
+      module.cy = clamp(module.cy + (Math.random() * 2 - 1) * posStep, 0.08, 0.92);
+      module.rx = clamp(module.rx + (Math.random() * 2 - 1) * sizeStep, 0.03, 0.55);
+      module.ry = clamp(module.ry + (Math.random() * 2 - 1) * sizeStep, 0.03, 0.58);
       module.valueEffect = clamp(
         module.valueEffect + (Math.random() * 2 - 1) * effectStep,
-        -0.55,
-        0.45,
+        -0.65,
+        0.50,
       );
       module.hueEffect = clamp(
-        module.hueEffect + (Math.random() * 2 - 1) * effectStep * 120,
-        -60,
-        60,
+        module.hueEffect + (Math.random() * 2 - 1) * effectStep * 140,
+        -80,
+        80,
       );
       module.saturationEffect = clamp(
         module.saturationEffect + (Math.random() * 2 - 1) * effectStep,
-        -0.30,
-        0.30,
+        -0.38,
+        0.38,
+      );
+      module.angle = clamp(
+        module.angle + (Math.random() * 2 - 1) * angleStep,
+        -90,
+        90,
+      );
+      module.frequency = clamp(
+        module.frequency + (Math.random() * 2 - 1) * frequencyStep,
+        0.5,
+        9,
+      );
+      module.roughness = clamp01(
+        module.roughness + (Math.random() * 2 - 1) * roughnessStep,
       );
     }
 
@@ -1402,7 +1512,7 @@
   }
 
   async function evolveGeneration(generationId, eatenIndices) {
-    if (evolutionConfig?.inheritance === 'trait_genotype_v1') {
+    if (String(evolutionConfig?.inheritance || '').startsWith('trait_')) {
       return evolveGenerationByGenome(generationId, eatenIndices);
     }
     return evolveGenerationLegacy(generationId, eatenIndices);
