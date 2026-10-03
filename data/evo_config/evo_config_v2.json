@@ -21,11 +21,29 @@
   "patch_delta_h_deg": 24,
   "patch_delta_s": 0.28,
   "patch_delta_v": 0.28,
-  "p_macro_given_mut": 0.10,
+  "p_macro_given_mut": 0.1,
   "macro_modes": [
-    { "mode": "hue_shift_small", "p": 0.35, "shift_deg": 24 },
-    { "mode": "saturation_shift_small", "p": 0.25, "shift": 0.22 },
-    { "mode": "value_shift_small", "p": 0.25, "shift": 0.22 },
-    { "mode": "contrast_boost", "p": 0.15, "strength": 1.25 }
-  ]
+    {
+      "mode": "hue_shift_small",
+      "p": 0.35,
+      "shift_deg": 24
+    },
+    {
+      "mode": "saturation_shift_small",
+      "p": 0.25,
+      "shift": 0.22
+    },
+    {
+      "mode": "value_shift_small",
+      "p": 0.25,
+      "shift": 0.22
+    },
+    {
+      "mode": "contrast_boost",
+      "p": 0.15,
+      "strength": 1.25
+    }
+  ],
+  "p_global_hue_mutation": 0.003,
+  "global_hue_min_saturation": 0.15
 }
