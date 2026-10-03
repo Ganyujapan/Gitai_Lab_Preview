@@ -1751,7 +1751,7 @@
       || previewSeconds < 0.5
       || previewSeconds > 10
     ) {
-      previewSeconds = params.get('fast') === '1' ? 0.5 : 3.0;
+      previewSeconds = params.get('fast') === '1' ? 0.5 : 4.0;
     }
 
     badge.innerHTML =
