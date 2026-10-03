@@ -1212,38 +1212,50 @@
       ) % 360;
     }
 
-    let globalHueMutated = false;
     if (Math.random() < Number(genetics.base_hue_global_mutation_p || 0)) {
+      // A hue mutation can remain latent while saturation is near zero.
+      // Do not force visible pigment at the same time: this lets brightness
+      // selection act first while preserving broad hidden hue diversity.
       baseHue = Math.random() * 360;
-      globalHueMutated = true;
     }
+
+    const saturationCap = clamp(
+      Number(genetics.base_saturation_max ?? 1),
+      0,
+      1,
+    );
+    baseSaturation = clamp(baseSaturation, 0, saturationCap);
 
     if (
       Math.random()
       < Number(genetics.base_saturation_mutation_p || 0)
     ) {
-      baseSaturation = clamp01(
+      baseSaturation = clamp(
         baseSaturation
         + (Math.random() * 2 - 1)
         * Number(genetics.base_saturation_mutation_step || 0),
+        0,
+        saturationCap,
       );
     }
 
-    const pigmentMin = Number(
-      genetics.pigment_expression_saturation_min ?? 0.08
+    const pigmentMin = Math.min(
+      saturationCap,
+      Number(genetics.pigment_expression_saturation_min ?? 0.08),
     );
-    const pigmentMax = Math.max(
-      pigmentMin,
-      Number(genetics.pigment_expression_saturation_max ?? 0.25),
+    const pigmentMax = Math.min(
+      saturationCap,
+      Math.max(
+        pigmentMin,
+        Number(genetics.pigment_expression_saturation_max ?? 0.25),
+      ),
     );
     if (
       baseSaturation < pigmentMin
-      && (
-        globalHueMutated
-        || Math.random() < Number(genetics.pigment_expression_p || 0)
-      )
+      && Math.random() < Number(genetics.pigment_expression_p || 0)
     ) {
-      if (!globalHueMutated) baseHue = Math.random() * 360;
+      // Reveal the hue already carried by this lineage instead of assigning
+      // a new random hue at pigment expression time.
       baseSaturation = pigmentMin
         + Math.random() * (pigmentMax - pigmentMin);
     }
