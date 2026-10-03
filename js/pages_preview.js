@@ -1281,7 +1281,6 @@
       ) % 360;
     }
 
-    let majorHueMutation = false;
     if (Math.random() < Number(genetics.base_hue_global_mutation_p || 0)) {
       const minJump = Number(
         genetics.base_hue_global_min_jump_deg ?? 70
@@ -1294,11 +1293,8 @@
       const sign = Math.random() < 0.5 ? -1 : 1;
       baseHue = (baseHue + sign * jump + 360) % 360;
 
-      // A major color mutation changes hue only. Preserve the chosen
-      // color parent's brightness and saturation so selection can compare
-      // a new hue at essentially the same camouflage brightness.
-      baseValue = Number(colorParent.baseValue || baseValue);
-      majorHueMutation = true;
+      // Major hue mutation changes hue only. Brightness and saturation
+      // continue to run through their own independent mutation draws below.
     }
 
     const saturationCap = clamp(
@@ -1309,8 +1305,7 @@
     baseSaturation = clamp(baseSaturation, 0, saturationCap);
 
     if (
-      !majorHueMutation
-      && Math.random()
+      Math.random()
       < Number(genetics.base_saturation_mutation_p || 0)
     ) {
       baseSaturation = clamp(
@@ -1334,8 +1329,7 @@
       ),
     );
     if (
-      !majorHueMutation
-      && baseSaturation < pigmentMin
+      baseSaturation < pigmentMin
       && Math.random() < Number(genetics.pigment_expression_p || 0)
     ) {
       // Reveal the hue already carried by this lineage instead of assigning
