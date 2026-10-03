@@ -906,7 +906,10 @@
   }
 
   function leaderboardKey() {
-    return `gitai-preview-leaderboard-v3-solo-${CONFIG.ROUND_TIME_MS}ms`;
+    const environmentId = String(
+      environmentConfig?.environment_id || 'environment'
+    );
+    return `gitai-preview-leaderboard-v4-solo-${environmentId}-${CONFIG.ROUND_TIME_MS}ms`;
   }
 
   function activePlaySeconds() {
