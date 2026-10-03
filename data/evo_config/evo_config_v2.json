@@ -1,5 +1,5 @@
 {
-  "config_id": "evo_preview_solo_v10",
+  "config_id": "evo_preview_solo_v11",
   "engine_version": 2,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
@@ -15,12 +15,12 @@
   "delta_v": 0.22,
   "p_patch_given_mut": 0.16,
   "patch_count_min": 1,
-  "patch_count_max": 3,
+  "patch_count_max": 2,
   "patch_radius_min": 3,
-  "patch_radius_max": 12,
-  "patch_delta_h_deg": 24,
-  "patch_delta_s": 0.28,
-  "patch_delta_v": 0.28,
+  "patch_radius_max": 9,
+  "patch_delta_h_deg": 18,
+  "patch_delta_s": 0.2,
+  "patch_delta_v": 0.2,
   "p_macro_given_mut": 0.1,
   "macro_modes": [
     {
