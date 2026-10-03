@@ -1185,9 +1185,13 @@
         + 360
       ) % 360;
     }
+
+    let globalHueMutated = false;
     if (Math.random() < Number(genetics.base_hue_global_mutation_p || 0)) {
       baseHue = Math.random() * 360;
+      globalHueMutated = true;
     }
+
     if (
       Math.random()
       < Number(genetics.base_saturation_mutation_p || 0)
@@ -1198,6 +1202,26 @@
         * Number(genetics.base_saturation_mutation_step || 0),
       );
     }
+
+    const pigmentMin = Number(
+      genetics.pigment_expression_saturation_min ?? 0.08
+    );
+    const pigmentMax = Math.max(
+      pigmentMin,
+      Number(genetics.pigment_expression_saturation_max ?? 0.25),
+    );
+    if (
+      baseSaturation < pigmentMin
+      && (
+        globalHueMutated
+        || Math.random() < Number(genetics.pigment_expression_p || 0)
+      )
+    ) {
+      if (!globalHueMutated) baseHue = Math.random() * 360;
+      baseSaturation = pigmentMin
+        + Math.random() * (pigmentMax - pigmentMin);
+    }
+
     if (
       Math.random()
       < Number(genetics.base_value_small_mutation_p || 0)
@@ -1207,14 +1231,16 @@
         baseValue * (1 + (Math.random() * 2 - 1) * delta),
       );
     }
+
     if (
       Math.random()
       < Number(genetics.base_value_global_mutation_p || 0)
     ) {
-      const minV = Number(genetics.base_value_global_min ?? 0.15);
-      const maxV = Number(genetics.base_value_global_max ?? 0.92);
+      const minV = Number(genetics.base_value_global_min ?? 0.10);
+      const maxV = Number(genetics.base_value_global_max ?? 0.95);
       baseValue = minV + Math.random() * (maxV - minV);
     }
+
     if (
       Math.random()
       < Number(genetics.contrast_mutation_p || 0)
@@ -1223,10 +1249,11 @@
         patternContrast
         + (Math.random() * 2 - 1)
         * Number(genetics.contrast_mutation_step || 0),
-        0.02,
-        0.80,
+        0.06,
+        0.90,
       );
     }
+
     let textureMutated = false;
     if (
       Math.random()
@@ -1237,7 +1264,7 @@
         + (Math.random() * 2 - 1)
         * Number(genetics.texture_mutation_step || 0),
         0,
-        0.16,
+        0.20,
       );
       textureMutated = true;
     }
@@ -1252,6 +1279,32 @@
         genetics,
         childSeed,
       );
+    }
+
+    // New pattern modules are born at the child level, not independently
+    // at every pixel/locus. This keeps mutation supply fast without turning
+    // inheritance into fine-grained mosaic noise.
+    if (
+      Math.random()
+      < Number(genetics.pattern_birth_p_per_child || 0)
+    ) {
+      const candidates = (genetics.pattern_loci || []).filter((locus) => {
+        const module = modules[locus.id];
+        return module
+          && !module.alleles[0]
+          && !module.alleles[1];
+      });
+
+      if (candidates.length) {
+        const locus = candidates[Math.floor(Math.random() * candidates.length)];
+        const module = modules[locus.id];
+        module.alleles[Math.floor(Math.random() * 2)] = 1;
+
+        patternContrast = Math.max(
+          patternContrast,
+          Number(genetics.pattern_birth_contrast_floor || 0.40),
+        );
+      }
     }
 
     return {
@@ -1359,37 +1412,118 @@
   }
 
   function moduleMaskValue(id, module, xNorm, yNorm, xPx, yPx) {
+    const angle = Number(module.angle || 0) * Math.PI / 180;
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    const dx0 = xNorm - Number(module.cx || 0.5);
+    const dy0 = yNorm - Number(module.cy || 0.5);
+    const u = dx0 * cosA + dy0 * sinA;
+    const v = -dx0 * sinA + dy0 * cosA;
+    const frequency = Math.max(0.5, Number(module.frequency || 1));
+    const roughness = clamp01(Number(module.roughness || 0));
+    const phase = Number(module.phase || 0);
+
     if (id === 'central_blotch') {
-      const dx = (xNorm - module.cx) / Math.max(0.02, module.rx);
-      const dy = (yNorm - module.cy) / Math.max(0.02, module.ry);
+      const dx = u / Math.max(0.02, module.rx);
+      const dy = v / Math.max(0.02, module.ry);
+      const wobble = roughness * 0.18
+        * Math.sin(Math.atan2(dy, dx) * 5 + phase);
       const d2 = dx * dx + dy * dy;
-      return d2 >= 1 ? 0 : Math.pow(1 - d2, 0.65);
+      const edge = 1 + wobble;
+      return d2 >= edge ? 0 : Math.pow(1 - d2 / edge, 0.65);
     }
 
     if (id === 'transverse_band') {
-      const wave = 0.035 * Math.sin(xNorm * Math.PI * 2 + module.phase);
-      const center = module.cy + wave;
+      const wave = (
+        0.025 + roughness * 0.035
+      ) * Math.sin(xNorm * Math.PI * 2 * frequency + phase);
+      const center = Number(module.cy || 0.5) + wave;
       const distance = Math.abs(yNorm - center);
       if (distance >= module.ry) return 0;
       return 1 - distance / Math.max(0.01, module.ry);
     }
 
     if (id === 'outer_edge') {
-      const distance = Math.abs(xNorm - module.cx);
+      const distance = Math.abs(xNorm - Number(module.cx || 0.14));
       if (distance >= module.rx) return 0;
-      return Math.pow(1 - distance / Math.max(0.01, module.rx), 0.7);
+      const base = 1 - distance / Math.max(0.01, module.rx);
+      const serration = 0.82 + 0.18 * Math.sin(
+        yNorm * Math.PI * 2 * frequency + phase
+      );
+      return Math.pow(base, 0.7) * (
+        (1 - roughness) + roughness * Math.max(0, serration)
+      );
     }
 
-    const dx = (xNorm - module.cx) / Math.max(0.03, module.rx);
-    const dy = (yNorm - module.cy) / Math.max(0.03, module.ry);
+    if (id === 'longitudinal_streaks') {
+      const warpedX = xNorm
+        + roughness * 0.045
+        * Math.sin(yNorm * Math.PI * 2 * 1.7 + phase);
+      const stripe = Math.abs(
+        Math.sin((warpedX * frequency + phase / Math.PI) * Math.PI)
+      );
+      const sharp = Math.pow(1 - stripe, 1.8);
+      return sharp > 0.18 ? (sharp - 0.18) / 0.82 : 0;
+    }
+
+    if (id === 'cloud_mottle') {
+      const a = Math.sin(
+        (xNorm * frequency * 1.15 + yNorm * 0.75) * Math.PI * 2 + phase
+      );
+      const b = Math.sin(
+        (yNorm * frequency * 0.85 - xNorm * 0.55) * Math.PI * 2
+        + phase * 0.73
+      );
+      const c = Math.sin(
+        (xNorm + yNorm) * frequency * Math.PI
+        + phase * 1.37
+      );
+      const cloud = (a * 0.46 + b * 0.34 + c * 0.20 + 1) / 2;
+      const threshold = 0.50 - roughness * 0.10;
+      return cloud > threshold
+        ? Math.min(1, (cloud - threshold) / (1 - threshold))
+        : 0;
+    }
+
+    if (id === 'ring_spots') {
+      const dx = u / Math.max(0.02, module.rx);
+      const dy = v / Math.max(0.02, module.ry);
+      const radius = Math.sqrt(dx * dx + dy * dy);
+      const width = 0.16 + roughness * 0.10;
+      const distance = Math.abs(radius - 0.72);
+      if (distance >= width) return 0;
+      return 1 - distance / width;
+    }
+
+    if (id === 'diagonal_streak') {
+      const halfWidth = Math.max(0.02, Number(module.rx || 0.08));
+      const distance = Math.abs(u);
+      if (distance >= halfWidth) return 0;
+      const along = Math.abs(v) / Math.max(0.10, Number(module.ry || 0.55));
+      if (along > 1) return 0;
+      const waviness = 0.80 + 0.20 * Math.sin(
+        v * Math.PI * 2 * frequency + phase
+      );
+      return (1 - distance / halfWidth)
+        * (1 - along * 0.35)
+        * ((1 - roughness) + roughness * Math.max(0, waviness));
+    }
+
+    // speckle_cluster
+    const dx = u / Math.max(0.03, module.rx);
+    const dy = v / Math.max(0.03, module.ry);
     if (dx * dx + dy * dy > 1) return 0;
-    const cellX = Math.floor(xPx / 4);
-    const cellY = Math.floor(yPx / 4);
+    const cellSize = Math.max(2, Math.round(9 - frequency));
+    const cellX = Math.floor(xPx / cellSize);
+    const cellY = Math.floor(yPx / cellSize);
     const noise = seededUnit(
       Number(module.phase || 0) * 1000 + cellX * 31 + cellY * 101,
       41,
     );
-    return noise > 0.62 ? (noise - 0.62) / 0.38 : 0;
+    const threshold = 0.72 - roughness * 0.22;
+    return noise > threshold
+      ? Math.min(1, (noise - threshold) / (1 - threshold))
+      : 0;
   }
 
   function renderGenome(genome) {
