@@ -590,6 +590,39 @@
     }
   }
 
+  function applyGlobalHueMutation(data, coords) {
+    const probability = Number(
+      evolutionConfig.p_global_hue_mutation || 0
+    );
+    if (probability <= 0 || Math.random() >= probability) {
+      return false;
+    }
+
+    const hue = Math.random() * 360;
+    const minSaturation = Math.max(
+      0,
+      Math.min(
+        1,
+        Number(evolutionConfig.global_hue_min_saturation || 0),
+      ),
+    );
+
+    for (const [x, y] of coords) {
+      const [r, g, b, a] = getPixel(data, x, y);
+      if (a === 0) continue;
+
+      const [, s, v] = rgbToHsv(r, g, b);
+      const [nr, ng, nb] = hsvToRgb(
+        hue,
+        Math.max(s, minSaturation),
+        v,
+      );
+      setPixelMirrored(data, x, y, [nr, ng, nb, a]);
+    }
+
+    return true;
+  }
+
   function imageDataToBlob(imageData) {
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
@@ -652,6 +685,7 @@
       const micro = applyMicroMutation(child.data, mask, coords);
       applyPatchMutation(child.data, mask, coords, micro);
       applyMacroMutation(child.data, mask, coords, micro);
+      applyGlobalHueMutation(child.data, coords);
       blobs.set(item.childIndex, await imageDataToBlob(child));
 
       if (item.childIndex % 8 === 0) {
@@ -770,7 +804,7 @@
       || previewSeconds < 0.5
       || previewSeconds > 10
     ) {
-      previewSeconds = params.get('fast') === '1' ? 0.5 : 2.0;
+      previewSeconds = params.get('fast') === '1' ? 0.5 : 3.0;
     }
 
     badge.innerHTML =
