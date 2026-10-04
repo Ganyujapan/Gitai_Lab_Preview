@@ -2,12 +2,61 @@
   'use strict';
 
   const nativeFetch = window.fetch.bind(window);
-  const PREVIEW_ENV = new URLSearchParams(location.search).get('env') === 'sand'
+  const PREVIEW_QUERY = new URLSearchParams(location.search);
+
+  function safeNamespaceId(value, fallback) {
+    const raw = String(value || '').trim();
+    return /^[a-z0-9_-]{1,48}$/i.test(raw) ? raw : fallback;
+  }
+
+  function resolveEnvironmentId(rawValue) {
+    const raw = String(rawValue || '').trim();
+    if (!raw || raw === 'bark') return 'bark_001';
+    if (raw === 'sand') return 'sand_001';
+    return safeNamespaceId(raw, 'bark_001');
+  }
+
+  const PREVIEW_ENV_ID = resolveEnvironmentId(PREVIEW_QUERY.get('env'));
+  const PREVIEW_ENV = PREVIEW_ENV_ID === 'sand_001'
     ? 'sand'
-    : 'bark';
-  const DB_NAME = PREVIEW_ENV === 'sand'
-    ? 'gitai-pages-preview-v2-sand'
-    : 'gitai-pages-preview-v2';
+    : (
+      PREVIEW_ENV_ID === 'bark_001'
+        ? 'bark'
+        : PREVIEW_ENV_ID
+    );
+  const EVOLUTION_MODEL_ID = safeNamespaceId(
+    PREVIEW_QUERY.get('model'),
+    'continuous_v1',
+  );
+  const PREVIEW_RUN_ID = safeNamespaceId(
+    PREVIEW_QUERY.get('run'),
+    'default',
+  );
+
+  const LEGACY_DEFAULT_STORAGE = (
+    EVOLUTION_MODEL_ID === 'continuous_v1'
+    && PREVIEW_RUN_ID === 'default'
+    && (
+      PREVIEW_ENV_ID === 'bark_001'
+      || PREVIEW_ENV_ID === 'sand_001'
+    )
+  );
+
+  // Keep existing testers' bark/sand data alive. New model/run combinations
+  // use the fully namespaced v3 store.
+  const DB_NAME = LEGACY_DEFAULT_STORAGE
+    ? (
+      PREVIEW_ENV_ID === 'sand_001'
+        ? 'gitai-pages-preview-v2-sand'
+        : 'gitai-pages-preview-v2'
+    )
+    : [
+      'gitai-pages-preview-v3',
+      PREVIEW_ENV_ID,
+      EVOLUTION_MODEL_ID,
+      PREVIEW_RUN_ID,
+    ].join('-');
+
   const DB_VERSION = 1;
   const IMAGE_STORE = 'images';
   const META_STORE = 'meta';
@@ -168,16 +217,28 @@
       exported_at: new Date().toISOString(),
       environment: {
         preview_env: PREVIEW_ENV,
-        environment_id: environmentConfig?.environment_id || null,
+        environment_id: environmentConfig?.environment_id || PREVIEW_ENV_ID,
         display_name_ja: environmentConfig?.display_name_ja || null,
       },
+      run: {
+        run_id: PREVIEW_RUN_ID,
+        storage_namespace: DB_NAME,
+        legacy_default_storage: LEGACY_DEFAULT_STORAGE,
+      },
       evolution: {
+        model_id: evolutionConfig?.model_id || EVOLUTION_MODEL_ID,
+        model_display_name_ja:
+          evolutionConfig?.model_display_name_ja || null,
         config_id: evolutionConfig?.config_id || null,
         engine_version: evolutionConfig?.engine_version || null,
         inheritance: evolutionConfig?.inheritance || null,
         parent_selection: evolutionConfig?.parent_selection || null,
         parent_pool_size: evolutionConfig?.parent_pool_size || null,
         trait_genetics: evolutionConfig?.trait_genetics || null,
+        founder_set_id:
+          evolutionConfig?.founder_model?.founder_set_id || null,
+        founder_seed:
+          evolutionConfig?.founder_model?.founder_seed || null,
       },
       game: {
         round_time_ms: Number(appConfig?.game?.round_time_ms || 0),
@@ -198,9 +259,12 @@
     };
 
     const json = JSON.stringify(payload, null, 2);
-    const env = PREVIEW_ENV === 'sand' ? 'sand' : 'bark';
+    const env = PREVIEW_ENV_ID;
+    const model = EVOLUTION_MODEL_ID;
+    const run = PREVIEW_RUN_ID;
     const current = String(currentGenerationId || 'gen00001');
-    const filename = `gitailab_log_${env}_${current}.json`;
+    const filename =
+      `gitailab_log_${env}_${model}_${run}_${current}.json`;
     const file = new File([json], filename, {
       type: 'application/json',
     });
@@ -310,15 +374,29 @@
     speciesConfig = await loadJson(appConfig.species_config);
 
     const params = new URLSearchParams(location.search);
-    const environmentPath = PREVIEW_ENV === 'sand'
-      ? 'environments/sand_001/environment.json'
-      : appConfig.environment_config;
+    const environmentPath =
+      `environments/${PREVIEW_ENV_ID}/environment.json`;
+    const evolutionPath =
+      `data/evolution_models/${EVOLUTION_MODEL_ID}/config.json`;
+
     environmentConfig = await loadJson(environmentPath);
-    evolutionConfig = await loadJson(appConfig.evolution_config);
+    evolutionConfig = await loadJson(evolutionPath);
+
+    const loadedModelId = String(
+      evolutionConfig.model_id || EVOLUTION_MODEL_ID
+    );
+    if (loadedModelId !== EVOLUTION_MODEL_ID) {
+      throw new Error(
+        `進化モデルIDが一致しません: ${loadedModelId}`
+      );
+    }
 
     appConfig = JSON.parse(JSON.stringify(appConfig));
     appConfig.mode = 'pages_preview';
     appConfig.environment_config = environmentPath;
+    appConfig.evolution_config = evolutionPath;
+    appConfig.evolution_model_id = EVOLUTION_MODEL_ID;
+    appConfig.preview_run_id = PREVIEW_RUN_ID;
     appConfig.title = `${appConfig.title} — Pages Preview`;
     appConfig.network = {
       ...(appConfig.network || {}),
@@ -984,22 +1062,43 @@
     return (Number(a) + delta * t + 360) % 360;
   }
 
-  function inheritLinear(a, b) {
-    const lo = Math.min(Number(a), Number(b));
-    const hi = Math.max(Number(a), Number(b));
-    return lo + Math.random() * (hi - lo);
+  function hashString32(value) {
+    let h = 2166136261 >>> 0;
+    const text = String(value);
+    for (let i = 0; i < text.length; i += 1) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
   }
 
-  function mutateAllele(value, genetics) {
+  function makeSeededRng(seedValue) {
+    let state = hashString32(seedValue) || 0x6d2b79f5;
+    return () => {
+      state += 0x6d2b79f5;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function inheritLinear(a, b, rng = Math.random) {
+    const lo = Math.min(Number(a), Number(b));
+    const hi = Math.max(Number(a), Number(b));
+    return lo + rng() * (hi - lo);
+  }
+
+  function mutateAllele(value, genetics, rng = Math.random) {
     let allele = value ? 1 : 0;
     if (
       allele === 0
-      && Math.random() < Number(genetics.pattern_allele_gain_p || 0)
+      && rng() < Number(genetics.pattern_allele_gain_p || 0)
     ) {
       allele = 1;
     } else if (
       allele === 1
-      && Math.random() < Number(genetics.pattern_allele_loss_p || 0)
+      && rng() < Number(genetics.pattern_allele_loss_p || 0)
     ) {
       allele = 0;
     }
@@ -1299,18 +1398,18 @@
     return genome;
   }
 
-  function inheritModule(parentA, parentB, locus, genetics, childSeed, diagnosticEvents = null) {
+  function inheritModule(parentA, parentB, locus, genetics, childSeed, diagnosticEvents = null, rng = Math.random) {
     const a = parentA.modules[locus.id]
       || { alleles: [0, 0], ...defaultModuleParams(locus.id, childSeed + 1) };
     const b = parentB.modules[locus.id]
       || { alleles: [0, 0], ...defaultModuleParams(locus.id, childSeed + 2) };
 
-    const alleleAIndex = Math.floor(Math.random() * 2);
-    const alleleBIndex = Math.floor(Math.random() * 2);
+    const alleleAIndex = Math.floor(rng() * 2);
+    const alleleBIndex = Math.floor(rng() * 2);
     const inheritedA = a.alleles[alleleAIndex] || 0;
     const inheritedB = b.alleles[alleleBIndex] || 0;
-    const childAlleleA = mutateAllele(inheritedA, genetics);
-    const childAlleleB = mutateAllele(inheritedB, genetics);
+    const childAlleleA = mutateAllele(inheritedA, genetics, rng);
+    const childAlleleB = mutateAllele(inheritedB, genetics, rng);
     let geometryMutated = false;
     let saturationMutated = false;
     let majorPatternHueMutated = false;
@@ -1320,10 +1419,10 @@
     const chooseNumber = (key, fallback) => {
       const av = Number(a[key] ?? fallback);
       const bv = Number(b[key] ?? fallback);
-      if (childAlleleA && childAlleleB) return inheritLinear(av, bv);
+      if (childAlleleA && childAlleleB) return inheritLinear(av, bv, rng);
       if (childAlleleA) return av;
       if (childAlleleB) return bv;
-      return Math.random() < 0.5 ? av : bv;
+      return rng() < 0.5 ? av : bv;
     };
 
     const chooseCircularPhase = () => {
@@ -1331,18 +1430,18 @@
       const bv = Number(b.phase || 0);
       if (childAlleleA && !childAlleleB) return av;
       if (!childAlleleA && childAlleleB) return bv;
-      return Math.random() < 0.5 ? av : bv;
+      return rng() < 0.5 ? av : bv;
     };
 
     const chooseHue = (key, fallback) => {
       const av = Number(a[key] ?? fallback);
       const bv = Number(b[key] ?? fallback);
       if (childAlleleA && childAlleleB) {
-        return circularLerpDeg(av, bv, Math.random());
+        return circularLerpDeg(av, bv, rng());
       }
       if (childAlleleA) return av;
       if (childAlleleB) return bv;
-      return Math.random() < 0.5 ? av : bv;
+      return rng() < 0.5 ? av : bv;
     };
 
     const patternSatMin = Number(
@@ -1383,7 +1482,7 @@
 
     if (
       dosage > 0
-      && Math.random()
+      && rng()
       < Number(genetics.pattern_parameter_mutation_p || 0)
     ) {
       geometryMutated = true;
@@ -1394,37 +1493,37 @@
       const frequencyStep = Number(genetics.pattern_frequency_step || 0.35);
       const roughnessStep = Number(genetics.pattern_roughness_step || 0.08);
 
-      module.cx = clamp(module.cx + (Math.random() * 2 - 1) * posStep, 0.06, 0.94);
-      module.cy = clamp(module.cy + (Math.random() * 2 - 1) * posStep, 0.08, 0.92);
-      module.rx = clamp(module.rx + (Math.random() * 2 - 1) * sizeStep, 0.03, 0.55);
-      module.ry = clamp(module.ry + (Math.random() * 2 - 1) * sizeStep, 0.03, 0.58);
+      module.cx = clamp(module.cx + (rng() * 2 - 1) * posStep, 0.06, 0.94);
+      module.cy = clamp(module.cy + (rng() * 2 - 1) * posStep, 0.08, 0.92);
+      module.rx = clamp(module.rx + (rng() * 2 - 1) * sizeStep, 0.03, 0.55);
+      module.ry = clamp(module.ry + (rng() * 2 - 1) * sizeStep, 0.03, 0.58);
       module.valueEffect = clamp(
-        module.valueEffect + (Math.random() * 2 - 1) * effectStep,
+        module.valueEffect + (rng() * 2 - 1) * effectStep,
         -0.65,
         0.50,
       );
       module.hueEffect = clamp(
-        module.hueEffect + (Math.random() * 2 - 1) * effectStep * 140,
+        module.hueEffect + (rng() * 2 - 1) * effectStep * 140,
         -80,
         80,
       );
       module.saturationEffect = clamp(
-        module.saturationEffect + (Math.random() * 2 - 1) * effectStep,
+        module.saturationEffect + (rng() * 2 - 1) * effectStep,
         -0.38,
         0.38,
       );
       module.angle = clamp(
-        module.angle + (Math.random() * 2 - 1) * angleStep,
+        module.angle + (rng() * 2 - 1) * angleStep,
         -90,
         90,
       );
       module.frequency = clamp(
-        module.frequency + (Math.random() * 2 - 1) * frequencyStep,
+        module.frequency + (rng() * 2 - 1) * frequencyStep,
         0.5,
         9,
       );
       module.roughness = clamp01(
-        module.roughness + (Math.random() * 2 - 1) * roughnessStep,
+        module.roughness + (rng() * 2 - 1) * roughnessStep,
       );
 
       const pigmentHueStep = Number(
@@ -1432,14 +1531,14 @@
       );
       module.pigmentHue = (
         Number(module.pigmentHue || 0)
-        + (Math.random() * 2 - 1) * pigmentHueStep
+        + (rng() * 2 - 1) * pigmentHueStep
         + 360
       ) % 360;
     }
 
     if (
       dosage > 0
-      && Math.random()
+      && rng()
       < Number(genetics.pattern_pigment_saturation_mutation_p || 0)
     ) {
       saturationMutated = true;
@@ -1451,7 +1550,7 @@
       );
       module.pigmentSaturation = clamp(
         Number(module.pigmentSaturation || 0)
-        + (Math.random() * 2 - 1) * pigmentSatStep,
+        + (rng() * 2 - 1) * pigmentSatStep,
         0,
         pigmentSatCap,
       );
@@ -1459,7 +1558,7 @@
 
     if (
       dosage > 0
-      && Math.random()
+      && rng()
       < Number(genetics.pattern_pigment_global_hue_mutation_p || 0)
     ) {
       majorPatternHueMutated = true;
@@ -1470,8 +1569,8 @@
         minJump,
         Number(genetics.pattern_pigment_global_max_jump_deg ?? 180),
       );
-      const jump = minJump + Math.random() * (maxJump - minJump);
-      const sign = Math.random() < 0.5 ? -1 : 1;
+      const jump = minJump + rng() * (maxJump - minJump);
+      const sign = rng() < 0.5 ? -1 : 1;
       module.pigmentHue = (
         Number(module.pigmentHue || 0) + sign * jump + 360
       ) % 360;
@@ -1519,9 +1618,10 @@
     nextId,
     parentAIndex,
     parentBIndex,
+    rng = Math.random,
   ) {
     const genetics = evolutionConfig.trait_genetics || {};
-    const colorParentIsA = Math.random() < 0.5;
+    const colorParentIsA = rng() < 0.5;
     const colorParent = colorParentIsA ? parentA : parentB;
     const colorParentIndex = colorParentIsA ? parentAIndex : parentBIndex;
 
@@ -1532,17 +1632,19 @@
       generationNumber(nextId) === 1
       && evolutionConfig.founder_model?.latent_hue_diversity
     ) {
-      baseHue = Math.random() * 360;
+      baseHue = rng() * 360;
     }
 
-    let baseValue = inheritLinear(parentA.baseValue, parentB.baseValue);
+    let baseValue = inheritLinear(parentA.baseValue, parentB.baseValue, rng);
     let patternContrast = inheritLinear(
       parentA.patternContrast,
       parentB.patternContrast,
+      rng,
     );
     let textureStrength = inheritLinear(
       parentA.textureStrength,
       parentB.textureStrength,
+      rng,
     );
 
     const diagnostic = {
@@ -1564,9 +1666,9 @@
       active_patterns: [],
     };
 
-    if (Math.random() < Number(genetics.base_hue_small_mutation_p || 0)) {
+    if (rng() < Number(genetics.base_hue_small_mutation_p || 0)) {
       const before = baseHue;
-      const delta = (Math.random() * 2 - 1)
+      const delta = (rng() * 2 - 1)
         * Number(genetics.base_hue_small_mutation_deg || 0);
       baseHue = (baseHue + delta + 360) % 360;
       diagnostic.mutations.push({
@@ -1577,7 +1679,7 @@
       });
     }
 
-    if (Math.random() < Number(genetics.base_hue_global_mutation_p || 0)) {
+    if (rng() < Number(genetics.base_hue_global_mutation_p || 0)) {
       const before = baseHue;
       const minJump = Number(
         genetics.base_hue_global_min_jump_deg ?? 70
@@ -1586,8 +1688,8 @@
         minJump,
         Number(genetics.base_hue_global_max_jump_deg ?? 180),
       );
-      const jump = minJump + Math.random() * (maxJump - minJump);
-      const sign = Math.random() < 0.5 ? -1 : 1;
+      const jump = minJump + rng() * (maxJump - minJump);
+      const sign = rng() < 0.5 ? -1 : 1;
       baseHue = (baseHue + sign * jump + 360) % 360;
       diagnostic.mutations.push({
         type: 'base_hue_major',
@@ -1606,13 +1708,13 @@
     baseSaturation = clamp(baseSaturation, 0, saturationCap);
 
     if (
-      Math.random()
+      rng()
       < Number(genetics.base_saturation_mutation_p || 0)
     ) {
       const before = baseSaturation;
       baseSaturation = clamp(
         baseSaturation
-        + (Math.random() * 2 - 1)
+        + (rng() * 2 - 1)
         * Number(genetics.base_saturation_mutation_step || 0),
         0,
         saturationCap,
@@ -1637,11 +1739,11 @@
     );
     if (
       baseSaturation < pigmentMin
-      && Math.random() < Number(genetics.pigment_expression_p || 0)
+      && rng() < Number(genetics.pigment_expression_p || 0)
     ) {
       const before = baseSaturation;
       baseSaturation = pigmentMin
-        + Math.random() * (pigmentMax - pigmentMin);
+        + rng() * (pigmentMax - pigmentMin);
       diagnostic.mutations.push({
         type: 'pigment_expression',
         before: diagnosticNumber(before, 4),
@@ -1651,13 +1753,13 @@
     }
 
     if (
-      Math.random()
+      rng()
       < Number(genetics.base_value_small_mutation_p || 0)
     ) {
       const before = baseValue;
       const delta = Number(genetics.base_value_small_scale_delta || 0);
       baseValue = clamp01(
-        baseValue * (1 + (Math.random() * 2 - 1) * delta),
+        baseValue * (1 + (rng() * 2 - 1) * delta),
       );
       diagnostic.mutations.push({
         type: 'base_value_small',
@@ -1667,7 +1769,7 @@
     }
 
     if (
-      Math.random()
+      rng()
       < Number(genetics.base_value_global_mutation_p || 0)
     ) {
       const before = baseValue;
@@ -1676,16 +1778,16 @@
       const darkBiasP = Number(genetics.base_value_dark_bias_p || 0);
       let darkBias = false;
 
-      if (Math.random() < darkBiasP) {
+      if (rng() < darkBiasP) {
         darkBias = true;
         const darkMin = Number(genetics.base_value_dark_min ?? minV);
         const darkMax = Math.max(
           darkMin,
           Number(genetics.base_value_dark_max ?? 0.28),
         );
-        baseValue = darkMin + Math.random() * (darkMax - darkMin);
+        baseValue = darkMin + rng() * (darkMax - darkMin);
       } else {
-        baseValue = minV + Math.random() * (maxV - minV);
+        baseValue = minV + rng() * (maxV - minV);
       }
 
       diagnostic.mutations.push({
@@ -1697,13 +1799,13 @@
     }
 
     if (
-      Math.random()
+      rng()
       < Number(genetics.contrast_mutation_p || 0)
     ) {
       const before = patternContrast;
       patternContrast = clamp(
         patternContrast
-        + (Math.random() * 2 - 1)
+        + (rng() * 2 - 1)
         * Number(genetics.contrast_mutation_step || 0),
         0.06,
         0.90,
@@ -1717,13 +1819,13 @@
 
     let textureMutated = false;
     if (
-      Math.random()
+      rng()
       < Number(genetics.texture_mutation_p || 0)
     ) {
       const before = textureStrength;
       textureStrength = clamp(
         textureStrength
-        + (Math.random() * 2 - 1)
+        + (rng() * 2 - 1)
         * Number(genetics.texture_mutation_step || 0),
         0,
         0.20,
@@ -1746,11 +1848,12 @@
         genetics,
         childSeed,
         diagnostic.pattern_mutations,
+        rng,
       );
     }
 
     if (
-      Math.random()
+      rng()
       < Number(genetics.pattern_birth_p_per_child || 0)
     ) {
       const candidates = (genetics.pattern_loci || []).filter((locus) => {
@@ -1761,7 +1864,7 @@
       });
 
       if (candidates.length) {
-        const locus = candidates[Math.floor(Math.random() * candidates.length)];
+        const locus = candidates[Math.floor(rng() * candidates.length)];
         const locusIndex = Math.max(
           0,
           (genetics.pattern_loci || []).findIndex(
@@ -1770,10 +1873,10 @@
         );
         const fresh = defaultModuleParams(
           locus.id,
-          childSeed + (locusIndex + 1) * 997 + Math.floor(Math.random() * 997),
+          childSeed + (locusIndex + 1) * 997 + Math.floor(rng() * 997),
         );
         const newAlleles = [0, 0];
-        newAlleles[Math.floor(Math.random() * 2)] = 1;
+        newAlleles[Math.floor(rng() * 2)] = 1;
         const patternSatMin = Number(
           genetics.pattern_pigment_saturation_min ?? 0.06
         );
@@ -1784,9 +1887,9 @@
         modules[locus.id] = {
           alleles: newAlleles,
           ...fresh,
-          pigmentHue: Math.random() * 360,
+          pigmentHue: rng() * 360,
           pigmentSaturation: patternSatMin
-            + Math.random() * (patternSatMax - patternSatMin),
+            + rng() * (patternSatMax - patternSatMin),
         };
 
         patternContrast = Math.max(
@@ -1823,7 +1926,7 @@
       textureSeed: textureMutated
         ? childSeed
         : (
-          Math.random() < 0.5
+          rng() < 0.5
             ? Number(parentA.textureSeed || childSeed)
             : Number(parentB.textureSeed || childSeed)
         ),
@@ -1876,8 +1979,18 @@
     await ensureMask();
     await ensureTemplateAlpha();
 
-    const markerKey = 'founder_generation_config_id';
-    const expectedMarker = String(evolutionConfig.config_id || 'unknown');
+    const markerKey = 'founder_generation_identity';
+    const expectedMarker = [
+      EVOLUTION_MODEL_ID,
+      String(
+        evolutionConfig.founder_model?.founder_set_id
+        || 'standard_white_001'
+      ),
+      String(
+        evolutionConfig.founder_model?.founder_seed
+        || 'standard_white_001'
+      ),
+    ].join(':');
     const storedMarker = await idbGet(META_STORE, markerKey);
 
     if (storedMarker === expectedMarker) {
@@ -1898,6 +2011,17 @@
     const founderB = makePureWhiteFounderGenome(2);
 
     for (let i = 1; i <= TOTAL; i += 1) {
+      const founderSetId = String(
+        evolutionConfig.founder_model?.founder_set_id
+        || 'standard_white_001'
+      );
+      const founderSeed = String(
+        evolutionConfig.founder_model?.founder_seed
+        || founderSetId
+      );
+      const founderRng = makeSeededRng(
+        `${EVOLUTION_MODEL_ID}:${founderSeed}:${i}`
+      );
       const result = makeChildGenome(
         founderA,
         founderB,
@@ -1905,6 +2029,7 @@
         'gen00001',
         0,
         0,
+        founderRng,
       );
       const genome = result.genome;
       const imageData = renderGenome(genome);
@@ -2337,6 +2462,14 @@
       delete publicConfig.evolution_config;
       publicConfig.species = speciesConfig;
       publicConfig.environment = environmentConfig;
+      publicConfig.preview_context = {
+        environment_id: PREVIEW_ENV_ID,
+        evolution_model_id: EVOLUTION_MODEL_ID,
+        run_id: PREVIEW_RUN_ID,
+        founder_set_id:
+          evolutionConfig?.founder_model?.founder_set_id || null,
+        legacy_default_storage: LEGACY_DEFAULT_STORAGE,
+      };
       return jsonResponse(200, publicConfig);
     }
 
@@ -2419,16 +2552,26 @@
       previewSeconds = params.get('fast') === '1' ? 0.5 : 4.0;
     }
 
-    const envLabel = PREVIEW_ENV === 'sand' ? '砂漠' : '樹皮';
-    const switchLabel = PREVIEW_ENV === 'sand'
+    const envLabel = PREVIEW_ENV_ID === 'sand_001'
+      ? '砂漠'
+      : (
+        PREVIEW_ENV_ID === 'bark_001'
+          ? '樹皮'
+          : PREVIEW_ENV_ID
+      );
+    const switchLabel = PREVIEW_ENV_ID === 'sand_001'
       ? '背景: 樹皮へ'
       : '背景: 砂漠へ';
 
     badge.innerHTML =
-      '<span>SOLO PREVIEW · '
+      '<span>SOLO · '
       + previewSeconds.toFixed(1)
       + 's · '
       + envLabel
+      + ' · '
+      + EVOLUTION_MODEL_ID
+      + ' · run:'
+      + PREVIEW_RUN_ID
       + '</span>'
       + '<button type="button" data-action="environment">'
       + switchLabel
@@ -2477,7 +2620,7 @@
       event.stopPropagation();
 
       const u = new URL(location.href);
-      if (PREVIEW_ENV === 'sand') {
+      if (PREVIEW_ENV_ID === 'sand_001') {
         u.searchParams.delete('env');
       } else {
         u.searchParams.set('env', 'sand');
@@ -2522,6 +2665,13 @@
     reset: clearDb,
     resetAll: resetAllPreviewData,
     exportDiagnosticLog,
+    context: Object.freeze({
+      environmentId: PREVIEW_ENV_ID,
+      evolutionModelId: EVOLUTION_MODEL_ID,
+      runId: PREVIEW_RUN_ID,
+      storageNamespace: DB_NAME,
+      legacyDefaultStorage: LEGACY_DEFAULT_STORAGE,
+    }),
   };
 
   window.fetch = apiFetch;
