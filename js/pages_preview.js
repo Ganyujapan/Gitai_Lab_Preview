@@ -87,6 +87,148 @@
     });
   }
 
+  async function idbEntriesByPrefix(storeName, prefix) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+      const out = [];
+      const req = store.openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) {
+          resolve(out);
+          return;
+        }
+        const key = String(cursor.key);
+        if (key.startsWith(prefix)) {
+          out.push({ key, value: cursor.value });
+        }
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function diagnosticKey(generationId) {
+    return `diagnostic:${generationId}`;
+  }
+
+  function diagnosticNumber(value, digits = 5) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const factor = 10 ** digits;
+    return Math.round(n * factor) / factor;
+  }
+
+  function diagnosticPatternSummary(genome, genetics) {
+    const patterns = [];
+    for (const locus of genetics.pattern_loci || []) {
+      const module = genome.modules?.[locus.id];
+      if (!module) continue;
+      const expression = locusExpression(
+        locus,
+        module.alleles || [0, 0],
+      );
+      if (expression <= 0) continue;
+      patterns.push({
+        id: locus.id,
+        dominance: locus.dominance,
+        alleles: [...(module.alleles || [0, 0])],
+        expression: diagnosticNumber(expression, 3),
+        pigment_hue: diagnosticNumber(module.pigmentHue, 2),
+        pigment_saturation: diagnosticNumber(module.pigmentSaturation, 4),
+        value_effect: diagnosticNumber(module.valueEffect, 4),
+        cx: diagnosticNumber(module.cx, 4),
+        cy: diagnosticNumber(module.cy, 4),
+        rx: diagnosticNumber(module.rx, 4),
+        ry: diagnosticNumber(module.ry, 4),
+        angle: diagnosticNumber(module.angle, 3),
+        frequency: diagnosticNumber(module.frequency, 4),
+        roughness: diagnosticNumber(module.roughness, 4),
+      });
+    }
+    return patterns;
+  }
+
+  async function exportDiagnosticLog() {
+    await ensureConfig();
+    const entries = await idbEntriesByPrefix(META_STORE, 'diagnostic:');
+    const generations = entries
+      .map((item) => item.value)
+      .filter((item) => item && typeof item === 'object')
+      .sort((a, b) => (
+        generationNumber(a.generation_id)
+        - generationNumber(b.generation_id)
+      ));
+
+    const payload = {
+      schema: 'gitailab-preview-diagnostic-v1',
+      schema_version: 1,
+      exported_at: new Date().toISOString(),
+      environment: {
+        preview_env: PREVIEW_ENV,
+        environment_id: environmentConfig?.environment_id || null,
+        display_name_ja: environmentConfig?.display_name_ja || null,
+      },
+      evolution: {
+        config_id: evolutionConfig?.config_id || null,
+        engine_version: evolutionConfig?.engine_version || null,
+        inheritance: evolutionConfig?.inheritance || null,
+        parent_selection: evolutionConfig?.parent_selection || null,
+        parent_pool_size: evolutionConfig?.parent_pool_size || null,
+        trait_genetics: evolutionConfig?.trait_genetics || null,
+      },
+      game: {
+        round_time_ms: Number(appConfig?.game?.round_time_ms || 0),
+        rounds_per_generation: Number(
+          appConfig?.game?.rounds_per_generation || 0
+        ),
+        individuals_per_round: Number(
+          appConfig?.game?.individuals_per_round || 0
+        ),
+        population_size: TOTAL,
+      },
+      current_generation_id: currentGenerationId,
+      recorded_generation_count: generations.length,
+      note: generations.length
+        ? 'Diagnostic recording starts from the first generation evolved after this feature was installed.'
+        : 'No evolved generations have been recorded on this device/environment yet.',
+      generations,
+    };
+
+    const json = JSON.stringify(payload, null, 2);
+    const env = PREVIEW_ENV === 'sand' ? 'sand' : 'bark';
+    const current = String(currentGenerationId || 'gen00001');
+    const filename = `gitailab_log_${env}_${current}.json`;
+    const file = new File([json], filename, {
+      type: 'application/json',
+    });
+
+    if (
+      navigator.share
+      && navigator.canShare
+      && navigator.canShare({ files: [file] })
+    ) {
+      await navigator.share({
+        title: 'ギタイラボ 診断ログ',
+        text: 'ギタイラボPreviewの進化診断ログです。',
+        files: [file],
+      });
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   async function clearDb() {
     if (dbPromise) {
       const db = await dbPromise.catch(() => null);
@@ -1157,7 +1299,7 @@
     return genome;
   }
 
-  function inheritModule(parentA, parentB, locus, genetics, childSeed) {
+  function inheritModule(parentA, parentB, locus, genetics, childSeed, diagnosticEvents = null) {
     const a = parentA.modules[locus.id]
       || { alleles: [0, 0], ...defaultModuleParams(locus.id, childSeed + 1) };
     const b = parentB.modules[locus.id]
@@ -1169,6 +1311,11 @@
     const inheritedB = b.alleles[alleleBIndex] || 0;
     const childAlleleA = mutateAllele(inheritedA, genetics);
     const childAlleleB = mutateAllele(inheritedB, genetics);
+    let geometryMutated = false;
+    let saturationMutated = false;
+    let majorPatternHueMutated = false;
+    const inheritedPigmentHueA = Number(a.pigmentHue);
+    const inheritedPigmentHueB = Number(b.pigmentHue);
 
     const chooseNumber = (key, fallback) => {
       const av = Number(a[key] ?? fallback);
@@ -1239,6 +1386,7 @@
       && Math.random()
       < Number(genetics.pattern_parameter_mutation_p || 0)
     ) {
+      geometryMutated = true;
       const posStep = Number(genetics.pattern_position_step || 0.025);
       const sizeStep = Number(genetics.pattern_size_step || 0.04);
       const effectStep = Number(genetics.pattern_effect_step || 0.04);
@@ -1294,6 +1442,7 @@
       && Math.random()
       < Number(genetics.pattern_pigment_saturation_mutation_p || 0)
     ) {
+      saturationMutated = true;
       const pigmentSatStep = Number(
         genetics.pattern_pigment_saturation_step ?? 0.07
       );
@@ -1313,6 +1462,7 @@
       && Math.random()
       < Number(genetics.pattern_pigment_global_hue_mutation_p || 0)
     ) {
+      majorPatternHueMutated = true;
       const minJump = Number(
         genetics.pattern_pigment_global_min_jump_deg ?? 70
       );
@@ -1327,12 +1477,54 @@
       ) % 360;
     }
 
+    if (diagnosticEvents) {
+      const alleleChanged = (
+        childAlleleA !== inheritedA
+        || childAlleleB !== inheritedB
+      );
+      if (
+        alleleChanged
+        || geometryMutated
+        || saturationMutated
+        || majorPatternHueMutated
+      ) {
+        diagnosticEvents.push({
+          locus: locus.id,
+          inherited_alleles: [inheritedA, inheritedB],
+          child_alleles: [childAlleleA, childAlleleB],
+          allele_changed: alleleChanged,
+          geometry_mutated: geometryMutated,
+          saturation_mutated: saturationMutated,
+          major_hue_mutated: majorPatternHueMutated,
+          inherited_pigment_hues: [
+            diagnosticNumber(inheritedPigmentHueA, 2),
+            diagnosticNumber(inheritedPigmentHueB, 2),
+          ],
+          final_pigment_hue: diagnosticNumber(module.pigmentHue, 2),
+          final_pigment_saturation: diagnosticNumber(
+            module.pigmentSaturation,
+            4,
+          ),
+        });
+      }
+    }
+
     return module;
   }
 
-  function makeChildGenome(parentA, parentB, childIndex, nextId) {
+  function makeChildGenome(
+    parentA,
+    parentB,
+    childIndex,
+    nextId,
+    parentAIndex,
+    parentBIndex,
+  ) {
     const genetics = evolutionConfig.trait_genetics || {};
-    const colorParent = Math.random() < 0.5 ? parentA : parentB;
+    const colorParentIsA = Math.random() < 0.5;
+    const colorParent = colorParentIsA ? parentA : parentB;
+    const colorParentIndex = colorParentIsA ? parentAIndex : parentBIndex;
+
     let baseHue = Number(colorParent.baseHue || 0);
     let baseSaturation = Number(colorParent.baseSaturation || 0);
 
@@ -1340,8 +1532,6 @@
       generationNumber(nextId) === 1
       && evolutionConfig.founder_model?.latent_hue_diversity
     ) {
-      // Pure white has no visible hue at S=0, so Generation 1 can carry
-      // broad hidden hue potential without ceasing to be phenotypically white.
       baseHue = Math.random() * 360;
     }
 
@@ -1355,16 +1545,40 @@
       parentB.textureStrength,
     );
 
+    const diagnostic = {
+      child_index: childIndex,
+      parent_a: parentAIndex,
+      parent_b: parentBIndex,
+      color_parent: colorParentIndex,
+      inherited: {
+        hue: diagnosticNumber(baseHue, 2),
+        saturation: diagnosticNumber(baseSaturation, 4),
+        value: diagnosticNumber(baseValue, 4),
+        pattern_contrast: diagnosticNumber(patternContrast, 4),
+        texture_strength: diagnosticNumber(textureStrength, 4),
+      },
+      mutations: [],
+      pattern_mutations: [],
+      pattern_birth: null,
+      final: null,
+      active_patterns: [],
+    };
+
     if (Math.random() < Number(genetics.base_hue_small_mutation_p || 0)) {
-      baseHue = (
-        baseHue
-        + (Math.random() * 2 - 1)
-        * Number(genetics.base_hue_small_mutation_deg || 0)
-        + 360
-      ) % 360;
+      const before = baseHue;
+      const delta = (Math.random() * 2 - 1)
+        * Number(genetics.base_hue_small_mutation_deg || 0);
+      baseHue = (baseHue + delta + 360) % 360;
+      diagnostic.mutations.push({
+        type: 'base_hue_small',
+        before: diagnosticNumber(before, 2),
+        after: diagnosticNumber(baseHue, 2),
+        signed_delta_deg: diagnosticNumber(delta, 2),
+      });
     }
 
     if (Math.random() < Number(genetics.base_hue_global_mutation_p || 0)) {
+      const before = baseHue;
       const minJump = Number(
         genetics.base_hue_global_min_jump_deg ?? 70
       );
@@ -1375,9 +1589,13 @@
       const jump = minJump + Math.random() * (maxJump - minJump);
       const sign = Math.random() < 0.5 ? -1 : 1;
       baseHue = (baseHue + sign * jump + 360) % 360;
-
-      // Major hue mutation changes hue only. Brightness and saturation
-      // continue to run through their own independent mutation draws below.
+      diagnostic.mutations.push({
+        type: 'base_hue_major',
+        before: diagnosticNumber(before, 2),
+        after: diagnosticNumber(baseHue, 2),
+        signed_jump_deg: diagnosticNumber(sign * jump, 2),
+        absolute_jump_deg: diagnosticNumber(jump, 2),
+      });
     }
 
     const saturationCap = clamp(
@@ -1391,6 +1609,7 @@
       Math.random()
       < Number(genetics.base_saturation_mutation_p || 0)
     ) {
+      const before = baseSaturation;
       baseSaturation = clamp(
         baseSaturation
         + (Math.random() * 2 - 1)
@@ -1398,6 +1617,11 @@
         0,
         saturationCap,
       );
+      diagnostic.mutations.push({
+        type: 'base_saturation',
+        before: diagnosticNumber(before, 4),
+        after: diagnosticNumber(baseSaturation, 4),
+      });
     }
 
     const pigmentMin = Math.min(
@@ -1415,31 +1639,45 @@
       baseSaturation < pigmentMin
       && Math.random() < Number(genetics.pigment_expression_p || 0)
     ) {
-      // Reveal the hue already carried by this lineage instead of assigning
-      // a new random hue at pigment expression time.
+      const before = baseSaturation;
       baseSaturation = pigmentMin
         + Math.random() * (pigmentMax - pigmentMin);
+      diagnostic.mutations.push({
+        type: 'pigment_expression',
+        before: diagnosticNumber(before, 4),
+        after: diagnosticNumber(baseSaturation, 4),
+        hue_revealed: diagnosticNumber(baseHue, 2),
+      });
     }
 
     if (
       Math.random()
       < Number(genetics.base_value_small_mutation_p || 0)
     ) {
+      const before = baseValue;
       const delta = Number(genetics.base_value_small_scale_delta || 0);
       baseValue = clamp01(
         baseValue * (1 + (Math.random() * 2 - 1) * delta),
       );
+      diagnostic.mutations.push({
+        type: 'base_value_small',
+        before: diagnosticNumber(before, 4),
+        after: diagnosticNumber(baseValue, 4),
+      });
     }
 
     if (
       Math.random()
       < Number(genetics.base_value_global_mutation_p || 0)
     ) {
+      const before = baseValue;
       const minV = Number(genetics.base_value_global_min ?? 0.10);
       const maxV = Number(genetics.base_value_global_max ?? 0.95);
       const darkBiasP = Number(genetics.base_value_dark_bias_p || 0);
+      let darkBias = false;
 
       if (Math.random() < darkBiasP) {
+        darkBias = true;
         const darkMin = Number(genetics.base_value_dark_min ?? minV);
         const darkMax = Math.max(
           darkMin,
@@ -1449,12 +1687,20 @@
       } else {
         baseValue = minV + Math.random() * (maxV - minV);
       }
+
+      diagnostic.mutations.push({
+        type: 'base_value_major',
+        before: diagnosticNumber(before, 4),
+        after: diagnosticNumber(baseValue, 4),
+        dark_bias_branch: darkBias,
+      });
     }
 
     if (
       Math.random()
       < Number(genetics.contrast_mutation_p || 0)
     ) {
+      const before = patternContrast;
       patternContrast = clamp(
         patternContrast
         + (Math.random() * 2 - 1)
@@ -1462,6 +1708,11 @@
         0.06,
         0.90,
       );
+      diagnostic.mutations.push({
+        type: 'pattern_contrast',
+        before: diagnosticNumber(before, 4),
+        after: diagnosticNumber(patternContrast, 4),
+      });
     }
 
     let textureMutated = false;
@@ -1469,6 +1720,7 @@
       Math.random()
       < Number(genetics.texture_mutation_p || 0)
     ) {
+      const before = textureStrength;
       textureStrength = clamp(
         textureStrength
         + (Math.random() * 2 - 1)
@@ -1477,6 +1729,11 @@
         0.20,
       );
       textureMutated = true;
+      diagnostic.mutations.push({
+        type: 'texture_strength',
+        before: diagnosticNumber(before, 4),
+        after: diagnosticNumber(textureStrength, 4),
+      });
     }
 
     const childSeed = generationNumber(nextId) * 1000 + childIndex;
@@ -1488,12 +1745,10 @@
         locus,
         genetics,
         childSeed,
+        diagnostic.pattern_mutations,
       );
     }
 
-    // New pattern modules are born at the child level, not independently
-    // at every pixel/locus. This keeps mutation supply fast without turning
-    // inheritance into fine-grained mosaic noise.
     if (
       Math.random()
       < Number(genetics.pattern_birth_p_per_child || 0)
@@ -1538,10 +1793,27 @@
           patternContrast,
           Number(genetics.pattern_birth_contrast_floor || 0.40),
         );
+
+        diagnostic.pattern_birth = {
+          locus: locus.id,
+          alleles: [...newAlleles],
+          pigment_hue: diagnosticNumber(
+            modules[locus.id].pigmentHue,
+            2,
+          ),
+          pigment_saturation: diagnosticNumber(
+            modules[locus.id].pigmentSaturation,
+            4,
+          ),
+          value_effect: diagnosticNumber(
+            modules[locus.id].valueEffect,
+            4,
+          ),
+        };
       }
     }
 
-    return {
+    const genome = {
       schema_version: 1,
       baseHue,
       baseSaturation,
@@ -1557,6 +1829,17 @@
         ),
       modules,
     };
+
+    diagnostic.final = {
+      hue: diagnosticNumber(baseHue, 2),
+      saturation: diagnosticNumber(baseSaturation, 4),
+      value: diagnosticNumber(baseValue, 4),
+      pattern_contrast: diagnosticNumber(patternContrast, 4),
+      texture_strength: diagnosticNumber(textureStrength, 4),
+    };
+    diagnostic.active_patterns = diagnosticPatternSummary(genome, genetics);
+
+    return { genome, diagnostic };
   }
 
   function makePureWhiteFounderGenome(founderIndex) {
@@ -1929,17 +2212,22 @@
     const nextId = nextGenerationId(generationId);
     const blobs = new Map();
     const genomes = new Map();
+    const offspringDiagnostics = [];
 
     for (const item of plan) {
-      const genome = makeChildGenome(
+      const result = makeChildGenome(
         parentGenomes.get(item.parentA),
         parentGenomes.get(item.parentB),
         item.childIndex,
         nextId,
+        item.parentA,
+        item.parentB,
       );
+      const genome = result.genome;
       const child = renderGenome(genome);
       genomes.set(item.childIndex, genome);
       blobs.set(item.childIndex, await imageDataToBlob(child));
+      offspringDiagnostics.push(result.diagnostic);
 
       if (item.childIndex % 8 === 0) {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1951,6 +2239,63 @@
       await idbPut(META_STORE, genomeKey(nextId, index), genomes.get(index));
     }
 
+    const eatenSet = new Set(eatenIndices);
+    const survivors = [];
+    for (let i = 1; i <= TOTAL; i += 1) {
+      if (!eatenSet.has(i)) survivors.push(i);
+    }
+
+    const generationDiagnostic = {
+      schema_version: 1,
+      recorded_at: new Date().toISOString(),
+      generation_id: generationId,
+      next_generation_id: nextId,
+      generation_number: generationNumber(generationId),
+      environment_id: environmentConfig?.environment_id || PREVIEW_ENV,
+      evolution_config_id: evolutionConfig?.config_id || null,
+      eaten_indices: [...eatenIndices],
+      survivor_indices: survivors,
+      survivor_count: survivors.length,
+      selected_parent_pool: [...parentIndices],
+      unique_selected_parents: [...uniqueParents],
+      pairing_plan: plan.map((item) => ({
+        child_index: item.childIndex,
+        parent_a: item.parentA,
+        parent_b: item.parentB,
+      })),
+      offspring: offspringDiagnostics.sort(
+        (a, b) => a.child_index - b.child_index
+      ),
+      summary: {
+        base_hue_major_count: offspringDiagnostics.filter(
+          (child) => child.mutations.some(
+            (mutation) => mutation.type === 'base_hue_major'
+          )
+        ).length,
+        base_value_major_count: offspringDiagnostics.filter(
+          (child) => child.mutations.some(
+            (mutation) => mutation.type === 'base_value_major'
+          )
+        ).length,
+        pattern_birth_count: offspringDiagnostics.filter(
+          (child) => Boolean(child.pattern_birth)
+        ).length,
+        pattern_major_hue_count: offspringDiagnostics.reduce(
+          (count, child) => (
+            count + child.pattern_mutations.filter(
+              (event) => event.major_hue_mutated
+            ).length
+          ),
+          0,
+        ),
+      },
+    };
+
+    await idbPut(
+      META_STORE,
+      diagnosticKey(generationId),
+      generationDiagnostic,
+    );
     await idbPut(META_STORE, 'current_generation_id', nextId);
     await deleteGeneration(generationId);
 
@@ -2082,6 +2427,7 @@
       + '<button type="button" data-action="environment">'
       + switchLabel
       + '</button>'
+      + '<button type="button" data-action="diagnostic">診断ログ</button>'
       + '<button type="button" data-action="reset">テストをリセット</button>';
 
     Object.assign(badge.style, {
@@ -2134,6 +2480,26 @@
       location.href = u.toString();
     });
 
+    const diagnosticButton = badge.querySelector(
+      '[data-action="diagnostic"]'
+    );
+    diagnosticButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const originalText = diagnosticButton.textContent;
+      diagnosticButton.textContent = '準備中…';
+      diagnosticButton.disabled = true;
+      try {
+        await exportDiagnosticLog();
+      } catch (error) {
+        console.error(error);
+        alert('診断ログの書き出しに失敗しました。');
+      } finally {
+        diagnosticButton.disabled = false;
+        diagnosticButton.textContent = originalText;
+      }
+    });
+
     const resetButton = badge.querySelector('[data-action="reset"]');
     resetButton.addEventListener('click', (event) => {
       event.preventDefault();
@@ -2149,6 +2515,7 @@
     resolveAsset,
     reset: clearDb,
     resetAll: resetAllPreviewData,
+    exportDiagnosticLog,
   };
 
   window.fetch = apiFetch;
