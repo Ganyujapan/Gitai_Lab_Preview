@@ -43,6 +43,8 @@ jobs:
               "environments/bark_001/environment.json",
               "data/evo_config/evo_config_v2.json",
               "data/evolution_models/continuous_v1/config.json",
+              "data/evolution_models/morph_v1/config.json",
+              "docs/PREVIEW_EXPERIMENT_ARCHITECTURE.md",
               "img/backgrounds/bg_preview.svg",
               "manifest.webmanifest",
           ]
