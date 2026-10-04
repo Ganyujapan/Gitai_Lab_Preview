@@ -16,7 +16,7 @@
   },
   "species_config": "species/moth/species.json",
   "environment_config": "environments/bark_001/environment.json",
-  "evolution_config": "data/evo_config/evo_config_v2.json",
+  "evolution_config": "data/evolution_models/continuous_v1/config.json",
   "network": {
     "submit_timeout_ms": 30000
   },
@@ -25,5 +25,7 @@
     "minimum_free_disk_mb": 2048,
     "low_disk_warning_mb": 5120
   },
-  "evolution_profile": "solo"
+  "evolution_profile": "solo",
+  "evolution_model_id": "continuous_v1",
+  "founder_set_id": "standard_white_001"
 }
