@@ -909,7 +909,27 @@
     const environmentId = String(
       environmentConfig?.environment_id || 'environment'
     );
-    return `gitai-preview-leaderboard-v4-solo-${environmentId}-${CONFIG.ROUND_TIME_MS}ms`;
+    const previewContext = window.GitaiPagesPreview?.context || {};
+    const modelId = String(
+      previewContext.evolutionModelId || 'continuous_v1'
+    );
+    const experimentRunId = String(
+      previewContext.runId || 'default'
+    );
+
+    // Preserve the existing public testers' ranking history on the default
+    // bark/sand Continuous v1 run. New experiments get isolated rankings.
+    if (previewContext.legacyDefaultStorage) {
+      return `gitai-preview-leaderboard-v4-solo-${environmentId}-${CONFIG.ROUND_TIME_MS}ms`;
+    }
+
+    return [
+      'gitai-preview-leaderboard-v5-solo',
+      environmentId,
+      modelId,
+      experimentRunId,
+      `${CONFIG.ROUND_TIME_MS}ms`,
+    ].join('-');
   }
 
   function activePlaySeconds() {
