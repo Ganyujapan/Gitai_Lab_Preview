@@ -177,3 +177,44 @@ Previewは端末・背景ごとに進化診断ログをIndexedDBへ保存する�
 - iPhone / iPadでは共有シートから「ファイルに保存」等が可能
 - 書き出したJSONをChatGPTへアップロードして、変異が発生していないのか、発生後に淘汰されたのかを世代単位で解析できる
 - 「テストをリセット」はその背景の進化データと診断ログをまとめて消去する
+
+
+## Environment × Evolution Model × Run
+
+Previewの実験単位を、背景・進化モデル・進化履歴の3軸に分離した。
+
+- Environment: `environments/<environment_id>/environment.json`
+- Evolution Model: `data/evolution_models/<model_id>/config.json`
+- Run: URLの `run=<run_id>`
+- 保存単位: **Environment × Evolution Model × Run**
+- 既存テスターの通常URL（樹皮/砂地 + Continuous v1 + default）は従来のIndexedDBを継続利用し、進化履歴を失わない
+- 新しい組み合わせは独立した名前空間へ保存
+- 第1世代は `standard_white_001` を固定Seed化し、Continuous v1では背景を変えても同じ第1世代から比較できる
+- 詳細: `docs/PREVIEW_EXPERIMENT_ARCHITECTURE.md`
+
+通常URLは従来通りContinuous Model v1。
+
+```text
+https://ganyujapan.github.io/Gitai_Lab_Preview/
+```
+
+Morph Model v1の実験URL:
+
+```text
+https://ganyujapan.github.io/Gitai_Lab_Preview/?model=morph_v1
+```
+
+左下Previewバッジの「モデル: モルフへ / 連続へ」でも切り替えられる。モデル切替で互いの進化履歴は上書きされない。
+
+## Morph Model v1（実験モデル）
+
+Continuous v1を置き換えず、別カートリッジとして追加した。
+
+- 個体は2つの「モルフ・アレル」を持ち、子は父母から1つずつ受け継ぐ
+- 中間値へ連続的に混ぜず、優先度（dominance rank）の高い一方のモルフが表現型として発現
+- 同順位では固定Seedにより一方が発現し、毎描画で見た目が揺れない
+- まれな突然変異が、体色・黒化・淡色化・模様切替・模様色・複数形質の調節変異として大きく表現型を変える
+- 1個体に発現する主要模様は原則1種類とし、「型」が見えるようにする
+- 突然変異で新モルフが生まれても集団全体を即時置換せず、通常の捕食・親選抜・交配を通じて増減する
+- 背景画像の色や模様は進化モデルから一切参照しない
+- 現在値は最初の実験用であり、診断ログとプレイ結果を見て調整する
