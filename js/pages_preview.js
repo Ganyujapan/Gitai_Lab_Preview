@@ -1898,12 +1898,15 @@
     const founderB = makePureWhiteFounderGenome(2);
 
     for (let i = 1; i <= TOTAL; i += 1) {
-      const genome = makeChildGenome(
+      const result = makeChildGenome(
         founderA,
         founderB,
         i,
         'gen00001',
+        0,
+        0,
       );
+      const genome = result.genome;
       const imageData = renderGenome(genome);
       const blob = await imageDataToBlob(imageData);
 
@@ -2126,8 +2129,11 @@
         let value = Number(genome.baseValue)
           * (1 + smoothTexture * Number(genome.textureStrength || 0));
 
+        const genomeModules = (
+          genome && genome.modules && typeof genome.modules === 'object'
+        ) ? genome.modules : {};
         for (const locus of genetics.pattern_loci || []) {
-          const module = genome.modules[locus.id];
+          const module = genomeModules[locus.id];
           if (!module) continue;
           const expression = locusExpression(locus, module.alleles || [0, 0]);
           if (expression <= 0) continue;
