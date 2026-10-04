@@ -448,6 +448,140 @@
       font-size: clamp(8px, 1.9vw, 10px);
     }
 
+    .theater-entry-action {
+      flex: 0 0 auto;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-color: rgba(198,168,255,0.54);
+      background: rgba(138,96,210,0.18);
+      font-size: clamp(13px, 2.5vw, 17px);
+    }
+
+    #theaterOverlay {
+      z-index: 40;
+      background: rgba(3, 5, 6, 0.99);
+    }
+
+    .theater-panel {
+      width: min(96%, 620px);
+      height: min(96%, 900px);
+      max-height: 96%;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .theater-toolbar {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 42px 1fr 42px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .theater-title {
+      margin: 0;
+      font-size: clamp(18px, 3.5vw, 25px);
+    }
+
+    .theater-meta {
+      flex: 0 0 auto;
+      min-height: 38px;
+      margin: 0 0 6px;
+      color: var(--accent);
+      font-size: clamp(12px, 2.4vw, 15px);
+      line-height: 1.45;
+    }
+
+    .theater-stage {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 10px;
+      background: #080b0c;
+    }
+
+    #theaterFrameImage {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .theater-slider-row {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    #theaterSlider {
+      width: 100%;
+      accent-color: #b8f7ff;
+    }
+
+    #theaterProgress {
+      min-width: 68px;
+      color: rgba(255,255,255,0.70);
+      font-size: 11px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .theater-controls {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.3fr 1fr auto;
+      gap: 7px;
+      margin-top: 8px;
+      align-items: stretch;
+    }
+
+    .theater-controls button {
+      min-height: 44px;
+      padding: 7px 8px;
+      font-size: clamp(12px, 2.4vw, 16px);
+    }
+
+    .theater-speed {
+      display: grid;
+      align-content: center;
+      gap: 2px;
+      padding: 3px 6px;
+      border: 1px solid rgba(184,247,255,0.30);
+      border-radius: 9px;
+      color: rgba(255,255,255,0.68);
+      font-size: 9px;
+      text-align: left;
+    }
+
+    #theaterSpeed {
+      min-width: 76px;
+      border: 0;
+      background: #111719;
+      color: #fff;
+      font-family: 'PixelMplus', monospace;
+      font-size: 11px;
+    }
+
+    #theaterNote {
+      flex: 0 0 auto;
+      min-height: 18px;
+      margin: 7px 2px 0;
+      color: rgba(255,255,255,0.58);
+      font-size: clamp(9px, 1.9vw, 12px);
+      line-height: 1.4;
+    }
+
     #mothShareOverlay {
       z-index: 45;
       background: rgba(3, 5, 6, 0.99);
@@ -632,6 +766,7 @@
           <button id="compareButton" class="compare-action" type="button" hidden>世代を比較する</button>
           <button id="continueButton" class="continue-action" type="button">次の人へ</button>
         </div>
+        <button id="theaterButton" class="theater-entry-action" type="button" hidden>進化シアター</button>
 
         <div id="authorNewsTeaser" class="author-news-teaser" hidden>
           作者からのお知らせ
@@ -657,6 +792,38 @@
             <div id="evolutionLatestGrid" class="evolution-latest-grid"></div>
           </section>
         </div>
+      </div>
+    </section>
+
+    <section id="theaterOverlay" class="overlay" aria-label="進化シアター">
+      <div class="panel theater-panel">
+        <div class="theater-toolbar">
+          <button id="theaterCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 class="theater-title">進化シアター</h2>
+          <span></span>
+        </div>
+        <div id="theaterMeta" class="theater-meta">世代を読み込み中…</div>
+        <div class="theater-stage">
+          <img id="theaterFrameImage" alt="進化シアター 世代一覧">
+        </div>
+        <div class="theater-slider-row">
+          <input id="theaterSlider" type="range" min="0" max="0" value="0" step="1" aria-label="世代">
+          <span id="theaterProgress">-- / --</span>
+        </div>
+        <div class="theater-controls">
+          <button id="theaterPrevButton" type="button">◀</button>
+          <button id="theaterPlayButton" type="button">再生</button>
+          <button id="theaterNextButton" type="button">▶</button>
+          <label class="theater-speed">
+            <span>速度</span>
+            <select id="theaterSpeed">
+              <option value="1000">ゆっくり</option>
+              <option value="600" selected>ふつう</option>
+              <option value="300">はやい</option>
+            </select>
+          </label>
+        </div>
+        <p id="theaterNote"></p>
       </div>
     </section>
 
@@ -766,6 +933,19 @@
   const evolutionLatestGrid = document.getElementById('evolutionLatestGrid');
   const latestGenerationTitle = document.getElementById('latestGenerationTitle');
 
+  const theaterButton = document.getElementById('theaterButton');
+  const theaterOverlay = document.getElementById('theaterOverlay');
+  const theaterCloseButton = document.getElementById('theaterCloseButton');
+  const theaterMeta = document.getElementById('theaterMeta');
+  const theaterFrameImage = document.getElementById('theaterFrameImage');
+  const theaterSlider = document.getElementById('theaterSlider');
+  const theaterProgress = document.getElementById('theaterProgress');
+  const theaterPrevButton = document.getElementById('theaterPrevButton');
+  const theaterPlayButton = document.getElementById('theaterPlayButton');
+  const theaterNextButton = document.getElementById('theaterNextButton');
+  const theaterSpeed = document.getElementById('theaterSpeed');
+  const theaterNote = document.getElementById('theaterNote');
+
   const mothShareOverlay = document.getElementById('mothShareOverlay');
   const shareCard = document.getElementById('shareCard');
   const shareCardTitle = document.getElementById('shareCardTitle');
@@ -816,6 +996,10 @@
     scoreRecordId: null,
     scoreSummary: null,
     selectedShare: null,
+    theaterFrames: [],
+    theaterFrameIndex: 0,
+    theaterTimerId: null,
+    theaterObjectUrls: [],
     bootReady: false,
     uiTransitionLocked: false,
     wakeLock: null,
@@ -1464,6 +1648,158 @@
     if (scroller) scroller.scrollTop = 0;
   }
 
+  function releaseTheaterObjectUrls() {
+    for (const url of state.theaterObjectUrls) {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    }
+    state.theaterObjectUrls = [];
+  }
+
+  function pauseEvolutionTheater() {
+    if (state.theaterTimerId !== null) {
+      clearInterval(state.theaterTimerId);
+      state.theaterTimerId = null;
+    }
+    theaterPlayButton.textContent = '再生';
+  }
+
+  function renderEvolutionTheaterFrame() {
+    const frames = state.theaterFrames;
+    if (!frames.length) {
+      theaterFrameImage.removeAttribute('src');
+      theaterMeta.textContent = '保存された世代がありません。';
+      theaterProgress.textContent = '0 / 0';
+      theaterPrevButton.disabled = true;
+      theaterNextButton.disabled = true;
+      theaterPlayButton.disabled = true;
+      return;
+    }
+
+    theaterPlayButton.disabled = frames.length <= 1;
+    const index = Math.max(
+      0,
+      Math.min(frames.length - 1, state.theaterFrameIndex),
+    );
+    state.theaterFrameIndex = index;
+    const frame = frames[index];
+
+    theaterFrameImage.src = frame.object_url;
+    theaterSlider.max = String(Math.max(0, frames.length - 1));
+    theaterSlider.value = String(index);
+    theaterProgress.textContent =
+      (index + 1) + ' / ' + frames.length;
+
+    const eaten = frame.eaten_count === null
+      || frame.eaten_count === undefined
+      ? null
+      : Number(frame.eaten_count);
+    const survivors = frame.survivor_count === null
+      || frame.survivor_count === undefined
+      ? null
+      : Number(frame.survivor_count);
+    const stats = eaten === null || survivors === null
+      ? '捕食結果：未記録'
+      : '捕食 ' + eaten + '匹 / 生存 ' + survivors + '匹';
+
+    theaterMeta.textContent =
+      '第' + Number(frame.generation_number) + '世代'
+      + ' · '
+      + String(frame.model_label_ja || '')
+      + ' · '
+      + stats;
+
+    theaterPrevButton.disabled = index <= 0;
+    theaterNextButton.disabled = index >= frames.length - 1;
+  }
+
+  function playEvolutionTheater() {
+    if (state.theaterFrames.length <= 1) return;
+
+    if (state.theaterTimerId !== null) {
+      pauseEvolutionTheater();
+      return;
+    }
+
+    if (state.theaterFrameIndex >= state.theaterFrames.length - 1) {
+      state.theaterFrameIndex = 0;
+      renderEvolutionTheaterFrame();
+    }
+
+    theaterPlayButton.textContent = '停止';
+    const interval = Number(theaterSpeed.value || 600);
+    state.theaterTimerId = setInterval(() => {
+      if (
+        state.theaterFrameIndex
+        >= state.theaterFrames.length - 1
+      ) {
+        pauseEvolutionTheater();
+        return;
+      }
+      state.theaterFrameIndex += 1;
+      renderEvolutionTheaterFrame();
+    }, interval);
+  }
+
+  async function showEvolutionTheater() {
+    pauseEvolutionTheater();
+    releaseTheaterObjectUrls();
+    theaterButton.disabled = true;
+    const originalText = theaterButton.textContent;
+    theaterButton.textContent = '読み込み中…';
+
+    try {
+      const rawFrames =
+        await window.GitaiPagesPreview.getEvolutionTheaterFrames();
+
+      state.theaterFrames = rawFrames.map((frame) => {
+        const objectUrl = URL.createObjectURL(frame.image_blob);
+        state.theaterObjectUrls.push(objectUrl);
+        return {
+          ...frame,
+          object_url: objectUrl,
+        };
+      });
+      state.theaterFrameIndex = 0;
+
+      if (!state.theaterFrames.length) {
+        theaterNote.textContent =
+          'まだ進化シアター用の世代が保存されていません。';
+      } else {
+        const numbers = state.theaterFrames.map(
+          (frame) => Number(frame.generation_number)
+        );
+        let hasGap = false;
+        for (let i = 1; i < numbers.length; i += 1) {
+          if (numbers[i] !== numbers[i - 1] + 1) {
+            hasGap = true;
+            break;
+          }
+        }
+
+        theaterNote.textContent = hasGap
+          ? 'この機能を追加する前の世代は保存されていないため、保存済み世代だけを再生します。新しいRunでは第1世代から連続して記録されます。'
+          : '保存された第1世代から最新世代までを再生します。';
+      }
+
+      renderEvolutionTheaterFrame();
+      theaterOverlay.classList.add('visible');
+    } catch (error) {
+      console.error(error);
+      alert('進化シアターを読み込めませんでした。');
+    } finally {
+      theaterButton.disabled = false;
+      theaterButton.textContent = originalText;
+    }
+  }
+
+  function closeEvolutionTheater() {
+    pauseEvolutionTheater();
+    theaterOverlay.classList.remove('visible');
+    theaterFrameImage.removeAttribute('src');
+    state.theaterFrames = [];
+    releaseTheaterObjectUrls();
+  }
+
   function shareNameStorageKey() {
     return 'gitai-preview-share-name-v1';
   }
@@ -1639,6 +1975,7 @@
     reviewMessage.textContent = '';
     evolutionStatus.textContent = '';
     compareButton.hidden = true;
+    theaterButton.hidden = false;
     authorNewsTeaser.hidden = true;
 
     recordCurrentScore();
@@ -1908,6 +2245,51 @@
 
   evolutionCloseButton.addEventListener('click', () => {
     evolutionOverlay.classList.remove('visible');
+  });
+
+  theaterButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showEvolutionTheater();
+  });
+
+  theaterCloseButton.addEventListener('click', () => {
+    closeEvolutionTheater();
+  });
+
+  theaterPlayButton.addEventListener('click', () => {
+    playEvolutionTheater();
+  });
+
+  theaterPrevButton.addEventListener('click', () => {
+    pauseEvolutionTheater();
+    state.theaterFrameIndex = Math.max(
+      0,
+      state.theaterFrameIndex - 1,
+    );
+    renderEvolutionTheaterFrame();
+  });
+
+  theaterNextButton.addEventListener('click', () => {
+    pauseEvolutionTheater();
+    state.theaterFrameIndex = Math.min(
+      Math.max(0, state.theaterFrames.length - 1),
+      state.theaterFrameIndex + 1,
+    );
+    renderEvolutionTheaterFrame();
+  });
+
+  theaterSlider.addEventListener('input', () => {
+    pauseEvolutionTheater();
+    state.theaterFrameIndex = Number(theaterSlider.value || 0);
+    renderEvolutionTheaterFrame();
+  });
+
+  theaterSpeed.addEventListener('change', () => {
+    if (state.theaterTimerId !== null) {
+      pauseEvolutionTheater();
+      playEvolutionTheater();
+    }
   });
 
   shareBackButton.addEventListener('click', () => {
