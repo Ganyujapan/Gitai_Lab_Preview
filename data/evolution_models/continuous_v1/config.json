@@ -1,0 +1,154 @@
+{
+  "config_id": "continuous_v1_frozen_v22",
+  "engine_version": 12,
+  "profile_id": "solo",
+  "symmetry": "vertical_mirror_full",
+  "inheritance": "trait_procedural_genotype_v2",
+  "parent_shortfall_policy": "repeat_survivors",
+  "minimum_survivors_for_reproduction": 2,
+  "trait_genetics": {
+    "base_hue_small_mutation_p": 0.3,
+    "base_hue_small_mutation_deg": 22,
+    "base_hue_global_mutation_p": 0.04,
+    "base_saturation_mutation_p": 0.18,
+    "base_saturation_mutation_step": 0.08,
+    "pigment_expression_p": 0.015,
+    "pigment_expression_saturation_min": 0.08,
+    "pigment_expression_saturation_max": 0.24,
+    "base_value_small_mutation_p": 0.1,
+    "base_value_small_scale_delta": 0.16,
+    "base_value_global_mutation_p": 0.018,
+    "base_value_global_min": 0.1,
+    "base_value_global_max": 0.95,
+    "contrast_mutation_p": 0.24,
+    "contrast_mutation_step": 0.09,
+    "texture_mutation_p": 0.2,
+    "texture_mutation_step": 0.02,
+    "pattern_birth_p_per_child": 0.08,
+    "pattern_birth_contrast_floor": 0.55,
+    "pattern_allele_loss_p": 0.004,
+    "pattern_parameter_mutation_p": 0.32,
+    "pattern_position_step": 0.025,
+    "pattern_size_step": 0.04,
+    "pattern_effect_step": 0.05,
+    "pattern_angle_step_deg": 10,
+    "pattern_frequency_step": 0.35,
+    "pattern_roughness_step": 0.08,
+    "pattern_loci": [
+      {
+        "id": "central_blotch",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "transverse_band",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "outer_edge",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "speckle_cluster",
+        "dominance": "recessive"
+      },
+      {
+        "id": "longitudinal_streaks",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "cloud_mottle",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "ring_spots",
+        "dominance": "recessive"
+      },
+      {
+        "id": "diagonal_streak",
+        "dominance": "dominant"
+      },
+      {
+        "id": "chevron_pair",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "twin_spots",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "ripple_bands",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "radial_rays",
+        "dominance": "incomplete"
+      }
+    ],
+    "base_saturation_max": 0.32,
+    "base_hue_global_min_jump_deg": 70,
+    "base_hue_global_max_jump_deg": 180,
+    "pattern_pigment_saturation_min": 0.1,
+    "pattern_pigment_saturation_max": 0.34,
+    "pattern_pigment_saturation_cap": 0.85,
+    "pattern_pigment_mix_scale": 1.45,
+    "pattern_pigment_hue_step_deg": 24,
+    "pattern_pigment_saturation_step": 0.07,
+    "pattern_pigment_global_hue_mutation_p": 0.012,
+    "pattern_pigment_global_min_jump_deg": 70,
+    "pattern_pigment_global_max_jump_deg": 180,
+    "base_value_dark_bias_p": 0.15,
+    "base_value_dark_min": 0.1,
+    "base_value_dark_max": 0.28,
+    "pattern_pigment_saturation_mutation_p": 0.2
+  },
+  "legacy_reference": {
+    "note": "v12 image-level mutation settings retained only as historical reference; trait_genotype_v1 does not use them.",
+    "p_patch_given_mut": 0.08,
+    "patch_count_min": 1,
+    "patch_count_max": 2,
+    "patch_radius_min": 3,
+    "patch_radius_max": 9
+  },
+  "founder_model": {
+    "generation_1": "offspring_of_two_pure_white_founders",
+    "founder_base_hue": 0,
+    "founder_base_saturation": 0,
+    "founder_base_value": 1,
+    "founder_pattern_contrast": 0.44,
+    "founder_texture_strength": 0,
+    "latent_hue_diversity": true,
+    "latent_hue_mode": "uniform_generation1",
+    "founder_set_id": "standard_white_001",
+    "founder_seed": "gitailab-standard-white-001",
+    "deterministic_generation_1": true
+  },
+  "parent_selection": "random_pool",
+  "design_targets": {
+    "visible_change_children_per_generation": "5-10",
+    "visible_lineage_change_generations": "3-5",
+    "lineage_structure_generations": "5-10",
+    "background_convergence_generations": "20-40",
+    "target_predation_rate": "0.40-0.60",
+    "color_goal": "preserve_multiple_hue_lineages_until_visual_selection acts",
+    "pattern_goal": "new coherent pattern variants should remain visibly distinct",
+    "brightness_goal": "keep v15-v18 brightness behavior except for mild dark-tail enrichment",
+    "round_time_goal": "4 seconds unchanged",
+    "color_phase_goal": "brightness should usually converge before visible hue/saturation",
+    "saturation_goal": "muted moth-like body colors; avoid neon/high-chroma convergence",
+    "major_color_mutation_goal": "large hue mutations preserve value and saturation and jump far enough to reopen hue space",
+    "pattern_color_goal": "patterns may carry heritable local pigment color independent of body ground color",
+    "comparison_preview_goal": "moths are shown on the actual game background for visual camouflage comparison",
+    "black_mutation_goal": "a conspicuously dark mutant should appear somewhat earlier/often while preserving brightness-first convergence",
+    "mutation_independence_goal": "major hue, saturation, and brightness mutations are sampled independently",
+    "pattern_color_visibility_goal": "make inherited pattern pigment visibly distinguishable without changing pattern birth or hue mutation rates",
+    "major_hue_mutation_supply_goal": "increase far hue exploration without changing brightness, saturation, pattern, or round timing",
+    "parent_selection_goal": "use the agreed random 12-parent pool from survivors; repeat survivors only when fewer than 12 survive",
+    "pattern_diversity_goal": "broaden coherent symmetric pattern vocabulary without increasing total pattern-birth probability",
+    "pattern_saturation_goal": "patterns start muted but may evolve to high saturation if player selection favors it; no low hard ceiling",
+    "cartridge_role": "Frozen baseline for the continuous-trait evolution model. Environment, model, and run are independent."
+  },
+  "color_inheritance": "single_parent_haplotype",
+  "parent_pool_size": 12,
+  "model_id": "continuous_v1",
+  "model_display_name_ja": "連続形質モデル"
+}
