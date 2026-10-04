@@ -42,6 +42,7 @@ jobs:
               "species/moth/species.json",
               "environments/bark_001/environment.json",
               "data/evo_config/evo_config_v2.json",
+              "data/evolution_models/continuous_v1/config.json",
               "img/backgrounds/bg_preview.svg",
               "manifest.webmanifest",
           ]
@@ -72,8 +73,12 @@ jobs:
               raise SystemExit("Public Preview must stay SOLO-only")
           if config.get("evolution_profile") != "solo":
               raise SystemExit("Public Preview must use SOLO evolution profile")
-          if config.get("evolution_config") != "data/evo_config/evo_config_v2.json":
-              raise SystemExit("Public Preview must use v2 evolution config")
+          if config.get("evolution_model_id") != "continuous_v1":
+              raise SystemExit("Public Preview default model must be continuous_v1")
+          if config.get("evolution_config") != "data/evolution_models/continuous_v1/config.json":
+              raise SystemExit("Public Preview must use Continuous Model v1 config")
+          if config.get("founder_set_id") != "standard_white_001":
+              raise SystemExit("Public Preview must use the standard founder set")
           if int(config["game"]["display_y_min_px"]) != 76:
               raise SystemExit("Top HUD-safe placement zone must start at y=76")
           if int(config["game"]["display_y_max_px"]) != 564:
