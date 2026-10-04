@@ -2,7 +2,7 @@
   "schema_version": 1,
   "model_id": "morph_v1",
   "model_display_name_ja": "教育型（モルフ進化）",
-  "config_id": "morph_v1_experimental_001",
+  "config_id": "morph_v1_experimental_002",
   "engine_version": 1,
   "profile_id": "solo",
   "inheritance": "discrete_morph_supergene_v1",
@@ -20,7 +20,7 @@
     "founder_pattern": "none"
   },
   "morph_genetics": {
-    "mutation_p_per_inherited_allele": 0.012,
+    "mutation_p_per_inherited_allele": 0.019,
     "dominance_rank_min": 0,
     "dominance_rank_max": 2,
     "new_morph_dominance_mutation_p": 0.3,
@@ -130,7 +130,8 @@
     "education_goal": "High-school biology quality: scientifically defensible natural-selection, heredity, mutation, drift, and morph-lineage behavior.",
     "within_morph_future": "Keep discrete morph identity, while allowing small heritable modifier variation within a morph; do not turn the main morph back into continuous parental blending.",
     "expert_review": "Tune biological details after specialist feedback at Konchu Daigaku; current mutation parameters remain frozen during comparison tests.",
-    "localization": "Keep labels/content translatable for Japanese and English releases."
+    "localization": "Keep labels/content translatable for Japanese and English releases.",
+    "visible_mutation_target": "Tune for roughly one visibly expressed mutant individual per 60-offspring generation in Preview/classroom-speed simulation; this is an intentionally accelerated educational rate, not a literal biological mutation rate."
   },
   "experience_role": "education"
 }
