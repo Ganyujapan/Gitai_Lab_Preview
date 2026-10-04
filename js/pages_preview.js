@@ -302,7 +302,8 @@
   function compactNumber(value, digits = 2) {
     const n = Number(value);
     if (!Number.isFinite(n)) return '-';
-    return n.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '');
+    const rounded = Number(n.toFixed(digits));
+    return Object.is(rounded, -0) ? '0' : String(rounded);
   }
 
   function hueSectorCode(value, saturation = 1) {
@@ -3661,7 +3662,9 @@
       + 's · '
       + envLabel
       + ' · '
-      + EVOLUTION_MODEL_ID
+      + (EVOLUTION_MODEL_ID === 'morph_v1'
+        ? '教育型'
+        : 'エンタメ型')
       + ' · run:'
       + PREVIEW_RUN_ID
       + '</span>'
@@ -3670,8 +3673,8 @@
       + '</button>'
       + '<button type="button" data-action="model">'
       + (EVOLUTION_MODEL_ID === 'morph_v1'
-        ? 'モデル: 連続へ'
-        : 'モデル: モルフへ')
+        ? 'モデル: エンタメ型へ'
+        : 'モデル: 教育型へ')
       + '</button>'
       + '<button type="button" data-action="diagnostic">診断ログ</button>'
       + '<button type="button" data-action="chatgpt-log">ChatGPT用ログ</button>'
