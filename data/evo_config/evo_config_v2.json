@@ -1,6 +1,6 @@
 {
-  "config_id": "evo_preview_solo_v21",
-  "engine_version": 10,
+  "config_id": "evo_preview_solo_v22",
+  "engine_version": 11,
   "profile_id": "solo",
   "symmetry": "vertical_mirror_full",
   "inheritance": "trait_procedural_genotype_v2",
@@ -66,6 +66,22 @@
       {
         "id": "diagonal_streak",
         "dominance": "dominant"
+      },
+      {
+        "id": "chevron_pair",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "twin_spots",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "ripple_bands",
+        "dominance": "incomplete"
+      },
+      {
+        "id": "radial_rays",
+        "dominance": "incomplete"
       }
     ],
     "base_saturation_max": 0.32,
@@ -73,16 +89,17 @@
     "base_hue_global_max_jump_deg": 180,
     "pattern_pigment_saturation_min": 0.1,
     "pattern_pigment_saturation_max": 0.34,
-    "pattern_pigment_saturation_cap": 0.38,
+    "pattern_pigment_saturation_cap": 0.85,
     "pattern_pigment_mix_scale": 1.45,
     "pattern_pigment_hue_step_deg": 24,
-    "pattern_pigment_saturation_step": 0.05,
+    "pattern_pigment_saturation_step": 0.07,
     "pattern_pigment_global_hue_mutation_p": 0.012,
     "pattern_pigment_global_min_jump_deg": 70,
     "pattern_pigment_global_max_jump_deg": 180,
     "base_value_dark_bias_p": 0.15,
     "base_value_dark_min": 0.1,
-    "base_value_dark_max": 0.28
+    "base_value_dark_max": 0.28,
+    "pattern_pigment_saturation_mutation_p": 0.2
   },
   "legacy_reference": {
     "note": "v12 image-level mutation settings retained only as historical reference; trait_genotype_v1 does not use them.",
@@ -102,7 +119,7 @@
     "latent_hue_diversity": true,
     "latent_hue_mode": "uniform_generation1"
   },
-  "parent_selection": "all_survivors",
+  "parent_selection": "random_pool",
   "design_targets": {
     "visible_change_children_per_generation": "5-10",
     "visible_lineage_change_generations": "3-5",
@@ -121,7 +138,11 @@
     "black_mutation_goal": "a conspicuously dark mutant should appear somewhat earlier/often while preserving brightness-first convergence",
     "mutation_independence_goal": "major hue, saturation, and brightness mutations are sampled independently",
     "pattern_color_visibility_goal": "make inherited pattern pigment visibly distinguishable without changing pattern birth or hue mutation rates",
-    "major_hue_mutation_supply_goal": "increase far hue exploration without changing brightness, saturation, pattern, or round timing"
+    "major_hue_mutation_supply_goal": "increase far hue exploration without changing brightness, saturation, pattern, or round timing",
+    "parent_selection_goal": "use the agreed random 12-parent pool from survivors; repeat survivors only when fewer than 12 survive",
+    "pattern_diversity_goal": "broaden coherent symmetric pattern vocabulary without increasing total pattern-birth probability",
+    "pattern_saturation_goal": "patterns start muted but may evolve to high saturation if player selection favors it; no low hard ceiling"
   },
-  "color_inheritance": "single_parent_haplotype"
+  "color_inheritance": "single_parent_haplotype",
+  "parent_pool_size": 12
 }
