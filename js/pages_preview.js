@@ -433,7 +433,7 @@
     }
 
     if (
-      String(evolutionConfig?.inheritance || '').startsWith('trait_')
+      usesBrowserGeneratedFounder()
       && currentGenerationId === 'gen00001'
     ) {
       await ensureFounderGeneration();
@@ -442,7 +442,7 @@
     let loaded = await loadGeneratedGeneration(currentGenerationId);
     if (!loaded) {
       currentGenerationId = 'gen00001';
-      if (String(evolutionConfig?.inheritance || '').startsWith('trait_')) {
+      if (usesBrowserGeneratedFounder()) {
         await ensureFounderGeneration();
       }
       await idbPut(META_STORE, 'current_generation_id', currentGenerationId);
@@ -1984,6 +1984,548 @@
     };
   }
 
+
+  function randomRange(rng, minValue, maxValue) {
+    const min = Number(minValue);
+    const max = Math.max(min, Number(maxValue));
+    return min + rng() * (max - min);
+  }
+
+  function cloneMorphAllele(allele) {
+    return {
+      dominanceRank: Number(allele?.dominanceRank || 0),
+      groundHue: Number(allele?.groundHue || 0),
+      groundSaturation: Number(allele?.groundSaturation || 0),
+      groundValue: Number(allele?.groundValue ?? 1),
+      patternId: String(allele?.patternId || 'none'),
+      patternHue: Number(allele?.patternHue || 0),
+      patternSaturation: Number(allele?.patternSaturation || 0),
+      patternContrast: Number(allele?.patternContrast || 0.55),
+      textureStrength: Number(allele?.textureStrength || 0),
+      patternSeed: Number(allele?.patternSeed || 1),
+      textureSeed: Number(allele?.textureSeed || 1),
+    };
+  }
+
+  function morphAlleleSnapshot(allele) {
+    return {
+      dominance_rank: Number(allele.dominanceRank || 0),
+      ground_hue: diagnosticNumber(allele.groundHue, 2),
+      ground_saturation: diagnosticNumber(allele.groundSaturation, 4),
+      ground_value: diagnosticNumber(allele.groundValue, 4),
+      pattern_id: String(allele.patternId || 'none'),
+      pattern_hue: diagnosticNumber(allele.patternHue, 2),
+      pattern_saturation: diagnosticNumber(allele.patternSaturation, 4),
+      pattern_contrast: diagnosticNumber(allele.patternContrast, 4),
+      texture_strength: diagnosticNumber(allele.textureStrength, 4),
+      pattern_seed: Number(allele.patternSeed || 0),
+      texture_seed: Number(allele.textureSeed || 0),
+    };
+  }
+
+  function makeWhiteMorphAllele(rng, seed) {
+    const genetics = evolutionConfig.morph_genetics || {};
+    const rankMin = Number(genetics.dominance_rank_min ?? 0);
+    const rankMax = Math.max(
+      rankMin,
+      Number(genetics.dominance_rank_max ?? 2),
+    );
+    return {
+      dominanceRank: Math.floor(
+        randomRange(rng, rankMin, rankMax + 1)
+      ),
+      groundHue: rng() * 360,
+      groundSaturation: Number(
+        evolutionConfig.founder_model?.founder_base_saturation ?? 0
+      ),
+      groundValue: Number(
+        evolutionConfig.founder_model?.founder_base_value ?? 1
+      ),
+      patternId: 'none',
+      patternHue: rng() * 360,
+      patternSaturation: 0,
+      patternContrast: 0.55,
+      textureStrength: 0,
+      patternSeed: seed,
+      textureSeed: seed + 137,
+    };
+  }
+
+  function chooseWeightedMutationType(rng) {
+    const genetics = evolutionConfig.morph_genetics || {};
+    const types = Array.isArray(genetics.mutation_types)
+      ? genetics.mutation_types
+      : [];
+    if (!types.length) return 'color_morph';
+
+    const total = types.reduce(
+      (sum, item) => sum + Math.max(0, Number(item.weight || 0)),
+      0,
+    );
+    if (total <= 0) return String(types[0].id || 'color_morph');
+
+    let roll = rng() * total;
+    for (const item of types) {
+      roll -= Math.max(0, Number(item.weight || 0));
+      if (roll <= 0) return String(item.id || 'color_morph');
+    }
+    return String(types[types.length - 1].id || 'color_morph');
+  }
+
+  function chooseMorphPatternId(rng, currentId = 'none') {
+    const loci = evolutionConfig.trait_genetics?.pattern_loci || [];
+    const ids = loci
+      .map((item) => String(item.id || ''))
+      .filter(Boolean)
+      .filter((id) => id !== currentId);
+    if (!ids.length) return 'none';
+    return ids[Math.floor(rng() * ids.length)];
+  }
+
+  function farHueJump(currentHue, rng) {
+    const genetics = evolutionConfig.morph_genetics || {};
+    const minJump = Number(genetics.color_hue_jump_min_deg ?? 70);
+    const maxJump = Math.max(
+      minJump,
+      Number(genetics.color_hue_jump_max_deg ?? 180),
+    );
+    const jump = randomRange(rng, minJump, maxJump);
+    const sign = rng() < 0.5 ? -1 : 1;
+    return {
+      hue: (Number(currentHue || 0) + sign * jump + 360) % 360,
+      signedJump: sign * jump,
+    };
+  }
+
+  function mutateMorphAllele(sourceAllele, rng, seed) {
+    const genetics = evolutionConfig.morph_genetics || {};
+    const allele = cloneMorphAllele(sourceAllele);
+    const p = Number(genetics.mutation_p_per_inherited_allele || 0);
+    if (rng() >= p) {
+      return { allele, event: null };
+    }
+
+    const before = morphAlleleSnapshot(allele);
+    const type = chooseWeightedMutationType(rng);
+    const visibleSatMin = Number(
+      genetics.visible_saturation_min ?? 0.10
+    );
+    const visibleSatMax = Number(
+      genetics.visible_saturation_max ?? 0.38
+    );
+    const patternSatMin = Number(
+      genetics.pattern_saturation_min ?? 0.08
+    );
+    const patternSatMax = Number(
+      genetics.pattern_saturation_max ?? 0.55
+    );
+    const patternContrastMin = Number(
+      genetics.pattern_contrast_min ?? 0.45
+    );
+    const patternContrastMax = Number(
+      genetics.pattern_contrast_max ?? 0.86
+    );
+
+    if (type === 'color_morph') {
+      const jump = farHueJump(allele.groundHue, rng);
+      allele.groundHue = jump.hue;
+      allele.groundSaturation = randomRange(
+        rng,
+        visibleSatMin,
+        visibleSatMax,
+      );
+      if (rng() < 0.35) {
+        allele.groundValue = randomRange(
+          rng,
+          genetics.ordinary_value_min ?? 0.28,
+          genetics.ordinary_value_max ?? 0.82,
+        );
+      }
+    } else if (type === 'pattern_switch') {
+      allele.patternId = chooseMorphPatternId(
+        rng,
+        allele.patternId,
+      );
+      allele.patternHue = rng() * 360;
+      allele.patternSaturation = randomRange(
+        rng,
+        patternSatMin,
+        patternSatMax,
+      );
+      allele.patternContrast = randomRange(
+        rng,
+        patternContrastMin,
+        patternContrastMax,
+      );
+      allele.patternSeed = seed + Math.floor(rng() * 100000);
+    } else if (type === 'melanism') {
+      allele.groundValue = randomRange(
+        rng,
+        genetics.melanism_value_min ?? 0.10,
+        genetics.melanism_value_max ?? 0.32,
+      );
+    } else if (type === 'pallor') {
+      allele.groundValue = randomRange(
+        rng,
+        genetics.light_value_min ?? 0.70,
+        genetics.light_value_max ?? 0.98,
+      );
+    } else if (type === 'pattern_color') {
+      if (allele.patternId === 'none') {
+        allele.patternId = chooseMorphPatternId(rng, 'none');
+        allele.patternSeed = seed + Math.floor(rng() * 100000);
+      }
+      const jump = farHueJump(allele.patternHue, rng);
+      allele.patternHue = jump.hue;
+      allele.patternSaturation = randomRange(
+        rng,
+        patternSatMin,
+        patternSatMax,
+      );
+      allele.patternContrast = Math.max(
+        allele.patternContrast,
+        patternContrastMin,
+      );
+    } else {
+      const jump = farHueJump(allele.groundHue, rng);
+      allele.groundHue = jump.hue;
+      allele.groundSaturation = randomRange(
+        rng,
+        visibleSatMin,
+        visibleSatMax,
+      );
+      allele.groundValue = randomRange(
+        rng,
+        genetics.ordinary_value_min ?? 0.28,
+        genetics.ordinary_value_max ?? 0.82,
+      );
+      allele.patternId = chooseMorphPatternId(rng, allele.patternId);
+      allele.patternHue = rng() * 360;
+      allele.patternSaturation = randomRange(
+        rng,
+        patternSatMin,
+        patternSatMax,
+      );
+      allele.patternContrast = randomRange(
+        rng,
+        patternContrastMin,
+        patternContrastMax,
+      );
+      allele.textureStrength = randomRange(
+        rng,
+        genetics.texture_strength_min ?? 0,
+        genetics.texture_strength_max ?? 0.14,
+      );
+      allele.patternSeed = seed + Math.floor(rng() * 100000);
+      allele.textureSeed = seed + Math.floor(rng() * 100000);
+    }
+
+    if (
+      rng()
+      < Number(genetics.new_morph_dominance_mutation_p ?? 0.30)
+    ) {
+      const rankMin = Number(genetics.dominance_rank_min ?? 0);
+      const rankMax = Math.max(
+        rankMin,
+        Number(genetics.dominance_rank_max ?? 2),
+      );
+      allele.dominanceRank = Math.floor(
+        randomRange(rng, rankMin, rankMax + 1)
+      );
+    }
+
+    return {
+      allele,
+      event: {
+        type: 'morph_' + type,
+        before,
+        after: morphAlleleSnapshot(allele),
+      },
+    };
+  }
+
+  function expressedMorphIndex(alleles, seed) {
+    const a = Number(alleles[0]?.dominanceRank || 0);
+    const b = Number(alleles[1]?.dominanceRank || 0);
+    if (a > b) return 0;
+    if (b > a) return 1;
+    return seededUnit(seed, 713) < 0.5 ? 0 : 1;
+  }
+
+  function phenotypeFromMorphAlleles(
+    alleles,
+    childSeed,
+    expressedIndex = null,
+  ) {
+    const index = expressedIndex == null
+      ? expressedMorphIndex(alleles, childSeed)
+      : expressedIndex;
+    const expressed = cloneMorphAllele(alleles[index]);
+    const modules = {};
+    const loci = evolutionConfig.trait_genetics?.pattern_loci || [];
+
+    for (let i = 0; i < loci.length; i += 1) {
+      const locus = loci[i];
+      const seed = expressed.patternSeed + (i + 1) * 997;
+      modules[locus.id] = {
+        alleles: [0, 0],
+        ...defaultModuleParams(locus.id, seed),
+        pigmentHue: expressed.patternHue,
+        pigmentSaturation: expressed.patternSaturation,
+      };
+    }
+
+    if (
+      expressed.patternId !== 'none'
+      && modules[expressed.patternId]
+    ) {
+      modules[expressed.patternId].alleles = [1, 1];
+    }
+
+    return {
+      schema_version: 2,
+      model_id: 'morph_v1',
+      morphAlleles: alleles.map(cloneMorphAllele),
+      expressedMorphIndex: index,
+      baseHue: expressed.groundHue,
+      baseSaturation: expressed.groundSaturation,
+      baseValue: expressed.groundValue,
+      patternContrast: expressed.patternId === 'none'
+        ? 0
+        : expressed.patternContrast,
+      textureStrength: expressed.textureStrength,
+      textureSeed: expressed.textureSeed,
+      modules,
+    };
+  }
+
+  function makeMorphGenerationOneGenome(index) {
+    const founder = evolutionConfig.founder_model || {};
+    const founderSeed = String(
+      founder.founder_seed || founder.founder_set_id || 'standard_white_001'
+    );
+    const rng = makeSeededRng(founderSeed + ':morph:' + index);
+    const seed = index * 1009;
+    const alleles = [
+      makeWhiteMorphAllele(rng, seed + 1),
+      makeWhiteMorphAllele(rng, seed + 2),
+    ];
+    return phenotypeFromMorphAlleles(alleles, seed);
+  }
+
+  function makeMorphChildGenome(
+    parentA,
+    parentB,
+    childIndex,
+    nextId,
+    parentAIndex,
+    parentBIndex,
+  ) {
+    if (
+      !Array.isArray(parentA?.morphAlleles)
+      || !Array.isArray(parentB?.morphAlleles)
+    ) {
+      throw new Error('Morph v1 の親遺伝子データがありません');
+    }
+
+    const childSeed = generationNumber(nextId) * 1000 + childIndex;
+    const rng = Math.random;
+    const inheritedA = cloneMorphAllele(
+      parentA.morphAlleles[Math.floor(rng() * 2)]
+    );
+    const inheritedB = cloneMorphAllele(
+      parentB.morphAlleles[Math.floor(rng() * 2)]
+    );
+
+    const resultA = mutateMorphAllele(
+      inheritedA,
+      rng,
+      childSeed * 2 + 1,
+    );
+    const resultB = mutateMorphAllele(
+      inheritedB,
+      rng,
+      childSeed * 2 + 2,
+    );
+    const alleles = [resultA.allele, resultB.allele];
+    const expressedIndex = expressedMorphIndex(alleles, childSeed);
+    const genome = phenotypeFromMorphAlleles(
+      alleles,
+      childSeed,
+      expressedIndex,
+    );
+
+    const mutationEvents = [resultA.event, resultB.event].filter(Boolean);
+    const expressed = alleles[expressedIndex];
+    const diagnostic = {
+      child_index: childIndex,
+      parent_a: parentAIndex,
+      parent_b: parentBIndex,
+      color_parent: null,
+      inherited: {
+        allele_a: morphAlleleSnapshot(inheritedA),
+        allele_b: morphAlleleSnapshot(inheritedB),
+      },
+      mutations: mutationEvents,
+      pattern_mutations: [],
+      pattern_birth: mutationEvents.find((event) => (
+        event.before?.pattern_id === 'none'
+        && event.after?.pattern_id !== 'none'
+      )) || null,
+      expressed_morph_index: expressedIndex,
+      expressed_morph: morphAlleleSnapshot(expressed),
+      final: {
+        hue: diagnosticNumber(genome.baseHue, 2),
+        saturation: diagnosticNumber(genome.baseSaturation, 4),
+        value: diagnosticNumber(genome.baseValue, 4),
+        pattern_contrast: diagnosticNumber(
+          genome.patternContrast,
+          4,
+        ),
+        texture_strength: diagnosticNumber(
+          genome.textureStrength,
+          4,
+        ),
+      },
+      active_patterns: diagnosticPatternSummary(
+        genome,
+        evolutionConfig.trait_genetics || {},
+      ),
+    };
+
+    return { genome, diagnostic };
+  }
+
+  async function evolveGenerationByMorph(generationId, eatenIndices) {
+    await ensureConfig();
+    await ensureMask();
+    await ensureTemplateAlpha();
+
+    const parentIndices = selectParents(eatenIndices);
+    if (!parentIndices) return null;
+
+    const uniqueParents = [...new Set(parentIndices)];
+    const parentGenomes = new Map();
+
+    for (const index of uniqueParents) {
+      const genome = await idbGet(
+        META_STORE,
+        genomeKey(generationId, index),
+      );
+      if (!genome || !Array.isArray(genome.morphAlleles)) {
+        throw new Error(
+          'Morph v1 の親データを読み込めません: '
+          + generationId
+          + ' MOTH '
+          + index
+        );
+      }
+      parentGenomes.set(index, genome);
+    }
+
+    const plan = buildPairingPlan(parentIndices);
+    const nextId = nextGenerationId(generationId);
+    const blobs = new Map();
+    const genomes = new Map();
+    const offspringDiagnostics = [];
+
+    for (const item of plan) {
+      const result = makeMorphChildGenome(
+        parentGenomes.get(item.parentA),
+        parentGenomes.get(item.parentB),
+        item.childIndex,
+        nextId,
+        item.parentA,
+        item.parentB,
+      );
+      const child = renderGenome(result.genome);
+      genomes.set(item.childIndex, result.genome);
+      blobs.set(item.childIndex, await imageDataToBlob(child));
+      offspringDiagnostics.push(result.diagnostic);
+
+      if (item.childIndex % 8 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    for (const [index, blob] of blobs.entries()) {
+      await idbPut(IMAGE_STORE, imageKey(nextId, index), blob);
+      await idbPut(
+        META_STORE,
+        genomeKey(nextId, index),
+        genomes.get(index),
+      );
+    }
+
+    const eatenSet = new Set(eatenIndices);
+    const survivors = [];
+    for (let i = 1; i <= TOTAL; i += 1) {
+      if (!eatenSet.has(i)) survivors.push(i);
+    }
+
+    const morphMutationCount = offspringDiagnostics.reduce(
+      (count, child) => count + child.mutations.length,
+      0,
+    );
+
+    const generationDiagnostic = {
+      schema_version: 1,
+      recorded_at: new Date().toISOString(),
+      generation_id: generationId,
+      next_generation_id: nextId,
+      generation_number: generationNumber(generationId),
+      environment_id:
+        environmentConfig?.environment_id || PREVIEW_ENV_ID,
+      evolution_model_id: 'morph_v1',
+      preview_run_id: PREVIEW_RUN_ID,
+      founder_set_id:
+        evolutionConfig?.founder_model?.founder_set_id || null,
+      evolution_config_id: evolutionConfig?.config_id || null,
+      eaten_indices: [...eatenIndices],
+      survivor_indices: survivors,
+      survivor_count: survivors.length,
+      selected_parent_pool: [...parentIndices],
+      unique_selected_parents: [...uniqueParents],
+      pairing_plan: plan.map((item) => ({
+        child_index: item.childIndex,
+        parent_a: item.parentA,
+        parent_b: item.parentB,
+      })),
+      offspring: offspringDiagnostics.sort(
+        (a, b) => a.child_index - b.child_index
+      ),
+      summary: {
+        morph_mutation_count: morphMutationCount,
+        pattern_birth_count: offspringDiagnostics.filter(
+          (child) => Boolean(child.pattern_birth)
+        ).length,
+        expressed_pattern_count: offspringDiagnostics.filter(
+          (child) => child.active_patterns.length > 0
+        ).length,
+      },
+    };
+
+    await idbPut(
+      META_STORE,
+      diagnosticKey(generationId),
+      generationDiagnostic,
+    );
+    await idbPut(META_STORE, 'current_generation_id', nextId);
+    await deleteGeneration(generationId);
+
+    currentGenerationId = nextId;
+    await loadGeneratedGeneration(nextId);
+    return nextId;
+  }
+
+  function usesBrowserGeneratedFounder() {
+    return (
+      EVOLUTION_MODEL_ID === 'continuous_v1'
+      || EVOLUTION_MODEL_ID === 'morph_v1'
+      || usesBrowserGeneratedFounder()
+    );
+  }
+
   async function ensureFounderGeneration() {
     await ensureConfig();
     await ensureMask();
@@ -2021,27 +2563,34 @@
     const founderB = makePureWhiteFounderGenome(2);
 
     for (let i = 1; i <= TOTAL; i += 1) {
-      const founderSetId = String(
-        evolutionConfig.founder_model?.founder_set_id
-        || 'standard_white_001'
-      );
-      const founderSeed = String(
-        evolutionConfig.founder_model?.founder_seed
-        || founderSetId
-      );
-      const founderRng = makeSeededRng(
-        `${founderSeed}:${i}`
-      );
-      const result = makeChildGenome(
-        founderA,
-        founderB,
-        i,
-        'gen00001',
-        0,
-        0,
-        founderRng,
-      );
-      const genome = result.genome;
+      let genome;
+
+      if (EVOLUTION_MODEL_ID === 'morph_v1') {
+        genome = makeMorphGenerationOneGenome(i);
+      } else {
+        const founderSetId = String(
+          evolutionConfig.founder_model?.founder_set_id
+          || 'standard_white_001'
+        );
+        const founderSeed = String(
+          evolutionConfig.founder_model?.founder_seed
+          || founderSetId
+        );
+        const founderRng = makeSeededRng(
+          `${founderSeed}:${i}`
+        );
+        const result = makeChildGenome(
+          founderA,
+          founderB,
+          i,
+          'gen00001',
+          0,
+          0,
+          founderRng,
+        );
+        genome = result.genome;
+      }
+
       const imageData = renderGenome(genome);
       const blob = await imageDataToBlob(imageData);
 
@@ -2452,7 +3001,13 @@
   }
 
   async function evolveGeneration(generationId, eatenIndices) {
-    if (String(evolutionConfig?.inheritance || '').startsWith('trait_')) {
+    if (EVOLUTION_MODEL_ID === 'morph_v1') {
+      return evolveGenerationByMorph(generationId, eatenIndices);
+    }
+    if (
+      EVOLUTION_MODEL_ID === 'continuous_v1'
+      || String(evolutionConfig?.inheritance || '').startsWith('trait_')
+    ) {
       return evolveGenerationByGenome(generationId, eatenIndices);
     }
     return evolveGenerationLegacy(generationId, eatenIndices);
