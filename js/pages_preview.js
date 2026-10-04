@@ -200,7 +200,8 @@
     return patterns;
   }
 
-  async function exportDiagnosticLog() {
+
+  async function collectDiagnosticPayload() {
     await ensureConfig();
     const entries = await idbEntriesByPrefix(META_STORE, 'diagnostic:');
     const generations = entries
@@ -211,13 +212,14 @@
         - generationNumber(b.generation_id)
       ));
 
-    const payload = {
+    return {
       schema: 'gitailab-preview-diagnostic-v1',
       schema_version: 1,
       exported_at: new Date().toISOString(),
       environment: {
         preview_env: PREVIEW_ENV,
-        environment_id: environmentConfig?.environment_id || PREVIEW_ENV_ID,
+        environment_id:
+          environmentConfig?.environment_id || PREVIEW_ENV_ID,
         display_name_ja: environmentConfig?.display_name_ja || null,
       },
       run: {
@@ -258,7 +260,10 @@
         : 'No evolved generations have been recorded on this device/environment yet.',
       generations,
     };
+  }
 
+  async function exportDiagnosticLog() {
+    const payload = await collectDiagnosticPayload();
     const json = JSON.stringify(payload, null, 2);
     const env = PREVIEW_ENV_ID;
     const model = EVOLUTION_MODEL_ID;
@@ -292,6 +297,521 @@
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  function compactNumber(value, digits = 2) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    return n.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  function hueSectorCode(value, saturation = 1) {
+    const s = Number(saturation);
+    if (!Number.isFinite(s) || s < 0.04) return 'A';
+    const h = ((Number(value) % 360) + 360) % 360;
+    if (h < 30 || h >= 330) return 'R';
+    if (h < 90) return 'Y';
+    if (h < 170) return 'G';
+    if (h < 210) return 'C';
+    if (h < 270) return 'B';
+    return 'M';
+  }
+
+  function compactPopulationSummary(offspring) {
+    const finals = (offspring || [])
+      .map((child) => child?.final)
+      .filter(Boolean);
+    if (!finals.length) return 'population=unavailable';
+
+    let sSum = 0;
+    let vSum = 0;
+    const sectors = {
+      A: 0, R: 0, Y: 0, G: 0, C: 0, B: 0, M: 0,
+    };
+
+    for (const final of finals) {
+      const sat = Number(final.saturation || 0);
+      sSum += sat;
+      vSum += Number(final.value || 0);
+      sectors[hueSectorCode(final.hue, sat)] += 1;
+    }
+
+    const n = finals.length;
+    return [
+      'n=' + n,
+      'Savg=' + compactNumber(sSum / n, 3),
+      'Vavg=' + compactNumber(vSum / n, 3),
+      'H[A/R/Y/G/C/B/M]='
+        + [
+          sectors.A,
+          sectors.R,
+          sectors.Y,
+          sectors.G,
+          sectors.C,
+          sectors.B,
+          sectors.M,
+        ].join('/'),
+    ].join(' ');
+  }
+
+  function compactMutationCounts(offspring) {
+    const counts = new Map();
+    const add = (key) => {
+      const label = String(key || 'unknown');
+      counts.set(label, (counts.get(label) || 0) + 1);
+    };
+
+    for (const child of offspring || []) {
+      for (const event of child?.mutations || []) {
+        add(event?.type);
+      }
+      if (child?.pattern_birth) add('pattern_birth');
+      for (const event of child?.pattern_mutations || []) {
+        if (event?.allele_changed) add('pattern_allele_change');
+        if (event?.geometry_mutated) add('pattern_geometry');
+        if (event?.saturation_mutated) add('pattern_saturation');
+        if (event?.major_hue_mutated) add('pattern_hue_major');
+      }
+    }
+
+    if (!counts.size) return 'none';
+    return [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, count]) => key + ':' + count)
+      .join(',');
+  }
+
+  function morphFingerprint(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    const fields = [
+      snapshot.dominance_rank,
+      snapshot.ground_hue,
+      snapshot.ground_saturation,
+      snapshot.ground_value,
+      snapshot.pattern_id,
+      snapshot.pattern_hue,
+      snapshot.pattern_saturation,
+      snapshot.pattern_contrast,
+      snapshot.texture_strength,
+      snapshot.pattern_seed,
+      snapshot.texture_seed,
+    ];
+    return JSON.stringify(fields);
+  }
+
+  function buildMorphRegistry(generations) {
+    const byFingerprint = new Map();
+    const snapshots = new Map();
+    let sequence = 0;
+
+    const register = (snapshot) => {
+      const fingerprint = morphFingerprint(snapshot);
+      if (!fingerprint) return null;
+      if (!byFingerprint.has(fingerprint)) {
+        sequence += 1;
+        const id = 'M' + String(sequence).padStart(3, '0');
+        byFingerprint.set(fingerprint, id);
+        snapshots.set(id, snapshot);
+      }
+      return byFingerprint.get(fingerprint);
+    };
+
+    for (const record of generations || []) {
+      for (const child of record?.offspring || []) {
+        register(child?.expressed_morph);
+        for (const event of child?.mutations || []) {
+          register(event?.before);
+          register(event?.after);
+        }
+      }
+    }
+
+    return { register, byFingerprint, snapshots };
+  }
+
+  function compactMorphSnapshot(snapshot) {
+    if (!snapshot) return '-';
+    return [
+      'H' + compactNumber(snapshot.ground_hue, 0),
+      'S' + compactNumber(snapshot.ground_saturation, 2),
+      'V' + compactNumber(snapshot.ground_value, 2),
+      'P=' + String(snapshot.pattern_id || 'none'),
+      'PH' + compactNumber(snapshot.pattern_hue, 0),
+      'PS' + compactNumber(snapshot.pattern_saturation, 2),
+      'D' + compactNumber(snapshot.dominance_rank, 0),
+    ].join('/');
+  }
+
+  function compactContinuousEvent(event) {
+    const type = String(event?.type || 'mutation');
+    if (type === 'base_hue_major') {
+      return 'Hmajor '
+        + compactNumber(event.before, 0)
+        + '>'
+        + compactNumber(event.after, 0)
+        + '('
+        + compactNumber(event.signed_jump_deg, 0)
+        + 'deg)';
+    }
+    if (type === 'base_value_major') {
+      return 'Vmajor '
+        + compactNumber(event.before, 2)
+        + '>'
+        + compactNumber(event.after, 2)
+        + (event.dark_bias_branch ? '[dark]' : '');
+    }
+    if (type === 'pigment_expression') {
+      return 'pigment '
+        + compactNumber(event.before, 2)
+        + '>'
+        + compactNumber(event.after, 2)
+        + '@H'
+        + compactNumber(event.hue_revealed, 0);
+    }
+    return type;
+  }
+
+  function notableContinuousEvents(child) {
+    const out = [];
+    for (const event of child?.mutations || []) {
+      if (
+        event?.type === 'base_hue_major'
+        || event?.type === 'base_value_major'
+        || event?.type === 'pigment_expression'
+      ) {
+        out.push(compactContinuousEvent(event));
+      }
+    }
+
+    if (child?.pattern_birth) {
+      out.push(
+        'Pbirth=' + String(child.pattern_birth.locus || 'unknown')
+      );
+    }
+
+    for (const event of child?.pattern_mutations || []) {
+      const locus = String(event?.locus || 'pattern');
+      if (event?.allele_changed) out.push('Pallele=' + locus);
+      if (event?.major_hue_mutated) out.push('PHmajor=' + locus);
+      if (event?.saturation_mutated) out.push('PSat=' + locus);
+    }
+    return out;
+  }
+
+  function nextGenerationOutcome(recordById, nextGenerationId, childIndex) {
+    const next = recordById.get(nextGenerationId);
+    if (!next) return 'next=?';
+
+    const eaten = new Set(next.eaten_indices || []);
+    const selected = (next.selected_parent_pool || [])
+      .filter((index) => Number(index) === Number(childIndex))
+      .length;
+
+    return 'next='
+      + (eaten.has(Number(childIndex)) ? 'EATEN' : 'SURVIVED')
+      + '/parentSlots='
+      + selected;
+  }
+
+  function buildChatGPTDiagnosticTextFromPayload(payload) {
+    const generations = payload.generations || [];
+    const recordById = new Map(
+      generations.map((record) => [record.generation_id, record])
+    );
+    const isMorph = payload.evolution?.model_id === 'morph_v1';
+    const morphRegistry = isMorph
+      ? buildMorphRegistry(generations)
+      : null;
+
+    const lines = [
+      'GITAI_LAB_CHATGPT_LOG_V1',
+      'environment='
+        + String(payload.environment?.environment_id || '-'),
+      'model=' + String(payload.evolution?.model_id || '-'),
+      'config=' + String(payload.evolution?.config_id || '-'),
+      'run=' + String(payload.run?.run_id || '-'),
+      'founder=' + String(payload.evolution?.founder_set_id || '-'),
+      'current=' + String(payload.current_generation_id || '-'),
+      'recorded_generations=' + generations.length,
+      'NOTE: Each record describes selection in generation G and the offspring generated as G+1.',
+      'NOTE: For mutation lines, next=... is the fate of that child when G+1 was actually played.',
+      'H sectors: A=achromatic,R=red,Y=yellow/orange,G=green,C=cyan,B=blue,M=magenta/purple.',
+      '',
+    ];
+
+    for (const record of generations) {
+      const generationId = String(record.generation_id || '-');
+      const nextId = String(record.next_generation_id || '-');
+      const selectedParents = (record.selected_parent_pool || [])
+        .map((value) => Number(value))
+        .join(',');
+      const uniqueParents = (record.unique_selected_parents || [])
+        .map((value) => Number(value))
+        .join(',');
+
+      lines.push(
+        '[' + generationId + '>' + nextId + '] '
+        + 'eaten=' + (record.eaten_indices || []).length
+        + ' survivors=' + Number(record.survivor_count || 0)
+      );
+      lines.push(
+        'parents=[' + selectedParents + '] '
+        + 'unique=[' + uniqueParents + ']'
+      );
+      lines.push(
+        'offspring ' + compactPopulationSummary(record.offspring)
+      );
+      lines.push(
+        'mutation_counts=' + compactMutationCounts(record.offspring)
+      );
+
+      if (isMorph && morphRegistry) {
+        const composition = new Map();
+        for (const child of record.offspring || []) {
+          const id = morphRegistry.register(child?.expressed_morph);
+          if (!id) continue;
+          composition.set(id, (composition.get(id) || 0) + 1);
+        }
+        const compositionText = [...composition.entries()]
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .map(([id, count]) => id + 'x' + count)
+          .join(' ');
+        lines.push('expressed_morphs=' + (compositionText || 'none'));
+
+        const eventLines = [];
+        for (const child of record.offspring || []) {
+          const mutations = child?.mutations || [];
+          if (!mutations.length) continue;
+
+          const expressedId = morphRegistry.register(
+            child?.expressed_morph
+          );
+          for (const event of mutations) {
+            const beforeId = morphRegistry.register(event?.before);
+            const afterId = morphRegistry.register(event?.after);
+            const expressed = (
+              morphFingerprint(event?.after)
+              === morphFingerprint(child?.expressed_morph)
+            );
+            eventLines.push(
+              ' c'
+              + String(child.child_index).padStart(2, '0')
+              + ' '
+              + String(event?.type || 'morph_mutation')
+              + ' '
+              + (beforeId || '?')
+              + '>'
+              + (afterId || '?')
+              + ' expressed='
+              + (expressed ? 'yes' : 'no')
+              + ' final='
+              + (expressedId || '?')
+              + ' '
+              + compactMorphSnapshot(event?.after)
+              + ' '
+              + nextGenerationOutcome(
+                recordById,
+                nextId,
+                child.child_index,
+              )
+            );
+          }
+        }
+        if (eventLines.length) {
+          lines.push('events:');
+          lines.push(...eventLines);
+        }
+      } else {
+        const eventLines = [];
+        for (const child of record.offspring || []) {
+          const notable = notableContinuousEvents(child);
+          if (!notable.length) continue;
+          const final = child?.final || {};
+          eventLines.push(
+            ' c'
+            + String(child.child_index).padStart(2, '0')
+            + ' '
+            + notable.join(';')
+            + ' final=H'
+            + compactNumber(final.hue, 0)
+            + '/S'
+            + compactNumber(final.saturation, 2)
+            + '/V'
+            + compactNumber(final.value, 2)
+            + ' '
+            + nextGenerationOutcome(
+              recordById,
+              nextId,
+              child.child_index,
+            )
+          );
+        }
+        if (eventLines.length) {
+          lines.push('notable_events:');
+          lines.push(...eventLines);
+        }
+      }
+
+      lines.push('');
+    }
+
+    if (isMorph && morphRegistry) {
+      lines.push('MORPH_DICTIONARY');
+      for (const [id, snapshot] of morphRegistry.snapshots.entries()) {
+        lines.push(id + '=' + compactMorphSnapshot(snapshot));
+      }
+      lines.push('');
+    }
+
+    lines.push('END_GITAI_LAB_CHATGPT_LOG_V1');
+    return lines.join('\n');
+  }
+
+  async function buildChatGPTDiagnosticText() {
+    const payload = await collectDiagnosticPayload();
+    return buildChatGPTDiagnosticTextFromPayload(payload);
+  }
+
+  function closeChatGPTCopyDialog() {
+    const existing = document.getElementById('gitaiChatGPTLogDialog');
+    if (existing) existing.remove();
+  }
+
+  function showChatGPTCopyDialog(text) {
+    closeChatGPTCopyDialog();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'gitaiChatGPTLogDialog';
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '99999',
+      display: 'grid',
+      placeItems: 'center',
+      padding: '18px',
+      background: 'rgba(0,0,0,.84)',
+      fontFamily: 'monospace',
+    });
+
+    const panel = document.createElement('div');
+    Object.assign(panel.style, {
+      width: 'min(94vw, 560px)',
+      maxHeight: '88dvh',
+      overflow: 'auto',
+      padding: '16px',
+      border: '1px solid rgba(184,247,255,.42)',
+      borderRadius: '14px',
+      background: '#0a0d0f',
+      color: '#fff',
+      boxShadow: '0 12px 40px rgba(0,0,0,.55)',
+    });
+
+    const title = document.createElement('div');
+    title.textContent = 'ChatGPT用 診断ログ';
+    Object.assign(title.style, {
+      marginBottom: '10px',
+      fontSize: '16px',
+      color: '#b8f7ff',
+    });
+
+    const info = document.createElement('div');
+    info.textContent =
+      '解析用に圧縮したログです（'
+      + text.length.toLocaleString('ja-JP')
+      + '文字）。「コピーする」→ ChatGPTに貼り付けて送信してください。';
+    Object.assign(info.style, {
+      marginBottom: '12px',
+      fontSize: '12px',
+      lineHeight: '1.6',
+      color: 'rgba(255,255,255,.78)',
+    });
+
+    const fallback = document.createElement('textarea');
+    fallback.value = text;
+    fallback.readOnly = true;
+    fallback.setAttribute('aria-label', 'ChatGPT用診断ログ');
+    Object.assign(fallback.style, {
+      display: 'none',
+      width: '100%',
+      height: '42dvh',
+      marginBottom: '10px',
+      padding: '10px',
+      border: '1px solid rgba(255,255,255,.24)',
+      borderRadius: '8px',
+      background: '#050708',
+      color: '#fff',
+      font: '11px/1.45 monospace',
+      userSelect: 'text',
+      WebkitUserSelect: 'text',
+    });
+
+    const status = document.createElement('div');
+    status.textContent = '';
+    Object.assign(status.style, {
+      minHeight: '20px',
+      marginBottom: '8px',
+      fontSize: '12px',
+      lineHeight: '1.5',
+      color: '#b8f7ff',
+    });
+
+    const actions = document.createElement('div');
+    Object.assign(actions.style, {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '8px',
+    });
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.textContent = '閉じる';
+
+    const copyButton = document.createElement('button');
+    copyButton.type = 'button';
+    copyButton.textContent = 'コピーする';
+
+    for (const button of [closeButton, copyButton]) {
+      Object.assign(button.style, {
+        minHeight: '46px',
+        border: '1px solid rgba(184,247,255,.48)',
+        borderRadius: '9px',
+        background: 'rgba(184,247,255,.12)',
+        color: '#fff',
+        font: '13px monospace',
+      });
+    }
+
+    closeButton.addEventListener('click', closeChatGPTCopyDialog);
+    copyButton.addEventListener('click', async () => {
+      try {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error('Clipboard API unavailable');
+        }
+        await navigator.clipboard.writeText(text);
+        status.textContent =
+          'コピーしました。ChatGPTの入力欄で「ペースト」して送信してください。';
+        fallback.style.display = 'none';
+        copyButton.textContent = 'もう一度コピー';
+      } catch (error) {
+        console.error(error);
+        status.textContent =
+          '自動コピーできませんでした。下の文字を長押しして「すべて選択」→「コピー」してください。';
+        fallback.style.display = 'block';
+        fallback.focus();
+        fallback.select();
+        fallback.setSelectionRange(0, fallback.value.length);
+      }
+    });
+
+    actions.append(closeButton, copyButton);
+    panel.append(title, info, fallback, status, actions);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+  }
+
+  async function prepareChatGPTDiagnosticCopy() {
+    const text = await buildChatGPTDiagnosticText();
+    showChatGPTCopyDialog(text);
   }
 
   async function clearDb() {
@@ -3154,6 +3674,7 @@
         : 'モデル: モルフへ')
       + '</button>'
       + '<button type="button" data-action="diagnostic">診断ログ</button>'
+      + '<button type="button" data-action="chatgpt-log">ChatGPT用ログ</button>'
       + '<button type="button" data-action="reset">テストをリセット</button>';
 
     Object.assign(badge.style, {
@@ -3241,6 +3762,26 @@
       }
     });
 
+    const chatGPTLogButton = badge.querySelector(
+      '[data-action="chatgpt-log"]'
+    );
+    chatGPTLogButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const originalText = chatGPTLogButton.textContent;
+      chatGPTLogButton.textContent = '準備中…';
+      chatGPTLogButton.disabled = true;
+      try {
+        await prepareChatGPTDiagnosticCopy();
+      } catch (error) {
+        console.error(error);
+        alert('ChatGPT用ログの作成に失敗しました。');
+      } finally {
+        chatGPTLogButton.disabled = false;
+        chatGPTLogButton.textContent = originalText;
+      }
+    });
+
     const resetButton = badge.querySelector('[data-action="reset"]');
     resetButton.addEventListener('click', (event) => {
       event.preventDefault();
@@ -3257,6 +3798,8 @@
     reset: clearDb,
     resetAll: resetAllPreviewData,
     exportDiagnosticLog,
+    buildChatGPTDiagnosticText,
+    prepareChatGPTDiagnosticCopy,
     context: Object.freeze({
       environmentId: PREVIEW_ENV_ID,
       evolutionModelId: EVOLUTION_MODEL_ID,
