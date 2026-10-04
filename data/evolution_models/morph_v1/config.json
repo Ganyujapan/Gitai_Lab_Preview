@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "model_id": "morph_v1",
+  "model_display_name_ja": "モルフ進化モデル",
+  "config_id": "morph_v1_experimental_001",
+  "engine_version": 1,
+  "profile_id": "solo",
+  "inheritance": "discrete_morph_supergene_v1",
+  "symmetry": "vertical_mirror_full",
+  "parent_selection": "random_pool",
+  "parent_pool_size": 12,
+  "parent_shortfall_policy": "repeat_survivors",
+  "minimum_survivors_for_reproduction": 2,
+  "founder_model": {
+    "founder_set_id": "standard_white_001",
+    "founder_seed": "gitailab-standard-white-001",
+    "generation_1": "deterministic_pure_white_morph_population",
+    "founder_base_value": 1,
+    "founder_base_saturation": 0,
+    "founder_pattern": "none"
+  },
+  "morph_genetics": {
+    "mutation_p_per_inherited_allele": 0.012,
+    "dominance_rank_min": 0,
+    "dominance_rank_max": 2,
+    "new_morph_dominance_mutation_p": 0.3,
+    "color_hue_jump_min_deg": 70,
+    "color_hue_jump_max_deg": 180,
+    "visible_saturation_min": 0.1,
+    "visible_saturation_max": 0.38,
+    "melanism_value_min": 0.1,
+    "melanism_value_max": 0.32,
+    "light_value_min": 0.7,
+    "light_value_max": 0.98,
+    "ordinary_value_min": 0.28,
+    "ordinary_value_max": 0.82,
+    "pattern_saturation_min": 0.08,
+    "pattern_saturation_max": 0.55,
+    "pattern_contrast_min": 0.45,
+    "pattern_contrast_max": 0.86,
+    "texture_strength_min": 0,
+    "texture_strength_max": 0.14,
+    "mutation_types": [
+      {
+        "id": "color_morph",
+        "weight": 0.29
+      },
+      {
+        "id": "pattern_switch",
+        "weight": 0.25
+      },
+      {
+        "id": "melanism",
+        "weight": 0.13
+      },
+      {
+        "id": "pallor",
+        "weight": 0.07
+      },
+      {
+        "id": "pattern_color",
+        "weight": 0.1
+      },
+      {
+        "id": "regulatory_morph",
+        "weight": 0.16
+      }
+    ]
+  },
+  "trait_genetics": {
+    "pattern_pigment_saturation_cap": 0.85,
+    "pattern_pigment_mix_scale": 1.45,
+    "pattern_loci": [
+      {
+        "id": "central_blotch",
+        "dominance": "dominant"
+      },
+      {
+        "id": "transverse_band",
+        "dominance": "dominant"
+      },
+      {
+        "id": "outer_edge",
+        "dominance": "dominant"
+      },
+      {
+        "id": "speckle_cluster",
+        "dominance": "dominant"
+      },
+      {
+        "id": "longitudinal_streaks",
+        "dominance": "dominant"
+      },
+      {
+        "id": "cloud_mottle",
+        "dominance": "dominant"
+      },
+      {
+        "id": "ring_spots",
+        "dominance": "dominant"
+      },
+      {
+        "id": "diagonal_streak",
+        "dominance": "dominant"
+      },
+      {
+        "id": "chevron_pair",
+        "dominance": "dominant"
+      },
+      {
+        "id": "twin_spots",
+        "dominance": "dominant"
+      },
+      {
+        "id": "ripple_bands",
+        "dominance": "dominant"
+      },
+      {
+        "id": "radial_rays",
+        "dominance": "dominant"
+      }
+    ]
+  },
+  "design_targets": {
+    "phenotype_change": "rare mutations can create visibly distinct morphs in one generation",
+    "population_change": "successful morphs spread by ordinary survival and reproduction rather than instant replacement",
+    "within_species_variation": "individuals cluster into discrete morph lineages instead of continuously blending many patterns",
+    "background_independence": "mutation direction never reads or targets the environment image",
+    "model_status": "experimental alternative to continuous_v1; it does not replace Continuous Model v1"
+  }
+}
