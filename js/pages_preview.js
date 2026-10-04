@@ -987,6 +987,70 @@
       };
     }
 
+    if (id === 'chevron_pair') {
+      return {
+        cx: 0.50,
+        cy: clamp(0.48 + j(81, 0.16), 0.20, 0.78),
+        rx: 0.50,
+        ry: clamp(0.055 + j(82, 0.025), 0.025, 0.12),
+        valueEffect: clamp(-0.18 + j(83, 0.18), -0.48, 0.38),
+        hueEffect: j(84, 24),
+        saturationEffect: j(85, 0.13),
+        phase,
+        angle: clamp(32 + j(86, 20), 8, 68),
+        frequency: clamp(1.2 + j(87, 0.35), 0.7, 2.2),
+        roughness: clamp(0.16 + j(88, 0.10), 0, 0.5),
+      };
+    }
+
+    if (id === 'twin_spots') {
+      return {
+        cx: clamp(0.50 + j(91, 0.24), 0.18, 0.86),
+        cy: clamp(0.52 + j(92, 0.22), 0.18, 0.84),
+        rx: clamp(0.11 + j(93, 0.05), 0.04, 0.22),
+        ry: clamp(0.09 + j(94, 0.045), 0.035, 0.20),
+        valueEffect: clamp(-0.20 + j(95, 0.22), -0.52, 0.44),
+        hueEffect: j(96, 28),
+        saturationEffect: j(97, 0.15),
+        phase,
+        angle: j(98, 35),
+        frequency: 1,
+        roughness: clamp(0.12 + j(99, 0.10), 0, 0.45),
+      };
+    }
+
+    if (id === 'ripple_bands') {
+      return {
+        cx: 0.50,
+        cy: clamp(0.52 + j(101, 0.10), 0.28, 0.72),
+        rx: 0.50,
+        ry: 0.50,
+        valueEffect: clamp(-0.14 + j(102, 0.20), -0.44, 0.42),
+        hueEffect: j(103, 24),
+        saturationEffect: j(104, 0.14),
+        phase,
+        angle: clamp(j(105, 16), -30, 30),
+        frequency: clamp(4.0 + j(106, 1.8), 1.8, 8.0),
+        roughness: clamp(0.24 + j(107, 0.16), 0, 0.65),
+      };
+    }
+
+    if (id === 'radial_rays') {
+      return {
+        cx: clamp(0.90 + j(111, 0.08), 0.72, 0.98),
+        cy: clamp(0.28 + j(112, 0.10), 0.10, 0.46),
+        rx: 0.50,
+        ry: 0.58,
+        valueEffect: clamp(-0.16 + j(113, 0.20), -0.46, 0.42),
+        hueEffect: j(114, 26),
+        saturationEffect: j(115, 0.15),
+        phase,
+        angle: j(116, 18),
+        frequency: clamp(5.0 + j(117, 1.8), 2.2, 9.0),
+        roughness: clamp(0.20 + j(118, 0.14), 0, 0.60),
+      };
+    }
+
     // speckle_cluster
     return {
       cx: clamp(0.48 + j(31, 0.18), 0.12, 0.85),
@@ -1218,17 +1282,24 @@
       const pigmentHueStep = Number(
         genetics.pattern_pigment_hue_step_deg ?? 24
       );
-      const pigmentSatStep = Number(
-        genetics.pattern_pigment_saturation_step ?? 0.05
-      );
-      const pigmentSatCap = Number(
-        genetics.pattern_pigment_saturation_cap ?? 0.30
-      );
       module.pigmentHue = (
         Number(module.pigmentHue || 0)
         + (Math.random() * 2 - 1) * pigmentHueStep
         + 360
       ) % 360;
+    }
+
+    if (
+      dosage > 0
+      && Math.random()
+      < Number(genetics.pattern_pigment_saturation_mutation_p || 0)
+    ) {
+      const pigmentSatStep = Number(
+        genetics.pattern_pigment_saturation_step ?? 0.07
+      );
+      const pigmentSatCap = Number(
+        genetics.pattern_pigment_saturation_cap ?? 0.85
+      );
       module.pigmentSaturation = clamp(
         Number(module.pigmentSaturation || 0)
         + (Math.random() * 2 - 1) * pigmentSatStep,
@@ -1670,6 +1741,61 @@
       return (1 - distance / halfWidth)
         * (1 - along * 0.35)
         * ((1 - roughness) + roughness * Math.max(0, waviness));
+    }
+
+    if (id === 'chevron_pair') {
+      const slope = Math.tan(angle) * 0.42;
+      const wave = roughness * 0.025
+        * Math.sin(xNorm * Math.PI * 2 * frequency + phase);
+      const center = Number(module.cy || 0.5)
+        + slope * (1 - xNorm)
+        + wave;
+      const distance = Math.abs(yNorm - center);
+      const width = Math.max(0.018, Number(module.ry || 0.055));
+      if (distance >= width) return 0;
+      return Math.pow(1 - distance / width, 0.72);
+    }
+
+    if (id === 'twin_spots') {
+      const dx = u / Math.max(0.025, Number(module.rx || 0.11));
+      const dy = v / Math.max(0.025, Number(module.ry || 0.09));
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= 1) return 0;
+      const edgeWobble = 1
+        + roughness * 0.12
+        * Math.sin(Math.atan2(dy, dx) * 4 + phase);
+      return d2 >= edgeWobble
+        ? 0
+        : Math.pow(1 - d2 / edgeWobble, 0.55);
+    }
+
+    if (id === 'ripple_bands') {
+      const tiltedY = yNorm
+        + Math.tan(angle) * (xNorm - 0.5) * 0.20;
+      const wave = roughness * 0.035
+        * Math.sin(xNorm * Math.PI * 2 * 1.35 + phase);
+      const signal = Math.abs(
+        Math.sin((tiltedY + wave) * Math.PI * frequency + phase)
+      );
+      const ridge = Math.pow(1 - signal, 2.0);
+      return ridge > 0.20 ? (ridge - 0.20) / 0.80 : 0;
+    }
+
+    if (id === 'radial_rays') {
+      const ox = Number(module.cx || 0.90);
+      const oy = Number(module.cy || 0.28);
+      const dx = xNorm - ox;
+      const dy = yNorm - oy;
+      const radius = Math.sqrt(dx * dx + dy * dy);
+      if (radius > 0.78) return 0;
+      const theta = Math.atan2(dy, dx) + angle;
+      const ray = Math.abs(Math.sin(theta * frequency + phase));
+      const sharp = Math.pow(1 - ray, 2.2);
+      const fade = clamp01(1 - radius / 0.78);
+      const modulation = (1 - roughness)
+        + roughness * (0.72 + 0.28 * Math.sin(radius * 34 + phase));
+      const value = sharp * (0.45 + 0.55 * fade) * modulation;
+      return value > 0.16 ? (value - 0.16) / 0.84 : 0;
     }
 
     // speckle_cluster
