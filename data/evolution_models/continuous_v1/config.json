@@ -145,10 +145,13 @@
     "parent_selection_goal": "use the agreed random 12-parent pool from survivors; repeat survivors only when fewer than 12 survive",
     "pattern_diversity_goal": "broaden coherent symmetric pattern vocabulary without increasing total pattern-birth probability",
     "pattern_saturation_goal": "patterns start muted but may evolve to high saturation if player selection favors it; no low hard ceiling",
-    "cartridge_role": "Frozen baseline for the continuous-trait evolution model. Environment, model, and run are independent."
+    "cartridge_role": "Frozen baseline for the continuous-trait evolution model. Environment, model, and run are independent.",
+    "experience_goal": "Prioritize fast, visually legible, playful evolution while preserving the core natural-selection causal structure.",
+    "playful_environment_goal": "May be used with biologically playful environments such as fried rice; environment still never directs mutation."
   },
   "color_inheritance": "single_parent_haplotype",
   "parent_pool_size": 12,
   "model_id": "continuous_v1",
-  "model_display_name_ja": "連続形質モデル"
+  "model_display_name_ja": "エンタメ型（連続形質）",
+  "experience_role": "entertainment"
 }
