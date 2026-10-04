@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "feature": "preview_diagnostic_upload",
+  "enabled": false,
+  "endpoint": "",
+  "tester_code_required": true,
+  "test_only": true,
+  "retention_days": 30,
+  "notes": "Enable only after the server-side endpoint is deployed and verified. Production SOLO must not collect diagnostic logs."
+}
