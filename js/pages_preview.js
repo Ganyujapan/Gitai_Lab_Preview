@@ -235,6 +235,7 @@
         parent_selection: evolutionConfig?.parent_selection || null,
         parent_pool_size: evolutionConfig?.parent_pool_size || null,
         trait_genetics: evolutionConfig?.trait_genetics || null,
+        morph_genetics: evolutionConfig?.morph_genetics || null,
         founder_set_id:
           evolutionConfig?.founder_model?.founder_set_id || null,
         founder_seed:
@@ -3147,6 +3148,11 @@
       + '<button type="button" data-action="environment">'
       + switchLabel
       + '</button>'
+      + '<button type="button" data-action="model">'
+      + (EVOLUTION_MODEL_ID === 'morph_v1'
+        ? 'モデル: 連続へ'
+        : 'モデル: モルフへ')
+      + '</button>'
       + '<button type="button" data-action="diagnostic">診断ログ</button>'
       + '<button type="button" data-action="reset">テストをリセット</button>';
 
@@ -3195,6 +3201,21 @@
         u.searchParams.delete('env');
       } else {
         u.searchParams.set('env', 'sand');
+      }
+      u.searchParams.set('v', String(Date.now()));
+      location.href = u.toString();
+    });
+
+    const modelButton = badge.querySelector('[data-action="model"]');
+    modelButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const u = new URL(location.href);
+      if (EVOLUTION_MODEL_ID === 'morph_v1') {
+        u.searchParams.delete('model');
+      } else {
+        u.searchParams.set('model', 'morph_v1');
       }
       u.searchParams.set('v', String(Date.now()));
       location.href = u.toString();
