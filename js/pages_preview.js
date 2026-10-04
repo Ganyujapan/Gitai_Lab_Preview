@@ -313,12 +313,22 @@
     try {
       for (let i = localStorage.length - 1; i >= 0; i -= 1) {
         const key = localStorage.key(i);
+        if (!key) continue;
+
+        const legacyLeaderboardPrefix =
+          `gitai-preview-leaderboard-v4-solo-${PREVIEW_ENV_ID}-`;
+        const namespacedLeaderboardPrefix = [
+          'gitai-preview-leaderboard-v5-solo',
+          PREVIEW_ENV_ID,
+          EVOLUTION_MODEL_ID,
+          PREVIEW_RUN_ID,
+          '',
+        ].join('-');
+
         if (
-          key
-          && (
-            key.startsWith('gitai-preview-leaderboard-')
-            || key.startsWith('gitai-preview-share-name-')
-          )
+          (LEGACY_DEFAULT_STORAGE
+            && key.startsWith(legacyLeaderboardPrefix))
+          || key.startsWith(namespacedLeaderboardPrefix)
         ) {
           localStorage.removeItem(key);
         }
@@ -2020,7 +2030,7 @@
         || founderSetId
       );
       const founderRng = makeSeededRng(
-        `${EVOLUTION_MODEL_ID}:${founderSeed}:${i}`
+        `${founderSeed}:${i}`
       );
       const result = makeChildGenome(
         founderA,
@@ -2382,7 +2392,13 @@
       generation_id: generationId,
       next_generation_id: nextId,
       generation_number: generationNumber(generationId),
-      environment_id: environmentConfig?.environment_id || PREVIEW_ENV,
+      environment_id:
+        environmentConfig?.environment_id || PREVIEW_ENV_ID,
+      evolution_model_id:
+        evolutionConfig?.model_id || EVOLUTION_MODEL_ID,
+      preview_run_id: PREVIEW_RUN_ID,
+      founder_set_id:
+        evolutionConfig?.founder_model?.founder_set_id || null,
       evolution_config_id: evolutionConfig?.config_id || null,
       eaten_indices: [...eatenIndices],
       survivor_indices: survivors,
