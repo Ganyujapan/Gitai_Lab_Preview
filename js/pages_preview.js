@@ -2522,7 +2522,7 @@
     return (
       EVOLUTION_MODEL_ID === 'continuous_v1'
       || EVOLUTION_MODEL_ID === 'morph_v1'
-      || usesBrowserGeneratedFounder()
+      || String(evolutionConfig?.inheritance || '').startsWith('trait_')
     );
   }
 
