@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "model_id": "morph_v1",
-  "model_display_name_ja": "モルフ進化モデル",
+  "model_display_name_ja": "教育型（モルフ進化）",
   "config_id": "morph_v1_experimental_001",
   "engine_version": 1,
   "profile_id": "solo",
@@ -126,6 +126,11 @@
     "population_change": "successful morphs spread by ordinary survival and reproduction rather than instant replacement",
     "within_species_variation": "individuals cluster into discrete morph lineages instead of continuously blending many patterns",
     "background_independence": "mutation direction never reads or targets the environment image",
-    "model_status": "experimental alternative to continuous_v1; it does not replace Continuous Model v1"
-  }
+    "model_status": "experimental alternative to continuous_v1; it does not replace Continuous Model v1",
+    "education_goal": "High-school biology quality: scientifically defensible natural-selection, heredity, mutation, drift, and morph-lineage behavior.",
+    "within_morph_future": "Keep discrete morph identity, while allowing small heritable modifier variation within a morph; do not turn the main morph back into continuous parental blending.",
+    "expert_review": "Tune biological details after specialist feedback at Konchu Daigaku; current mutation parameters remain frozen during comparison tests.",
+    "localization": "Keep labels/content translatable for Japanese and English releases."
+  },
+  "experience_role": "education"
 }
