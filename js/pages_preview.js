@@ -57,9 +57,14 @@
       PREVIEW_RUN_ID,
     ].join('-');
 
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const IMAGE_STORE = 'images';
   const META_STORE = 'meta';
+  const THEATER_STORE = 'theater_frames';
+  const THEATER_FRAME_WIDTH = 600;
+  const THEATER_FRAME_HEIGHT = 1000;
+  const THEATER_COLUMNS = 6;
+  const THEATER_ROWS = 10;
   const TOTAL = 60;
   const SIZE = 128;
   const HALF = SIZE / 2;
@@ -98,6 +103,9 @@
         }
         if (!db.objectStoreNames.contains(META_STORE)) {
           db.createObjectStore(META_STORE);
+        }
+        if (!db.objectStoreNames.contains(THEATER_STORE)) {
+          db.createObjectStore(THEATER_STORE);
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -815,6 +823,259 @@
     showChatGPTCopyDialog(text);
   }
 
+
+  let theaterBackgroundPromise = null;
+
+  function theaterModelLabel() {
+    return EVOLUTION_MODEL_ID === 'morph_v1'
+      ? '教育型'
+      : 'エンタメ型';
+  }
+
+  function canvasToBlob(canvas, type = 'image/webp', quality = 0.78) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+        reject(new Error('進化シアター画像の生成に失敗しました'));
+      }, type, quality);
+    });
+  }
+
+  function loadImageElement(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(
+        new Error('画像を読み込めません: ' + url)
+      );
+      img.src = url;
+    });
+  }
+
+  async function loadTheaterBackground() {
+    await ensureConfig();
+    if (!theaterBackgroundPromise) {
+      const src = String(
+        environmentConfig?.background?.src
+        || appConfig?.environment?.background?.src
+        || ''
+      );
+      theaterBackgroundPromise = loadImageElement(baseUrl(src))
+        .catch((error) => {
+          theaterBackgroundPromise = null;
+          throw error;
+        });
+    }
+    return theaterBackgroundPromise;
+  }
+
+  function drawImageCover(ctx, image, x, y, width, height) {
+    const iw = Number(image.naturalWidth || image.width || 1);
+    const ih = Number(image.naturalHeight || image.height || 1);
+    const scale = Math.max(width / iw, height / ih);
+    const sw = width / scale;
+    const sh = height / scale;
+    const sx = Math.max(0, (iw - sw) / 2);
+    const sy = Math.max(0, (ih - sh) / 2);
+    ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+  }
+
+  async function drawBlobToCanvas(ctx, blob, x, y, width, height) {
+    if (typeof createImageBitmap === 'function') {
+      const bitmap = await createImageBitmap(blob);
+      try {
+        ctx.drawImage(bitmap, x, y, width, height);
+      } finally {
+        if (bitmap.close) bitmap.close();
+      }
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await loadImageElement(url);
+      ctx.drawImage(img, x, y, width, height);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function renderTheaterFrameBlob(generationId) {
+    await ensureConfig();
+
+    const blobs = [];
+    for (let index = 1; index <= TOTAL; index += 1) {
+      const blob = await idbGet(
+        IMAGE_STORE,
+        imageKey(generationId, index),
+      );
+      if (!(blob instanceof Blob)) {
+        return null;
+      }
+      blobs.push(blob);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = THEATER_FRAME_WIDTH;
+    canvas.height = THEATER_FRAME_HEIGHT;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    try {
+      const background = await loadTheaterBackground();
+      drawImageCover(
+        ctx,
+        background,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+    } catch (_) {
+      ctx.fillStyle = '#182019';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    const headerHeight = 92;
+    ctx.fillStyle = 'rgba(0,0,0,0.68)';
+    ctx.fillRect(0, 0, canvas.width, headerHeight);
+
+    const generation = generationNumber(generationId);
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 31px "PixelMplus", monospace';
+    ctx.fillText(
+      '第' + generation + '世代',
+      22,
+      34,
+    );
+
+    ctx.fillStyle = '#b8f7ff';
+    ctx.font = '20px "PixelMplus", monospace';
+    ctx.fillText(
+      theaterModelLabel(),
+      22,
+      68,
+    );
+
+    const gridTop = headerHeight + 8;
+    const gridHeight = canvas.height - gridTop - 8;
+    const cellWidth = canvas.width / THEATER_COLUMNS;
+    const cellHeight = gridHeight / THEATER_ROWS;
+    const mothSize = Math.floor(
+      Math.min(cellWidth * 0.78, cellHeight * 0.82)
+    );
+
+    for (let i = 0; i < blobs.length; i += 1) {
+      const col = i % THEATER_COLUMNS;
+      const row = Math.floor(i / THEATER_COLUMNS);
+      const cellX = col * cellWidth;
+      const cellY = gridTop + row * cellHeight;
+      const x = Math.round(
+        cellX + (cellWidth - mothSize) / 2
+      );
+      const y = Math.round(
+        cellY + (cellHeight - mothSize) / 2
+      );
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        Math.round(cellX) + 0.5,
+        Math.round(cellY) + 0.5,
+        Math.round(cellWidth) - 1,
+        Math.round(cellHeight) - 1,
+      );
+
+      await drawBlobToCanvas(
+        ctx,
+        blobs[i],
+        x,
+        y,
+        mothSize,
+        mothSize,
+      );
+    }
+
+    try {
+      return await canvasToBlob(canvas, 'image/webp', 0.78);
+    } catch (_) {
+      return canvasToBlob(canvas, 'image/png');
+    }
+  }
+
+  async function ensureTheaterSnapshot(generationId, stats = {}) {
+    if (!generationId || !/^gen\d{5}$/.test(generationId)) {
+      return null;
+    }
+
+    const existing = await idbGet(THEATER_STORE, generationId);
+    let imageBlob = existing?.image_blob;
+
+    if (!(imageBlob instanceof Blob)) {
+      imageBlob = await renderTheaterFrameBlob(generationId);
+      if (!(imageBlob instanceof Blob)) return null;
+    }
+
+    const eatenCount = Number.isFinite(Number(stats.eatenCount))
+      ? Number(stats.eatenCount)
+      : (
+        Number.isFinite(Number(existing?.eaten_count))
+          ? Number(existing.eaten_count)
+          : null
+      );
+    const survivorCount = Number.isFinite(Number(stats.survivorCount))
+      ? Number(stats.survivorCount)
+      : (
+        Number.isFinite(Number(existing?.survivor_count))
+          ? Number(existing.survivor_count)
+          : null
+      );
+
+    const record = {
+      schema_version: 1,
+      generation_id: generationId,
+      generation_number: generationNumber(generationId),
+      environment_id:
+        environmentConfig?.environment_id || PREVIEW_ENV_ID,
+      evolution_model_id: EVOLUTION_MODEL_ID,
+      model_label_ja: theaterModelLabel(),
+      preview_run_id: PREVIEW_RUN_ID,
+      eaten_count: eatenCount,
+      survivor_count: survivorCount,
+      image_blob: imageBlob,
+      captured_at:
+        existing?.captured_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await idbPut(THEATER_STORE, generationId, record);
+    return record;
+  }
+
+  async function getEvolutionTheaterFrames() {
+    await ensureConfig();
+    const entries = await idbEntriesByPrefix(THEATER_STORE, 'gen');
+    return entries
+      .map((item) => item.value)
+      .filter((item) => (
+        item
+        && item.image_blob instanceof Blob
+        && /^gen\d{5}$/.test(String(item.generation_id || ''))
+      ))
+      .sort(
+        (a, b) => (
+          Number(a.generation_number)
+          - Number(b.generation_number)
+        )
+      );
+  }
+
   async function clearDb() {
     if (dbPromise) {
       const db = await dbPromise.catch(() => null);
@@ -973,6 +1234,15 @@
 
     if (!loaded) {
       throw new Error('第1世代の生成に失敗しました');
+    }
+
+    // Evolution Theater snapshots are lightweight contact sheets.
+    // Gen1 is retained permanently, so existing runs can at least show
+    // Gen1 + the current generation after this feature is introduced.
+    await ensureTheaterSnapshot('gen00001').catch(console.error);
+    if (currentGenerationId !== 'gen00001') {
+      await ensureTheaterSnapshot(currentGenerationId)
+        .catch(console.error);
     }
   }
 
@@ -3523,16 +3793,39 @@
   }
 
   async function evolveGeneration(generationId, eatenIndices) {
+    const eatenCount = Array.isArray(eatenIndices)
+      ? eatenIndices.length
+      : 0;
+    await ensureTheaterSnapshot(generationId, {
+      eatenCount,
+      survivorCount: TOTAL - eatenCount,
+    }).catch(console.error);
+
+    let nextId;
     if (EVOLUTION_MODEL_ID === 'morph_v1') {
-      return evolveGenerationByMorph(generationId, eatenIndices);
-    }
-    if (
+      nextId = await evolveGenerationByMorph(
+        generationId,
+        eatenIndices,
+      );
+    } else if (
       EVOLUTION_MODEL_ID === 'continuous_v1'
       || String(evolutionConfig?.inheritance || '').startsWith('trait_')
     ) {
-      return evolveGenerationByGenome(generationId, eatenIndices);
+      nextId = await evolveGenerationByGenome(
+        generationId,
+        eatenIndices,
+      );
+    } else {
+      nextId = await evolveGenerationLegacy(
+        generationId,
+        eatenIndices,
+      );
     }
-    return evolveGenerationLegacy(generationId, eatenIndices);
+
+    if (nextId) {
+      await ensureTheaterSnapshot(nextId).catch(console.error);
+    }
+    return nextId;
   }
 
   async function apiFetch(input, init = {}) {
@@ -3803,6 +4096,8 @@
     exportDiagnosticLog,
     buildChatGPTDiagnosticText,
     prepareChatGPTDiagnosticCopy,
+    getEvolutionTheaterFrames,
+    ensureTheaterSnapshot,
     context: Object.freeze({
       environmentId: PREVIEW_ENV_ID,
       evolutionModelId: EVOLUTION_MODEL_ID,
