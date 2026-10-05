@@ -2874,19 +2874,8 @@
     return ids[Math.floor(rng() * ids.length)];
   }
 
-  function farHueJump(currentHue, rng) {
-    const genetics = evolutionConfig.morph_genetics || {};
-    const minJump = Number(genetics.color_hue_jump_min_deg ?? 70);
-    const maxJump = Math.max(
-      minJump,
-      Number(genetics.color_hue_jump_max_deg ?? 180),
-    );
-    const jump = randomRange(rng, minJump, maxJump);
-    const sign = rng() < 0.5 ? -1 : 1;
-    return {
-      hue: (Number(currentHue || 0) + sign * jump + 360) % 360,
-      signedJump: sign * jump,
-    };
+  function randomMorphHue(rng) {
+    return rng() * 360;
   }
 
   function mutateMorphAllele(sourceAllele, rng, seed) {
@@ -2919,8 +2908,7 @@
     );
 
     if (type === 'color_morph') {
-      const jump = farHueJump(allele.groundHue, rng);
-      allele.groundHue = jump.hue;
+      allele.groundHue = randomMorphHue(rng);
       allele.groundSaturation = randomRange(
         rng,
         visibleSatMin,
@@ -2967,8 +2955,7 @@
         allele.patternId = chooseMorphPatternId(rng, 'none');
         allele.patternSeed = seed + Math.floor(rng() * 100000);
       }
-      const jump = farHueJump(allele.patternHue, rng);
-      allele.patternHue = jump.hue;
+      allele.patternHue = randomMorphHue(rng);
       allele.patternSaturation = randomRange(
         rng,
         patternSatMin,
@@ -2979,8 +2966,7 @@
         patternContrastMin,
       );
     } else {
-      const jump = farHueJump(allele.groundHue, rng);
-      allele.groundHue = jump.hue;
+      allele.groundHue = randomMorphHue(rng);
       allele.groundSaturation = randomRange(
         rng,
         visibleSatMin,
