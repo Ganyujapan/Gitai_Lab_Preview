@@ -2,7 +2,7 @@
   "schema_version": 1,
   "model_id": "morph_v1",
   "model_display_name_ja": "教育型（モルフ進化）",
-  "config_id": "morph_v1_experimental_002",
+  "config_id": "morph_v1_experimental_003",
   "engine_version": 1,
   "profile_id": "solo",
   "inheritance": "discrete_morph_supergene_v1",
@@ -24,8 +24,6 @@
     "dominance_rank_min": 0,
     "dominance_rank_max": 2,
     "new_morph_dominance_mutation_p": 0.3,
-    "color_hue_jump_min_deg": 70,
-    "color_hue_jump_max_deg": 180,
     "visible_saturation_min": 0.1,
     "visible_saturation_max": 0.38,
     "melanism_value_min": 0.1,
@@ -65,7 +63,9 @@
         "id": "regulatory_morph",
         "weight": 0.16
       }
-    ]
+    ],
+    "color_hue_sampling": "uniform_0_360",
+    "pattern_hue_sampling": "uniform_0_360"
   },
   "trait_genetics": {
     "pattern_pigment_saturation_cap": 0.85,
@@ -131,7 +131,9 @@
     "within_morph_future": "Keep discrete morph identity, while allowing small heritable modifier variation within a morph; do not turn the main morph back into continuous parental blending.",
     "expert_review": "Tune biological details after specialist feedback at Konchu Daigaku; current mutation parameters remain frozen during comparison tests.",
     "localization": "Keep labels/content translatable for Japanese and English releases.",
-    "visible_mutation_target": "Tune for roughly one visibly expressed mutant individual per 60-offspring generation in Preview/classroom-speed simulation; this is an intentionally accelerated educational rate, not a literal biological mutation rate."
+    "visible_mutation_target": "Tune for roughly one visibly expressed mutant individual per 60-offspring generation in Preview/classroom-speed simulation; this is an intentionally accelerated educational rate, not a literal biological mutation rate.",
+    "color_morph_hue_rule": "When a color-morph mutation occurs, sample a new hue uniformly from 0–360 degrees instead of enforcing a minimum angular jump from the parent hue.",
+    "pattern_color_hue_rule": "Pattern-color mutations likewise sample hue uniformly from 0–360 degrees."
   },
   "experience_role": "education"
 }
