@@ -416,6 +416,7 @@
     }
 
     .moth-preview-button {
+      position: relative;
       width: 100%;
       min-height: 0;
       padding: 5px 4px 4px;
@@ -446,6 +447,37 @@
       background: rgba(0,0,0,0.58);
       color: rgba(255,255,255,0.88);
       font-size: clamp(8px, 1.9vw, 10px);
+    }
+
+    .predation-skull {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 3;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.76);
+      border-radius: 4px;
+      background: rgba(0,0,0,0.78);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.48);
+      pointer-events: none;
+    }
+
+    .predation-skull svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+      image-rendering: pixelated;
+      shape-rendering: crispEdges;
+    }
+
+    .mutation-card .predation-skull {
+      top: 8px;
+      right: 8px;
+      width: 26px;
+      height: 26px;
     }
 
     .theater-entry-action {
@@ -871,6 +903,7 @@
     }
 
     .mutation-card {
+      position: relative;
       min-width: 0;
       padding: 8px;
       border: 1px solid rgba(255,218,108,0.32);
@@ -1806,6 +1839,28 @@
     }
   }
 
+  function createPredationSkull() {
+    const badge = document.createElement('span');
+    badge.className = 'predation-skull';
+    badge.setAttribute('role', 'img');
+    badge.setAttribute('aria-label', '捕食された個体');
+    badge.innerHTML = `
+      <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+        <rect x="3" y="1" width="6" height="1" fill="#fff"/>
+        <rect x="2" y="2" width="8" height="1" fill="#fff"/>
+        <rect x="1" y="3" width="10" height="4" fill="#fff"/>
+        <rect x="2" y="7" width="8" height="2" fill="#fff"/>
+        <rect x="3" y="9" width="1" height="2" fill="#fff"/>
+        <rect x="5" y="9" width="2" height="2" fill="#fff"/>
+        <rect x="8" y="9" width="1" height="2" fill="#fff"/>
+        <rect x="3" y="4" width="2" height="2" fill="#111"/>
+        <rect x="7" y="4" width="2" height="2" fill="#111"/>
+        <rect x="5" y="6" width="2" height="1" fill="#111"/>
+      </svg>
+    `;
+    return badge;
+  }
+
   function mutationTypeLabel(type) {
     const labels = {
       base_hue_major: '色相大変異',
@@ -1829,11 +1884,8 @@
     }
 
     mutationRevealGrid.innerHTML = '';
-    const survived = event.mutants.filter(
-      (mutant) => !state.eatenIndices.has(Number(mutant.index))
-    ).length;
     mutationRevealMessage.textContent =
-      `前世代で予告された突然変異 ${event.mutants.length}個体の結果です。生存 ${survived}個体。`;
+      `前世代で予告された突然変異 ${event.mutants.length}個体です。`;
 
     for (const mutant of event.mutants) {
       const index = Number(mutant.index);
@@ -1853,10 +1905,14 @@
 
       const status = document.createElement('span');
       status.className = 'mutation-card-status';
-      const fate = state.eatenIndices.has(index) ? '捕食された' : '生き残った！';
+      const eaten = state.eatenIndices.has(index);
       const types = (mutant.event_types || []).map(mutationTypeLabel).join(' / ');
       status.textContent =
-        `MOTH ${String(index).padStart(2, '0')} · ${types || '突然変異'} · ${fate}`;
+        `MOTH ${String(index).padStart(2, '0')} · ${types || '突然変異'}`;
+
+      if (eaten) {
+        card.appendChild(createPredationSkull());
+      }
 
       const save = document.createElement('button');
       save.type = 'button';
@@ -2493,7 +2549,12 @@
     }
   }
 
-  function createEvolutionMothButton(generationId, index, srcOverride = '') {
+  function createEvolutionMothButton(
+    generationId,
+    index,
+    srcOverride = '',
+    eaten = false,
+  ) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'moth-preview-button';
@@ -2509,6 +2570,10 @@
     label.textContent = `MOTH ${String(index).padStart(2, '0')}`;
 
     button.append(img, label);
+    if (eaten) {
+      button.appendChild(createPredationSkull());
+    }
+
     button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -2532,7 +2597,12 @@
         ? String(state.playedMothSources[i - 1] || '')
         : '';
       evolutionLatestGrid.appendChild(
-        createEvolutionMothButton(latestId, i, playedSrc),
+        createEvolutionMothButton(
+          latestId,
+          i,
+          playedSrc,
+          state.eatenIndices.has(i),
+        ),
       );
     }
   }
