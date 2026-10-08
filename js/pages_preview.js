@@ -2483,22 +2483,16 @@
 
     if (rng() < Number(genetics.base_hue_global_mutation_p || 0)) {
       const before = baseHue;
-      const minJump = Number(
-        genetics.base_hue_global_min_jump_deg ?? 70
-      );
-      const maxJump = Math.max(
-        minJump,
-        Number(genetics.base_hue_global_max_jump_deg ?? 180),
-      );
-      const jump = minJump + rng() * (maxJump - minJump);
-      const sign = rng() < 0.5 ? -1 : 1;
-      baseHue = (baseHue + sign * jump + 360) % 360;
+      // A major hue mutation is a new draw from the full hue circle.
+      // The environment never determines the mutation direction.
+      baseHue = rng() * 360;
+      const signedDelta = ((baseHue - before + 540) % 360) - 180;
       diagnostic.mutations.push({
         type: 'base_hue_major',
         before: diagnosticNumber(before, 2),
         after: diagnosticNumber(baseHue, 2),
-        signed_jump_deg: diagnosticNumber(sign * jump, 2),
-        absolute_jump_deg: diagnosticNumber(jump, 2),
+        signed_delta_deg: diagnosticNumber(signedDelta, 2),
+        sampling: 'uniform_0_360',
       });
     }
 
@@ -3778,6 +3772,57 @@
     return nextId;
   }
 
+  async function entertainmentMutationEvent(
+    sourceGenerationId,
+    nextGenerationIdValue,
+  ) {
+    if (EVOLUTION_MODEL_ID !== 'continuous_v1') return null;
+
+    const diagnostic = await idbGet(
+      META_STORE,
+      diagnosticKey(sourceGenerationId),
+    );
+    if (!diagnostic || !Array.isArray(diagnostic.offspring)) return null;
+
+    const mutants = [];
+    for (const child of diagnostic.offspring) {
+      const eventTypes = [];
+
+      for (const mutation of child?.mutations || []) {
+        if (mutation?.type === 'base_hue_major') {
+          eventTypes.push('base_hue_major');
+        } else if (mutation?.type === 'base_value_major') {
+          eventTypes.push('base_value_major');
+        }
+      }
+
+      if (child?.pattern_birth) {
+        eventTypes.push('pattern_birth');
+      }
+
+      for (const event of child?.pattern_mutations || []) {
+        if (event?.major_hue_mutated) {
+          eventTypes.push('pattern_hue_major');
+        }
+      }
+
+      if (eventTypes.length) {
+        mutants.push({
+          index: Number(child.child_index),
+          event_types: [...new Set(eventTypes)],
+        });
+      }
+    }
+
+    return {
+      generation_id: nextGenerationIdValue,
+      source_generation_id: sourceGenerationId,
+      has_rare_mutation: mutants.length > 0,
+      mutant_count: mutants.length,
+      mutants,
+    };
+  }
+
   async function evolveGeneration(generationId, eatenIndices) {
     const eatenCount = Array.isArray(eatenIndices)
       ? eatenIndices.length
@@ -3873,6 +3918,7 @@
         return jsonResponse(200, {
           ok: true,
           next_generation_id: previous.next_generation_id,
+          entertainment_event: previous.entertainment_event || null,
           replayed: true,
           preview: true,
         });
@@ -3897,14 +3943,20 @@
     }
 
     const nextId = await evolveGeneration(generationId, eaten);
+    const entertainmentEvent = nextId
+      ? await entertainmentMutationEvent(generationId, nextId)
+      : null;
+
     completedRuns.set(runId, {
       generation_id: generationId,
       next_generation_id: nextId,
+      entertainment_event: entertainmentEvent,
     });
 
     return jsonResponse(200, {
       ok: true,
       next_generation_id: nextId,
+      entertainment_event: entertainmentEvent,
       replayed: false,
       preview: true,
     });
