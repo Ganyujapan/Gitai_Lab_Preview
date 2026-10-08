@@ -709,6 +709,80 @@
       line-height: 1.45;
     }
 
+    #roundShutter {
+      position: absolute;
+      inset: 0;
+      z-index: 58;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    #roundShutter.active {
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .round-shutter-panel {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      transform: translateY(-101%);
+      transition: transform 520ms cubic-bezier(0.20, 0.82, 0.24, 1);
+      background:
+        linear-gradient(rgba(255,255,255,0.035), rgba(0,0,0,0.08)),
+        repeating-linear-gradient(
+          to bottom,
+          #1c2225 0,
+          #1c2225 28px,
+          #111619 29px,
+          #111619 32px
+        );
+      border-bottom: 4px solid rgba(184,247,255,0.48);
+      box-shadow: 0 14px 28px rgba(0,0,0,0.58);
+    }
+
+    #roundShutter.closing .round-shutter-panel {
+      transform: translateY(0);
+    }
+
+    #roundShutter.opening .round-shutter-panel {
+      transform: translateY(101%);
+      transition-duration: 460ms;
+      transition-timing-function: cubic-bezier(0.52, 0, 0.80, 0.18);
+    }
+
+    .round-shutter-brand {
+      display: grid;
+      gap: 10px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .round-shutter-logo {
+      color: #fff;
+      font-size: clamp(34px, 10vw, 58px);
+      line-height: 1;
+      letter-spacing: 0.08em;
+      text-shadow: 0 3px 0 rgba(0,0,0,0.52);
+    }
+
+    .round-shutter-sub {
+      color: rgba(184,247,255,0.72);
+      font-size: clamp(10px, 2.4vw, 14px);
+      letter-spacing: 0.22em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .round-shutter-panel {
+        transition-duration: 180ms;
+      }
+
+      #roundShutter.opening .round-shutter-panel {
+        transition-duration: 180ms;
+      }
+    }
+
     .specimen-entry-action {
       flex: 0 0 auto;
       width: 100%;
@@ -932,6 +1006,15 @@
   <main id="stage" aria-label="ギタイラボ">
     <canvas id="gameCanvas" width="360" height="640"></canvas>
 
+    <div id="roundShutter" aria-hidden="true">
+      <div class="round-shutter-panel">
+        <div class="round-shutter-brand">
+          <div class="round-shutter-logo">ギタイラボ</div>
+          <div class="round-shutter-sub">GENERATION COMPLETE</div>
+        </div>
+      </div>
+    </div>
+
     <section id="startOverlay" class="overlay visible">
       <div class="panel">
         <div id="startGeneration" class="generation">GENERATION --</div>
@@ -987,10 +1070,10 @@
       <div class="panel evolution-panel">
         <div class="evolution-toolbar">
           <button id="evolutionCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
-          <h2 class="evolution-title">世代を比較する</h2>
+          <h2 class="evolution-title">プレイした世代を見る</h2>
           <span></span>
         </div>
-        <p class="evolution-hint">縦にスクロールできます。気になる蛾をタップすると、1個体を大きく表示できます。</p>
+        <p class="evolution-hint">今プレイした世代の個体です。縦にスクロールし、気になる蛾をタップすると大きく表示できます。</p>
         <div class="evolution-scroll">
           <section class="evolution-generation-block">
             <div class="evolution-heading">第1世代</div>
@@ -1145,6 +1228,7 @@
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  const roundShutter = document.getElementById('roundShutter');
 
   const startOverlay = document.getElementById('startOverlay');
   const startGeneration = document.getElementById('startGeneration');
@@ -1266,6 +1350,8 @@
     lastHitAt: 0,
     generationStartedAt: 0,
     specimenObjectUrls: [],
+    playedMothSources: [],
+    shutterTimerIds: [],
     bootReady: false,
     uiTransitionLocked: false,
     wakeLock: null,
@@ -1332,11 +1418,7 @@
     introLead.innerHTML = `見つけた${label}を<br>タップしてください。`;
     introSubtle.innerHTML = `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
 
-    if (isEntertainmentModel()) {
-      compareButton.textContent = 'この世代を見る';
-    } else {
-      compareButton.textContent = '世代を比較する';
-    }
+    compareButton.textContent = 'プレイした世代を見る';
   }
 
   async function fetchAppConfig() {
@@ -2268,6 +2350,57 @@
     ctx.restore();
   }
 
+  function capturePlayedMothSources() {
+    const sources = [];
+    for (const image of state.mothImages) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = 128;
+        c.height = 128;
+        const c2d = c.getContext('2d');
+        c2d.clearRect(0, 0, 128, 128);
+        c2d.drawImage(image, 0, 0, 128, 128);
+        sources.push(c.toDataURL('image/png'));
+      } catch (_) {
+        sources.push('');
+      }
+    }
+    state.playedMothSources = sources;
+  }
+
+  function clearShutterTimers() {
+    for (const id of state.shutterTimerIds) clearTimeout(id);
+    state.shutterTimerIds = [];
+  }
+
+  function playEndOfGenerationShutter(onClosed) {
+    clearShutterTimers();
+
+    roundShutter.classList.remove('closing', 'opening');
+    roundShutter.classList.add('active');
+    roundShutter.setAttribute('aria-hidden', 'false');
+
+    void roundShutter.offsetHeight;
+    requestAnimationFrame(() => {
+      roundShutter.classList.add('closing');
+    });
+
+    state.shutterTimerIds.push(setTimeout(() => {
+      if (typeof onClosed === 'function') onClosed();
+    }, 600));
+
+    state.shutterTimerIds.push(setTimeout(() => {
+      roundShutter.classList.remove('closing');
+      roundShutter.classList.add('opening');
+    }, 1120));
+
+    state.shutterTimerIds.push(setTimeout(() => {
+      roundShutter.classList.remove('active', 'opening');
+      roundShutter.setAttribute('aria-hidden', 'true');
+      state.shutterTimerIds = [];
+    }, 1640));
+  }
+
   function render() {
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     drawBackground();
@@ -2333,12 +2466,18 @@
 
     const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
     if (isFinalRound) {
+      // Keep an immutable copy of the generation that was actually played.
+      // This prevents the newly generated offspring from being previewed.
+      capturePlayedMothSources();
+
       if (isEntertainmentModel()) {
-        if (state.pendingMutationEvent) {
-          showMutationReveal();
-        } else {
-          showResults();
-        }
+        playEndOfGenerationShutter(() => {
+          if (state.pendingMutationEvent) {
+            showMutationReveal();
+          } else {
+            showResults();
+          }
+        });
       } else {
         showResults();
         sendEvolutionData();
@@ -2354,13 +2493,15 @@
     }
   }
 
-  function createEvolutionMothButton(generationId, index) {
+  function createEvolutionMothButton(generationId, index, srcOverride = '') {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'moth-preview-button';
 
     const img = document.createElement('img');
-    img.src = cacheBustUrl(individualAssetPath(generationId, index));
+    img.src = srcOverride
+      ? srcOverride
+      : cacheBustUrl(individualAssetPath(generationId, index));
     img.alt = `第${Number(generationId.slice(3))}世代 個体${index}`;
 
     const label = document.createElement('span');
@@ -2387,16 +2528,17 @@
     );
 
     for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i += 1) {
+      const playedSrc = latestId === state.currentGenerationId
+        ? String(state.playedMothSources[i - 1] || '')
+        : '';
       evolutionLatestGrid.appendChild(
-        createEvolutionMothButton(latestId, i),
+        createEvolutionMothButton(latestId, i, playedSrc),
       );
     }
   }
 
   function showEvolutionComparison() {
-    const latestId = isEntertainmentModel()
-      ? state.currentGenerationId
-      : (state.nextGenerationId || state.currentGenerationId);
+    const latestId = state.currentGenerationId;
     const latestNumber = Number(latestId.slice(3));
 
     latestGenerationTitle.textContent = `第${latestNumber}世代`;
@@ -2956,6 +3098,11 @@
     handleTap(e.clientX, e.clientY);
   });
 
+  roundShutter.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
+
   startButton.addEventListener('click', () => {
     if (!state.bootReady || state.uiTransitionLocked) return;
     state.uiTransitionLocked = true;
@@ -2971,6 +3118,7 @@
     state.runId = null;
     state.scoreRecordId = null;
     state.scoreSummary = null;
+    state.playedMothSources = [];
     state.submitStatus = 'idle';
     startRound();
   });
@@ -3001,6 +3149,7 @@
       state.runId = null;
       state.scoreRecordId = null;
       state.scoreSummary = null;
+      state.playedMothSources = [];
       state.nextGenerationId = null;
       state.submitStatus = 'idle';
       startRound();
