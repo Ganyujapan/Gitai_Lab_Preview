@@ -709,6 +709,192 @@
       line-height: 1.45;
     }
 
+    .specimen-entry-action {
+      flex: 0 0 auto;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 7px;
+      padding: 8px 12px;
+      border-color: rgba(255,223,128,0.46);
+      background: rgba(255,196,64,0.12);
+      font-size: clamp(13px, 2.5vw, 17px);
+    }
+
+    #generationOverlay {
+      z-index: 52;
+      background: rgba(3,5,6,0.97);
+    }
+
+    .generation-panel {
+      width: min(90%, 460px);
+      min-height: 300px;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .generation-orb {
+      width: 74px;
+      height: 74px;
+      margin: 2px auto 8px;
+      border: 3px solid rgba(184,247,255,0.22);
+      border-top-color: rgba(184,247,255,0.92);
+      border-radius: 50%;
+      animation: gitai-spin 0.9s linear infinite;
+    }
+
+    .generation-panel.rare {
+      border-color: rgba(255,218,108,0.72);
+      background:
+        radial-gradient(circle at 50% 24%, rgba(255,196,64,0.18), transparent 44%),
+        var(--panel);
+    }
+
+    .generation-panel.rare .generation-orb {
+      border-color: rgba(255,218,108,0.24);
+      border-top-color: #ffe08a;
+      box-shadow: 0 0 20px rgba(255,196,64,0.28);
+    }
+
+    .generation-alert {
+      color: #ffe08a;
+      font-size: clamp(24px, 6.2vw, 40px);
+      line-height: 1.25;
+      letter-spacing: 0.05em;
+    }
+
+    #generationContinueButton[hidden] {
+      display: none;
+    }
+
+    @keyframes gitai-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .generation-orb { animation: none; }
+    }
+
+    #mutationRevealOverlay {
+      z-index: 53;
+      background: rgba(3,5,6,0.98);
+    }
+
+    .mutation-panel {
+      width: min(94%, 520px);
+      max-height: 94%;
+      overflow: hidden;
+      border-color: rgba(255,218,108,0.55);
+    }
+
+    .mutation-grid {
+      min-height: 0;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 8px 0 12px;
+      padding: 2px;
+    }
+
+    .mutation-card {
+      min-width: 0;
+      padding: 8px;
+      border: 1px solid rgba(255,218,108,0.32);
+      border-radius: 10px;
+      background-color: rgba(0,0,0,0.26);
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      text-align: center;
+    }
+
+    .mutation-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .mutation-card-status {
+      display: block;
+      margin-top: 5px;
+      padding: 4px 5px;
+      border-radius: 6px;
+      background: rgba(0,0,0,0.68);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .mutation-card button {
+      min-height: 36px;
+      margin-top: 6px;
+      padding: 5px 7px;
+      font-size: 11px;
+      background: rgba(255,196,64,0.18);
+      border-color: rgba(255,218,108,0.46);
+    }
+
+    #specimenBoxOverlay {
+      z-index: 54;
+      background: rgba(3,5,6,0.99);
+    }
+
+    .specimen-panel {
+      width: min(96%, 560px);
+      height: min(92%, 820px);
+      max-height: 92%;
+      overflow: hidden;
+      padding: 12px;
+    }
+
+    .specimen-grid {
+      min-height: 0;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      padding: 3px 2px 16px;
+    }
+
+    .specimen-card {
+      min-width: 0;
+      padding: 5px;
+      border: 1px solid rgba(255,223,128,0.26);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.24);
+      color: #fff;
+      text-align: center;
+    }
+
+    .specimen-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .specimen-card-meta {
+      margin-top: 4px;
+      font-size: clamp(8px, 1.8vw, 11px);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .specimen-empty {
+      grid-column: 1 / -1;
+      padding: 36px 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    #specimenSaveButton.saved {
+      border-color: rgba(255,223,128,0.74);
+      background: rgba(255,196,64,0.26);
+      color: #fff2bd;
+    }
+
     #resetConfirmOverlay {
       z-index: 60;
       background: rgba(0,0,0,0.78);
@@ -785,9 +971,10 @@
         <p id="evolutionStatus" class="subtle"></p>
 
         <div class="review-actions">
-          <button id="compareButton" class="compare-action" type="button" hidden>世代を比較する</button>
+          <button id="compareButton" class="compare-action" type="button" hidden>この世代を見る</button>
           <button id="continueButton" class="continue-action" type="button">次の人へ</button>
         </div>
+        <button id="specimenBoxButton" class="specimen-entry-action" type="button" hidden>標本箱</button>
         <button id="theaterButton" class="theater-entry-action" type="button" hidden>進化シアター</button>
 
         <div id="authorNewsTeaser" class="author-news-teaser" hidden>
@@ -867,12 +1054,44 @@
             <span>表示名</span>
             <input id="shareNameInput" type="text" maxlength="16" autocomplete="off" placeholder="任意">
           </label>
+          <button id="specimenSaveButton" class="specimen-entry-action" type="button" hidden>標本箱に入れる</button>
           <div class="share-actions">
             <button id="shareBackButton" type="button">戻る</button>
             <button id="shareButton" type="button">SNSへシェア</button>
           </div>
           <p id="shareStatus">表示名は任意です。この画面をスクリーンショットしても使えます。</p>
         </div>
+      </div>
+    </section>
+
+    <section id="generationOverlay" class="overlay" aria-label="次世代生成">
+      <div id="generationPanel" class="panel generation-panel">
+        <div id="generationOrb" class="generation-orb" aria-hidden="true"></div>
+        <h2 id="generationTitle">次の世代を生成中…</h2>
+        <p id="generationMessage" class="subtle">生き残った個体から子孫をつくっています。</p>
+        <button id="generationContinueButton" type="button" hidden>次の世代へ</button>
+      </div>
+    </section>
+
+    <section id="mutationRevealOverlay" class="overlay" aria-label="突然変異の結果">
+      <div class="panel mutation-panel">
+        <div class="generation">MUTATION RESULT</div>
+        <h2>突然変異の正体</h2>
+        <p id="mutationRevealMessage" class="subtle"></p>
+        <div id="mutationRevealGrid" class="mutation-grid"></div>
+        <button id="mutationRevealContinueButton" type="button">成績を見る</button>
+      </div>
+    </section>
+
+    <section id="specimenBoxOverlay" class="overlay" aria-label="標本箱">
+      <div class="panel specimen-panel">
+        <div class="evolution-toolbar">
+          <button id="specimenBoxCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 class="evolution-title">標本箱</h2>
+          <span></span>
+        </div>
+        <p class="evolution-hint">保存した標本は進化には影響しません。Runをリセットしても標本箱には残ります。</p>
+        <div id="specimenGrid" class="specimen-grid"></div>
       </div>
     </section>
 
@@ -948,6 +1167,23 @@
   const continueButton = document.getElementById('continueButton');
   const compareButton = document.getElementById('compareButton');
   const authorNewsTeaser = document.getElementById('authorNewsTeaser');
+  const specimenBoxButton = document.getElementById('specimenBoxButton');
+
+  const generationOverlay = document.getElementById('generationOverlay');
+  const generationPanel = document.getElementById('generationPanel');
+  const generationOrb = document.getElementById('generationOrb');
+  const generationTitle = document.getElementById('generationTitle');
+  const generationMessage = document.getElementById('generationMessage');
+  const generationContinueButton = document.getElementById('generationContinueButton');
+
+  const mutationRevealOverlay = document.getElementById('mutationRevealOverlay');
+  const mutationRevealMessage = document.getElementById('mutationRevealMessage');
+  const mutationRevealGrid = document.getElementById('mutationRevealGrid');
+  const mutationRevealContinueButton = document.getElementById('mutationRevealContinueButton');
+
+  const specimenBoxOverlay = document.getElementById('specimenBoxOverlay');
+  const specimenBoxCloseButton = document.getElementById('specimenBoxCloseButton');
+  const specimenGrid = document.getElementById('specimenGrid');
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
   const evolutionCloseButton = document.getElementById('evolutionCloseButton');
@@ -977,6 +1213,7 @@
   const shareNameInput = document.getElementById('shareNameInput');
   const shareBackButton = document.getElementById('shareBackButton');
   const shareButton = document.getElementById('shareButton');
+  const specimenSaveButton = document.getElementById('specimenSaveButton');
   const shareStatus = document.getElementById('shareStatus');
 
   const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
@@ -1022,6 +1259,13 @@
     theaterFrameIndex: 0,
     theaterTimerId: null,
     theaterObjectUrls: [],
+    pendingMutationEvent: null,
+    hitEffects: [],
+    hitEffectFrameId: null,
+    comboCount: 0,
+    lastHitAt: 0,
+    generationStartedAt: 0,
+    specimenObjectUrls: [],
     bootReady: false,
     uiTransitionLocked: false,
     wakeLock: null,
@@ -1087,6 +1331,12 @@
     document.title = appConfig.title || 'ギタイラボ';
     introLead.innerHTML = `見つけた${label}を<br>タップしてください。`;
     introSubtle.innerHTML = `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
+
+    if (isEntertainmentModel()) {
+      compareButton.textContent = 'この世代を見る';
+    } else {
+      compareButton.textContent = '世代を比較する';
+    }
   }
 
   async function fetchAppConfig() {
@@ -1109,6 +1359,479 @@
 
   function generationLabel() {
     return `GENERATION ${String(state.generationNumber).padStart(5, '0')}`;
+  }
+
+  function isEntertainmentModel() {
+    return String(
+      window.GitaiPagesPreview?.context?.evolutionModelId || ''
+    ) === 'continuous_v1';
+  }
+
+  function mutationEventStorageKey() {
+    const context = window.GitaiPagesPreview?.context || {};
+    return [
+      'gitai-pending-mutation-v1',
+      String(context.environmentId || 'environment'),
+      String(context.evolutionModelId || 'model'),
+      String(context.runId || 'default'),
+    ].join(':');
+  }
+
+  function loadPendingMutationEvent() {
+    if (!isEntertainmentModel()) return null;
+    try {
+      const raw = localStorage.getItem(mutationEventStorageKey());
+      if (!raw) return null;
+      const event = JSON.parse(raw);
+      if (
+        event
+        && event.has_rare_mutation
+        && String(event.generation_id || '') === state.currentGenerationId
+        && Array.isArray(event.mutants)
+      ) {
+        return event;
+      }
+      localStorage.removeItem(mutationEventStorageKey());
+    } catch (_) {}
+    return null;
+  }
+
+  function savePendingMutationEvent(event) {
+    try {
+      if (
+        event
+        && event.has_rare_mutation
+        && Array.isArray(event.mutants)
+        && event.mutants.length
+      ) {
+        localStorage.setItem(
+          mutationEventStorageKey(),
+          JSON.stringify(event),
+        );
+      } else {
+        localStorage.removeItem(mutationEventStorageKey());
+      }
+    } catch (_) {}
+  }
+
+  function clearPendingMutationEvent() {
+    try {
+      localStorage.removeItem(mutationEventStorageKey());
+    } catch (_) {}
+    state.pendingMutationEvent = null;
+  }
+
+  const SPECIMEN_DB_NAME = 'gitai-specimen-box-v1';
+  const SPECIMEN_STORE = 'specimens';
+  let specimenDbPromise = null;
+  let predationAudioContext = null;
+
+  function openSpecimenDb() {
+    if (specimenDbPromise) return specimenDbPromise;
+    specimenDbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(SPECIMEN_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(SPECIMEN_STORE)) {
+          db.createObjectStore(SPECIMEN_STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return specimenDbPromise;
+  }
+
+  function specimenIdentity(generationId, index) {
+    const context = window.GitaiPagesPreview?.context || {};
+    return [
+      String(context.environmentId || 'environment'),
+      String(context.evolutionModelId || 'model'),
+      String(context.runId || 'default'),
+      generationId,
+      String(index).padStart(2, '0'),
+    ].join(':');
+  }
+
+  async function specimenPut(record) {
+    const db = await openSpecimenDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(SPECIMEN_STORE, 'readwrite');
+      tx.objectStore(SPECIMEN_STORE).put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function specimenGet(id) {
+    const db = await openSpecimenDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(SPECIMEN_STORE, 'readonly');
+      const req = tx.objectStore(SPECIMEN_STORE).get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function specimenAll() {
+    const db = await openSpecimenDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(SPECIMEN_STORE, 'readonly');
+      const store = tx.objectStore(SPECIMEN_STORE);
+      const out = [];
+      const req = store.openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) {
+          resolve(out);
+          return;
+        }
+        out.push(cursor.value);
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveSpecimen(generationId, index, src) {
+    if (!isEntertainmentModel()) return false;
+    const id = specimenIdentity(generationId, index);
+    if (await specimenGet(id)) return true;
+
+    const response = await fetch(src, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error('標本画像を保存できませんでした');
+    }
+    const blob = await response.blob();
+    const context = window.GitaiPagesPreview?.context || {};
+    await specimenPut({
+      id,
+      generation_id: generationId,
+      generation_number: Number(String(generationId).slice(3)),
+      individual_index: Number(index),
+      environment_id: String(context.environmentId || ''),
+      evolution_model_id: String(context.evolutionModelId || ''),
+      run_id: String(context.runId || 'default'),
+      saved_at: new Date().toISOString(),
+      image_blob: blob,
+    });
+    return true;
+  }
+
+  function releaseSpecimenObjectUrls() {
+    for (const url of state.specimenObjectUrls) {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    }
+    state.specimenObjectUrls = [];
+  }
+
+  async function showSpecimenBox() {
+    releaseSpecimenObjectUrls();
+    specimenGrid.innerHTML = '';
+    specimenBoxOverlay.classList.add('visible');
+
+    try {
+      const records = (await specimenAll()).sort(
+        (a, b) => String(b.saved_at || '').localeCompare(String(a.saved_at || ''))
+      );
+
+      if (!records.length) {
+        const empty = document.createElement('div');
+        empty.className = 'specimen-empty';
+        empty.textContent = 'まだ標本はありません。世代一覧から気に入った個体を保存できます。';
+        specimenGrid.appendChild(empty);
+        return;
+      }
+
+      for (const record of records) {
+        if (!(record.image_blob instanceof Blob)) continue;
+        const url = URL.createObjectURL(record.image_blob);
+        state.specimenObjectUrls.push(url);
+
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'specimen-card';
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = `第${record.generation_number}世代 個体${record.individual_index}`;
+
+        const meta = document.createElement('div');
+        meta.className = 'specimen-card-meta';
+        meta.textContent =
+          `第${record.generation_number}世代 · MOTH ${String(record.individual_index).padStart(2, '0')}`;
+
+        card.append(img, meta);
+        card.addEventListener('click', () => {
+          showMothShare(
+            String(record.generation_id),
+            Number(record.individual_index),
+            url,
+          );
+        });
+        specimenGrid.appendChild(card);
+      }
+    } catch (error) {
+      specimenGrid.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className = 'specimen-empty';
+      empty.textContent = '標本箱を読み込めませんでした。';
+      specimenGrid.appendChild(empty);
+    }
+  }
+
+  function readHitColor(x, y) {
+    try {
+      const p = ctx.getImageData(
+        Math.max(0, Math.min(GAME_WIDTH - 1, Math.round(x))),
+        Math.max(0, Math.min(GAME_HEIGHT - 1, Math.round(y))),
+        1,
+        1,
+      ).data;
+      return `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+    } catch (_) {
+      return 'rgb(184, 247, 255)';
+    }
+  }
+
+  function predationSound(combo) {
+    if (!isEntertainmentModel()) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!predationAudioContext) predationAudioContext = new AudioCtx();
+      if (predationAudioContext.state === 'suspended') {
+        predationAudioContext.resume().catch(() => {});
+      }
+
+      const now = predationAudioContext.currentTime;
+      const osc = predationAudioContext.createOscillator();
+      const gain = predationAudioContext.createGain();
+      const pitch = 250 + Math.min(7, combo - 1) * 34;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(pitch, now);
+      osc.frequency.exponentialRampToValueAtTime(pitch * 1.34, now + 0.055);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.035, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
+      osc.connect(gain);
+      gain.connect(predationAudioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch (_) {}
+  }
+
+  function drawHitEffects(now = performance.now()) {
+    if (!isEntertainmentModel() || !state.hitEffects.length) return;
+    const remaining = [];
+
+    for (const effect of state.hitEffects) {
+      const p = Math.max(0, Math.min(1, (now - effect.startedAt) / 260));
+      if (p >= 1) continue;
+      remaining.push(effect);
+
+      ctx.save();
+      const scale = 1 - p * 0.82;
+      const size = effect.size * Math.max(0.12, scale);
+      ctx.globalAlpha = Math.max(0, 1 - p);
+      ctx.drawImage(
+        effect.image,
+        effect.cx - size / 2,
+        effect.cy - size / 2,
+        size,
+        size,
+      );
+
+      ctx.strokeStyle = effect.color;
+      ctx.globalAlpha = Math.max(0, 0.72 - p * 0.72);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(effect.cx, effect.cy, 7 + p * 26, 0, Math.PI * 2);
+      ctx.stroke();
+
+      for (const particle of effect.particles) {
+        const travel = 6 + p * particle.distance;
+        const px = effect.cx + Math.cos(particle.angle) * travel;
+        const py = effect.cy + Math.sin(particle.angle) * travel;
+        ctx.globalAlpha = Math.max(0, (1 - p) * 0.9);
+        ctx.fillStyle = effect.color;
+        ctx.fillRect(px, py, particle.size, particle.size);
+      }
+
+      if (effect.combo >= 2) {
+        ctx.globalAlpha = Math.max(0, 1 - p);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px "PixelMplus", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(
+          `×${effect.combo}`,
+          effect.cx,
+          effect.cy - 25 - p * 14,
+        );
+      }
+      ctx.restore();
+    }
+
+    state.hitEffects = remaining;
+  }
+
+  function runHitEffectFrame() {
+    state.hitEffectFrameId = null;
+    if (!state.roundActive && !state.hitEffects.length) return;
+    render();
+    if (state.hitEffects.length) {
+      state.hitEffectFrameId = requestAnimationFrame(runHitEffectFrame);
+    }
+  }
+
+  function predationFeedback(moth, tapX, tapY) {
+    if (!isEntertainmentModel()) return;
+    const now = performance.now();
+    state.comboCount =
+      now - state.lastHitAt <= 650
+        ? state.comboCount + 1
+        : 1;
+    state.lastHitAt = now;
+
+    const cx = moth.x + moth.size / 2;
+    const cy = moth.y + moth.size / 2;
+    const color = readHitColor(tapX, tapY);
+    const particles = Array.from({ length: 8 }, (_, i) => ({
+      angle: (Math.PI * 2 * i) / 8 + Math.random() * 0.32,
+      distance: 12 + Math.random() * 22,
+      size: 2 + Math.floor(Math.random() * 3),
+    }));
+
+    state.hitEffects.push({
+      cx,
+      cy,
+      size: moth.size,
+      image: moth.image,
+      color,
+      combo: state.comboCount,
+      particles,
+      startedAt: now,
+    });
+
+    predationSound(state.comboCount);
+    try {
+      if (navigator.vibrate) navigator.vibrate(8);
+    } catch (_) {}
+
+    if (state.hitEffectFrameId === null) {
+      state.hitEffectFrameId = requestAnimationFrame(runHitEffectFrame);
+    }
+  }
+
+  function mutationTypeLabel(type) {
+    const labels = {
+      base_hue_major: '色相大変異',
+      base_value_major: '明度大変異',
+      pattern_birth: '新しい模様',
+      pattern_hue_major: '模様色大変異',
+    };
+    return labels[type] || '突然変異';
+  }
+
+  function showMutationReveal() {
+    const event = state.pendingMutationEvent;
+    if (
+      !isEntertainmentModel()
+      || !event
+      || !Array.isArray(event.mutants)
+      || !event.mutants.length
+    ) {
+      showResults();
+      return;
+    }
+
+    mutationRevealGrid.innerHTML = '';
+    const survived = event.mutants.filter(
+      (mutant) => !state.eatenIndices.has(Number(mutant.index))
+    ).length;
+    mutationRevealMessage.textContent =
+      `前世代で予告された突然変異 ${event.mutants.length}個体の結果です。生存 ${survived}個体。`;
+
+    for (const mutant of event.mutants) {
+      const index = Number(mutant.index);
+      if (!Number.isInteger(index) || index < 1 || index > CONFIG.TOTAL_MOTHS) {
+        continue;
+      }
+
+      const src = cacheBustUrl(
+        individualAssetPath(state.currentGenerationId, index)
+      );
+      const card = document.createElement('div');
+      card.className = 'mutation-card';
+
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = `突然変異個体 MOTH ${String(index).padStart(2, '0')}`;
+
+      const status = document.createElement('span');
+      status.className = 'mutation-card-status';
+      const fate = state.eatenIndices.has(index) ? '捕食された' : '生き残った！';
+      const types = (mutant.event_types || []).map(mutationTypeLabel).join(' / ');
+      status.textContent =
+        `MOTH ${String(index).padStart(2, '0')} · ${types || '突然変異'} · ${fate}`;
+
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.textContent = '標本箱へ';
+      save.addEventListener('click', async () => {
+        save.disabled = true;
+        try {
+          await saveSpecimen(state.currentGenerationId, index, src);
+          save.textContent = '保存済み';
+        } catch (_) {
+          save.textContent = '保存失敗';
+          save.disabled = false;
+        }
+      });
+
+      card.append(img, status, save);
+      mutationRevealGrid.appendChild(card);
+    }
+
+    mutationRevealOverlay.classList.add('visible');
+  }
+
+  function showGenerationGenerating() {
+    state.generationStartedAt = performance.now();
+    generationPanel.classList.remove('rare');
+    generationOrb.hidden = false;
+    generationTitle.className = '';
+    generationTitle.textContent = '次の世代を生成中…';
+    generationMessage.textContent =
+      '生き残った個体から子孫をつくっています。';
+    generationContinueButton.hidden = true;
+    generationOverlay.classList.add('visible');
+  }
+
+  async function showGenerationReady(event) {
+    const elapsed = performance.now() - state.generationStartedAt;
+    if (elapsed < 1200) {
+      await new Promise((resolve) => setTimeout(resolve, 1200 - elapsed));
+    }
+
+    generationOrb.hidden = true;
+    if (event?.has_rare_mutation && event.mutants?.length) {
+      generationPanel.classList.add('rare');
+      generationTitle.className = 'generation-alert';
+      generationTitle.textContent = '突然変異発生！';
+      generationMessage.textContent =
+        `次世代に ${event.mutants.length}個体の大きな変異を検出しました。正体はプレイ終了後に公開されます。`;
+      savePendingMutationEvent(event);
+    } else {
+      generationPanel.classList.remove('rare');
+      generationTitle.className = '';
+      generationTitle.textContent = '次の世代が誕生しました';
+      generationMessage.textContent =
+        'この世代では大きな突然変異は検出されませんでした。';
+      savePendingMutationEvent(null);
+    }
+    generationContinueButton.hidden = false;
   }
 
   function leaderboardKey() {
@@ -1549,6 +2272,7 @@
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     drawBackground();
     if (state.roundActive) drawMoths();
+    drawHitEffects();
     drawHud();
   }
 
@@ -1565,6 +2289,9 @@
 
     state.remainingSeconds = Math.ceil(CONFIG.ROUND_TIME_MS / 1000);
     state.roundTapEvents = [];
+    state.hitEffects = [];
+    state.comboCount = 0;
+    state.lastHitAt = 0;
     state.roundStartedAt = performance.now();
     state.roundActive = true;
     render();
@@ -1606,8 +2333,16 @@
 
     const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
     if (isFinalRound) {
-      showResults();
-      sendEvolutionData();
+      if (isEntertainmentModel()) {
+        if (state.pendingMutationEvent) {
+          showMutationReveal();
+        } else {
+          showResults();
+        }
+      } else {
+        showResults();
+        sendEvolutionData();
+      }
     } else {
       state.uiTransitionLocked = true;
       state.currentRoundIndex += 1;
@@ -1659,7 +2394,9 @@
   }
 
   function showEvolutionComparison() {
-    const latestId = state.nextGenerationId || state.currentGenerationId;
+    const latestId = isEntertainmentModel()
+      ? state.currentGenerationId
+      : (state.nextGenerationId || state.currentGenerationId);
     const latestNumber = Number(latestId.slice(3));
 
     latestGenerationTitle.textContent = `第${latestNumber}世代`;
@@ -1855,6 +2592,26 @@
     shareStatus.textContent =
       '表示名は任意です。この画面をスクリーンショットしても使えます。';
 
+    specimenSaveButton.hidden = !isEntertainmentModel();
+    specimenSaveButton.disabled = false;
+    specimenSaveButton.classList.remove('saved');
+    specimenSaveButton.textContent = '標本箱に入れる';
+
+    if (isEntertainmentModel()) {
+      const id = specimenIdentity(generationId, index);
+      specimenGet(id).then((record) => {
+        if (
+          state.selectedShare
+          && state.selectedShare.generationId === generationId
+          && state.selectedShare.index === index
+          && record
+        ) {
+          specimenSaveButton.classList.add('saved');
+          specimenSaveButton.textContent = '標本箱に保存済み';
+        }
+      }).catch(() => {});
+    }
+
     mothShareOverlay.classList.add('visible');
   }
 
@@ -1997,19 +2754,36 @@
     reviewMessage.textContent = '';
     evolutionStatus.textContent = '';
     compareButton.hidden = true;
+    specimenBoxButton.hidden = !isEntertainmentModel();
     theaterButton.hidden = false;
     authorNewsTeaser.hidden = true;
 
     recordCurrentScore();
     renderScoreSummary();
 
-    continueButton.textContent = '次世代を生成中…';
-    continueButton.disabled = true;
+    if (isEntertainmentModel()) {
+      state.submitStatus = 'ready';
+      compareButton.hidden = false;
+      continueButton.textContent = '次の世代を生成';
+      continueButton.disabled = false;
+      evolutionStatus.textContent =
+        '次へ進む前に、この世代の個体を観察して標本箱へ保存できます。';
+    } else {
+      continueButton.textContent = '次世代を生成中…';
+      continueButton.disabled = true;
+    }
+
     reviewOverlay.classList.add('visible');
   }
 
   async function sendEvolutionData() {
     state.submitStatus = 'sending';
+
+    const returnEntertainmentToReview = () => {
+      if (!isEntertainmentModel()) return;
+      generationOverlay.classList.remove('visible');
+      reviewOverlay.classList.add('visible');
+    };
 
     const eaten = Array.from(state.eatenIndices).sort((a, b) => a - b);
     const runId = ensureRunId();
@@ -2047,6 +2821,7 @@
         data.retry_same_generation
       ) {
         state.submitStatus = 'retry_generation';
+        returnEntertainmentToReview();
         authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
 
@@ -2069,6 +2844,7 @@
         data.error === 'generation_mismatch'
       ) {
         state.submitStatus = 'stale_generation';
+        returnEntertainmentToReview();
         authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
 
@@ -2091,6 +2867,7 @@
         data.error === 'insufficient_storage'
       ) {
         state.submitStatus = 'failed';
+        returnEntertainmentToReview();
         authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
 
@@ -2116,6 +2893,13 @@
 
       state.nextGenerationId = String(data.next_generation_id || '');
       state.submitStatus = 'success';
+
+      if (isEntertainmentModel()) {
+        state.uiTransitionLocked = false;
+        await showGenerationReady(data.entertainment_event || null);
+        return;
+      }
+
       authorNewsTeaser.hidden = false;
       evolutionStatus.textContent =
         `次の世代 ${state.nextGenerationId} が誕生しました。`;
@@ -2126,6 +2910,7 @@
 
     } catch (err) {
       state.submitStatus = 'failed';
+      returnEntertainmentToReview();
       authorNewsTeaser.hidden = true;
       const message = err && err.name === 'AbortError'
         ? 'サーバー応答がタイムアウトしました'
@@ -2150,6 +2935,7 @@
         x >= moth.x - 1 && x <= moth.x + moth.size + 1 &&
         y >= moth.y - 1 && y <= moth.y + moth.size + 1
       ) {
+        predationFeedback(moth, x, y);
         moth.clicked = true;
         state.eatenIndices.add(moth.index);
         state.roundTapEvents.push({
@@ -2192,6 +2978,16 @@
   continueButton.addEventListener('click', () => {
     if (state.uiTransitionLocked || continueButton.disabled) return;
     state.uiTransitionLocked = true;
+
+    if (
+      isEntertainmentModel()
+      && state.submitStatus === 'ready'
+    ) {
+      reviewOverlay.classList.remove('visible');
+      showGenerationGenerating();
+      sendEvolutionData();
+      return;
+    }
 
     if (state.submitStatus === 'retry_generation') {
       reviewOverlay.classList.remove('visible');
@@ -2329,6 +3125,48 @@
     shareSelectedMoth();
   });
 
+  specimenSaveButton.addEventListener('click', async () => {
+    if (!state.selectedShare || !isEntertainmentModel()) return;
+    specimenSaveButton.disabled = true;
+    try {
+      await saveSpecimen(
+        state.selectedShare.generationId,
+        state.selectedShare.index,
+        state.selectedShare.src,
+      );
+      specimenSaveButton.classList.add('saved');
+      specimenSaveButton.textContent = '標本箱に保存済み';
+      shareStatus.textContent =
+        '標本箱に保存しました。進化や次世代生成には影響しません。';
+    } catch (error) {
+      specimenSaveButton.textContent = '保存できませんでした';
+      specimenSaveButton.disabled = false;
+    }
+  });
+
+  specimenBoxButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    showSpecimenBox();
+  });
+
+  specimenBoxCloseButton.addEventListener('click', () => {
+    specimenBoxOverlay.classList.remove('visible');
+    releaseSpecimenObjectUrls();
+  });
+
+  mutationRevealContinueButton.addEventListener('click', () => {
+    mutationRevealOverlay.classList.remove('visible');
+    clearPendingMutationEvent();
+    showResults();
+  });
+
+  generationContinueButton.addEventListener('click', () => {
+    if (state.submitStatus !== 'success') return;
+    const u = new URL(location.href);
+    u.searchParams.set('v', String(Date.now()));
+    location.href = u.toString();
+  });
+
   window.addEventListener('gitai:request-reset', () => {
     const resetGenerationId = state.nextGenerationId || state.currentGenerationId;
     const resetGenerationNumber = Number(resetGenerationId.slice(3));
@@ -2372,6 +3210,9 @@
       startGeneration.textContent = generationLabel();
 
       await preloadAssets();
+      state.pendingMutationEvent = loadPendingMutationEvent();
+      specimenBoxButton.hidden = !isEntertainmentModel();
+      specimenSaveButton.hidden = !isEntertainmentModel();
       render();
 
       state.bootReady = true;
