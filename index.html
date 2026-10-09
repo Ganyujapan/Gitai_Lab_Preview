@@ -780,8 +780,8 @@
 
     #roundShutter.opening .round-shutter-panel {
       transform: translateY(-101%);
-      transition-duration: 520ms;
-      transition-timing-function: cubic-bezier(0.76, 0, 0.80, 0.18);
+      transition-duration: 900ms;
+      transition-timing-function: cubic-bezier(0.40, 0, 0.60, 1);
     }
 
     .round-shutter-brand {
@@ -2432,6 +2432,12 @@
   function playEndOfGenerationShutter(onClosed) {
     clearShutterTimers();
 
+    const SHUTTER_DOWN_MS = 520;
+    const SHUTTER_HOLD_MS = 600;
+    const SHUTTER_UP_MS = 900;
+    const shutterOpenAt = SHUTTER_DOWN_MS + SHUTTER_HOLD_MS;
+    const shutterDoneAt = shutterOpenAt + SHUTTER_UP_MS;
+
     roundShutter.classList.remove('closing', 'opening');
     roundShutter.classList.add('active');
     roundShutter.setAttribute('aria-hidden', 'false');
@@ -2441,20 +2447,23 @@
       roundShutter.classList.add('closing');
     });
 
+    // Prepare the result only after the shutter has fully closed.
     state.shutterTimerIds.push(setTimeout(() => {
       if (typeof onClosed === 'function') onClosed();
-    }, 600));
+    }, SHUTTER_DOWN_MS));
 
+    // Keep the shutter completely closed for its own independent pause.
     state.shutterTimerIds.push(setTimeout(() => {
       roundShutter.classList.remove('closing');
       roundShutter.classList.add('opening');
-    }, 1120));
+    }, shutterOpenAt));
 
+    // Remove the input shield only after the upward motion has completed.
     state.shutterTimerIds.push(setTimeout(() => {
       roundShutter.classList.remove('active', 'opening');
       roundShutter.setAttribute('aria-hidden', 'true');
       state.shutterTimerIds = [];
-    }, 1640));
+    }, shutterDoneAt));
   }
 
   function render() {
