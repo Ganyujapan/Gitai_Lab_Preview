@@ -1,103 +1,67 @@
 {
-  "schema_version": 1,
-  "model_id": "morph_v1",
-  "model_display_name_ja": "教育型（モルフ進化）",
-  "config_id": "morph_v1_experimental_003",
-  "engine_version": 1,
+  "config_id": "morph_v1_unified_continuous_001",
+  "engine_version": 13,
   "profile_id": "solo",
-  "inheritance": "discrete_morph_supergene_v1",
   "symmetry": "vertical_mirror_full",
-  "parent_selection": "random_pool",
-  "parent_pool_size": 12,
+  "inheritance": "trait_procedural_genotype_v2",
   "parent_shortfall_policy": "repeat_survivors",
   "minimum_survivors_for_reproduction": 2,
-  "founder_model": {
-    "founder_set_id": "standard_white_001",
-    "founder_seed": "gitailab-standard-white-001",
-    "generation_1": "deterministic_pure_white_morph_population",
-    "founder_base_value": 1,
-    "founder_base_saturation": 0,
-    "founder_pattern": "none"
-  },
-  "morph_genetics": {
-    "mutation_p_per_inherited_allele": 0.019,
-    "dominance_rank_min": 0,
-    "dominance_rank_max": 2,
-    "new_morph_dominance_mutation_p": 0.3,
-    "visible_saturation_min": 0.1,
-    "visible_saturation_max": 0.38,
-    "melanism_value_min": 0.1,
-    "melanism_value_max": 0.32,
-    "light_value_min": 0.7,
-    "light_value_max": 0.98,
-    "ordinary_value_min": 0.28,
-    "ordinary_value_max": 0.82,
-    "pattern_saturation_min": 0.08,
-    "pattern_saturation_max": 0.55,
-    "pattern_contrast_min": 0.45,
-    "pattern_contrast_max": 0.86,
-    "texture_strength_min": 0,
-    "texture_strength_max": 0.14,
-    "mutation_types": [
-      {
-        "id": "color_morph",
-        "weight": 0.29
-      },
-      {
-        "id": "pattern_switch",
-        "weight": 0.25
-      },
-      {
-        "id": "melanism",
-        "weight": 0.13
-      },
-      {
-        "id": "pallor",
-        "weight": 0.07
-      },
-      {
-        "id": "pattern_color",
-        "weight": 0.1
-      },
-      {
-        "id": "regulatory_morph",
-        "weight": 0.16
-      }
-    ],
-    "color_hue_sampling": "uniform_0_360",
-    "pattern_hue_sampling": "uniform_0_360"
-  },
   "trait_genetics": {
-    "pattern_pigment_saturation_cap": 0.85,
-    "pattern_pigment_mix_scale": 1.45,
+    "base_hue_small_mutation_p": 0.3,
+    "base_hue_small_mutation_deg": 22,
+    "base_hue_global_mutation_p": 0.02,
+    "base_saturation_mutation_p": 0.18,
+    "base_saturation_mutation_step": 0.08,
+    "pigment_expression_p": 0.015,
+    "pigment_expression_saturation_min": 0.08,
+    "pigment_expression_saturation_max": 0.24,
+    "base_value_small_mutation_p": 0.1,
+    "base_value_small_scale_delta": 0.16,
+    "base_value_global_mutation_p": 0.009,
+    "base_value_global_min": 0.1,
+    "base_value_global_max": 0.95,
+    "contrast_mutation_p": 0.24,
+    "contrast_mutation_step": 0.09,
+    "texture_mutation_p": 0.2,
+    "texture_mutation_step": 0.02,
+    "pattern_birth_p_per_child": 0.04,
+    "pattern_birth_contrast_floor": 0.55,
+    "pattern_allele_loss_p": 0.004,
+    "pattern_parameter_mutation_p": 0.32,
+    "pattern_position_step": 0.025,
+    "pattern_size_step": 0.04,
+    "pattern_effect_step": 0.05,
+    "pattern_angle_step_deg": 10,
+    "pattern_frequency_step": 0.35,
+    "pattern_roughness_step": 0.08,
     "pattern_loci": [
       {
         "id": "central_blotch",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "transverse_band",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "outer_edge",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "speckle_cluster",
-        "dominance": "dominant"
+        "dominance": "recessive"
       },
       {
         "id": "longitudinal_streaks",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "cloud_mottle",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "ring_spots",
-        "dominance": "dominant"
+        "dominance": "recessive"
       },
       {
         "id": "diagonal_streak",
@@ -105,35 +69,107 @@
       },
       {
         "id": "chevron_pair",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "twin_spots",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "ripple_bands",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       },
       {
         "id": "radial_rays",
-        "dominance": "dominant"
+        "dominance": "incomplete"
       }
-    ]
+    ],
+    "base_saturation_max": 0.32,
+    "base_hue_global_min_jump_deg": 45,
+    "base_hue_global_max_jump_deg": 110,
+    "pattern_pigment_saturation_min": 0.1,
+    "pattern_pigment_saturation_max": 0.34,
+    "pattern_pigment_saturation_cap": 0.85,
+    "pattern_pigment_mix_scale": 1.45,
+    "pattern_pigment_hue_step_deg": 24,
+    "pattern_pigment_saturation_step": 0.07,
+    "pattern_pigment_global_hue_mutation_p": 0.006,
+    "pattern_pigment_global_min_jump_deg": 45,
+    "pattern_pigment_global_max_jump_deg": 110,
+    "base_value_dark_bias_p": 0.15,
+    "base_value_dark_min": 0.1,
+    "base_value_dark_max": 0.28,
+    "pattern_pigment_saturation_mutation_p": 0.2,
+    "base_value_global_mutation_step": 0.24,
+    "base_value_dark_bias_extra_step": 0.1,
+    "special_mutation_generation_p": 0.2,
+    "special_mutation_saturation_min": 0,
+    "special_mutation_saturation_max": 0.85,
+    "special_mutation_value_min": 0.1,
+    "special_mutation_value_max": 1,
+    "special_mutation_contrast_min": 0.35,
+    "special_mutation_contrast_max": 0.9,
+    "special_mutation_texture_min": 0,
+    "special_mutation_texture_max": 0.2,
+    "special_mutation_pattern_count_min": 1,
+    "special_mutation_pattern_count_max": 3,
+    "special_mutation_pattern_saturation_max": 0.85
   },
+  "legacy_reference": {
+    "note": "v12 image-level mutation settings retained only as historical reference; trait_genotype_v1 does not use them.",
+    "p_patch_given_mut": 0.08,
+    "patch_count_min": 1,
+    "patch_count_max": 2,
+    "patch_radius_min": 3,
+    "patch_radius_max": 9
+  },
+  "founder_model": {
+    "generation_1": "offspring_of_two_pure_white_founders",
+    "founder_base_hue": 0,
+    "founder_base_saturation": 0,
+    "founder_base_value": 1,
+    "founder_pattern_contrast": 0.44,
+    "founder_texture_strength": 0,
+    "latent_hue_diversity": true,
+    "latent_hue_mode": "uniform_generation1",
+    "founder_set_id": "standard_white_edu_continuous_001",
+    "founder_seed": "gitailab-standard-white-edu-continuous-001",
+    "deterministic_generation_1": true
+  },
+  "parent_selection": "random_pool",
   "design_targets": {
-    "phenotype_change": "rare mutations can create visibly distinct morphs in one generation",
-    "population_change": "successful morphs spread by ordinary survival and reproduction rather than instant replacement",
-    "within_species_variation": "individuals cluster into discrete morph lineages instead of continuously blending many patterns",
-    "background_independence": "mutation direction never reads or targets the environment image",
-    "model_status": "experimental alternative to continuous_v1; it does not replace Continuous Model v1",
-    "education_goal": "High-school biology quality: scientifically defensible natural-selection, heredity, mutation, drift, and morph-lineage behavior.",
-    "within_morph_future": "Keep discrete morph identity, while allowing small heritable modifier variation within a morph; do not turn the main morph back into continuous parental blending.",
-    "expert_review": "Tune biological details after specialist feedback at Konchu Daigaku; current mutation parameters remain frozen during comparison tests.",
-    "localization": "Keep labels/content translatable for Japanese and English releases.",
-    "visible_mutation_target": "Tune for roughly one visibly expressed mutant individual per 60-offspring generation in Preview/classroom-speed simulation; this is an intentionally accelerated educational rate, not a literal biological mutation rate.",
-    "color_morph_hue_rule": "When a color-morph mutation occurs, sample a new hue uniformly from 0–360 degrees instead of enforcing a minimum angular jump from the parent hue.",
-    "pattern_color_hue_rule": "Pattern-color mutations likewise sample hue uniformly from 0–360 degrees."
+    "visible_change_children_per_generation": "5-10",
+    "visible_lineage_change_generations": "3-5",
+    "lineage_structure_generations": "5-10",
+    "background_convergence_generations": "20-40",
+    "target_predation_rate": "0.40-0.60",
+    "color_goal": "preserve_multiple_hue_lineages_until_visual_selection acts",
+    "pattern_goal": "new coherent pattern variants should remain visibly distinct",
+    "brightness_goal": "keep v15-v18 brightness behavior except for mild dark-tail enrichment",
+    "round_time_goal": "4 seconds unchanged",
+    "color_phase_goal": "brightness should usually converge before visible hue/saturation",
+    "saturation_goal": "muted moth-like body colors; avoid neon/high-chroma convergence",
+    "major_color_mutation_goal": "ordinary large hue mutations are rarer and bounded; dedicated sudden mutation reopens the full trait space",
+    "pattern_color_goal": "patterns may carry heritable local pigment color independent of body ground color",
+    "comparison_preview_goal": "moths are shown on the actual game background for visual camouflage comparison",
+    "black_mutation_goal": "a conspicuously dark mutant should appear somewhat earlier/often while preserving brightness-first convergence",
+    "mutation_independence_goal": "major hue, saturation, and brightness mutations are sampled independently",
+    "pattern_color_visibility_goal": "make inherited pattern pigment visibly distinguishable without changing pattern birth or hue mutation rates",
+    "major_hue_mutation_supply_goal": "increase far hue exploration without changing brightness, saturation, pattern, or round timing",
+    "parent_selection_goal": "use the agreed random 12-parent pool from survivors; repeat survivors only when fewer than 12 survive",
+    "pattern_diversity_goal": "broaden coherent symmetric pattern vocabulary without increasing total pattern-birth probability",
+    "pattern_saturation_goal": "patterns start muted but may evolve to high saturation if player selection favors it; no low hard ceiling",
+    "cartridge_role": "Frozen baseline for the continuous-trait evolution model. Environment, model, and run are independent.",
+    "experience_goal": "Prioritize fast, visually legible, playful evolution while preserving the core natural-selection causal structure.",
+    "playful_environment_goal": "May be used with biologically playful environments such as fried rice; environment still never directs mutation.",
+    "special_mutation_goal": "about once every five generations, redraw one offspring across hue, saturation, value, texture and pattern traits; only this event receives the special reveal",
+    "entertainment_event_goal": "ordinary mutations and large mutations remain unannounced; only the dedicated sudden mutation triggers anticipation and post-play reveal",
+    "model_status": "Education now shares the same continuous-trait evolutionary core and tuning as the entertainment model.",
+    "education_goal": "Use the same natural-selection core as entertainment; education differs primarily in presentation and added game layers, not in the evolutionary mechanism."
   },
+  "color_inheritance": "single_parent_haplotype",
+  "parent_pool_size": 12,
+  "model_id": "morph_v1",
+  "model_display_name_ja": "教育型（連続形質）",
   "experience_role": "education"
 }
