@@ -1061,10 +1061,10 @@
     <section id="reviewOverlay" class="overlay">
       <div class="panel">
         <div id="reviewGeneration" class="generation">GENERATION --</div>
-        <h2 id="reviewTitle">成績発表</h2>
+        <h2 id="reviewTitle">この世代の結果</h2>
         <p id="reviewMessage" class="subtle"></p>
 
-        <div class="score-card">
+        <div class="score-card" hidden>
           <div class="score-label">1秒あたり</div>
           <div class="score-main">
             <span id="scoreValue">--</span>
@@ -1083,7 +1083,7 @@
           <p id="nameSaved" class="name-saved" hidden>なまえを記録しました</p>
         </div>
 
-        <button id="rankingButton" class="text-action" type="button">ランキングを見る</button>
+        <button id="rankingButton" class="text-action" type="button" hidden>ランキングを見る</button>
         <p id="evolutionStatus" class="subtle"></p>
 
         <div class="review-actions">
@@ -2669,24 +2669,10 @@
     theaterProgress.textContent =
       (index + 1) + ' / ' + frames.length;
 
-    const eaten = frame.eaten_count === null
-      || frame.eaten_count === undefined
-      ? null
-      : Number(frame.eaten_count);
-    const survivors = frame.survivor_count === null
-      || frame.survivor_count === undefined
-      ? null
-      : Number(frame.survivor_count);
-    const stats = eaten === null || survivors === null
-      ? '捕食結果：未記録'
-      : '捕食 ' + eaten + '匹 / 生存 ' + survivors + '匹';
-
     theaterMeta.textContent =
       '第' + Number(frame.generation_number) + '世代'
       + ' · '
-      + String(frame.model_label_ja || '')
-      + ' · '
-      + stats;
+      + String(frame.model_label_ja || '');
 
     theaterPrevButton.disabled = index <= 0;
     theaterNextButton.disabled = index >= frames.length - 1;
@@ -2971,16 +2957,13 @@
   function showResults() {
     state.uiTransitionLocked = false;
     reviewGeneration.textContent = generationLabel();
-    reviewTitle.textContent = '成績発表';
+    reviewTitle.textContent = 'この世代の結果';
     reviewMessage.textContent = '';
     evolutionStatus.textContent = '';
     compareButton.hidden = true;
     specimenBoxButton.hidden = !isEntertainmentModel();
     theaterButton.hidden = false;
     authorNewsTeaser.hidden = true;
-
-    recordCurrentScore();
-    renderScoreSummary();
 
     if (isEntertainmentModel()) {
       state.submitStatus = 'ready';
@@ -3046,11 +3029,9 @@
         authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
 
-        const survivorCount = Number(data.survivor_count || 0);
-        const label = String(speciesConfig.display_name_ja || '個体');
         reviewTitle.textContent = 'この世代はもう一度';
         reviewMessage.textContent =
-          `生き残った${label}が${survivorCount}匹だったため、繁殖が成立しませんでした。`;
+          '繁殖に必要な個体数が残らなかったため、世代は進みませんでした。';
         evolutionStatus.textContent =
           '世代は進みません。同じ60個体で、もう一度5ラウンドを行います。';
         state.uiTransitionLocked = false;
