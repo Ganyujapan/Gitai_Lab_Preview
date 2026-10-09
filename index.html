@@ -1966,8 +1966,7 @@
       generationPanel.classList.remove('rare');
       generationTitle.className = '';
       generationTitle.textContent = '次の世代が誕生しました';
-      generationMessage.textContent =
-        'この世代では大きな突然変異は検出されませんでした。';
+      generationMessage.textContent = '';
       savePendingMutationEvent(null);
     }
     generationContinueButton.hidden = false;
