@@ -44,18 +44,27 @@
 
   // Keep existing testers' bark/sand data alive. New model/run combinations
   // use the fully namespaced v3 store.
-  const DB_NAME = LEGACY_DEFAULT_STORAGE
-    ? (
-      PREVIEW_ENV_ID === 'sand_001'
-        ? 'gitai-pages-preview-v2-sand'
-        : 'gitai-pages-preview-v2'
-    )
-    : [
-      'gitai-pages-preview-v3',
+  const DB_NAME = EVOLUTION_MODEL_ID === 'morph_v1'
+    ? [
+      'gitai-pages-preview-v4',
       PREVIEW_ENV_ID,
       EVOLUTION_MODEL_ID,
       PREVIEW_RUN_ID,
-    ].join('-');
+    ].join('-')
+    : (
+      LEGACY_DEFAULT_STORAGE
+        ? (
+          PREVIEW_ENV_ID === 'sand_001'
+            ? 'gitai-pages-preview-v2-sand'
+            : 'gitai-pages-preview-v2'
+        )
+        : [
+          'gitai-pages-preview-v3',
+          PREVIEW_ENV_ID,
+          EVOLUTION_MODEL_ID,
+          PREVIEW_RUN_ID,
+        ].join('-')
+    );
 
   const DB_VERSION = 2;
   const IMAGE_STORE = 'images';
@@ -531,7 +540,9 @@
     const recordById = new Map(
       generations.map((record) => [record.generation_id, record])
     );
-    const isMorph = payload.evolution?.model_id === 'morph_v1';
+    const isMorph = String(
+      payload.evolution?.inheritance || ''
+    ).startsWith('discrete_morph_');
     const morphRegistry = isMorph
       ? buildMorphRegistry(generations)
       : null;
@@ -3561,7 +3572,10 @@
     for (let i = 1; i <= TOTAL; i += 1) {
       let genome;
 
-      if (EVOLUTION_MODEL_ID === 'morph_v1') {
+      if (
+        String(evolutionConfig?.inheritance || '')
+          .startsWith('discrete_morph_')
+      ) {
         genome = makeMorphGenerationOneGenome(i);
       } else {
         const founderSetId = String(
@@ -3904,8 +3918,7 @@
       Number(genetics.special_mutation_generation_p || 0)
     );
     const specialMutationChildIndex = (
-      EVOLUTION_MODEL_ID === 'continuous_v1'
-      && Math.random() < specialMutationGenerationP
+      Math.random() < specialMutationGenerationP
     )
       ? 1 + Math.floor(Math.random() * TOTAL)
       : null;
@@ -4066,7 +4079,10 @@
     }).catch(console.error);
 
     let nextId;
-    if (EVOLUTION_MODEL_ID === 'morph_v1') {
+    if (
+      String(evolutionConfig?.inheritance || '')
+        .startsWith('discrete_morph_')
+    ) {
       nextId = await evolveGenerationByMorph(
         generationId,
         eatenIndices,
