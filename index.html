@@ -1863,6 +1863,7 @@
 
   function mutationTypeLabel(type) {
     const labels = {
+      special_mutation: '突然変異',
       base_hue_major: '色相大変異',
       base_value_major: '明度大変異',
       pattern_birth: '新しい模様',
@@ -1959,7 +1960,7 @@
       generationTitle.className = 'generation-alert';
       generationTitle.textContent = '突然変異発生！';
       generationMessage.textContent =
-        `次世代に ${event.mutants.length}個体の大きな変異を検出しました。正体はプレイ終了後に公開されます。`;
+        '次世代に突然変異が発生しました。正体はプレイ終了後に公開されます。';
       savePendingMutationEvent(event);
     } else {
       generationPanel.classList.remove('rare');
