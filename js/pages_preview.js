@@ -453,6 +453,9 @@
 
   function compactContinuousEvent(event) {
     const type = String(event?.type || 'mutation');
+    if (type === 'special_mutation') {
+      return 'SPECIAL_MUTATION';
+    }
     if (type === 'base_hue_major') {
       return 'Hmajor '
         + compactNumber(event.before, 0)
@@ -484,7 +487,8 @@
     const out = [];
     for (const event of child?.mutations || []) {
       if (
-        event?.type === 'base_hue_major'
+        event?.type === 'special_mutation'
+        || event?.type === 'base_hue_major'
         || event?.type === 'base_value_major'
         || event?.type === 'pigment_expression'
       ) {
@@ -2483,16 +2487,23 @@
 
     if (rng() < Number(genetics.base_hue_global_mutation_p || 0)) {
       const before = baseHue;
-      // A major hue mutation is a new draw from the full hue circle.
-      // The environment never determines the mutation direction.
-      baseHue = rng() * 360;
-      const signedDelta = ((baseHue - before + 540) % 360) - 180;
+      const minJump = Number(
+        genetics.base_hue_global_min_jump_deg ?? 45
+      );
+      const maxJump = Math.max(
+        minJump,
+        Number(genetics.base_hue_global_max_jump_deg ?? 110),
+      );
+      const jump = minJump + rng() * (maxJump - minJump);
+      const sign = rng() < 0.5 ? -1 : 1;
+      const signedDelta = sign * jump;
+      baseHue = (baseHue + signedDelta + 360) % 360;
       diagnostic.mutations.push({
         type: 'base_hue_major',
         before: diagnosticNumber(before, 2),
         after: diagnosticNumber(baseHue, 2),
         signed_delta_deg: diagnosticNumber(signedDelta, 2),
-        sampling: 'uniform_0_360',
+        sampling: 'bounded_random_jump',
       });
     }
 
@@ -2501,7 +2512,15 @@
       0,
       1,
     );
-    baseSaturation = clamp(baseSaturation, 0, saturationCap);
+    const inheritedSaturationCap = Math.max(
+      saturationCap,
+      clamp01(baseSaturation),
+    );
+    baseSaturation = clamp(
+      baseSaturation,
+      0,
+      inheritedSaturationCap,
+    );
 
     if (
       rng()
@@ -2513,7 +2532,7 @@
         + (rng() * 2 - 1)
         * Number(genetics.base_saturation_mutation_step || 0),
         0,
-        saturationCap,
+        inheritedSaturationCap,
       );
       diagnostic.mutations.push({
         type: 'base_saturation',
@@ -2571,19 +2590,28 @@
       const before = baseValue;
       const minV = Number(genetics.base_value_global_min ?? 0.10);
       const maxV = Number(genetics.base_value_global_max ?? 0.95);
+      const step = Number(
+        genetics.base_value_global_mutation_step ?? 0.24
+      );
       const darkBiasP = Number(genetics.base_value_dark_bias_p || 0);
+      const darkExtraStep = Number(
+        genetics.base_value_dark_bias_extra_step ?? 0.10
+      );
       let darkBias = false;
+
+      baseValue = clamp(
+        baseValue + (rng() * 2 - 1) * step,
+        minV,
+        maxV,
+      );
 
       if (rng() < darkBiasP) {
         darkBias = true;
-        const darkMin = Number(genetics.base_value_dark_min ?? minV);
-        const darkMax = Math.max(
-          darkMin,
-          Number(genetics.base_value_dark_max ?? 0.28),
+        baseValue = clamp(
+          baseValue - rng() * darkExtraStep,
+          minV,
+          maxV,
         );
-        baseValue = darkMin + rng() * (darkMax - darkMin);
-      } else {
-        baseValue = minV + rng() * (maxV - minV);
       }
 
       diagnostic.mutations.push({
@@ -2739,6 +2767,202 @@
     diagnostic.active_patterns = diagnosticPatternSummary(genome, genetics);
 
     return { genome, diagnostic };
+  }
+
+  function applyEntertainmentSpecialMutation(
+    genome,
+    diagnostic,
+    childSeed,
+    rng = Math.random,
+  ) {
+    const genetics = evolutionConfig.trait_genetics || {};
+    const loci = Array.isArray(genetics.pattern_loci)
+      ? genetics.pattern_loci
+      : [];
+
+    const saturationMin = clamp01(
+      Number(genetics.special_mutation_saturation_min ?? 0)
+    );
+    const saturationMax = Math.max(
+      saturationMin,
+      clamp01(Number(genetics.special_mutation_saturation_max ?? 0.85)),
+    );
+    const valueMin = clamp01(
+      Number(genetics.special_mutation_value_min ?? 0.10)
+    );
+    const valueMax = Math.max(
+      valueMin,
+      clamp01(Number(genetics.special_mutation_value_max ?? 1.0)),
+    );
+    const contrastMin = clamp01(
+      Number(genetics.special_mutation_contrast_min ?? 0.35)
+    );
+    const contrastMax = Math.max(
+      contrastMin,
+      clamp01(Number(genetics.special_mutation_contrast_max ?? 0.90)),
+    );
+    const textureMin = clamp(
+      Number(genetics.special_mutation_texture_min ?? 0),
+      0,
+      0.20,
+    );
+    const textureMax = Math.max(
+      textureMin,
+      clamp(
+        Number(genetics.special_mutation_texture_max ?? 0.20),
+        0,
+        0.20,
+      ),
+    );
+
+    const before = {
+      hue: diagnosticNumber(genome.baseHue, 2),
+      saturation: diagnosticNumber(genome.baseSaturation, 4),
+      value: diagnosticNumber(genome.baseValue, 4),
+      pattern_contrast: diagnosticNumber(genome.patternContrast, 4),
+      texture_strength: diagnosticNumber(genome.textureStrength, 4),
+    };
+
+    genome.baseHue = rng() * 360;
+    genome.baseSaturation = saturationMin
+      + rng() * (saturationMax - saturationMin);
+    genome.baseValue = valueMin + rng() * (valueMax - valueMin);
+    genome.patternContrast = contrastMin
+      + rng() * (contrastMax - contrastMin);
+    genome.textureStrength = textureMin
+      + rng() * (textureMax - textureMin);
+    genome.textureSeed = (
+      childSeed * 7919 + Math.floor(rng() * 1000000)
+    );
+
+    const shuffledLoci = [...loci];
+    for (let i = shuffledLoci.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffledLoci[i], shuffledLoci[j]] = [
+        shuffledLoci[j],
+        shuffledLoci[i],
+      ];
+    }
+
+    const minPatternCount = shuffledLoci.length
+      ? Math.max(
+          1,
+          Math.min(
+            shuffledLoci.length,
+            Math.floor(
+              Number(genetics.special_mutation_pattern_count_min ?? 1)
+            ),
+          ),
+        )
+      : 0;
+    const maxPatternCount = shuffledLoci.length
+      ? Math.max(
+          minPatternCount,
+          Math.min(
+            shuffledLoci.length,
+            Math.floor(
+              Number(genetics.special_mutation_pattern_count_max ?? 3)
+            ),
+          ),
+        )
+      : 0;
+    const activePatternCount = shuffledLoci.length
+      ? minPatternCount
+        + Math.floor(rng() * (maxPatternCount - minPatternCount + 1))
+      : 0;
+    const activeIds = new Set(
+      shuffledLoci
+        .slice(0, activePatternCount)
+        .map((locus) => locus.id)
+    );
+
+    const patternSatMax = clamp01(
+      Number(
+        genetics.special_mutation_pattern_saturation_max
+        ?? genetics.pattern_pigment_saturation_cap
+        ?? 0.85
+      )
+    );
+    const modules = {};
+
+    loci.forEach((locus, locusIndex) => {
+      const specialSeed = (
+        childSeed * 1009
+        + (locusIndex + 1) * 9176
+        + Math.floor(rng() * 100000)
+      );
+      const params = defaultModuleParams(locus.id, specialSeed);
+      const active = activeIds.has(locus.id);
+      let alleles = [0, 0];
+      if (active) {
+        if (rng() < 0.35) {
+          alleles = [1, 1];
+        } else if (rng() < 0.5) {
+          alleles = [1, 0];
+        } else {
+          alleles = [0, 1];
+        }
+      }
+
+      modules[locus.id] = {
+        alleles,
+        ...params,
+        cx: clamp(
+          Number(params.cx ?? 0.5) + (rng() * 2 - 1) * 0.08,
+          0.04,
+          0.96,
+        ),
+        cy: clamp(
+          Number(params.cy ?? 0.5) + (rng() * 2 - 1) * 0.08,
+          0.06,
+          0.94,
+        ),
+        rx: clamp(
+          Number(params.rx ?? 0.2) * (0.65 + rng() * 0.75),
+          0.03,
+          0.58,
+        ),
+        ry: clamp(
+          Number(params.ry ?? 0.2) * (0.65 + rng() * 0.75),
+          0.03,
+          0.60,
+        ),
+        valueEffect: -0.60 + rng() * 1.10,
+        hueEffect: -80 + rng() * 160,
+        saturationEffect: -0.38 + rng() * 0.76,
+        pigmentHue: rng() * 360,
+        pigmentSaturation: rng() * patternSatMax,
+        phase: rng() * Math.PI * 2,
+        angle: -90 + rng() * 180,
+        frequency: 0.5 + rng() * 8.5,
+        roughness: rng() * 0.90,
+      };
+    });
+
+    genome.modules = modules;
+
+    diagnostic.mutations.push({
+      type: 'special_mutation',
+      before,
+      after: {
+        hue: diagnosticNumber(genome.baseHue, 2),
+        saturation: diagnosticNumber(genome.baseSaturation, 4),
+        value: diagnosticNumber(genome.baseValue, 4),
+        pattern_contrast: diagnosticNumber(genome.patternContrast, 4),
+        texture_strength: diagnosticNumber(genome.textureStrength, 4),
+      },
+      active_pattern_ids: [...activeIds],
+      sampling: 'independent_random_redraw',
+    });
+
+    diagnostic.final = {
+      hue: diagnosticNumber(genome.baseHue, 2),
+      saturation: diagnosticNumber(genome.baseSaturation, 4),
+      value: diagnosticNumber(genome.baseValue, 4),
+      pattern_contrast: diagnosticNumber(genome.patternContrast, 4),
+      texture_strength: diagnosticNumber(genome.textureStrength, 4),
+    };
+    diagnostic.active_patterns = diagnosticPatternSummary(genome, genetics);
   }
 
   function makePureWhiteFounderGenome(founderIndex) {
@@ -3675,6 +3899,16 @@
     const blobs = new Map();
     const genomes = new Map();
     const offspringDiagnostics = [];
+    const genetics = evolutionConfig.trait_genetics || {};
+    const specialMutationGenerationP = clamp01(
+      Number(genetics.special_mutation_generation_p || 0)
+    );
+    const specialMutationChildIndex = (
+      EVOLUTION_MODEL_ID === 'continuous_v1'
+      && Math.random() < specialMutationGenerationP
+    )
+      ? 1 + Math.floor(Math.random() * TOTAL)
+      : null;
 
     for (const item of plan) {
       const result = makeChildGenome(
@@ -3686,6 +3920,17 @@
         item.parentB,
       );
       const genome = result.genome;
+      if (
+        specialMutationChildIndex !== null
+        && item.childIndex === specialMutationChildIndex
+      ) {
+        const childSeed = generationNumber(nextId) * 1000 + item.childIndex;
+        applyEntertainmentSpecialMutation(
+          genome,
+          result.diagnostic,
+          childSeed,
+        );
+      }
       const child = renderGenome(genome);
       genomes.set(item.childIndex, genome);
       blobs.set(item.childIndex, await imageDataToBlob(child));
@@ -3735,6 +3980,11 @@
         (a, b) => a.child_index - b.child_index
       ),
       summary: {
+        special_mutation_count: offspringDiagnostics.filter(
+          (child) => child.mutations.some(
+            (mutation) => mutation.type === 'special_mutation'
+          )
+        ).length,
         base_hue_major_count: offspringDiagnostics.filter(
           (child) => child.mutations.some(
             (mutation) => mutation.type === 'base_hue_major'
@@ -3786,32 +4036,15 @@
 
     const mutants = [];
     for (const child of diagnostic.offspring) {
-      const eventTypes = [];
+      const special = (child?.mutations || []).some(
+        (mutation) => mutation?.type === 'special_mutation'
+      );
+      if (!special) continue;
 
-      for (const mutation of child?.mutations || []) {
-        if (mutation?.type === 'base_hue_major') {
-          eventTypes.push('base_hue_major');
-        } else if (mutation?.type === 'base_value_major') {
-          eventTypes.push('base_value_major');
-        }
-      }
-
-      if (child?.pattern_birth) {
-        eventTypes.push('pattern_birth');
-      }
-
-      for (const event of child?.pattern_mutations || []) {
-        if (event?.major_hue_mutated) {
-          eventTypes.push('pattern_hue_major');
-        }
-      }
-
-      if (eventTypes.length) {
-        mutants.push({
-          index: Number(child.child_index),
-          event_types: [...new Set(eventTypes)],
-        });
-      }
+      mutants.push({
+        index: Number(child.child_index),
+        event_types: ['special_mutation'],
+      });
     }
 
     return {
