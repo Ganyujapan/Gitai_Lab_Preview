@@ -942,6 +942,81 @@
       border-color: rgba(255,218,108,0.46);
     }
 
+    #gitaiScoreOverlay {
+      z-index: 70;
+      background: rgba(3,5,6,0.99);
+    }
+
+    .gitai-score-panel {
+      width: min(92%, 520px);
+      max-height: 94vh;
+      overflow-y: auto;
+      gap: 14px;
+    }
+
+    .gitai-score-stage {
+      position: relative;
+      width: min(100%, 390px);
+      aspect-ratio: 3 / 5;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 2px solid rgba(184,247,255,0.34);
+      border-radius: 10px;
+      background: #15191a;
+    }
+
+    #gitaiScoreCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    .gitai-score-value {
+      text-align: center;
+      font-family: "PixelMplus", monospace;
+      font-size: clamp(46px, 13vw, 72px);
+      line-height: 1;
+      color: #fff;
+      text-shadow: 0 3px 0 rgba(0,0,0,0.45);
+    }
+
+    .gitai-score-label {
+      text-align: center;
+      color: #b8f7ff;
+      font-size: 14px;
+      letter-spacing: 0.14em;
+    }
+
+    .gitai-score-breakdown {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .gitai-score-metric {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 7px;
+      background: rgba(255,255,255,0.04);
+      font-size: 13px;
+    }
+
+    .gitai-score-metric strong {
+      color: #fff;
+    }
+
+    .gitai-score-note {
+      margin: 0;
+      color: rgba(255,255,255,0.64);
+      font-size: 11px;
+      line-height: 1.6;
+      text-align: left;
+    }
+
     #specimenBoxOverlay {
       z-index: 54;
       background: rgba(3,5,6,0.99);
@@ -1171,6 +1246,7 @@
             <input id="shareNameInput" type="text" maxlength="16" autocomplete="off" placeholder="任意">
           </label>
           <button id="specimenSaveButton" class="specimen-entry-action" type="button" hidden>標本箱に入れる</button>
+          <button id="gitaiScoreButton" class="specimen-entry-action" type="button" hidden>採点する</button>
           <div class="share-actions">
             <button id="shareBackButton" type="button">戻る</button>
             <button id="shareButton" type="button">SNSへシェア</button>
@@ -1196,6 +1272,34 @@
         <p id="mutationRevealMessage" class="subtle"></p>
         <div id="mutationRevealGrid" class="mutation-grid"></div>
         <button id="mutationRevealContinueButton" type="button">成績を見る</button>
+      </div>
+    </section>
+
+    <section id="gitaiScoreOverlay" class="overlay" aria-label="GITAI SCORE">
+      <div class="panel gitai-score-panel">
+        <div class="evolution-header">
+          <button id="gitaiScoreCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 class="evolution-title">GITAI SCORE</h2>
+          <span></span>
+        </div>
+        <div class="gitai-score-stage">
+          <canvas id="gitaiScoreCanvas" width="600" height="1000"></canvas>
+        </div>
+        <div>
+          <div class="gitai-score-label">GITAI SCORE v1</div>
+          <div id="gitaiScoreValue" class="gitai-score-value">--</div>
+        </div>
+        <div class="gitai-score-breakdown">
+          <div class="gitai-score-metric"><span>色</span><strong id="gitaiColorScore">--</strong></div>
+          <div class="gitai-score-metric"><span>明るさ</span><strong id="gitaiValueScore">--</strong></div>
+          <div class="gitai-score-metric"><span>模様・質感</span><strong id="gitaiTextureScore">--</strong></div>
+          <div class="gitai-score-metric"><span>輪郭</span><strong id="gitaiOutlineScore">--</strong></div>
+        </div>
+        <p id="gitaiScoreMeta" class="subtle"></p>
+        <p class="gitai-score-note">
+          試作スコアです。背景内100地点を仮想評価し、上位10地点の平均を表示しています。
+          現段階では人間の見え方との一致を検証するための開発用指標です。
+        </p>
       </div>
     </section>
 
@@ -1331,7 +1435,17 @@
   const shareBackButton = document.getElementById('shareBackButton');
   const shareButton = document.getElementById('shareButton');
   const specimenSaveButton = document.getElementById('specimenSaveButton');
+  const gitaiScoreButton = document.getElementById('gitaiScoreButton');
   const shareStatus = document.getElementById('shareStatus');
+  const gitaiScoreOverlay = document.getElementById('gitaiScoreOverlay');
+  const gitaiScoreCloseButton = document.getElementById('gitaiScoreCloseButton');
+  const gitaiScoreCanvas = document.getElementById('gitaiScoreCanvas');
+  const gitaiScoreValue = document.getElementById('gitaiScoreValue');
+  const gitaiColorScore = document.getElementById('gitaiColorScore');
+  const gitaiValueScore = document.getElementById('gitaiValueScore');
+  const gitaiTextureScore = document.getElementById('gitaiTextureScore');
+  const gitaiOutlineScore = document.getElementById('gitaiOutlineScore');
+  const gitaiScoreMeta = document.getElementById('gitaiScoreMeta');
 
   const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
   const resetConfirmText = document.getElementById('resetConfirmText');
@@ -1682,6 +1796,7 @@
             String(record.generation_id),
             Number(record.individual_index),
             url,
+            record,
           );
         });
         specimenGrid.appendChild(card);
@@ -2782,9 +2897,15 @@
       : 'あなたのギタイラボ';
   }
 
-  function showMothShare(generationId, index, src) {
+  function showMothShare(generationId, index, src, specimenRecord = null) {
     const generationNumber = Number(generationId.slice(3));
-    state.selectedShare = { generationId, generationNumber, index, src };
+    state.selectedShare = {
+      generationId,
+      generationNumber,
+      index,
+      src,
+      specimenRecord,
+    };
 
     let savedName = '';
     try {
@@ -2803,6 +2924,12 @@
     specimenSaveButton.disabled = false;
     specimenSaveButton.classList.remove('saved');
     specimenSaveButton.textContent = '標本箱に入れる';
+    gitaiScoreButton.hidden = !(
+      isEntertainmentModel()
+      && specimenRecord
+    );
+    gitaiScoreButton.disabled = false;
+    gitaiScoreButton.textContent = '採点する';
 
     if (isEntertainmentModel()) {
       const id = specimenIdentity(generationId, index);
@@ -2813,13 +2940,523 @@
           && state.selectedShare.index === index
           && record
         ) {
+          state.selectedShare.specimenRecord = record;
           specimenSaveButton.classList.add('saved');
           specimenSaveButton.textContent = '標本箱に保存済み';
+          gitaiScoreButton.hidden = false;
         }
       }).catch(() => {});
     }
 
     mothShareOverlay.classList.add('visible');
+  }
+
+  async function loadEnvironmentForScore(environmentId) {
+    const safeId = String(environmentId || '').trim();
+    if (!/^[a-z0-9_-]+$/i.test(safeId)) {
+      throw new Error('背景IDが不正です');
+    }
+    const res = await fetch(
+      `environments/${safeId}/environment.json`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) {
+      throw new Error('標本の背景設定を読み込めませんでした');
+    }
+    return res.json();
+  }
+
+  function srgbChannelToLinear(value) {
+    const c = value / 255;
+    return c <= 0.04045
+      ? c / 12.92
+      : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+
+  function rgbToLab(r, g, b) {
+    const rl = srgbChannelToLinear(r);
+    const gl = srgbChannelToLinear(g);
+    const bl = srgbChannelToLinear(b);
+    const x = (
+      rl * 0.4124564
+      + gl * 0.3575761
+      + bl * 0.1804375
+    ) / 0.95047;
+    const y = (
+      rl * 0.2126729
+      + gl * 0.7151522
+      + bl * 0.0721750
+    );
+    const z = (
+      rl * 0.0193339
+      + gl * 0.1191920
+      + bl * 0.9503041
+    ) / 1.08883;
+    const f = (t) => t > 0.008856
+      ? Math.cbrt(t)
+      : (7.787 * t + 16 / 116);
+    const fx = f(x);
+    const fy = f(y);
+    const fz = f(z);
+    return [
+      116 * fy - 16,
+      500 * (fx - fy),
+      200 * (fy - fz),
+    ];
+  }
+
+  function labDistance(a, b) {
+    const dl = a[0] - b[0];
+    const da = a[1] - b[1];
+    const db = a[2] - b[2];
+    return Math.sqrt(dl * dl + da * da + db * db);
+  }
+
+  function mean(values) {
+    if (!values.length) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }
+
+  function standardDeviation(values, avg = mean(values)) {
+    if (!values.length) return 0;
+    const variance = values.reduce(
+      (sum, value) => sum + (value - avg) ** 2,
+      0,
+    ) / values.length;
+    return Math.sqrt(variance);
+  }
+
+  function clampScore(value) {
+    return Math.max(0, Math.min(100, value));
+  }
+
+  function scoreSimilarityDifference(diff, tolerance) {
+    return clampScore(
+      100 * (1 - diff / Math.max(0.0001, tolerance))
+    );
+  }
+
+  function buildMothAnalysis(mothImage) {
+    const SAMPLE = 32;
+    const mothCanvas = document.createElement('canvas');
+    mothCanvas.width = SAMPLE;
+    mothCanvas.height = SAMPLE;
+    const mc = mothCanvas.getContext(
+      '2d',
+      { willReadFrequently: true },
+    );
+    mc.clearRect(0, 0, SAMPLE, SAMPLE);
+    mc.drawImage(mothImage, 0, 0, SAMPLE, SAMPLE);
+    const pixels = mc.getImageData(
+      0,
+      0,
+      SAMPLE,
+      SAMPLE,
+    ).data;
+    return { SAMPLE, pixels };
+  }
+
+  function analyzeGitaiPlacement(
+    mothAnalysis,
+    bgData,
+    x,
+    y,
+    size,
+  ) {
+    const { SAMPLE, pixels: moth } = mothAnalysis;
+    const mothL = new Float32Array(SAMPLE * SAMPLE);
+    const bgL = new Float32Array(SAMPLE * SAMPLE);
+    const alphaMask = new Uint8Array(SAMPLE * SAMPLE);
+    const mothValues = [];
+    const bgValues = [];
+    let colorDiffSum = 0;
+    let valueDiffSum = 0;
+    let count = 0;
+
+    const sampleBgRgb = (sx, sy) => {
+      const px = Math.max(
+        0,
+        Math.min(GAME_WIDTH - 1, Math.round(sx)),
+      );
+      const py = Math.max(
+        0,
+        Math.min(GAME_HEIGHT - 1, Math.round(sy)),
+      );
+      const o = (py * GAME_WIDTH + px) * 4;
+      return [
+        bgData[o],
+        bgData[o + 1],
+        bgData[o + 2],
+      ];
+    };
+
+    for (let sy = 0; sy < SAMPLE; sy += 1) {
+      for (let sx = 0; sx < SAMPLE; sx += 1) {
+        const i = sy * SAMPLE + sx;
+        const mo = i * 4;
+        const alpha = moth[mo + 3] / 255;
+        if (alpha < 0.20) continue;
+
+        alphaMask[i] = 1;
+        const bx = x + (sx + 0.5) * size / SAMPLE;
+        const by = y + (sy + 0.5) * size / SAMPLE;
+        const [br, bg, bb] = sampleBgRgb(bx, by);
+        const mlab = rgbToLab(
+          moth[mo],
+          moth[mo + 1],
+          moth[mo + 2],
+        );
+        const blab = rgbToLab(br, bg, bb);
+
+        mothL[i] = mlab[0];
+        bgL[i] = blab[0];
+        mothValues.push(mlab[0]);
+        bgValues.push(blab[0]);
+        colorDiffSum += labDistance(mlab, blab);
+        valueDiffSum += Math.abs(mlab[0] - blab[0]);
+        count += 1;
+      }
+    }
+
+    if (!count) {
+      return {
+        total: 0,
+        color: 0,
+        value: 0,
+        texture: 0,
+        outline: 0,
+      };
+    }
+
+    const colorScore = scoreSimilarityDifference(
+      colorDiffSum / count,
+      62,
+    );
+    const valueScore = scoreSimilarityDifference(
+      valueDiffSum / count,
+      38,
+    );
+
+    const mothMeanL = mean(mothValues);
+    const bgMeanL = mean(bgValues);
+    const mothStd = standardDeviation(mothValues, mothMeanL);
+    const bgStd = standardDeviation(bgValues, bgMeanL);
+
+    let mothGradient = 0;
+    let bgGradient = 0;
+    let gradientCount = 0;
+    for (let sy = 0; sy < SAMPLE - 1; sy += 1) {
+      for (let sx = 0; sx < SAMPLE - 1; sx += 1) {
+        const i = sy * SAMPLE + sx;
+        if (
+          !alphaMask[i]
+          || !alphaMask[i + 1]
+          || !alphaMask[i + SAMPLE]
+        ) continue;
+
+        mothGradient += (
+          Math.abs(mothL[i + 1] - mothL[i])
+          + Math.abs(mothL[i + SAMPLE] - mothL[i])
+        ) / 2;
+        bgGradient += (
+          Math.abs(bgL[i + 1] - bgL[i])
+          + Math.abs(bgL[i + SAMPLE] - bgL[i])
+        ) / 2;
+        gradientCount += 1;
+      }
+    }
+    mothGradient /= Math.max(1, gradientCount);
+    bgGradient /= Math.max(1, gradientCount);
+
+    const contrastMatch = scoreSimilarityDifference(
+      Math.abs(mothStd - bgStd),
+      24,
+    );
+    const edgeMatch = scoreSimilarityDifference(
+      Math.abs(mothGradient - bgGradient),
+      13,
+    );
+    const textureScore =
+      contrastMatch * 0.55
+      + edgeMatch * 0.45;
+
+    let outlineDiff = 0;
+    let outlineCount = 0;
+    const dirs = [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ];
+
+    for (let sy = 1; sy < SAMPLE - 1; sy += 1) {
+      for (let sx = 1; sx < SAMPLE - 1; sx += 1) {
+        const i = sy * SAMPLE + sx;
+        if (!alphaMask[i]) continue;
+
+        let outsideDir = null;
+        for (const [dx, dy] of dirs) {
+          const ni = (sy + dy) * SAMPLE + (sx + dx);
+          if (!alphaMask[ni]) {
+            outsideDir = [dx, dy];
+            break;
+          }
+        }
+        if (!outsideDir) continue;
+
+        const mo = i * 4;
+        const mlab = rgbToLab(
+          moth[mo],
+          moth[mo + 1],
+          moth[mo + 2],
+        );
+        const outsideX =
+          x
+          + (
+            sx
+            + 0.5
+            + outsideDir[0] * 1.25
+          ) * size / SAMPLE;
+        const outsideY =
+          y
+          + (
+            sy
+            + 0.5
+            + outsideDir[1] * 1.25
+          ) * size / SAMPLE;
+        const [br, bg, bb] = sampleBgRgb(
+          outsideX,
+          outsideY,
+        );
+        outlineDiff += labDistance(
+          mlab,
+          rgbToLab(br, bg, bb),
+        );
+        outlineCount += 1;
+      }
+    }
+
+    const outlineScore = scoreSimilarityDifference(
+      outlineDiff / Math.max(1, outlineCount),
+      66,
+    );
+
+    const total =
+      colorScore * 0.30
+      + valueScore * 0.25
+      + textureScore * 0.25
+      + outlineScore * 0.20;
+
+    return {
+      total: clampScore(total),
+      color: clampScore(colorScore),
+      value: clampScore(valueScore),
+      texture: clampScore(textureScore),
+      outline: clampScore(outlineScore),
+    };
+  }
+
+  function scoreCandidatePositions(size) {
+    const hudSafeTop =
+      CONFIG.HUD_BAR_HEIGHT + CONFIG.HUD_CLEARANCE;
+    const hudSafeBottom =
+      GAME_HEIGHT
+      - CONFIG.HUD_BAR_HEIGHT
+      - CONFIG.HUD_CLEARANCE;
+    const yMin = Math.max(
+      0,
+      CONFIG.MOTH_Y_MIN,
+      hudSafeTop,
+    );
+    const yMax = Math.max(
+      yMin,
+      Math.min(
+        CONFIG.MOTH_Y_MAX,
+        hudSafeBottom,
+        GAME_HEIGHT,
+      ) - size,
+    );
+    const xMax = Math.max(0, GAME_WIDTH - size);
+    const points = [];
+    const GRID_X = 10;
+    const GRID_Y = 10;
+
+    for (let gy = 0; gy < GRID_Y; gy += 1) {
+      for (let gx = 0; gx < GRID_X; gx += 1) {
+        const x = gx * xMax / (GRID_X - 1);
+        const y =
+          yMin
+          + gy * (yMax - yMin) / (GRID_Y - 1);
+        if (!isInForbiddenArea(x, y, size)) {
+          points.push({ x, y });
+        }
+      }
+    }
+    return points;
+  }
+
+  async function calculateGitaiScore(record, mothSrc) {
+    const environment = await loadEnvironmentForScore(
+      record.environment_id,
+    );
+    const backgroundSrc = String(
+      environment?.background?.src || '',
+    );
+    if (!backgroundSrc) {
+      throw new Error('背景画像が設定されていません');
+    }
+
+    const [background, mothImage] = await Promise.all([
+      loadImage(cacheBustUrl(backgroundSrc)),
+      loadShareImage(mothSrc),
+    ]);
+
+    const bgCanvas = document.createElement('canvas');
+    bgCanvas.width = GAME_WIDTH;
+    bgCanvas.height = GAME_HEIGHT;
+    const bgCtx = bgCanvas.getContext(
+      '2d',
+      { willReadFrequently: true },
+    );
+    bgCtx.drawImage(
+      background,
+      0,
+      0,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+    );
+    const bgImageData = bgCtx.getImageData(
+      0,
+      0,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+    ).data;
+
+    const mothAnalysis = buildMothAnalysis(mothImage);
+    const size = CONFIG.MOTH_SIZE;
+    const candidates = scoreCandidatePositions(size);
+    const results = [];
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const point = candidates[i];
+      const metrics = analyzeGitaiPlacement(
+        mothAnalysis,
+        bgImageData,
+        point.x,
+        point.y,
+        size,
+      );
+      results.push({
+        ...point,
+        ...metrics,
+      });
+      if (i % 12 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    if (!results.length) {
+      throw new Error('採点できる配置位置がありません');
+    }
+
+    results.sort((a, b) => b.total - a.total);
+    const top = results.slice(
+      0,
+      Math.min(10, results.length),
+    );
+    const aggregate = {
+      total: mean(top.map((item) => item.total)),
+      color: mean(top.map((item) => item.color)),
+      value: mean(top.map((item) => item.value)),
+      texture: mean(top.map((item) => item.texture)),
+      outline: mean(top.map((item) => item.outline)),
+    };
+
+    return {
+      aggregate,
+      best: results[0],
+      background,
+      mothImage,
+      environment,
+      evaluatedCount: results.length,
+    };
+  }
+
+  function renderGitaiScorePreview(result) {
+    const c2d = gitaiScoreCanvas.getContext('2d');
+    c2d.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    c2d.drawImage(
+      result.background,
+      0,
+      0,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+    );
+    c2d.imageSmoothingEnabled = false;
+    c2d.drawImage(
+      result.mothImage,
+      result.best.x,
+      result.best.y,
+      CONFIG.MOTH_SIZE,
+      CONFIG.MOTH_SIZE,
+    );
+  }
+
+  async function showGitaiScore() {
+    const selected = state.selectedShare;
+    const record = selected?.specimenRecord;
+    if (!selected || !record) return;
+
+    gitaiScoreButton.disabled = true;
+    gitaiScoreButton.textContent = '採点中…';
+    gitaiScoreValue.textContent = '--';
+    gitaiColorScore.textContent = '--';
+    gitaiValueScore.textContent = '--';
+    gitaiTextureScore.textContent = '--';
+    gitaiOutlineScore.textContent = '--';
+    gitaiScoreMeta.textContent = '背景内を解析しています…';
+
+    try {
+      const result = await calculateGitaiScore(
+        record,
+        selected.src,
+      );
+      renderGitaiScorePreview(result);
+
+      const rounded = (value) => String(Math.round(value));
+      gitaiScoreValue.textContent = rounded(
+        result.aggregate.total,
+      );
+      gitaiColorScore.textContent = rounded(
+        result.aggregate.color,
+      );
+      gitaiValueScore.textContent = rounded(
+        result.aggregate.value,
+      );
+      gitaiTextureScore.textContent = rounded(
+        result.aggregate.texture,
+      );
+      gitaiOutlineScore.textContent = rounded(
+        result.aggregate.outline,
+      );
+
+      const envLabel = String(
+        result.environment?.display_name_ja
+        || record.environment_id
+        || '背景',
+      );
+      gitaiScoreMeta.textContent =
+        `第${record.generation_number}世代 · MOTH ${String(record.individual_index).padStart(2, '0')} · ${envLabel} · ${result.evaluatedCount}地点評価`;
+
+      mothShareOverlay.classList.remove('visible');
+      gitaiScoreOverlay.classList.add('visible');
+    } catch (error) {
+      console.error(error);
+      shareStatus.textContent = '採点できませんでした。';
+    } finally {
+      gitaiScoreButton.disabled = false;
+      gitaiScoreButton.textContent = '採点する';
+    }
   }
 
   function loadShareImage(src) {
@@ -3330,6 +3967,15 @@
     } catch (_) {}
   });
 
+  gitaiScoreButton.addEventListener('click', () => {
+    showGitaiScore();
+  });
+
+  gitaiScoreCloseButton.addEventListener('click', () => {
+    gitaiScoreOverlay.classList.remove('visible');
+    mothShareOverlay.classList.add('visible');
+  });
+
   shareButton.addEventListener('click', () => {
     shareSelectedMoth();
   });
@@ -3345,6 +3991,15 @@
       );
       specimenSaveButton.classList.add('saved');
       specimenSaveButton.textContent = '標本箱に保存済み';
+      const id = specimenIdentity(
+        state.selectedShare.generationId,
+        state.selectedShare.index,
+      );
+      const record = await specimenGet(id);
+      if (record && state.selectedShare) {
+        state.selectedShare.specimenRecord = record;
+        gitaiScoreButton.hidden = false;
+      }
       shareStatus.textContent =
         '標本箱に保存しました。進化や次世代生成には影響しません。';
     } catch (error) {
