@@ -956,8 +956,8 @@
 
     .gitai-score-stage {
       position: relative;
-      width: min(100%, 390px);
-      aspect-ratio: 3 / 5;
+      width: min(100%, 360px);
+      aspect-ratio: 9 / 16;
       margin: 0 auto;
       overflow: hidden;
       border: 2px solid rgba(184,247,255,0.34);
@@ -1283,7 +1283,7 @@
           <span></span>
         </div>
         <div class="gitai-score-stage">
-          <canvas id="gitaiScoreCanvas" width="600" height="1000"></canvas>
+          <canvas id="gitaiScoreCanvas" width="360" height="640"></canvas>
         </div>
         <div>
           <div class="gitai-score-label">GITAI SCORE v1</div>
@@ -3383,8 +3383,24 @@
   }
 
   function renderGitaiScorePreview(result) {
+    if (
+      gitaiScoreCanvas.width !== GAME_WIDTH
+      || gitaiScoreCanvas.height !== GAME_HEIGHT
+    ) {
+      gitaiScoreCanvas.width = GAME_WIDTH;
+      gitaiScoreCanvas.height = GAME_HEIGHT;
+    }
+    const stage = gitaiScoreCanvas.parentElement;
+    if (stage) {
+      stage.style.aspectRatio = `${GAME_WIDTH} / ${GAME_HEIGHT}`;
+    }
     const c2d = gitaiScoreCanvas.getContext('2d');
-    c2d.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    c2d.clearRect(
+      0,
+      0,
+      gitaiScoreCanvas.width,
+      gitaiScoreCanvas.height,
+    );
     c2d.drawImage(
       result.background,
       0,
