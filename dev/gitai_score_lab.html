@@ -120,6 +120,42 @@
       color: #ffd77a;
     }
     button:disabled { opacity: .45; cursor: default; }
+    .custom-background-tools {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 10px;
+      background: rgba(0,0,0,.16);
+    }
+    .custom-background-tools[hidden] {
+      display: none;
+    }
+    .custom-background-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .custom-background-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .custom-background-meta {
+      min-height: 1.5em;
+      color: var(--accent);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    #customBackgroundFile {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
     .buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -246,8 +282,31 @@
           <select id="environmentSelect">
             <option value="bark_001">樹皮 001</option>
             <option value="sand_001">砂地 001</option>
+            <option value="custom_001">カスタム背景</option>
           </select>
         </div>
+
+        <div id="customBackgroundTools" class="custom-background-tools" hidden>
+          <input
+            id="customBackgroundFile"
+            type="file"
+            accept="image/*"
+          >
+          <div class="custom-background-actions">
+            <button id="customBackgroundChooseButton" type="button">写真を選ぶ</button>
+            <button id="customBackgroundDeleteButton" type="button">削除</button>
+          </div>
+          <div id="customBackgroundMeta" class="custom-background-meta"></div>
+          <p class="custom-background-note">
+            写真は端末内で中央トリミングし、360×640px・WebP品質0.60へ圧縮して保存します。
+            元画像は保存・送信しません。
+          </p>
+          <p class="custom-background-note">
+            自分で撮影した写真、または使用する権利のある画像を使用してください。
+            第三者の著作権・肖像権等を侵害する画像は使用しないでください。
+          </p>
+        </div>
+
         <div class="control-row">
           <label for="iterationsSelect">探索回数</label>
           <select id="iterationsSelect">
@@ -313,6 +372,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-4"></script>
+  <script src="./gitai_score_lab.js?v=20261014-5"></script>
 </body>
 </html>
