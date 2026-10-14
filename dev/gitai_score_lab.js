@@ -1709,6 +1709,7 @@
       optimizeButton.disabled = !ready;
       randomButton.disabled = !ready;
       environmentSelect.disabled = false;
+      updateRatingControls();
     }
   });
 
@@ -1764,6 +1765,7 @@
       optimizeButton.disabled = !ready;
       randomButton.disabled = !ready;
       environmentSelect.disabled = false;
+      updateRatingControls();
     }
   });
 
@@ -1784,6 +1786,7 @@
         optimizeButton.disabled = true;
         randomButton.disabled = true;
         clearRatingSample('カスタム背景を削除しました。');
+        updateRatingControls();
         statusEl.textContent =
           'カスタム背景を削除しました。新しい写真を選ぶか、別の背景へ切り替えてください。';
       }
@@ -1877,10 +1880,12 @@
   }
 
   function ratingBandIndex(score) {
+    // Buckets are labelled with integers, while v1 raw scores are fractional.
+    const roundedDown = Math.floor(clamp(Number(score) || 0, 0, 100));
     const index = HUMAN_RATING_BANDS.findIndex(
-      (band) => score >= band[0] && score <= band[1]
+      (band) => roundedDown >= band[0] && roundedDown <= band[1]
     );
-    return index < 0 ? (score < 0 ? 0 : 4) : index;
+    return index < 0 ? 0 : index;
   }
 
   function ratingBandLabel(index) {
@@ -2071,6 +2076,9 @@
       || !ready || !validHumanRating()
     ) return;
     ratingBusy = true;
+    environmentSelect.disabled = true;
+    customBackgroundChooseButton.disabled = true;
+    customBackgroundDeleteButton.disabled = true;
     ratingState.textContent = '背景・画像・スコアを端末内に保存しています…';
     updateRatingControls();
     const sample = ratingSample;
@@ -2159,6 +2167,9 @@
         '評価を保存できませんでした：' + (error.message || String(error));
     } finally {
       ratingBusy = false;
+      environmentSelect.disabled = false;
+      customBackgroundChooseButton.disabled = false;
+      customBackgroundDeleteButton.disabled = false;
       updateRatingControls();
     }
   }
