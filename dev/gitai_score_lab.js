@@ -2012,16 +2012,24 @@
     updateRatingControls();
   }
 
+  // A separate machine-optimization budget per blind human evaluation.
+  // Keep the existing optimized1000 mode exactly addressable for old data.
+  function ratingOptimizationIterations(mode) {
+    const match = /^optimized(100|200|300|500|1000)$/.exec(mode);
+    return match ? Number(match[1]) : 0;
+  }
+
   function updateRatingControls() {
     ratingModeButton.disabled = ratingBusy || running || !ready;
     ratingSamplingMode.disabled = ratingBusy || running || !ready;
+    const optimizationIterations = ratingOptimizationIterations(ratingSamplingMode.value);
     ratingModeButton.textContent = ratingMode
       ? '採点モードを終了'
-      : (ratingSamplingMode.value === 'optimized1000'
-        ? '1000回最適化評価を開始'
+      : optimizationIterations
+        ? optimizationIterations + '回最適化評価を開始'
         : ratingSamplingMode.value === 'high'
           ? '高擬態評価を開始'
-          : 'ランダム評価を開始');
+          : 'ランダム評価を開始';
     // Keep the abort control available even while all other controls
     // are disabled for the long-running independent 1000-trial search.
     ratingStopSearchButton.hidden = !ratingOptimizationInProgress;
@@ -2120,9 +2128,12 @@
   // One fresh, independent optimization per human judgement.
   // Mirrors optimize()'s warmup and annealed mutations, but deliberately does
   // not read or write the global 'best' (which carries over between runs).
-  async function independentlyOptimize1000ForRating() {
-    const iterations = 1000;
-    const warmup = 80;
+  // The warmup budget follows optimize() (20 minimum, 80 maximum).
+  async function independentlyOptimizeForRating(iterations) {
+    if (![100, 200, 300, 500, 1000].includes(iterations)) {
+      throw new Error('最適化の試行回数が正しくありません');
+    }
+    const warmup = Math.min(80, Math.max(20, Math.floor(iterations * 0.08)));
     let currentBest = evaluateLocal(makeRandomGenome());
     ratingSearchProgress.max = iterations;
     ratingSearchProgress.value = 0;
@@ -2152,19 +2163,19 @@
       if (i % 10 === 9 || i === iterations - 1) {
         ratingSearchProgress.value = i + 1;
         ratingState.textContent = '独立最適化中… ' + (i + 1)
-          + ' / 1000回（機械スコアは採点後に記録）';
+          + ' / ' + iterations + '回（機械スコアは採点後に記録）';
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
     if (ratingOptimizationCancelled) return null;
     return {
       ...currentBest,
-      source: 'independent_optimization_1000_best',
+      source: 'independent_optimization_' + iterations + '_best',
       optimization_iterations: iterations,
       optimization_warmup_trials: warmup,
       optimization_initial_genomes: 1,
       optimization_initialization: 'fresh_random',
-      // 1 initial candidate + 80 warmup + 1000 optimization iterations.
+      // Initial random candidate + warmup + search iterations.
       candidate_count: 1 + warmup + iterations,
     };
   }
@@ -2172,10 +2183,12 @@
   async function makeRatingSample() {
     if (!ratingMode || ratingBusy || !ready || !backgroundPixels) return;
     ratingBusy = true;
-    const samplingMode = ['balanced', 'high', 'optimized1000'].includes(ratingSamplingMode.value)
-      ? ratingSamplingMode.value : 'balanced';
+    const configuredMode = ratingSamplingMode.value;
+    const optimizationIterations = ratingOptimizationIterations(configuredMode);
+    const samplingMode = configuredMode === 'high' || configuredMode === 'balanced'
+      || optimizationIterations ? configuredMode : 'balanced';
     ratingOptimizationCancelled = false;
-    ratingOptimizationInProgress = samplingMode === 'optimized1000';
+    ratingOptimizationInProgress = optimizationIterations > 0;
     clearRatingSample('候補を選別しています…');
     renderPreview(true);
     environmentSelect.disabled = true;
@@ -2184,8 +2197,8 @@
     try {
       const rows = await ratingGetAll('ratings');
       let chosen, chosenIndex, attempts;
-      if (samplingMode === 'optimized1000') {
-        chosen = await independentlyOptimize1000ForRating();
+      if (optimizationIterations) {
+        chosen = await independentlyOptimizeForRating(optimizationIterations);
         if (!chosen) {
           ratingState.textContent = '探索を中止しました。「保留／次の蛾」で新しく探索できます。';
           return;
@@ -2276,8 +2289,8 @@
         sampling_mode: samplingMode,
       };
       ratingSampleSaved = false;
-      ratingState.textContent = samplingMode === 'optimized1000'
-        ? '独立した1000回最適化の最良個体です。機械スコアを見ず評価してください。'
+      ratingState.textContent = optimizationIterations
+        ? '独立した' + optimizationIterations + '回最適化の最良個体です。機械スコアを見ず評価してください。'
         : samplingMode === 'high'
           ? '高擬態候補を表示しました。機械スコアを見ず、6段階で評価してください。'
           : 'ランダム候補を表示しました。機械スコアを見ず、6段階で評価してください。';
