@@ -211,6 +211,22 @@
     .human-rating-lab textarea { min-height: 65px; font-size: 14px; }
     .human-rating-lab .rating-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 9px 0; }
     .human-rating-lab .rating-buttons button { min-width: 0; font-size: 13px; }
+    .human-rating-lab .rating-sampling-picker {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr);
+      gap: 6px;
+      align-items: center;
+      margin: 8px 0 5px;
+    }
+    .human-rating-lab .rating-sampling-picker label { font-size: 12px; color: var(--muted); }
+    .human-rating-lab .rating-sampling-picker select {
+      min-width: 0;
+      width: 100%;
+      padding: 8px;
+      font-size: 13px;
+    }
+    body.rating-mode .human-rating-lab .rating-sampling-picker { margin: 2px 0 4px; }
+    body.rating-mode .human-rating-lab .rating-sampling-picker select { padding: 4px; font-size: 12px; min-height: 30px; }
     .human-rating-lab .rating-toolbar { display: flex; gap: 6px; }
     .human-rating-lab .rating-toolbar > #ratingModeButton { flex: 1 1 auto; width: auto; min-width: 0; margin-top: 5px; }
     .human-rating-lab .rating-toolbar > #ratingToolsToggle { flex: 0 0 auto; width: auto; min-width: 0; margin-top: 5px; font-size: 12px; }
@@ -570,7 +586,15 @@
             人間評価は下記の6段階から直感的に選んでください。迷ったら保存せず次の個体へ進めます。
           </p>
           <p class="small">背景をタップして位置を固定し、<strong>拡大せず</strong>同じ端末で評価してください。
-            最適化とは別に、現行v1の点数帯が偏りすぎないよう候補を選別します。低・高得点帯の出現は保証されません。</p>
+            ランダム評価は従来通り幅広い点数帯から出題します。高擬態評価は過去の高評価Genomeを変異させた候補を中心に出題します。
+            どちらも機械スコアや過去の人間評価は採点前に表示しません。</p>
+          <div id="ratingSamplingPicker" class="rating-sampling-picker">
+            <label for="ratingSamplingMode">採点の種類</label>
+            <select id="ratingSamplingMode">
+              <option value="balanced">ランダム評価（従来）</option>
+              <option value="high">高擬態評価（新）</option>
+            </select>
+          </div>
           <div class="rating-toolbar">
             <button id="ratingModeButton" class="primary" type="button" disabled>採点モードを開始</button>
             <button id="ratingToolsToggle" type="button" hidden aria-expanded="false">メモ・管理</button>
@@ -669,6 +693,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-crop2"></script>
+  <script src="./gitai_score_lab.js?v=20261014-highfocus1"></script>
 </body>
 </html>
