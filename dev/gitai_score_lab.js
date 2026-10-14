@@ -1550,6 +1550,9 @@
     resetCalibrationForBackground();
     updateTargetText();
     renderPreview(true);
+    refreshRatingSummary().catch(() => {
+      ratingSummary.textContent = '保存件数を確認できませんでした。';
+    });
   }
 
   async function loadEnvironment(environmentId) {
@@ -2196,7 +2199,9 @@
       ratingFeedback.hidden = false;
       ratingState.textContent =
         '評価を保存しました。次の個体を表示できます。';
-      await refreshRatingSummary();
+      await refreshRatingSummary().catch(() => {
+        ratingSummary.textContent = '評価は保存しましたが件数を確認できませんでした。';
+      });
     } catch (error) {
       console.error(error);
       ratingState.textContent =
