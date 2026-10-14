@@ -6,7 +6,7 @@
   const GAME_HEIGHT = 640;
   const SIZE = 128;
   const HALF = SIZE / 2;
-  const SAMPLE = 32;
+  let SAMPLE = 38; // Updated from the configured moth display size at initialization.
 
   const previewCanvas = document.getElementById('previewCanvas');
   const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
@@ -833,6 +833,8 @@
     canvas.width = SAMPLE;
     canvas.height = SAMPLE;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    // Match the game's canvas drawImage scaling, not the old 32px analysis proxy.
+    ctx.imageSmoothingEnabled = true;
     const src = document.createElement('canvas');
     src.width = SIZE;
     src.height = SIZE;
@@ -1278,7 +1280,7 @@
     temp.width = SIZE;
     temp.height = SIZE;
     temp.getContext('2d').putImageData(imageData, 0, 0);
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
     ctx.drawImage(temp, x, y, width, height);
   }
 
@@ -1591,6 +1593,7 @@
         fetchJson('species/moth/species.json'),
       ]);
       appConfig = loaded[0];
+      SAMPLE = Math.max(1, Math.round(Number(appConfig.game.display_size_px) || 38));
       evolutionConfig = loaded[1];
       genetics = evolutionConfig.trait_genetics || {};
 
