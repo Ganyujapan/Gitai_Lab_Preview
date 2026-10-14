@@ -65,6 +65,8 @@
   const ratingSaveButton = document.getElementById('ratingSaveButton');
   const ratingNextButton = document.getElementById('ratingNextButton');
   const ratingUseBestButton = document.getElementById('ratingUseBestButton');
+  const ratingGenomeInput = document.getElementById('ratingGenomeInput');
+  const ratingLoadGenomeButton = document.getElementById('ratingLoadGenomeButton');
   const ratingFeedback = document.getElementById('ratingFeedback');
   const ratingSummary = document.getElementById('ratingSummary');
   const ratingExportButton = document.getElementById('ratingExportButton');
@@ -1911,6 +1913,7 @@
     );
     ratingNextButton.disabled = !ratingMode || ratingBusy || !ready;
     ratingUseBestButton.disabled = !ratingMode || ratingBusy || !ready || !best;
+    ratingLoadGenomeButton.disabled = !ratingMode || ratingBusy || !ready;
     ratingExportButton.disabled = ratingBusy;
     ratingDeleteButton.disabled = ratingBusy;
     if (ratingMode) {
@@ -2040,6 +2043,38 @@
       '最適化で得た個体を表示しました。位置を知っていても識別できないか評価してください。';
     renderPreview(false);
     updateRatingControls();
+  }
+
+  function loadManualGenomeForRating() {
+    if (!ratingMode || ratingBusy || !ready) return;
+    try {
+      const genome = JSON.parse(ratingGenomeInput.value);
+      if (
+        !genome || typeof genome !== 'object' || Array.isArray(genome)
+        || Number(genome.schema_version) !== 1
+        || !genome.modules || typeof genome.modules !== 'object'
+        || !['baseHue', 'baseSaturation', 'baseValue'].every(
+          (key) => Number.isFinite(Number(genome[key]))
+        )
+      ) {
+        throw new Error('Genome JSONの形式が正しくありません');
+      }
+      const candidate = evaluateLocal(genome);
+      clearRatingSample();
+      ratingSample = {
+        ...candidate,
+        source: 'imported_genome',
+        observed_band: ratingBandIndex(candidate.metrics.total),
+        candidate_count: 1,
+      };
+      ratingState.textContent =
+        '読み込んだGenomeを配置しました。現在の背景と位置で0〜100点をつけてください。';
+      renderPreview(false);
+      updateRatingControls();
+    } catch (error) {
+      ratingState.textContent =
+        'Genomeの読み込みに失敗しました：' + (error.message || String(error));
+    }
   }
 
   function createRatingCanvas(kind, sample) {
@@ -2282,6 +2317,7 @@
   });
   ratingNextButton.addEventListener('click', makeRatingSample);
   ratingUseBestButton.addEventListener('click', useOptimizedBestForRating);
+  ratingLoadGenomeButton.addEventListener('click', loadManualGenomeForRating);
   ratingSaveButton.addEventListener('click', saveHumanRating);
   ratingInput.addEventListener('input', updateRatingControls);
   ratingExportButton.addEventListener('click', exportHumanRatings);
