@@ -9,6 +9,17 @@
   const model = params.get('model') || 'continuous_v1';
   if (model !== 'continuous_v1' || params.get('play') === '1') return;
 
+  // Font is requested only on the entertainment entrance.
+  // If offline (e.g. exhibition iPad), fallback fonts keep the UI usable.
+  const fontId = 'gitaiPortalPixelFont';
+  if (!document.getElementById(fontId)) {
+    const link = document.createElement('link');
+    link.id = fontId;
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=DotGothic16&display=swap';
+    document.head.appendChild(link);
+  }
+
   const portal = document.getElementById('entertainmentPortal');
   if (!portal) return;
   const intro = document.getElementById('portalIntro');
