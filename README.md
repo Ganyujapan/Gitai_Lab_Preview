@@ -295,3 +295,12 @@ ChatGPT用ログには、各世代の捕食数・生存数・親12枠・突然�
 - 教育型 `?model=morph_v1` は入口を通さず従来ゲームに直接進む。旧SOLOプレビューを直に開く場合は `?model=continuous_v1&play=1`。
 - アニメーションは180×320ピクセルのCanvasドット絵（表示時はピクセル拡大）＋フレーム補間。OSの「動きを減らす」を尊重し静止描画に切り替える。
 - 対象ファイルは `index.html`、`css/entertainment_portal.css`、`js/entertainment_portal.js`。ゲーム本体や既存ページの全面的なドット絵化はまだ行っていない。
+
+## SoundCloud風タップ式モーション試作（2026-10-15）
+
+- [dev/soundcloud_motion_study.html](./dev/soundcloud_motion_study.html)：SoundCloudの画面収録の動きを参考にした、独立したトップページ用モーション試作。デザイン素材はギタイラボ固有の蛾・葉・枝を使い、SoundCloudのロゴやイラストは複製していない。
+- 黒背景、色付きの細い輪郭線、大きなオレンジと青の色面、コピーとCTAを実装。スマートフォン縦画面に最適化し、PCでは中央カラムに表示。
+- **起動直後のみ最初のモーション → 停止 → 画面タップがトリガーで次のモーション → 停止**。時間経過だけで繰り返さない。動作中の連続タップは無視する。
+- 「ギタイラボをはじめる」リンクは従来の `index.html?portal=menu` に接続し、エンタメ版モード選択へ直接移動。教育版や既存SOLO保存データ、進化ロジックへの影響なし。
+- OSの「動きを減らす」設定に対応。実機Safariでの最終動作確認・イラストの正式採用はこれから。
+- 試作URL：`https://ganyujapan.github.io/Gitai_Lab_Preview/dev/soundcloud_motion_study.html`
