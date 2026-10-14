@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="theme-color" content="#090b0c">
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261014-pixelentry1">
   <title>ギタイラボ — 昆虫大学 α</title>
   <style>
     :root {
@@ -1133,6 +1134,7 @@
         <p id="introLead" class="lead">見つけた生き物を<br>タップしてください。</p>
         <p id="introSubtle" class="subtle">見つからなかった個体が生き残り、<br>次の世代へ子孫を残します。</p>
         <button id="startButton" type="button" disabled>準備中…</button>
+        <button id="portalBackToMenu" type="button" hidden>← モード選択へ戻る</button>
       </div>
     </section>
 
@@ -1344,6 +1346,67 @@
         <h2>エラー</h2>
         <p id="errorText"></p>
         <button id="reloadButton" type="button">再読み込み</button>
+      </div>
+    </section>
+
+    <!-- Entertainment-only entrance. Underlying SOLO engine and education model
+         continue using the existing overlays and IndexedDB without changes. -->
+    <section id="entertainmentPortal" class="pixel-portal" hidden aria-hidden="true" aria-label="ギタイラボ エンタメ版">
+      <canvas id="portalArt" class="portal-art" width="180" height="320" aria-hidden="true"></canvas>
+      <div class="portal-noise" aria-hidden="true"></div>
+      <div class="portal-frame" aria-hidden="true"></div>
+
+      <div id="portalIntro" class="portal-screen portal-intro is-active" aria-hidden="false">
+        <div class="portal-topline" aria-hidden="true">
+          <span>GITAI / LAB</span><span>EST. 2026</span>
+        </div>
+        <div class="portal-brand-intro">
+          <div class="portal-eyebrow">- INVISILAB -</div>
+          <h1 class="portal-main-logo">ギタイラボ</h1>
+          <div class="portal-divider-mark" aria-hidden="true">✦</div>
+          <div class="portal-subtitle">見つかるか。生き残るか。</div>
+        </div>
+        <div class="portal-intro-footer" aria-hidden="true">
+          <p>小さな命と、進化の冒険へ。</p>
+          <div class="portal-tap-prompt"><span>◆</span> TAP TO START <span>◆</span></div>
+        </div>
+        <div class="portal-bottom-meta" aria-hidden="true">A LITTLE WORLD OF MIMICRY</div>
+        <button id="portalEnter" class="portal-intro-hit" type="button" aria-label="タップしてモード選択へ進む">モード選択へ進む</button>
+      </div>
+
+      <div id="portalMenu" class="portal-screen portal-menu" aria-hidden="true">
+        <div class="portal-menu-header">
+          <button id="portalToIntro" class="portal-back" type="button" aria-label="タイトルに戻る">←</button>
+          <div class="portal-menu-header-label">GITAI LAB<span>SELECT YOUR PATH / 02</span></div>
+        </div>
+        <div class="portal-menu-content">
+          <div class="portal-menu-kicker">[ EVOLUTION MODE ]</div>
+          <h2 class="portal-menu-heading">どんなギタイをする？</h2>
+          <p class="portal-menu-description">遊び方を選んで、進化の世界へ。</p>
+          <div class="portal-modes">
+            <button id="portalSolo" class="portal-mode portal-mode-solo" type="button">
+              <span class="portal-mode-icon" aria-hidden="true">◈</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">ひとりでギタイ</span><span class="portal-mode-sub">自分だけの進化を育てよう</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">PLAY ▶</span>
+            </button>
+            <button id="portalShared" class="portal-mode" type="button" aria-haspopup="dialog">
+              <span class="portal-mode-icon" aria-hidden="true">◇</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">みんなでギタイ</span><span class="portal-mode-sub">世界をつなぐ / 準備中</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">SOON</span>
+            </button>
+            <button id="portalMystery" class="portal-mode portal-mode-locked" type="button" aria-haspopup="dialog">
+              <span class="portal-mode-icon" aria-hidden="true">?</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">？？？？</span><span class="portal-mode-sub">まだ見ぬ研究区画</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">LOCK</span>
+            </button>
+          </div>
+        </div>
+        <div class="portal-menu-footer">INVISILAB / EVERY LIFE HAS A STORY</div>
+        <div id="portalDialog" class="portal-dialog" role="dialog" aria-modal="true" aria-labelledby="portalDialogTitle" hidden>
+          <h3 id="portalDialogTitle" class="portal-dialog-title">準備中</h3>
+          <p id="portalDialogText" class="portal-dialog-text"></p>
+          <button id="portalDialogClose" type="button">もどる</button>
+        </div>
       </div>
     </section>
   </main>
@@ -4119,6 +4182,7 @@
   boot();
 })();
 </script>
+<script src="js/entertainment_portal.js?v=20261014-pixelentry1" defer></script>
 
 <!--
   フォント：PixelMplus12-Regular（M+ FONT LICENSE）
