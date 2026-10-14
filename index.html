@@ -7,7 +7,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="theme-color" content="#090b0c">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261014-pixelentry1">
+  <script>
+    // Mark the entertainment entry before first paint to avoid a flash of
+    // the underlying game screen while the animated portal script loads.
+    (() => {
+      const q = new URLSearchParams(location.search);
+      if ((q.get('model') || 'continuous_v1') === 'continuous_v1' && q.get('play') !== '1') {
+        document.documentElement.classList.add('pixel-portal-pending');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261014-pixelentry2">
   <title>ギタイラボ — 昆虫大学 α</title>
   <style>
     :root {
@@ -4182,7 +4192,7 @@
   boot();
 })();
 </script>
-<script src="js/entertainment_portal.js?v=20261014-pixelentry1" defer></script>
+<script src="js/entertainment_portal.js?v=20261014-pixelentry2" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 
 <!--
   フォント：PixelMplus12-Regular（M+ FONT LICENSE）
