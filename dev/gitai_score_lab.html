@@ -178,8 +178,36 @@
       line-height: 1.6;
       white-space: pre-wrap;
     }
-    .human-rating-lab .rating-entry { display: grid; grid-template-columns: 1fr 120px; gap: 9px; align-items: center; }
-    .human-rating-lab input[type=number] { font-size: 21px; font-weight: 700; text-align: center; }
+    .human-rating-lab .rating-category-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 9px 0;
+    }
+    .human-rating-lab .rating-category-button {
+      min-height: 52px;
+      padding: 10px 5px;
+      font-size: 14px;
+      line-height: 1.25;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 9px;
+      color: #fff;
+      background: rgba(255,255,255,.055);
+    }
+    .human-rating-lab .rating-category-button.active {
+      border-color: #ffd78a;
+      color: #ffe5af;
+      background: rgba(255,214,138,.20);
+      box-shadow: inset 0 0 0 1px rgba(255,214,138,.26);
+    }
+    .human-rating-lab #selectedRatingCategoryText {
+      min-height: 2em;
+      margin: 3px 0 9px;
+      color: #ffe5af;
+      font-size: 12px;
+      line-height: 1.55;
+    }
     .human-rating-lab textarea { min-height: 65px; font-size: 14px; }
     .human-rating-lab .rating-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 9px 0; }
     .human-rating-lab .rating-buttons button { min-width: 0; font-size: 13px; }
@@ -370,18 +398,25 @@
           <h2>🧪 人間評価の収集（試験版）</h2>
           <p class="definition">
             100点＝存在する位置を知っていても、蛾の境界や模様をほとんど識別できない。
-            95点＝よく見るとわずかに蛾の存在が分かる。0点＝非常に目立つ。
-            点数は直感的な総合評価です。迷ったら保存せず次の個体へ進めます。
+            「ほぼ完成」は注意深く見るとわずかな違和感がある状態です。
+            人間評価は下記の6段階から直感的に選んでください。迷ったら保存せず次の個体へ進めます。
           </p>
           <p class="small">背景をタップして位置を固定し、<strong>拡大せず</strong>同じ端末で評価してください。
             最適化とは別に、現行v1の点数帯が偏りすぎないよう候補を選別します。低・高得点帯の出現は保証されません。</p>
           <button id="ratingModeButton" class="primary" type="button" disabled>採点モードを開始</button>
           <div id="ratingSession" hidden>
             <div id="ratingState" class="rating-message" aria-live="polite">準備中…</div>
-            <div class="rating-entry" style="margin-top: 10px;">
-              <label for="humanRatingInput">あなたの評価（0〜100点）</label>
-              <input id="humanRatingInput" type="number" inputmode="numeric"
-                     min="0" max="100" step="1" placeholder="点数" autocomplete="off">
+            <div style="margin-top: 10px;">
+              <label id="humanCategoryLabel" class="small">あなたの評価（6段階）</label>
+              <div id="ratingCategoryButtons" class="rating-category-buttons" role="group" aria-labelledby="humanCategoryLabel">
+                <button type="button" class="rating-category-button" data-rating-category="complete" aria-pressed="false">完成域</button>
+                <button type="button" class="rating-category-button" data-rating-category="almost_complete" aria-pressed="false">ほぼ完成</button>
+                <button type="button" class="rating-category-button" data-rating-category="excellent_plus" aria-pressed="false">非常に優秀</button>
+                <button type="button" class="rating-category-button" data-rating-category="excellent" aria-pressed="false">優秀</button>
+                <button type="button" class="rating-category-button" data-rating-category="good" aria-pressed="false">良好</button>
+                <button type="button" class="rating-category-button" data-rating-category="conspicuous" aria-pressed="false">よく目立つ</button>
+              </div>
+              <p id="selectedRatingCategoryText" aria-live="polite">まだ選択されていません</p>
             </div>
             <label for="humanRatingNote" class="small">メモ（任意・どこが目立つか等）</label>
             <textarea id="humanRatingNote" placeholder="例：輪郭は消えるが中央の筋が気になる"></textarea>
@@ -455,6 +490,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-human3"></script>
+  <script src="./gitai_score_lab.js?v=20261014-category1"></script>
 </body>
 </html>
