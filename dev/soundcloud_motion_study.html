@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#101112">
+  <title>GITAI LAB — Motion Study 01</title>
+  <style>
+    :root { color-scheme: dark; --ink:#101112; --coral:#ff8060; --blue:#4b85fc; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#08090a; }
+    body { display:grid; place-items:center; color:#fff; font-family:Arial,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; }
+    button, a { font:inherit; -webkit-tap-highlight-color:transparent; }
+    .stage {
+      position:relative; isolation:isolate;
+      height:100dvh; width:min(100vw, 570px);
+      overflow:hidden; background:#101112;
+      cursor:pointer; outline:none; touch-action:manipulation;
+      user-select:none; -webkit-user-select:none;
+    }
+    .stage:focus-visible { outline:3px solid #fff; outline-offset:-4px; }
+    .art { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }
+    .art .contour { fill:none; vector-effect:non-scaling-stroke; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.65; }
+    .art .turquoise { stroke:#33c8d3; }
+    .art .violet { stroke:#aa73e8; }
+    .art .rose { stroke:#ff517c; }
+    .art .peach { stroke:#fd9471; }
+    .art .lineGhost { opacity:.55; }
+    #warmLines, #coolLines, #warmBlob, #coolBlob { will-change:transform,opacity; }
+    .topbar {
+      position:absolute; z-index:10; left:clamp(22px,6.5vw,42px); right:clamp(22px,6.5vw,42px);
+      top:max(calc(env(safe-area-inset-top) + 16px),34px);
+      display:flex; align-items:center; justify-content:space-between;
+      color:#f9f8f2; pointer-events:none;
+      font-size:11px; font-weight:900; letter-spacing:.12em;
+      text-shadow:0 2px 12px rgba(0,0,0,.45);
+    }
+    .mark { display:flex; align-items:center; gap:10px; }
+    .mark svg { height:21px; width:25px; }
+    .series { color:#f2eeee; opacity:.7; font-weight:600; font-size:10px; letter-spacing:.12em; }
+    .copies { position:absolute; z-index:5; inset:0; pointer-events:none; }
+    .copy {
+      position:absolute; left:0; right:0; bottom:0;
+      padding:0 clamp(24px,6.1vw,42px) max(calc(env(safe-area-inset-bottom) + 58px),75px);
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+      text-align:center; color:#080c0c;
+      will-change:opacity,transform;
+    }
+    .copy .overline { font-size:11px; font-weight:900; letter-spacing:.16em; margin:0 0 18px; }
+    .copy h1 {
+      font-size:clamp(32px,8.0vw,47px); font-weight:950; line-height:1.20; letter-spacing:-.075em;
+      margin:0 0 17px; text-wrap:balance;
+    }
+    .copy p.lead { font-size:clamp(12px,3.25vw,16px); font-weight:700; line-height:1.65; margin:0 0 20px; letter-spacing:.015em; }
+    .copy .cta {
+      display:grid; place-items:center; width:100%; max-width:370px;
+      min-height:48px; padding:13px 20px;
+      background:#fff; border-radius:999px;
+      color:#111; font-size:15px; font-weight:900; line-height:1.3;
+      text-decoration:none; pointer-events:auto; cursor:pointer;
+      box-shadow:0 2px 0 rgba(0,0,0,.05);
+    }
+    .copy .cta:focus-visible { outline:3px solid #111; outline-offset:3px; }
+    .copy .cta:active { transform:scale(.985); }
+    .copy .description { font-size:12px; margin-top:13px; font-weight:700; letter-spacing:.02em; min-height:17px; }
+    .copy::after { content:''; }
+    .tap-guide {
+      position:absolute; z-index:12;
+      left:0; right:0; bottom:max(calc(env(safe-area-inset-bottom) + 18px),31px);
+      color:rgba(0,0,0,.79);
+      font-size:10px; letter-spacing:.16em; font-weight:900; text-align:center;
+      pointer-events:none;
+    }
+    .tap-guide span { display:inline-block; margin-right:8px; font-size:13px; vertical-align:-1px; }
+    .tap-guide[data-pending="true"] { opacity:.44; }
+    .faint-index {
+      position:absolute; z-index:11; left:clamp(22px,6.5vw,42px);
+      top:calc(max(calc(env(safe-area-inset-top) + 16px),34px) + 31px);
+      font-size:10px; letter-spacing:.15em; color:#f7f1ed; opacity:.55; pointer-events:none;
+    }
+    .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
+    .test-note {
+      position:fixed; right:20px; top:20px; z-index:0; pointer-events:none;
+      color:#c4c4c4; font:700 11px/1.5 monospace; letter-spacing:.12em;
+      opacity:.45;
+    }
+    @media (min-width:571px) {
+      .stage { box-shadow:0 10px 64px rgba(0,0,0,.65); }
+    }
+    @media (max-height:690px) {
+      .copy { padding-bottom:max(calc(env(safe-area-inset-bottom) + 42px),58px); }
+      .copy h1 { font-size:clamp(27px,6.5vw,38px); margin-bottom:8px; }
+      .copy .overline { margin-bottom:8px; }
+      .copy p.lead { margin-bottom:10px; }
+      .copy .cta { min-height:40px; }
+      .copy .description { margin-top:8px; }
+      .tap-guide { bottom:calc(env(safe-area-inset-bottom) + 13px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #warmLines, #coolLines, #warmBlob, #coolBlob, .copy { will-change:auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="test-note">MOTION STUDY 01 / TAP-TRIGGERED</div>
+  <main class="stage" id="stage" tabindex="0" aria-label="ギタイラボ アニメーション試作。背景をタップすると次の画面へ" role="region">
+    <svg class="art" viewBox="0 0 440 880" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <!-- Original leaf-and-moth motifs: no SoundCloud artwork or branding used. -->
+        <path id="frond" d="M0 0 C38 -18 94 -57 114 -125 M18 -14 C-6 -30 -11 -65 8 -97 C32 -73 38 -48 18 -14 Z M48 -39 C31 -66 47 -103 73 -116 C87 -84 70 -61 48 -39 Z M70 -63 C88 -89 119 -89 146 -82 C134 -56 99 -47 70 -63 Z"/>
+        <path id="mothShape" d="M0 -160 C-33 -181 -65 -158 -89 -128 C-102 -111 -107 -92 -138 -74 L-177 -26 L-126 -22 L-157 34 L-117 26 L-137 73 L-83 52 L-85 114 L-32 72 L0 136 C29 85 48 72 83 114 L83 53 L136 75 L115 26 L157 34 L125 -23 L175 -28 L138 -72 C106 -92 103 -112 88 -129 C61 -158 30 -181 0 -160 Z M0 -160 L0 129"/>
+        <path id="petalCluster" d="M0 -140 C47 -118 67 -61 51 -9 C91 -36 145 -7 145 32 C145 80 95 101 49 81 C71 113 47 151 0 145 C-48 152 -73 114 -49 81 C-95 101 -145 80 -145 32 C-144 -8 -91 -37 -51 -9 C-67 -61 -47 -118 0 -140 Z"/>
+        <path id="twig" d="M0 0 L54 -70 L84 -178 L131 -221 M54 -70 L-12 -134 M84 -178 L20 -217 M84 -178 L162 -138 M131 -221 L141 -278"/>
+      </defs>
+      <rect width="440" height="880" fill="#101112"/>
+      <g id="warmLines">
+        <g class="contour turquoise">
+          <use href="#frond" transform="translate(15 195) scale(2.28)"/>
+          <use href="#frond" transform="translate(45 200) scale(2.28)"/>
+          <use href="#frond" transform="translate(74 205) scale(2.28)"/>
+          <use href="#frond" transform="translate(105 210) scale(2.28)"/>
+        </g>
+        <g class="contour rose">
+          <use href="#twig" transform="translate(390 324) scale(1.37)"/>
+          <use href="#twig" transform="translate(415 337) scale(1.37)"/>
+          <use href="#twig" transform="translate(440 350) scale(1.37)"/>
+          <use href="#twig" transform="translate(465 363) scale(1.37)"/>
+        </g>
+        <g class="contour violet">
+          <use href="#mothShape" transform="translate(192 390) scale(1.09)"/>
+          <use href="#mothShape" transform="translate(168 405) scale(1.09)"/>
+          <use href="#mothShape" transform="translate(145 420) scale(1.09)"/>
+          <use href="#mothShape" transform="translate(123 435) scale(1.09)"/>
+        </g>
+        <g class="contour peach lineGhost">
+          <use href="#twig" transform="translate(93 602) scale(1.15) rotate(32)"/>
+          <use href="#twig" transform="translate(106 613) scale(1.15) rotate(32)"/>
+          <use href="#twig" transform="translate(119 625) scale(1.15) rotate(32)"/>
+        </g>
+      </g>
+      <g id="coolLines">
+        <g class="contour turquoise">
+          <use href="#frond" transform="translate(12 215) scale(2.38) rotate(14)"/>
+          <use href="#frond" transform="translate(42 233) scale(2.38) rotate(14)"/>
+          <use href="#frond" transform="translate(72 251) scale(2.38) rotate(14)"/>
+          <use href="#frond" transform="translate(102 269) scale(2.38) rotate(14)"/>
+        </g>
+        <g class="contour violet">
+          <use href="#petalCluster" transform="translate(256 385) scale(1.26)"/>
+          <use href="#petalCluster" transform="translate(232 385) scale(1.26)"/>
+          <use href="#petalCluster" transform="translate(208 385) scale(1.26)"/>
+          <use href="#petalCluster" transform="translate(184 385) scale(1.26)"/>
+        </g>
+        <g class="contour peach">
+          <use href="#twig" transform="translate(20 620) scale(1.65) rotate(23)"/>
+          <use href="#twig" transform="translate(32 626) scale(1.65) rotate(23)"/>
+          <use href="#twig" transform="translate(44 632) scale(1.65) rotate(23)"/>
+        </g>
+      </g>
+      <g id="warmBlob">
+        <path fill="#ff8060" d="M-65 554 C28 520 74 527 111 546 C148 572 178 510 227 531 C268 547 280 507 336 512 C373 517 410 500 505 510 L505 1010 L-65 1010 Z"/>
+        <path fill="#101112" d="M-12 782 L68 827 L116 800 L154 829 L200 810 L259 836 L310 814 L364 836 L454 792 L455 1020 L-14 1020 Z" opacity=".11"/>
+        <path fill="none" stroke="#feaa88" stroke-width="2" d="M10 566 C54 550 81 559 98 563 M280 544 C337 529 383 530 424 527" opacity=".54"/>
+      </g>
+      <g id="coolBlob">
+        <path fill="#4b85fc" d="M-75 555 C-35 493 18 491 66 526 C107 556 139 514 180 500 C245 477 275 552 323 519 C374 482 427 494 503 525 L503 1020 L-75 1020 Z"/>
+        <path fill="#d2e3ff" opacity=".15" d="M-30 784 C48 737 104 790 149 779 C229 763 280 755 350 778 C390 794 428 787 471 771 L471 1010 L-30 1010 Z"/>
+        <path fill="none" stroke="#82bbfe" stroke-width="2" d="M28 563 C76 536 110 547 140 562 M330 559 C382 538 416 549 449 559" opacity=".54"/>
+      </g>
+    </svg>
+
+    <div class="topbar" aria-hidden="true">
+      <div class="mark">
+        <svg viewBox="0 0 26 22" fill="none"><path d="M13 2L3 9l10 10L23 9Z" stroke="currentColor" stroke-width="2"/><path d="M13 5v10M7 9l6 6 6-6" stroke="currentColor" stroke-width="1.6"/></svg>
+        <span>GITAI LAB</span>
+      </div>
+      <span class="series">MOTION STUDY 01</span>
+    </div>
+    <div class="faint-index">INVISIBLE, UNTIL YOU LOOK.</div>
+
+    <div class="copies">
+      <section id="warmCopy" class="copy">
+        <div class="overline">EVOLUTION IS AN ADVENTURE.</div>
+        <h1>見つかるか。<br>生き残るか。</h1>
+        <p class="lead">見つからなかった命が、次の時代をつくる。</p>
+        <a class="cta" href="../?portal=menu">ギタイラボをはじめる <span aria-hidden="true"> ↗</span></a>
+        <div class="description">進化を、遊ぼう。</div>
+      </section>
+      <section id="coolCopy" class="copy" aria-hidden="true" inert>
+        <div class="overline">EVERY COLOR TELLS A STORY.</div>
+        <h1>姿を変えて、<br>世界に溶け込む。</h1>
+        <p class="lead">色も、模様も、生き残るための偶然から。</p>
+        <a class="cta" href="../?portal=menu" tabindex="-1">ギタイラボをはじめる <span aria-hidden="true"> ↗</span></a>
+        <div class="description">あなたの目が、進化を動かす。</div>
+      </section>
+    </div>
+    <div class="tap-guide" id="guide" data-pending="true" aria-hidden="true">
+      <span>↗</span> 背景をタップして次の景色へ
+    </div>
+    <div class="sr-only" id="announcement" aria-live="polite" aria-atomic="true"></div>
+  </main>
+  <script>
+  (() => {
+    'use strict';
+
+    const stage = document.getElementById('stage');
+    const warmBlob = document.getElementById('warmBlob');
+    const coolBlob = document.getElementById('coolBlob');
+    const warmLines = document.getElementById('warmLines');
+    const coolLines = document.getElementById('coolLines');
+    const warmCopy = document.getElementById('warmCopy');
+    const coolCopy = document.getElementById('coolCopy');
+    const guide = document.getElementById('guide');
+    const announcement = document.getElementById('announcement');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    // tap -> animate -> settle -> wait. Never an idle auto-loop.
+    let current = -1; // -1: initial entrance, 0: warm, 1: blue
+    let busy = false;
+    let animationId = 0;
+    let pose = null;
+
+    const poses = {
+      start: {warmY:600,coolY:700,warmX:130,coolX:-120,warmO:.35,coolO:0,warmCopyO:0,coolCopyO:0,warmCopyY:50,coolCopyY:40},
+      warm:  {warmY:0,coolY:700,warmX:0,coolX:120,warmO:1,coolO:0,warmCopyO:1,coolCopyO:0,warmCopyY:0,coolCopyY:40},
+      cool:  {warmY:700,coolY:0,warmX:-120,coolX:0,warmO:0,coolO:1,warmCopyO:0,coolCopyO:1,warmCopyY:40,coolCopyY:0}
+    };
+    const numKeys=Object.keys(poses.warm);
+    const ease=(t)=> t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+    const lerp=(a,b,t)=>a+(b-a)*t;
+
+    function paint(p) {
+      warmBlob.style.transform='translate3d(0,'+p.warmY+'px,0)';
+      coolBlob.style.transform='translate3d(0,'+p.coolY+'px,0)';
+      warmLines.style.transform='translate3d('+p.warmX+'px,0,0)';
+      coolLines.style.transform='translate3d('+p.coolX+'px,0,0)';
+      warmLines.style.opacity=p.warmO;
+      coolLines.style.opacity=p.coolO;
+      warmCopy.style.opacity=p.warmCopyO;
+      coolCopy.style.opacity=p.coolCopyO;
+      warmCopy.style.transform='translate3d(0,'+p.warmCopyY+'px,0)';
+      coolCopy.style.transform='translate3d(0,'+p.coolCopyY+'px,0)';
+      pose=p;
+    }
+
+    function keepOnlyCurrentFocusable() {
+      const warmActive=current===0;
+      warmCopy.inert=!warmActive;
+      coolCopy.inert=warmActive;
+      warmCopy.setAttribute('aria-hidden',String(!warmActive));
+      coolCopy.setAttribute('aria-hidden',String(warmActive));
+      const warmLink=warmCopy.querySelector('.cta');
+      const coolLink=coolCopy.querySelector('.cta');
+      warmLink.tabIndex=warmActive?0:-1;
+      coolLink.tabIndex=warmActive?-1:0;
+    }
+
+    function animateTo(next,initial=false) {
+      if (busy) return;
+      window.cancelAnimationFrame(animationId);
+      busy=true;
+      const from=pose||poses.start;
+      const to=next===0?poses.warm:poses.cool;
+      const duration=reducedMotion.matches?0:(initial?2050:1550);
+      const start=performance.now();
+      guide.dataset.pending='true';
+      stage.setAttribute('aria-busy','true');
+      warmCopy.inert=true;
+      coolCopy.inert=true;
+      function tick(time) {
+        const t=duration?Math.min(1,(time-start)/duration):1;
+        const e=ease(t);
+        const nextPose={};
+        for(const key of numKeys)nextPose[key]=lerp(from[key],to[key],e);
+        paint(nextPose);
+        if(t<1) {animationId=window.requestAnimationFrame(tick);return;}
+        paint({...to});
+        current=next;
+        busy=false;
+        guide.dataset.pending='false';
+        stage.setAttribute('aria-busy','false');
+        keepOnlyCurrentFocusable();
+        announcement.textContent=next===0?'オレンジの景色で停止しました。背景をタップすると次へ進みます。':'青い景色で停止しました。背景をタップすると次へ進みます。';
+      }
+      animationId=window.requestAnimationFrame(tick);
+    }
+
+    stage.addEventListener('click',event=>{
+      if(event.target.closest('a,button'))return;
+      if(busy)return;
+      animateTo(current===0?1:0);
+    });
+    stage.addEventListener('keydown',event=>{
+      if(event.target!==stage)return;
+      if(event.key!=='Enter'&&event.key!==' ')return;
+      event.preventDefault();
+      if(!busy)animateTo(current===0?1:0);
+    });
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden && busy){
+        // Conclude rather than silently autoplay when the tab resumes.
+        window.cancelAnimationFrame(animationId);
+        const desired=current===-1?0:(current===0?1:0);
+        paint({...poses[desired]});
+        current=desired;
+        busy=false;
+        guide.dataset.pending='false';
+        stage.setAttribute('aria-busy','false');
+        keepOnlyCurrentFocusable();
+      }
+    });
+    paint({...poses.start});
+    // The initial reveal runs once. Future movement requires a user action.
+    animateTo(0,true);
+  })();
+  </script>
+</body>
+</html>
