@@ -928,10 +928,8 @@
   function makeRandomGenome() {
     const loci = genetics.pattern_loci || [];
     const shuffled = [...loci].sort(() => Math.random() - 0.5);
-    const activeCount = clamp(
-      1 + Math.floor(Math.random() * 4),
-      1,
-      Math.max(1, Math.min(4, loci.length)),
+    const activeCount = Math.floor(
+      Math.random() * (loci.length + 1)
     );
     const activeIds = new Set(
       shuffled.slice(0, activeCount).map((locus) => locus.id)
