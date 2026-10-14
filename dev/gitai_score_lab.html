@@ -15,9 +15,16 @@
       --muted: rgba(255,255,255,.62);
     }
     * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
     body {
       margin: 0;
       min-height: 100vh;
+      min-height: 100dvh;
+      -webkit-text-size-adjust: 100%;
       background: var(--bg);
       color: #fff;
       font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -201,6 +208,16 @@
       .moth-preview-row { grid-template-columns: 112px 1fr; }
       #mothCanvas { width: 112px; height: 112px; }
     }
+
+    @media (max-width: 800px) and (orientation: portrait) {
+      .wrap {
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
+      }
+      .game-wrap {
+        width: min(100%, 38svh, 360px);
+      }
+    }
   </style>
 </head>
 <body>
@@ -225,7 +242,7 @@
       <section class="panel controls">
         <div class="control-row">
           <label for="environmentSelect">背景</label>
-          <select id="environmentSelect" disabled>
+          <select id="environmentSelect">
             <option value="bark_001">樹皮 001</option>
             <option value="sand_001">砂地 001</option>
           </select>
@@ -294,6 +311,6 @@
       </section>
     </div>
   </main>
-  <script src="./gitai_score_lab.js"></script>
+  <script src="./gitai_score_lab.js?v=20261014-3"></script>
 </body>
 </html>
