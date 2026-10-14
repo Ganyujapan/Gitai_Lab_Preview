@@ -3040,7 +3040,8 @@
   }
 
   function buildMothAnalysis(mothImage) {
-    const SAMPLE = 32;
+    // Analyze the same number of pixels as the on-screen moth (38px today).
+    const SAMPLE = Math.max(1, Math.round(CONFIG.MOTH_SIZE));
     const mothCanvas = document.createElement('canvas');
     mothCanvas.width = SAMPLE;
     mothCanvas.height = SAMPLE;
@@ -3048,6 +3049,8 @@
       '2d',
       { willReadFrequently: true },
     );
+    // Game rendering uses the canvas default (smoothed) downscaling.
+    mc.imageSmoothingEnabled = true;
     mc.clearRect(0, 0, SAMPLE, SAMPLE);
     mc.drawImage(mothImage, 0, 0, SAMPLE, SAMPLE);
     const pixels = mc.getImageData(
@@ -3411,7 +3414,7 @@
       GAME_WIDTH,
       GAME_HEIGHT,
     );
-    c2d.imageSmoothingEnabled = false;
+    c2d.imageSmoothingEnabled = true;
     c2d.drawImage(
       result.mothImage,
       result.best.x,
