@@ -1493,6 +1493,7 @@
       environmentSelect.disabled = false;
       randomButton.disabled = !ready;
       recalcButton.disabled = !ready || !best;
+      updateRatingControls();
     }
   }
 
