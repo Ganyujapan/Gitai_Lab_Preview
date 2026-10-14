@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "dataset_id": "gitai_sand_variable_opt_round1_97_2026-10-14",
+  "title": "Sand short independent optimization: human ratings at 200, 300 and 500 iterations",
+  "source_export": "gitai_human_ratings_compact_2026-10-14 5.json",
+  "previous_dataset": "gitai_human_ratings_combined_1006_2026-10-14",
+  "previous_dataset_unique": 1006,
+  "upload_count": 803,
+  "upload_previously_archived_count": 706,
+  "new_unique": 97,
+  "overlap_with_frozen_1006": 0,
+  "combined_unique": 1103,
+  "all_new_environment": "sand_001",
+  "human_category_counts": {
+    "complete": 53,
+    "almost_complete": 40,
+    "excellent_plus": 1,
+    "excellent": 2,
+    "good": 1,
+    "conspicuous": 0
+  },
+  "by_iterations": {
+    "200": {
+      "count": 84,
+      "complete": 42,
+      "almost_complete": 38,
+      "excellent_plus": 1,
+      "excellent": 2,
+      "good": 1,
+      "conspicuous": 0,
+      "warmup_trials": 20
+    },
+    "300": {
+      "count": 8,
+      "complete": 7,
+      "almost_complete": 1,
+      "warmup_trials": 24
+    },
+    "500": {
+      "count": 5,
+      "complete": 4,
+      "almost_complete": 1,
+      "warmup_trials": 40
+    }
+  },
+  "previous_all_environments": {
+    "bark_001": 494,
+    "sand_001": 512
+  },
+  "combined_environments": {
+    "bark_001": 494,
+    "sand_001": 609
+  },
+  "combined_complete_count": 80,
+  "background_snapshot_note": "The full 2026-10-14(5) export's 4 background IDs and image_data_url fields were compared against the archived 1006-rating combined file; all four snapshots are byte-identical. Only rating records are saved in these shards to avoid duplicate image storage.",
+  "analysis_note": "200-iteration sand optimized v1 had 42 complete and 38 almost_complete (of 84), while 1000-iteration historical sand had 19/19 complete. The new 200-iteration completed vs almost_completed comparison yielded v1_local AUC about 0.95 for the fixed moth position. This is descriptive, not independent validation of a new model.",
+  "selection_bias_note": "Genomes were machine-v1 optimized and selected. The 97 ratings were all at identical moth coordinates for the same sand background. They do not represent naturally sampled moths or independent external validation; do not infer universal human-category numeric thresholds.",
+  "exclusion_policy": "No automatic outlier deletion. All 97 human judgments are preserved exactly.",
+  "parts": [
+    {
+      "path": "research/calibration/variable_opt/raw/sand_variableopt_20261014_part1.json",
+      "ratings": 20,
+      "blob_sha": "006f309ea423f13891e98224ed8c88334f6fc2cf"
+    },
+    {
+      "path": "research/calibration/variable_opt/raw/sand_variableopt_20261014_part2.json",
+      "ratings": 20,
+      "blob_sha": "5119fc0669c968091a12126adfad4686c73475dd"
+    },
+    {
+      "path": "research/calibration/variable_opt/raw/sand_variableopt_20261014_part3.json",
+      "ratings": 20,
+      "blob_sha": "bf57992e4f150aa86da639106443b3516e618489"
+    },
+    {
+      "path": "research/calibration/variable_opt/raw/sand_variableopt_20261014_part4.json",
+      "ratings": 20,
+      "blob_sha": "c5940b597575caccc3d758d73211e385a550bbd3"
+    },
+    {
+      "path": "research/calibration/variable_opt/raw/sand_variableopt_20261014_part5.json",
+      "ratings": 17,
+      "blob_sha": "f5b0e58e880e1fdba2d15c911494d15e827abbbb"
+    }
+  ]
+}
