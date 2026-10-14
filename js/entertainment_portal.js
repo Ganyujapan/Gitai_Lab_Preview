@@ -328,6 +328,7 @@
   }
 
   function startSolo() {
+    document.documentElement.classList.remove('pixel-portal-pending');
     active = false;
     window.cancelAnimationFrame(raf);
     raf = 0;
