@@ -44,6 +44,7 @@
   let best = null;
   let stopRequested = false;
   let running = false;
+  let ready = false;
 
   function clamp(value, minValue, maxValue) {
     return Math.max(minValue, Math.min(maxValue, Number(value)));
@@ -1191,6 +1192,18 @@
 
   async function optimize() {
     if (running) return;
+    if (
+      !ready
+      || !mask
+      || !templateAlpha
+      || !backgroundPixels
+      || !genetics
+      || !appConfig
+    ) {
+      statusEl.textContent =
+        '初期化中です。背景と蛾データの読み込み完了までお待ちください。';
+      return;
+    }
     running = true;
     stopRequested = false;
     optimizeButton.disabled = true;
@@ -1269,16 +1282,16 @@
       statusEl.textContent = 'エラー: ' + (error.message || String(error));
     } finally {
       running = false;
-      optimizeButton.disabled = false;
+      optimizeButton.disabled = !ready;
       stopButton.disabled = true;
-      environmentSelect.disabled = false;
-      randomButton.disabled = false;
-      recalcButton.disabled = !best;
+      environmentSelect.disabled = !ready;
+      randomButton.disabled = !ready;
+      recalcButton.disabled = !ready || !best;
     }
   }
 
   async function showRandomGenome() {
-    if (running) return;
+    if (running || !ready || !mask || !backgroundPixels) return;
     best = evaluateLocal(makeRandomGenome());
     renderBest(null);
     statusEl.textContent = 'ランダム個体を表示しました。';
@@ -1341,6 +1354,10 @@
   }
 
   async function init() {
+    ready = false;
+    optimizeButton.disabled = true;
+    randomButton.disabled = true;
+    environmentSelect.disabled = true;
     try {
       const loaded = await Promise.all([
         fetchJson('config/konchu_univ_alpha.json'),
@@ -1365,10 +1382,16 @@
       }
 
       await loadEnvironment(environmentSelect.value);
+      ready = true;
       optimizeButton.disabled = false;
       randomButton.disabled = false;
+      environmentSelect.disabled = false;
     } catch (error) {
+      ready = false;
       console.error(error);
+      optimizeButton.disabled = true;
+      randomButton.disabled = true;
+      environmentSelect.disabled = true;
       statusEl.textContent = '初期化エラー: ' + (error.message || String(error));
     }
   }
@@ -1395,8 +1418,23 @@
   });
 
   environmentSelect.addEventListener('change', async () => {
-    if (running) return;
-    await loadEnvironment(environmentSelect.value);
+    if (running || !ready) return;
+    ready = false;
+    optimizeButton.disabled = true;
+    randomButton.disabled = true;
+    environmentSelect.disabled = true;
+    try {
+      await loadEnvironment(environmentSelect.value);
+      ready = true;
+    } catch (error) {
+      console.error(error);
+      statusEl.textContent =
+        '背景の読み込みエラー: ' + (error.message || String(error));
+    } finally {
+      optimizeButton.disabled = !ready;
+      randomButton.disabled = !ready;
+      environmentSelect.disabled = false;
+    }
   });
 
   optimizeButton.addEventListener('click', optimize);
