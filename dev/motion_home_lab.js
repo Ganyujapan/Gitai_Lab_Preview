@@ -143,14 +143,14 @@
     if (event.target.closest('button,a')) return;
     enterLab();
   });
-  scene.addEventListener('pointermove', (event) => {
+  root.addEventListener('pointermove', (event) => {
     if (reducedMotion.matches || event.pointerType === 'touch') return;
     const r = scene.getBoundingClientRect();
     if (!r.width || !r.height) return;
     pointerTargetX = Math.max(-1, Math.min(1, (event.clientX - r.left) / r.width * 2 - 1));
     pointerTargetY = Math.max(-1, Math.min(1, (event.clientY - r.top) / r.height * 2 - 1));
   }, {passive:true});
-  scene.addEventListener('pointerleave', () => {
+  root.addEventListener('pointerleave', () => {
     pointerTargetX = 0;
     pointerTargetY = 0;
   }, {passive:true});
