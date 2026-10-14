@@ -225,6 +225,126 @@
     body.rating-mode #genomeHeading,
     body.rating-mode #genomeJson,
     body.rating-mode #genomeActions { display: none !important; }
+
+    /* One-screen iPhone evaluation: preview above the six choices. */
+    @media (max-width: 800px) {
+      body.rating-mode { height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+      body.rating-mode .wrap {
+        height: 100dvh;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: max(4px, env(safe-area-inset-top))
+                 max(6px, env(safe-area-inset-right))
+                 max(4px, env(safe-area-inset-bottom))
+                 max(6px, env(safe-area-inset-left));
+      }
+      body.rating-mode header { display: none; }
+      body.rating-mode .layout {
+        display: grid;
+        grid-template-columns: minmax(0,1fr);
+        grid-template-rows: minmax(0,1fr) auto;
+        flex: 1;
+        min-height: 0;
+        gap: 4px;
+      }
+      body.rating-mode .layout > .panel:first-child {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+        border: 0;
+        padding: 0;
+        background: transparent;
+      }
+      body.rating-mode .layout > .panel:first-child > h2,
+      body.rating-mode .layout > .panel:first-child > .hint {
+        display: none;
+      }
+      body.rating-mode .game-wrap {
+        flex: 0 1 auto;
+        width: auto;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        border-width: 1px;
+        border-radius: 4px;
+      }
+      body.rating-mode .controls {
+        display: block;
+        padding: 0;
+        border: 0;
+        background: transparent;
+      }
+      body.rating-mode .controls > :not(#humanRatingLab) {
+        display: none !important;
+      }
+      body.rating-mode #humanRatingLab {
+        margin: 0;
+        padding: 6px;
+        border-radius: 10px;
+      }
+      body.rating-mode #humanRatingLab > h2,
+      body.rating-mode #humanRatingLab > .definition,
+      body.rating-mode #humanRatingLab > .small {
+        display: none;
+      }
+      body.rating-mode #ratingModeButton {
+        margin: 0;
+        min-height: 29px;
+        padding: 3px;
+        font-size: 11px;
+      }
+      body.rating-mode #ratingSession { display: block; }
+      body.rating-mode #ratingState {
+        min-height: 0;
+        padding: 4px 3px 2px;
+        border: 0;
+        background: transparent;
+        font-size: 11px;
+        line-height: 1.25;
+      }
+      body.rating-mode #ratingCategoryButtons {
+        grid-template-columns: repeat(3,minmax(0,1fr));
+        gap: 5px;
+        margin: 4px 0 5px;
+      }
+      body.rating-mode .rating-category-button {
+        min-height: 41px;
+        padding: 4px 1px;
+        font-size: clamp(11px,3.2vw,14px);
+      }
+      body.rating-mode #ratingEvaluation > div > label,
+      body.rating-mode #selectedRatingCategoryText,
+      body.rating-mode #ratingManagement {
+        display: none !important;
+      }
+      body.rating-mode #ratingActionButtons {
+        gap: 6px;
+        margin: 0;
+      }
+      body.rating-mode #ratingActionButtons button {
+        min-height: 39px;
+        padding: 6px 4px;
+        font-size: 13px;
+      }
+    }
+    @media (max-width: 950px) and (orientation: landscape) {
+      body.rating-mode .layout {
+        grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        grid-template-rows: minmax(0,1fr);
+      }
+      body.rating-mode #humanRatingLab {
+        height: 100%;
+        overflow: auto;
+      }
+    }
+    /* Data management is available whenever evaluation is paused. */
+    body:not(.rating-mode) #ratingEvaluation,
+    body:not(.rating-mode) #ratingState {
+      display: none !important;
+    }
     .buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -404,8 +524,9 @@
           <p class="small">背景をタップして位置を固定し、<strong>拡大せず</strong>同じ端末で評価してください。
             最適化とは別に、現行v1の点数帯が偏りすぎないよう候補を選別します。低・高得点帯の出現は保証されません。</p>
           <button id="ratingModeButton" class="primary" type="button" disabled>採点モードを開始</button>
-          <div id="ratingSession" hidden>
+          <div id="ratingSession">
             <div id="ratingState" class="rating-message" aria-live="polite">準備中…</div>
+            <div id="ratingEvaluation">
             <div style="margin-top: 10px;">
               <label id="humanCategoryLabel" class="small">あなたの評価（6段階）</label>
               <div id="ratingCategoryButtons" class="rating-category-buttons" role="group" aria-labelledby="humanCategoryLabel">
@@ -418,12 +539,15 @@
               </div>
               <p id="selectedRatingCategoryText" aria-live="polite">まだ選択されていません</p>
             </div>
-            <label for="humanRatingNote" class="small">メモ（任意・どこが目立つか等）</label>
-            <textarea id="humanRatingNote" placeholder="例：輪郭は消えるが中央の筋が気になる"></textarea>
-            <div class="rating-buttons">
-              <button id="ratingSaveButton" class="primary" type="button" disabled>評価を保存</button>
-              <button id="ratingNextButton" type="button" disabled>別の蛾を表示／保留</button>
+            <div id="ratingActionButtons" class="rating-buttons">
+              <button id="ratingSaveButton" class="primary" type="button" disabled>保存 → 次の蛾</button>
+              <button id="ratingNextButton" type="button" disabled>保留／次の蛾</button>
             </div>
+            </div>
+            <div id="ratingManagement">
+            <p class="small">保存した結果はブラウザ内に残ります。「軽量JSONを保存」を押してファイルに保存し、このチャットに添付してください。SafariでJSONの中身を開く必要はありません。</p>
+            <label for="humanRatingNote" class="small">次回以降の評価メモ（任意）</label>
+            <textarea id="humanRatingNote" placeholder="例：輪郭は消えるが中央の筋が気になる"></textarea>
             <button id="ratingUseBestButton" type="button" disabled>最適化で得たベスト個体を採点</button>
             <details style="margin:10px 0;">
               <summary class="small" style="cursor:pointer;">以前のGenome JSONを貼り付けて採点する</summary>
@@ -433,12 +557,16 @@
             <div id="ratingFeedback" class="rating-message" hidden></div>
             <p id="ratingSummary" class="rating-counter">保存した評価を読み込み中…</p>
             <div class="rating-buttons">
-              <button id="ratingExportButton" type="button">評価データをJSON出力</button>
-              <button id="ratingDeleteButton" class="warn" type="button">最後の評価を削除</button>
+              <button id="ratingExportButton" type="button">軽量JSONを保存（共有用）</button>
+              <button id="ratingExportFullButton" type="button">画像入りJSONを保存（バックアップ用）</button>
             </div>
+            <button id="ratingDeleteButton" class="warn" type="button">最後の評価を削除</button>
             <p class="small">評価・背景・Genome・スクリーンショットは端末内のIndexedDBに保存します。
               サーバーには送信しません。ブラウザデータを消す前にJSONを書き出してください。
+              軽量JSONには評価・Genome・機械スコア・背景画像を含みます。
+              画像入りJSONには各個体の合成画像も含むためファイルが大きくなります。
               本編や標本箱には影響しません。</p>
+            </div>
           </div>
         </section>
 
@@ -490,6 +618,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-category1"></script>
+  <script src="./gitai_score_lab.js?v=20261014-quick1"></script>
 </body>
 </html>
