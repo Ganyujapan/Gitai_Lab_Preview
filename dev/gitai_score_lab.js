@@ -13,6 +13,11 @@
   const mothCanvas = document.getElementById('mothCanvas');
   const mothCtx = mothCanvas.getContext('2d');
   const environmentSelect = document.getElementById('environmentSelect');
+  const customBackgroundTools = document.getElementById('customBackgroundTools');
+  const customBackgroundFile = document.getElementById('customBackgroundFile');
+  const customBackgroundChooseButton = document.getElementById('customBackgroundChooseButton');
+  const customBackgroundDeleteButton = document.getElementById('customBackgroundDeleteButton');
+  const customBackgroundMeta = document.getElementById('customBackgroundMeta');
   const iterationsSelect = document.getElementById('iterationsSelect');
   const optimizeButton = document.getElementById('optimizeButton');
   const stopButton = document.getElementById('stopButton');
@@ -46,6 +51,12 @@
   let running = false;
   let coreReady = false;
   let ready = false;
+  let customBackgroundRecord = null;
+  let customDbPromise = null;
+
+  const CUSTOM_BACKGROUND_DB = 'gitai-calibration-custom-background-v1';
+  const CUSTOM_BACKGROUND_STORE = 'backgrounds';
+  const CUSTOM_BACKGROUND_KEY = 'custom_001';
 
   function clamp(value, minValue, maxValue) {
     return Math.max(minValue, Math.min(maxValue, Number(value)));
@@ -147,6 +158,170 @@
       image.onerror = () => reject(new Error('画像を読み込めません: ' + url));
       image.src = url;
     });
+  }
+
+  function openCustomBackgroundDb() {
+    if (customDbPromise) return customDbPromise;
+    customDbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(CUSTOM_BACKGROUND_DB, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(CUSTOM_BACKGROUND_STORE)) {
+          db.createObjectStore(CUSTOM_BACKGROUND_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return customDbPromise;
+  }
+
+  async function customBackgroundGet() {
+    const db = await openCustomBackgroundDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CUSTOM_BACKGROUND_STORE, 'readonly');
+      const req = tx.objectStore(CUSTOM_BACKGROUND_STORE)
+        .get(CUSTOM_BACKGROUND_KEY);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function customBackgroundPut(record) {
+    const db = await openCustomBackgroundDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CUSTOM_BACKGROUND_STORE, 'readwrite');
+      tx.objectStore(CUSTOM_BACKGROUND_STORE)
+        .put(record, CUSTOM_BACKGROUND_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  async function customBackgroundDelete() {
+    const db = await openCustomBackgroundDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CUSTOM_BACKGROUND_STORE, 'readwrite');
+      tx.objectStore(CUSTOM_BACKGROUND_STORE)
+        .delete(CUSTOM_BACKGROUND_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve) => {
+      canvas.toBlob(resolve, type, quality);
+    });
+  }
+
+  function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (value < 1024) return Math.round(value) + ' B';
+    if (value < 1024 * 1024) {
+      return (value / 1024).toFixed(value < 10240 ? 1 : 0) + ' KB';
+    }
+    return (value / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  async function loadImageFromBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    try {
+      return await loadImage(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function compressCustomBackground(file) {
+    const url = URL.createObjectURL(file);
+    let image;
+    try {
+      image = await loadImage(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+
+    const sourceWidth = Number(image.naturalWidth || image.width || 1);
+    const sourceHeight = Number(image.naturalHeight || image.height || 1);
+    const targetAspect = GAME_WIDTH / GAME_HEIGHT;
+    const sourceAspect = sourceWidth / sourceHeight;
+
+    let sx = 0;
+    let sy = 0;
+    let sw = sourceWidth;
+    let sh = sourceHeight;
+
+    if (sourceAspect > targetAspect) {
+      sw = sourceHeight * targetAspect;
+      sx = (sourceWidth - sw) / 2;
+    } else if (sourceAspect < targetAspect) {
+      sh = sourceWidth / targetAspect;
+      sy = (sourceHeight - sh) / 2;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(
+      image,
+      sx,
+      sy,
+      sw,
+      sh,
+      0,
+      0,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+    );
+
+    let blob = await canvasToBlob(canvas, 'image/webp', 0.60);
+    if (!blob) {
+      blob = await canvasToBlob(canvas, 'image/jpeg', 0.65);
+    }
+    if (!blob) {
+      throw new Error('画像の圧縮に失敗しました');
+    }
+
+    return {
+      schema_version: 1,
+      blob,
+      width: GAME_WIDTH,
+      height: GAME_HEIGHT,
+      mime_type: blob.type || 'image/webp',
+      compressed_bytes: blob.size,
+      original_bytes: Number(file.size || 0),
+      source_name: String(file.name || 'custom-background'),
+      created_at: new Date().toISOString(),
+      crop_mode: 'center_cover_9_16',
+      webp_quality: 0.60,
+    };
+  }
+
+  function updateCustomBackgroundUi() {
+    const isCustom = environmentSelect.value === CUSTOM_BACKGROUND_KEY;
+    customBackgroundTools.hidden = !isCustom;
+
+    if (customBackgroundRecord?.blob instanceof Blob) {
+      customBackgroundMeta.textContent =
+        '保存済み: 360×640 / '
+        + (customBackgroundRecord.mime_type || customBackgroundRecord.blob.type || 'image')
+        + ' / '
+        + formatBytes(customBackgroundRecord.compressed_bytes || customBackgroundRecord.blob.size)
+        + '（元画像 '
+        + formatBytes(customBackgroundRecord.original_bytes)
+        + '）';
+      customBackgroundDeleteButton.disabled = false;
+    } else {
+      customBackgroundMeta.textContent =
+        isCustom ? 'カスタム背景はまだ登録されていません。' : '';
+      customBackgroundDeleteButton.disabled = true;
+    }
   }
 
   async function loadImageData(url, width, height) {
@@ -1285,7 +1460,7 @@
       running = false;
       optimizeButton.disabled = !ready;
       stopButton.disabled = true;
-      environmentSelect.disabled = !ready;
+      environmentSelect.disabled = false;
       randomButton.disabled = !ready;
       recalcButton.disabled = !ready || !best;
     }
@@ -1299,13 +1474,24 @@
     await recalcGlobal();
   }
 
-  async function loadEnvironment(environmentId) {
-    statusEl.textContent = '背景を読み込んでいます…';
-    environmentConfig = await fetchJson(
-      'environments/' + environmentId + '/environment.json'
-    );
-    const bgSrc = new URL(environmentConfig.background.src, ROOT).toString();
-    backgroundImage = await loadImage(bgSrc);
+  function resetCalibrationForBackground() {
+    best = null;
+    localScoreEl.textContent = '--';
+    globalScoreEl.textContent = '--';
+    colorScoreEl.textContent = '--';
+    valueScoreEl.textContent = '--';
+    textureScoreEl.textContent = '--';
+    outlineScoreEl.textContent = '--';
+    genomeJson.value = '';
+    attemptText.textContent = '0';
+    progressBar.value = 0;
+    recalcButton.disabled = true;
+    copyButton.disabled = true;
+  }
+
+  function applyLoadedBackground(image, config) {
+    backgroundImage = image;
+    environmentConfig = config;
 
     const bgCanvas = document.createElement('canvas');
     bgCanvas.width = GAME_WIDTH;
@@ -1319,9 +1505,9 @@
       GAME_HEIGHT,
     ).data;
 
-    const sx = GAME_WIDTH / Number(environmentConfig.background.source_width);
-    const sy = GAME_HEIGHT / Number(environmentConfig.background.source_height);
-    scaledForbiddenAreas = (environmentConfig.forbidden_areas || []).map((area) => ({
+    const sx = GAME_WIDTH / Number(config.background.source_width || GAME_WIDTH);
+    const sy = GAME_HEIGHT / Number(config.background.source_height || GAME_HEIGHT);
+    scaledForbiddenAreas = (config.forbidden_areas || []).map((area) => ({
       x: Number(area.x) * sx,
       y: Number(area.y) * sy,
       width: Number(area.width) * sx,
@@ -1329,18 +1515,57 @@
     }));
 
     targetTopLeft = nearestLegalTopLeft(GAME_WIDTH / 2, GAME_HEIGHT / 2);
-    best = null;
-    localScoreEl.textContent = '--';
-    globalScoreEl.textContent = '--';
-    colorScoreEl.textContent = '--';
-    valueScoreEl.textContent = '--';
-    textureScoreEl.textContent = '--';
-    outlineScoreEl.textContent = '--';
-    genomeJson.value = '';
-    attemptText.textContent = '0';
+    resetCalibrationForBackground();
     updateTargetText();
     renderPreview(true);
-    statusEl.textContent = '背景上をタップして目標地点を選び、「最適化開始」を押してください。';
+  }
+
+  async function loadEnvironment(environmentId) {
+    statusEl.textContent = '背景を読み込んでいます…';
+    updateCustomBackgroundUi();
+
+    if (environmentId === CUSTOM_BACKGROUND_KEY) {
+      if (!customBackgroundRecord) {
+        customBackgroundRecord = await customBackgroundGet().catch(() => null);
+        updateCustomBackgroundUi();
+      }
+
+      if (!(customBackgroundRecord?.blob instanceof Blob)) {
+        backgroundImage = null;
+        backgroundPixels = null;
+        scaledForbiddenAreas = [];
+        resetCalibrationForBackground();
+        drawBackground();
+        statusEl.textContent =
+          '「写真を選ぶ」からカスタム背景を登録してください。';
+        return false;
+      }
+
+      const image = await loadImageFromBlob(customBackgroundRecord.blob);
+      applyLoadedBackground(image, {
+        schema_version: 1,
+        environment_id: CUSTOM_BACKGROUND_KEY,
+        display_name_ja: 'カスタム背景',
+        background: {
+          source_width: GAME_WIDTH,
+          source_height: GAME_HEIGHT,
+        },
+        forbidden_areas: [],
+      });
+      statusEl.textContent =
+        'カスタム背景を読み込みました。背景上をタップして目標地点を選べます。';
+      return true;
+    }
+
+    const config = await fetchJson(
+      'environments/' + environmentId + '/environment.json'
+    );
+    const bgSrc = new URL(config.background.src, ROOT).toString();
+    const image = await loadImage(bgSrc);
+    applyLoadedBackground(image, config);
+    statusEl.textContent =
+      '背景上をタップして目標地点を選び、「最適化開始」を押してください。';
+    return true;
   }
 
   function updateTargetText() {
@@ -1384,10 +1609,11 @@
       }
 
       coreReady = true;
-      await loadEnvironment(environmentSelect.value);
-      ready = true;
-      optimizeButton.disabled = false;
-      randomButton.disabled = false;
+      customBackgroundRecord = await customBackgroundGet().catch(() => null);
+      updateCustomBackgroundUi();
+      ready = await loadEnvironment(environmentSelect.value);
+      optimizeButton.disabled = !ready;
+      randomButton.disabled = !ready;
       environmentSelect.disabled = false;
     } catch (error) {
       coreReady = false;
@@ -1428,6 +1654,7 @@
 
   environmentSelect.addEventListener('change', async () => {
     if (running) return;
+    updateCustomBackgroundUi();
     if (!coreReady) {
       statusEl.textContent =
         '基本データを読み込み中です。選んだ背景は読み込み完了後に反映されます。';
@@ -1439,8 +1666,7 @@
     optimizeButton.disabled = true;
     randomButton.disabled = true;
     try {
-      await loadEnvironment(requestedEnvironment);
-      ready = true;
+      ready = await loadEnvironment(requestedEnvironment);
     } catch (error) {
       console.error(error);
       statusEl.textContent =
@@ -1449,6 +1675,88 @@
       optimizeButton.disabled = !ready;
       randomButton.disabled = !ready;
       environmentSelect.disabled = false;
+    }
+  });
+
+  customBackgroundChooseButton.addEventListener('click', () => {
+    if (running) return;
+    customBackgroundFile.click();
+  });
+
+  customBackgroundFile.addEventListener('change', async () => {
+    const file = customBackgroundFile.files?.[0];
+    if (!file || running) return;
+
+    ready = false;
+    optimizeButton.disabled = true;
+    randomButton.disabled = true;
+    customBackgroundChooseButton.disabled = true;
+    statusEl.textContent =
+      '写真を360×640へ縮小・圧縮しています…';
+
+    try {
+      const record = await compressCustomBackground(file);
+      await customBackgroundPut(record);
+      customBackgroundRecord = record;
+      environmentSelect.value = CUSTOM_BACKGROUND_KEY;
+      updateCustomBackgroundUi();
+
+      if (coreReady) {
+        ready = await loadEnvironment(CUSTOM_BACKGROUND_KEY);
+      }
+
+      const ratio = record.original_bytes > 0
+        ? 100 * record.compressed_bytes / record.original_bytes
+        : null;
+      statusEl.textContent =
+        'カスタム背景を保存しました。'
+        + formatBytes(record.original_bytes)
+        + ' → '
+        + formatBytes(record.compressed_bytes)
+        + (
+          ratio == null
+            ? ''
+            : '（元画像の' + ratio.toFixed(ratio < 10 ? 1 : 0) + '%）'
+        )
+        + '。';
+    } catch (error) {
+      console.error(error);
+      statusEl.textContent =
+        'カスタム背景の処理に失敗しました: '
+        + (error.message || String(error));
+    } finally {
+      customBackgroundFile.value = '';
+      customBackgroundChooseButton.disabled = false;
+      optimizeButton.disabled = !ready;
+      randomButton.disabled = !ready;
+      environmentSelect.disabled = false;
+    }
+  });
+
+  customBackgroundDeleteButton.addEventListener('click', async () => {
+    if (running) return;
+    try {
+      await customBackgroundDelete();
+      customBackgroundRecord = null;
+      updateCustomBackgroundUi();
+
+      if (environmentSelect.value === CUSTOM_BACKGROUND_KEY) {
+        ready = false;
+        backgroundImage = null;
+        backgroundPixels = null;
+        scaledForbiddenAreas = [];
+        resetCalibrationForBackground();
+        drawBackground();
+        optimizeButton.disabled = true;
+        randomButton.disabled = true;
+        statusEl.textContent =
+          'カスタム背景を削除しました。新しい写真を選ぶか、別の背景へ切り替えてください。';
+      }
+    } catch (error) {
+      console.error(error);
+      statusEl.textContent =
+        'カスタム背景を削除できませんでした: '
+        + (error.message || String(error));
     }
   });
 
