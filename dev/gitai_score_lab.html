@@ -390,6 +390,11 @@
               <button id="ratingNextButton" type="button" disabled>別の蛾を表示／保留</button>
             </div>
             <button id="ratingUseBestButton" type="button" disabled>最適化で得たベスト個体を採点</button>
+            <details style="margin:10px 0;">
+              <summary class="small" style="cursor:pointer;">以前のGenome JSONを貼り付けて採点する</summary>
+              <textarea id="ratingGenomeInput" placeholder="Genome JSONを貼り付け"></textarea>
+              <button id="ratingLoadGenomeButton" type="button">このGenomeを採点</button>
+            </details>
             <div id="ratingFeedback" class="rating-message" hidden></div>
             <p id="ratingSummary" class="rating-counter">保存した評価を読み込み中…</p>
             <div class="rating-buttons">
@@ -450,6 +455,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-human1"></script>
+  <script src="./gitai_score_lab.js?v=20261014-human2"></script>
 </body>
 </html>
