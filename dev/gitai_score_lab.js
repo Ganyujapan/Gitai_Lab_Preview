@@ -54,6 +54,28 @@
   let customBackgroundRecord = null;
   let customDbPromise = null;
 
+  // Human ratings stay independent of both the custom-background slot and game data.
+  const HUMAN_RATING_DB = 'gitai-calibration-human-ratings-v1';
+  const HUMAN_RATING_BANDS = [[0, 39], [40, 59], [60, 79], [80, 94], [95, 100]];
+  const ratingModeButton = document.getElementById('ratingModeButton');
+  const ratingSession = document.getElementById('ratingSession');
+  const ratingState = document.getElementById('ratingState');
+  const ratingInput = document.getElementById('humanRatingInput');
+  const ratingNote = document.getElementById('humanRatingNote');
+  const ratingSaveButton = document.getElementById('ratingSaveButton');
+  const ratingNextButton = document.getElementById('ratingNextButton');
+  const ratingUseBestButton = document.getElementById('ratingUseBestButton');
+  const ratingFeedback = document.getElementById('ratingFeedback');
+  const ratingSummary = document.getElementById('ratingSummary');
+  const ratingExportButton = document.getElementById('ratingExportButton');
+  const ratingDeleteButton = document.getElementById('ratingDeleteButton');
+  let ratingMode = false;
+  let ratingBusy = false;
+  let ratingSample = null;
+  let ratingSampleSaved = false;
+  let ratingLastBand = -1;
+  let ratingDbPromise = null;
+
   const CUSTOM_BACKGROUND_DB = 'gitai-calibration-custom-background-v1';
   const CUSTOM_BACKGROUND_STORE = 'backgrounds';
   const CUSTOM_BACKGROUND_KEY = 'custom_001';
@@ -1298,10 +1320,13 @@
     drawBackground();
     const b = legalBounds();
 
-    if (best && best.imageData) {
+    const shownImage = ratingMode
+      ? ratingSample?.imageData
+      : best?.imageData;
+    if (shownImage) {
       putImageDataScaled(
         previewCtx,
-        best.imageData,
+        shownImage,
         targetTopLeft.x,
         targetTopLeft.y,
         b.size,
@@ -1309,7 +1334,7 @@
       );
     }
 
-    if (showMarker || !best) {
+    if (showMarker || !shownImage) {
       previewCtx.save();
       previewCtx.strokeStyle = '#b8f7ff';
       previewCtx.lineWidth = 1.5;
@@ -1351,6 +1376,7 @@
     genomeJson.value = JSON.stringify(best.genome, null, 2);
     copyButton.disabled = false;
     recalcButton.disabled = false;
+    updateRatingControls();
   }
 
   async function recalcGlobal() {
@@ -1369,7 +1395,7 @@
   }
 
   async function optimize() {
-    if (running) return;
+    if (running || ratingMode || ratingBusy) return;
     if (
       !ready
       || !mask
@@ -1469,7 +1495,7 @@
   }
 
   async function showRandomGenome() {
-    if (running || !ready || !mask || !backgroundPixels) return;
+    if (running || ratingMode || ratingBusy || !ready || !mask || !backgroundPixels) return;
     best = evaluateLocal(makeRandomGenome());
     renderBest(null);
     statusEl.textContent = 'ランダム個体を表示しました。';
@@ -1477,6 +1503,7 @@
   }
 
   function resetCalibrationForBackground() {
+    clearRatingSample('背景を変更しました。「別の蛾を表示」を押してください。');
     best = null;
     localScoreEl.textContent = '--';
     globalScoreEl.textContent = '--';
@@ -1618,6 +1645,8 @@
       optimizeButton.disabled = !ready;
       randomButton.disabled = !ready;
       environmentSelect.disabled = false;
+      updateRatingControls();
+      refreshRatingSummary().catch(() => {});
     } catch (error) {
       coreReady = false;
       ready = false;
@@ -1630,7 +1659,7 @@
   }
 
   previewCanvas.addEventListener('pointerdown', (event) => {
-    if (running) return;
+    if (running || ratingBusy) return;
     if (!ready || !backgroundPixels || !mask) {
       statusEl.textContent =
         '背景と蛾データを読み込み中です。少し待ってから操作してください。';
@@ -1640,6 +1669,7 @@
     const x = (event.clientX - rect.left) * GAME_WIDTH / rect.width;
     const y = (event.clientY - rect.top) * GAME_HEIGHT / rect.height;
     targetTopLeft = nearestLegalTopLeft(x, y);
+    clearRatingSample('位置を変更しました。次の蛾を生成してください。');
     best = null;
     genomeJson.value = '';
     localScoreEl.textContent = '--';
@@ -1652,11 +1682,12 @@
     renderPreview(true);
     recalcButton.disabled = true;
     copyButton.disabled = true;
-    statusEl.textContent = '目標地点を変更しました。「最適化開始」を押してください。';
+    statusEl.textContent = '目標地点を変更しました。';
+    updateRatingControls();
   });
 
   environmentSelect.addEventListener('change', async () => {
-    if (running) return;
+    if (running || ratingBusy) return;
     updateCustomBackgroundUi();
     if (!coreReady) {
       statusEl.textContent =
@@ -1682,13 +1713,13 @@
   });
 
   customBackgroundChooseButton.addEventListener('click', () => {
-    if (running) return;
+    if (running || ratingBusy) return;
     customBackgroundFile.click();
   });
 
   customBackgroundFile.addEventListener('change', async () => {
     const file = customBackgroundFile.files?.[0];
-    if (!file || running) return;
+    if (!file || running || ratingBusy) return;
 
     ready = false;
     optimizeButton.disabled = true;
@@ -1737,7 +1768,7 @@
   });
 
   customBackgroundDeleteButton.addEventListener('click', async () => {
-    if (running) return;
+    if (running || ratingBusy) return;
     try {
       await customBackgroundDelete();
       customBackgroundRecord = null;
@@ -1752,6 +1783,7 @@
         drawBackground();
         optimizeButton.disabled = true;
         randomButton.disabled = true;
+        clearRatingSample('カスタム背景を削除しました。');
         statusEl.textContent =
           'カスタム背景を削除しました。新しい写真を選ぶか、別の背景へ切り替えてください。';
       }
@@ -1786,6 +1818,463 @@
       statusEl.textContent = 'JSONを選択しました。コピーしてください。';
     }
   });
+
+
+  // -------------------------------------------------------
+  // Human score collection: the algorithm is only a sampler.
+  // Human ratings never feed back into genome evolution.
+  // -------------------------------------------------------
+  function openRatingDb() {
+    if (ratingDbPromise) return ratingDbPromise;
+    ratingDbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(HUMAN_RATING_DB, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('ratings')) {
+          db.createObjectStore('ratings', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('backgrounds')) {
+          db.createObjectStore('backgrounds', { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return ratingDbPromise;
+  }
+
+  async function ratingGetAll(storeName) {
+    const db = await openRatingDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const request = tx.objectStore(storeName).getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function ratingWrite(rating, background) {
+    const db = await openRatingDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['ratings', 'backgrounds'], 'readwrite');
+      tx.objectStore('backgrounds').put(background);
+      tx.objectStore('ratings').put(rating);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  async function ratingRemove(id) {
+    const db = await openRatingDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('ratings', 'readwrite');
+      tx.objectStore('ratings').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  function ratingBandIndex(score) {
+    const index = HUMAN_RATING_BANDS.findIndex(
+      (band) => score >= band[0] && score <= band[1]
+    );
+    return index < 0 ? (score < 0 ? 0 : 4) : index;
+  }
+
+  function ratingBandLabel(index) {
+    return HUMAN_RATING_BANDS[index].join('〜');
+  }
+
+  function validHumanRating() {
+    const raw = ratingInput.value.trim();
+    if (!/^(?:[0-9]|[1-9][0-9]|100)$/.test(raw)) return false;
+    return Number.isInteger(Number(raw));
+  }
+
+  function updateRatingControls() {
+    ratingModeButton.disabled = ratingBusy || running || !ready;
+    ratingModeButton.textContent = ratingMode
+      ? '採点モードを終了'
+      : '採点モードを開始（自動選出）';
+    ratingSession.hidden = !ratingMode;
+    document.body.classList.toggle('rating-mode', ratingMode);
+    ratingSaveButton.disabled = !(
+      ratingMode && !ratingBusy && ratingSample && !ratingSampleSaved
+      && validHumanRating()
+    );
+    ratingNextButton.disabled = !ratingMode || ratingBusy || !ready;
+    ratingUseBestButton.disabled = !ratingMode || ratingBusy || !ready || !best;
+    ratingExportButton.disabled = ratingBusy;
+    ratingDeleteButton.disabled = ratingBusy;
+    if (ratingMode) {
+      optimizeButton.disabled = true;
+      randomButton.disabled = true;
+      recalcButton.disabled = true;
+      copyButton.disabled = true;
+    } else if (!running) {
+      optimizeButton.disabled = !ready;
+      randomButton.disabled = !ready;
+      recalcButton.disabled = !ready || !best;
+      copyButton.disabled = !best;
+    }
+  }
+
+  function clearRatingSample(message) {
+    ratingSample = null;
+    ratingSampleSaved = false;
+    ratingInput.value = '';
+    ratingNote.value = '';
+    ratingFeedback.hidden = true;
+    ratingFeedback.textContent = '';
+    if (message) ratingState.textContent = message;
+    updateRatingControls();
+  }
+
+  async function refreshRatingSummary() {
+    const rows = await ratingGetAll('ratings');
+    const localRows = rows.filter(
+      (row) => row.environment_id === environmentSelect.value
+    );
+    const counts = HUMAN_RATING_BANDS.map(() => 0);
+    localRows.forEach((row) => {
+      counts[ratingBandIndex(row.v1_local.total)] += 1;
+    });
+    ratingSummary.textContent =
+      '端末内の保存済み評価：' + rows.length
+      + '件／現在の背景：' + localRows.length
+      + '件。機械の点数帯別件数：'
+      + counts.map((n, i) => ratingBandLabel(i) + '＝' + n).join('、');
+    return rows;
+  }
+
+  async function makeRatingSample() {
+    if (!ratingMode || ratingBusy || !ready || !backgroundPixels) return;
+    ratingBusy = true;
+    clearRatingSample('候補を選別しています…');
+    renderPreview(true);
+    environmentSelect.disabled = true;
+    updateRatingControls();
+
+    try {
+      const rows = await ratingGetAll('ratings');
+      const counts = HUMAN_RATING_BANDS.map(() => 0);
+      rows.filter((row) => row.environment_id === environmentSelect.value)
+        .forEach((row) => {
+          counts[ratingBandIndex(row.v1_local.total)] += 1;
+        });
+
+      // Score-stratified sampling does not claim that every bin is attainable.
+      // Reservoir sampling within each observed bin limits selection bias.
+      const pool = HUMAN_RATING_BANDS.map(() => null);
+      const seen = HUMAN_RATING_BANDS.map(() => 0);
+      const attempts = 60;
+      for (let i = 0; i < attempts; i += 1) {
+        const fromBest = Boolean(best && i % 5 === 0);
+        const genome = fromBest
+          ? mutateGenome(best.genome, 0.15 + Math.random() * 0.85)
+          : makeRandomGenome();
+        const result = evaluateLocal(genome);
+        const bi = ratingBandIndex(result.metrics.total);
+        seen[bi] += 1;
+        if (Math.random() < 1 / seen[bi]) {
+          pool[bi] = {
+            ...result,
+            source: fromBest ? 'mutated_optimized_best' : 'random_genome',
+          };
+        }
+        if (i % 6 === 5) {
+          ratingState.textContent = '候補を選別しています… ' + (i + 1) + '/' + attempts;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+      const available = pool.map((item, index) => item ? index : -1)
+        .filter((index) => index >= 0);
+      if (!available.length) throw new Error('採点候補を生成できませんでした');
+
+      // Balance only among bins actually found in this candidate batch.
+      const minCount = Math.min(...available.map((i) => counts[i]));
+      const tied = available.filter((i) => counts[i] === minCount);
+      const chosenIndex = tied.find((i) => i > ratingLastBand) ?? tied[0];
+      ratingLastBand = chosenIndex;
+      ratingSample = {
+        ...pool[chosenIndex],
+        observed_band: chosenIndex,
+        candidate_count: attempts,
+      };
+      ratingSampleSaved = false;
+      ratingState.textContent =
+        '蛾を表示しました。位置が分かっていても境界を認識できるか、'
+        + '拡大せずに確認し、0〜100点で評価してください。'
+        + '機械の採点は保存するまで表示しません。';
+      renderPreview(false);
+    } catch (error) {
+      console.error(error);
+      ratingState.textContent =
+        '候補の生成に失敗しました：' + (error.message || String(error));
+    } finally {
+      ratingBusy = false;
+      environmentSelect.disabled = false;
+      updateRatingControls();
+    }
+  }
+
+  function useOptimizedBestForRating() {
+    if (!ratingMode || ratingBusy || !ready || !best) return;
+    clearRatingSample();
+    ratingSample = {
+      genome: JSON.parse(JSON.stringify(best.genome)),
+      imageData: best.imageData,
+      metrics: { ...best.metrics },
+      source: 'optimized_best',
+      observed_band: ratingBandIndex(best.metrics.total),
+      candidate_count: 1,
+    };
+    ratingState.textContent =
+      '最適化で得た個体を表示しました。位置を知っていても識別できないか評価してください。';
+    renderPreview(false);
+    updateRatingControls();
+  }
+
+  function createRatingCanvas(kind, sample) {
+    const canvas = document.createElement('canvas');
+    canvas.width = kind === 'moth' ? SIZE : GAME_WIDTH;
+    canvas.height = kind === 'moth' ? SIZE : GAME_HEIGHT;
+    const ctx = canvas.getContext('2d');
+    if (kind === 'moth') {
+      ctx.putImageData(sample.imageData, 0, 0);
+      return canvas;
+    }
+    ctx.drawImage(backgroundImage, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+    if (kind === 'composite') {
+      putImageDataScaled(
+        ctx, sample.imageData,
+        targetTopLeft.x, targetTopLeft.y, legalBounds().size, legalBounds().size
+      );
+    }
+    return canvas;
+  }
+
+  async function ratingBlobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  async function saveHumanRating() {
+    if (
+      ratingBusy || !ratingMode || !ratingSample || ratingSampleSaved
+      || !ready || !validHumanRating()
+    ) return;
+    ratingBusy = true;
+    ratingState.textContent = '背景・画像・スコアを端末内に保存しています…';
+    updateRatingControls();
+    const sample = ratingSample;
+    const humanScore = Number(ratingInput.value);
+    const humanNote = ratingNote.value.trim().slice(0, 500);
+    try {
+      // Both the clean background and the composite are saved as immutable
+      // snapshots; custom-background deletion must not erase old ratings.
+      const backgroundBlob = await canvasToBlob(
+        createRatingCanvas('background', sample), 'image/png'
+      );
+      const compositeCanvas = createRatingCanvas('composite', sample);
+      const compositeBlob = await canvasToBlob(
+        compositeCanvas, 'image/webp', 0.90
+      ) || await canvasToBlob(compositeCanvas, 'image/png');
+      const mothBlob = await canvasToBlob(
+        createRatingCanvas('moth', sample), 'image/png'
+      );
+      if (!backgroundBlob || !compositeBlob || !mothBlob) {
+        throw new Error('画像を保存用に変換できませんでした');
+      }
+      const bytes = await backgroundBlob.arrayBuffer();
+      const hash = await crypto.subtle.digest('SHA-256', bytes);
+      const backgroundId = 'bg-' + Array.from(new Uint8Array(hash))
+        .map((byte) => byte.toString(16).padStart(2, '0')).join('');
+      const backgroundRecord = {
+        id: backgroundId,
+        environment_id: environmentSelect.value,
+        blob: backgroundBlob,
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
+      };
+
+      // The 100-position global metric is for later analysis only.
+      // The human rating always refers to the *selected placement*.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const global = evaluateGlobal(sample.imageData);
+      const now = new Date().toISOString();
+      const row = {
+        schema_version: 1,
+        id: 'rating-' + Date.now().toString(36) + '-'
+          + Math.random().toString(36).slice(2, 11),
+        created_at: now,
+        definition_version: 'human_camouflage_B_20261014',
+        human_score: humanScore,
+        note: humanNote,
+        environment_id: environmentSelect.value,
+        environment_name: environmentSelect.selectedOptions[0]?.textContent || '',
+        background_id: backgroundId,
+        position: { ...targetTopLeft },
+        moth_display_size_px: legalBounds().size,
+        canvas_size: { width: GAME_WIDTH, height: GAME_HEIGHT },
+        pixel_ratio: window.devicePixelRatio || 1,
+        viewport: { width: innerWidth, height: innerHeight },
+        model_id: 'continuous_v1',
+        genome: JSON.parse(JSON.stringify(sample.genome)),
+        v1_local: { ...sample.metrics },
+        v1_global: {
+          total: global.total, color: global.color, value: global.value,
+          texture: global.texture, outline: global.outline,
+          evaluated_positions: global.count,
+        },
+        sampling: {
+          source: sample.source,
+          stratum_v1: ratingBandLabel(sample.observed_band),
+          candidates_checked: sample.candidate_count,
+        },
+        composite_blob: compositeBlob,
+        moth_blob: mothBlob,
+      };
+      await ratingWrite(row, backgroundRecord);
+      ratingSampleSaved = true;
+      ratingFeedback.textContent =
+        '保存しました。あなたの評価：' + humanScore
+        + '点／選択地点のv1：' + sample.metrics.total.toFixed(2)
+        + '点（差：' + (humanScore - sample.metrics.total).toFixed(2)
+        + '点）／背景全体のv1：' + global.total.toFixed(2)
+        + '点。※背景全体は上位10地点平均で、人間評価の対象地点とは異なります。';
+      ratingFeedback.hidden = false;
+      ratingState.textContent =
+        '評価を保存しました。次の個体を表示できます。';
+      await refreshRatingSummary();
+    } catch (error) {
+      console.error(error);
+      ratingState.textContent =
+        '評価を保存できませんでした：' + (error.message || String(error));
+    } finally {
+      ratingBusy = false;
+      updateRatingControls();
+    }
+  }
+
+  async function exportHumanRatings() {
+    if (ratingBusy) return;
+    ratingBusy = true;
+    updateRatingControls();
+    ratingState.textContent = 'JSON書き出し用に画像を準備しています…';
+    try {
+      const [rows, backgrounds] = await Promise.all([
+        ratingGetAll('ratings'), ratingGetAll('backgrounds')
+      ]);
+      if (!rows.length) {
+        ratingState.textContent = '保存済みの評価がありません。';
+        return;
+      }
+      rows.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const used = new Set(rows.map((row) => row.background_id));
+      const exportBackgrounds = await Promise.all(
+        backgrounds.filter((bg) => used.has(bg.id)).map(async (bg) => ({
+          id: bg.id,
+          environment_id: bg.environment_id,
+          width: bg.width,
+          height: bg.height,
+          image_data_url: await ratingBlobToDataUrl(bg.blob),
+        }))
+      );
+      const exportRatings = [];
+      for (const row of rows) {
+        const { composite_blob, moth_blob, ...metadata } = row;
+        exportRatings.push({
+          ...metadata,
+          composite_image_data_url: await ratingBlobToDataUrl(composite_blob),
+          moth_image_data_url: await ratingBlobToDataUrl(moth_blob),
+        });
+      }
+      const output = {
+        schema_version: 1,
+        purpose: 'Gitai Lab human camouflage score calibration',
+        score_100_definition:
+          'Even when the moth location is known, its boundaries and internal pattern are almost impossible to distinguish from the background.',
+        scoring_model: 'gitai_score_v1_baseline',
+        exported_at: new Date().toISOString(),
+        ratings: exportRatings,
+        backgrounds: exportBackgrounds,
+      };
+      const blob = new Blob([JSON.stringify(output, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'gitai_human_ratings_' +
+        new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      ratingState.textContent =
+        rows.length + '件の評価と背景画像をJSONに書き出しました（' +
+        formatBytes(blob.size) + '）。';
+    } catch (error) {
+      console.error(error);
+      ratingState.textContent =
+        'JSON書き出しに失敗しました：' + (error.message || String(error));
+    } finally {
+      ratingBusy = false;
+      updateRatingControls();
+    }
+  }
+
+  async function removeLastHumanRating() {
+    if (ratingBusy) return;
+    ratingBusy = true;
+    updateRatingControls();
+    try {
+      const rows = await ratingGetAll('ratings');
+      rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      if (!rows.length) {
+        ratingState.textContent = '削除する評価がありません。';
+        return;
+      }
+      if (!confirm('最後に保存した人間評価を1件削除しますか？')) return;
+      await ratingRemove(rows[0].id);
+      ratingState.textContent = '直近の評価を1件削除しました。';
+      await refreshRatingSummary();
+    } catch (error) {
+      console.error(error);
+      ratingState.textContent =
+        '評価を削除できませんでした：' + (error.message || String(error));
+    } finally {
+      ratingBusy = false;
+      updateRatingControls();
+    }
+  }
+
+  ratingModeButton.addEventListener('click', async () => {
+    if (ratingBusy || running || !ready) return;
+    ratingMode = !ratingMode;
+    if (ratingMode) {
+      clearRatingSample('採点モードを開始します。');
+      updateRatingControls();
+      await makeRatingSample();
+    } else {
+      clearRatingSample();
+      renderPreview(false);
+      updateRatingControls();
+    }
+  });
+  ratingNextButton.addEventListener('click', makeRatingSample);
+  ratingUseBestButton.addEventListener('click', useOptimizedBestForRating);
+  ratingSaveButton.addEventListener('click', saveHumanRating);
+  ratingInput.addEventListener('input', updateRatingControls);
+  ratingExportButton.addEventListener('click', exportHumanRatings);
+  ratingDeleteButton.addEventListener('click', removeLastHumanRating);
 
   init();
 })();
