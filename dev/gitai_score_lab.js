@@ -1357,7 +1357,7 @@
     ready = false;
     optimizeButton.disabled = true;
     randomButton.disabled = true;
-    environmentSelect.disabled = true;
+    environmentSelect.disabled = false;
     try {
       const loaded = await Promise.all([
         fetchJson('config/konchu_univ_alpha.json'),
@@ -1391,13 +1391,18 @@
       console.error(error);
       optimizeButton.disabled = true;
       randomButton.disabled = true;
-      environmentSelect.disabled = true;
+      environmentSelect.disabled = false;
       statusEl.textContent = '初期化エラー: ' + (error.message || String(error));
     }
   }
 
   previewCanvas.addEventListener('pointerdown', (event) => {
     if (running) return;
+    if (!ready || !backgroundPixels || !mask) {
+      statusEl.textContent =
+        '背景と蛾データを読み込み中です。少し待ってから操作してください。';
+      return;
+    }
     const rect = previewCanvas.getBoundingClientRect();
     const x = (event.clientX - rect.left) * GAME_WIDTH / rect.width;
     const y = (event.clientY - rect.top) * GAME_HEIGHT / rect.height;
@@ -1418,13 +1423,13 @@
   });
 
   environmentSelect.addEventListener('change', async () => {
-    if (running || !ready) return;
+    if (running) return;
+    const requestedEnvironment = environmentSelect.value;
     ready = false;
     optimizeButton.disabled = true;
     randomButton.disabled = true;
-    environmentSelect.disabled = true;
     try {
-      await loadEnvironment(environmentSelect.value);
+      await loadEnvironment(requestedEnvironment);
       ready = true;
     } catch (error) {
       console.error(error);
