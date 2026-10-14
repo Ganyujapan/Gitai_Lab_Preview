@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f0e9">
+  <meta name="description" content="ギタイラボ トップページ モーションデザイン試作。">
+  <title>ギタイラボ｜MOTION STUDY 01</title>
+  <link rel="stylesheet" href="./motion_home_lab.css?v=20261015-01">
+  <script src="./motion_home_lab.js?v=20261015-01" defer></script>
+</head>
+<body>
+  <!-- Concept preview only: the existing entertainment and educational games are not modified. -->
+  <main id="motionHome" class="motion-home" data-preset="float" aria-label="ギタイラボ トップページ モーション試作">
+    <div class="film" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand-sign" href="../?portal=menu" aria-label="ギタイラボ メインメニュー">
+        <span class="brand-graphic" aria-hidden="true">
+          <svg viewBox="0 0 48 48" role="presentation">
+            <path d="M24 7 10 18 3 37l16-7 5 10 5-10 16 7-7-19Z" fill="#20201e"/>
+            <path d="m24 12-7 10 7 6 7-6Z" fill="#fe6337"/>
+            <circle cx="24" cy="27" r="2.5" fill="#f1e7d0"/>
+          </svg>
+        </span>
+        <span>GITAI<span class="brand-dot">.</span>LAB</span>
+      </a>
+      <div class="header-right">
+        <span class="header-spec">ART / MOTION STUDY 01</span>
+        <button id="motionToggle" class="motion-toggle" type="button" aria-pressed="false" aria-label="動きのモードを切り替え">
+          <span class="motion-toggle-icon" aria-hidden="true">↝</span>
+          <span id="motionToggleLabel">DRIFT</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="hero" aria-labelledby="heroHeading">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>THE ART OF DISAPPEARING</p>
+        <h1 id="heroHeading">見つかるか。<br><span>生き残るか。</span></h1>
+        <p class="hero-description">見つからなかった蛾だけが、<br>次の世代へ進んでいく。<br>自然選択を、あなたの手で。</p>
+      </div>
+
+      <div id="kineticScene" class="kinetic-scene" aria-label="蛾と植物が滑らかに漂うアニメーション">
+        <!-- All illustrations are separate, swappable vector assets. -->
+        <div class="shape a-halo" data-motion="halo" aria-hidden="true">
+          <div class="shape-inner"><div class="orbit-halo"></div></div>
+        </div>
+
+        <div class="shape a-orbit" data-motion="orbit" aria-hidden="true">
+          <div class="shape-inner">
+            <svg viewBox="0 0 380 380"><circle cx="190" cy="190" r="162" stroke="#2b332e" stroke-opacity=".24" stroke-width="1.6" fill="none" stroke-dasharray="5 11"/><circle cx="190" cy="190" r="126" stroke="#2b332e" stroke-opacity=".13" stroke-width="1" fill="none"/><circle cx="352" cy="190" r="5" fill="#ff6235"/><circle cx="190" cy="64" r="3" fill="#264f43"/></svg>
+          </div>
+        </div>
+
+        <div class="shape a-disc" data-motion="disc" aria-hidden="true">
+          <div class="shape-inner"><div class="disc-art"><div class="disc-arc"></div></div></div>
+        </div>
+
+        <div class="shape a-branch" data-motion="branch" aria-hidden="true">
+          <div class="shape-inner">
+            <svg viewBox="0 0 220 330" preserveAspectRatio="xMidYMid meet">
+              <path d="M85 332Q149 217 122 28" stroke="#253f34" stroke-width="7" stroke-linecap="round" fill="none"/>
+              <path d="M125 107C38 116 7 43 9 11 69 16 110 43 125 107Z" fill="#315d42"/>
+              <path d="M137 161C210 124 215 62 203 24 157 52 139 105 137 161Z" fill="#99a951"/>
+              <path d="M113 213C40 200 13 155 16 120c56 11 93 48 97 93Z" fill="#d0be68"/>
+              <path d="M115 257C182 230 208 193 204 162 153 178 126 214 115 257Z" fill="#5f854c"/>
+              <path d="M18 20 123 102M202 31l-63 126M18 126l94 86M201 168l-85 87" stroke="#eff0c3" stroke-width="1.7" opacity=".66"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="shape a-leaf-one" data-motion="leaf-one" aria-hidden="true">
+          <div class="shape-inner">
+            <svg viewBox="0 0 180 140"><path d="M23 95C19 42 60 7 151 17c0 69-35 116-104 104Z" fill="#add16f"/><path d="M32 109c40-29 77-54 117-91M71 75l-3-40M92 60l42 26" stroke="#264f43" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+
+        <div class="shape a-leaf-two" data-motion="leaf-two" aria-hidden="true">
+          <div class="shape-inner">
+            <svg viewBox="0 0 180 140"><path d="M23 95C19 42 60 7 151 17c0 69-35 116-104 104Z" fill="#ff9a6e"/><path d="M32 109c40-29 77-54 117-91M71 75l-3-40M92 60l42 26" stroke="#c54e39" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+
+        <div class="shape a-flower" data-motion="flower" aria-hidden="true">
+          <div class="shape-inner">
+            <svg viewBox="0 0 180 180"><g fill="#e4d568"><ellipse cx="90" cy="42" rx="29" ry="39"/><ellipse cx="90" cy="138" rx="29" ry="39"/><ellipse cx="42" cy="90" rx="39" ry="29"/><ellipse cx="138" cy="90" rx="39" ry="29"/><ellipse cx="56" cy="56" rx="30" ry="29" transform="rotate(-45 56 56)"/><ellipse cx="124" cy="124" rx="30" ry="29" transform="rotate(-45 124 124)"/><ellipse cx="56" cy="124" rx="30" ry="29" transform="rotate(45 56 124)"/><ellipse cx="124" cy="56" rx="30" ry="29" transform="rotate(45 124 56)"/></g><circle cx="90" cy="90" r="33" fill="#243e39"/><circle cx="90" cy="90" r="14" fill="#fff4cb"/></svg>
+          </div>
+        </div>
+
+        <div class="shape a-moth" data-motion="moth" aria-hidden="true">
+          <div class="shape-inner">
+            <svg class="hero-moth-svg" viewBox="0 0 410 330">
+              <defs>
+                <linearGradient id="mothLeft" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fc916b"/><stop offset=".55" stop-color="#f5c07b"/><stop offset="1" stop-color="#f9e3ab"/></linearGradient>
+                <linearGradient id="mothRight" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#fc916b"/><stop offset=".55" stop-color="#f5c07b"/><stop offset="1" stop-color="#f9e3ab"/></linearGradient>
+              </defs>
+              <path d="M207 134C164 33 75 22 16 25 22 92 57 150 140 178 61 169 45 220 54 276c75 6 128-30 154-73Z" fill="url(#mothLeft)" stroke="#272f2b" stroke-width="5" stroke-linejoin="round"/>
+              <path d="M203 134C246 33 335 22 394 25 388 92 353 150 270 178c79-9 95 42 86 98-75 6-128-30-154-73Z" fill="url(#mothRight)" stroke="#272f2b" stroke-width="5" stroke-linejoin="round"/>
+              <path d="M21 44c84 2 148 50 175 118M389 44c-84 2-148 50-175 118M67 253c63 0 105-24 128-65M343 253c-63 0-105-24-128-65" fill="none" stroke="#fff1cf" stroke-width="10" stroke-linecap="round" opacity=".7"/>
+              <path d="M92 85c38 4 65 22 80 58M318 85c-38 4-65 22-80 58" fill="none" stroke="#a64e42" stroke-width="11" stroke-linecap="round" opacity=".75"/>
+              <path d="M116 207c26-15 50-24 66-29M294 207c-26-15-50-24-66-29" fill="none" stroke="#a64e42" stroke-width="12" stroke-linecap="round" opacity=".7"/>
+              <ellipse cx="205" cy="177" rx="16" ry="87" fill="#2b3430"/>
+              <ellipse cx="205" cy="168" rx="6" ry="64" fill="#637a5b"/>
+              <circle cx="205" cy="92" r="18" fill="#313d32"/>
+              <path d="M199 78c-19-37-27-45-52-51M211 78c19-37 27-45 52-51" stroke="#2b3430" stroke-width="5" fill="none" stroke-linecap="round"/>
+              <circle cx="186" cy="99" r="4" fill="#fff4d2"/><circle cx="224" cy="99" r="4" fill="#fff4d2"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="shape a-tag" data-motion="tag" aria-hidden="true">
+          <div class="shape-inner"><div class="specimen-tag"><span>SPECIMEN NO. 01</span><strong>EVOLUTION<br>IN MOTION</strong><span>↗ GITAI RESEARCH</span></div></div>
+        </div>
+
+        <span class="shape a-spark-one" data-motion="spark-one" aria-hidden="true">✳</span>
+        <span class="shape a-spark-two" data-motion="spark-two" aria-hidden="true">✳</span>
+        <span class="shape a-star" data-motion="star" aria-hidden="true">✦</span>
+      </div>
+
+      <div class="hero-action">
+        <button id="startExperience" class="start-experience" type="button">この世界へ <span aria-hidden="true">↗</span></button>
+        <p>TOUCH / TAP TO EXPLORE</p>
+      </div>
+      <div class="side-caption" aria-hidden="true">NATURE IS NEVER STILL. / 2026</div>
+    </section>
+
+    <footer class="site-footer">
+      <p>01 / 02 — TITLE MOTION EXPERIMENT</p>
+      <div class="progress-line" aria-hidden="true"><span></span></div>
+      <p>GITAI LAB / INVISILAB</p>
+    </footer>
+    <div id="transitionCurtain" class="transition-curtain" aria-hidden="true"></div>
+  </main>
+</body>
+</html>
