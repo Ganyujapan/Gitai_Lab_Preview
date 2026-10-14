@@ -248,6 +248,10 @@
         display: grid;
         grid-template-columns: minmax(0,1fr);
         grid-template-rows: minmax(0,1fr) auto;
+        /* Override the default .layout { align-items:start }.
+           Otherwise the absolutely positioned canvas gives the preview
+           grid item almost zero intrinsic height in Safari and Chromium. */
+        align-items: stretch;
         flex: 1;
         min-height: 0;
         gap: 4px;
