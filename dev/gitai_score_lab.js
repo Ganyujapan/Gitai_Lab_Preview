@@ -114,6 +114,7 @@
   const ratingFeedback = document.getElementById('ratingFeedback');
   const ratingSummary = document.getElementById('ratingSummary');
   const ratingExportButton = document.getElementById('ratingExportButton');
+  const ratingExportFullButton = document.getElementById('ratingExportFullButton');
   const ratingDeleteButton = document.getElementById('ratingDeleteButton');
   let ratingMode = false;
   let ratingBusy = false;
@@ -1973,7 +1974,7 @@
     ratingModeButton.textContent = ratingMode
       ? '採点モードを終了'
       : '採点モードを開始（自動選出）';
-    ratingSession.hidden = !ratingMode;
+    ratingSession.hidden = false; // Data export stays available outside the active rating screen.
     document.body.classList.toggle('rating-mode', ratingMode);
     ratingSaveButton.disabled = !(
       ratingMode && !ratingBusy && ratingSample && !ratingSampleSaved
@@ -1986,6 +1987,7 @@
     ratingUseBestButton.disabled = !ratingMode || ratingBusy || !ready || !best;
     ratingLoadGenomeButton.disabled = !ratingMode || ratingBusy || !ready;
     ratingExportButton.disabled = ratingBusy;
+    ratingExportFullButton.disabled = ratingBusy;
     ratingDeleteButton.disabled = ratingBusy;
     if (ratingMode) {
       optimizeButton.disabled = true;
@@ -2049,7 +2051,8 @@
       // Reservoir sampling within each observed bin limits selection bias.
       const pool = HUMAN_RATING_BANDS.map(() => null);
       const seen = HUMAN_RATING_BANDS.map(() => 0);
-      const attempts = 60;
+      // Smaller batches keep the human-feedback loop responsive on iPhone.
+      const attempts = 24;
       for (let i = 0; i < attempts; i += 1) {
         const fromBest = Boolean(best && i % 5 === 0);
         const genome = fromBest
@@ -2186,8 +2189,9 @@
     environmentSelect.disabled = true;
     customBackgroundChooseButton.disabled = true;
     customBackgroundDeleteButton.disabled = true;
-    ratingState.textContent = '背景・画像・スコアを端末内に保存しています…';
+    ratingState.textContent = '保存中…';
     updateRatingControls();
+    let saved = false;
     const sample = ratingSample;
     const humanCategory = getSelectedHumanCategory();
     const humanNote = ratingNote.value.trim().slice(0, 500);
@@ -2261,14 +2265,14 @@
       };
       await ratingWrite(row, backgroundRecord);
       ratingSampleSaved = true;
+      saved = true;
       ratingFeedback.textContent =
         '保存しました。あなたの評価：' + humanCategory.label
         + '／選択地点のv1：' + sample.metrics.total.toFixed(2)
         + '点／背景全体のv1：' + global.total.toFixed(2)
         + '点。※機械の数値と人間カテゴリは異なる尺度です。背景全体は上位10地点平均です。';
       ratingFeedback.hidden = false;
-      ratingState.textContent =
-        '評価を保存しました。次の個体を表示できます。';
+      ratingState.textContent = '保存しました。次の蛾を準備しています…';
       await refreshRatingSummary().catch(() => {
         ratingSummary.textContent = '評価は保存しましたが件数を確認できませんでした。';
       });
@@ -2283,9 +2287,25 @@
       customBackgroundDeleteButton.disabled = false;
       updateRatingControls();
     }
+    if (saved && ratingMode && ready) {
+      // Wait until the save transaction is committed before advancing.
+      // The evaluation selection is then cleared by makeRatingSample().
+      await makeRatingSample();
+    }
   }
 
-  async function exportHumanRatings() {
+  async function compressRatingBackgroundForExport(blob) {
+    const image = await loadImageFromBlob(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+    canvas.getContext('2d').drawImage(image, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+    return await canvasToBlob(canvas, 'image/webp', 0.65)
+      || await canvasToBlob(canvas, 'image/jpeg', 0.65)
+      || blob;
+  }
+
+  async function exportHumanRatings(includeIndividualImages = false) {
     if (ratingBusy) return;
     ratingBusy = true;
     updateRatingControls();
@@ -2300,23 +2320,35 @@
       }
       rows.sort((a, b) => a.created_at.localeCompare(b.created_at));
       const used = new Set(rows.map((row) => row.background_id));
-      const exportBackgrounds = await Promise.all(
-        backgrounds.filter((bg) => used.has(bg.id)).map(async (bg) => ({
+      const exportBackgrounds = [];
+      for (const bg of backgrounds) {
+        if (!used.has(bg.id)) continue;
+        // The compact format includes a single WebP snapshot per background
+        // (all specimen placements can be reconstructed from genome + position).
+        const backgroundImageBlob = includeIndividualImages
+          ? bg.blob
+          : await compressRatingBackgroundForExport(bg.blob);
+        exportBackgrounds.push({
           id: bg.id,
           environment_id: bg.environment_id,
           width: bg.width,
           height: bg.height,
-          image_data_url: await ratingBlobToDataUrl(bg.blob),
-        }))
-      );
+          image_data_url: await ratingBlobToDataUrl(backgroundImageBlob),
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
       const exportRatings = [];
       for (const row of rows) {
         const { composite_blob, moth_blob, ...metadata } = row;
-        exportRatings.push({
-          ...metadata,
-          composite_image_data_url: await ratingBlobToDataUrl(composite_blob),
-          moth_image_data_url: await ratingBlobToDataUrl(moth_blob),
-        });
+        if (includeIndividualImages) {
+          exportRatings.push({
+            ...metadata,
+            composite_image_data_url: await ratingBlobToDataUrl(composite_blob),
+            moth_image_data_url: await ratingBlobToDataUrl(moth_blob),
+          });
+        } else {
+          exportRatings.push(metadata);
+        }
       }
       const output = {
         schema_version: 1,
@@ -2327,6 +2359,7 @@
         human_rating_categories: HUMAN_RATING_CATEGORIES,
         // Legacy records with human_score are retained unchanged.
         rating_format: '6_ordinal_categories_v1_with_legacy_numeric_support',
+        export_type: includeIndividualImages ? 'full_image_archive' : 'compact_analysis',
         exported_at: new Date().toISOString(),
         ratings: exportRatings,
         backgrounds: exportBackgrounds,
@@ -2337,15 +2370,17 @@
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = 'gitai_human_ratings_' +
-        new Date().toISOString().slice(0, 10) + '.json';
+      anchor.download = 'gitai_human_ratings_'
+        + (includeIndividualImages ? 'full_' : 'compact_')
+        + new Date().toISOString().slice(0, 10) + '.json';
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
       ratingState.textContent =
-        rows.length + '件の評価と背景画像をJSONに書き出しました（' +
-        formatBytes(blob.size) + '）。';
+        rows.length + '件の評価をJSONファイルに保存しました（'
+        + formatBytes(blob.size)
+        + '）。Safariで開かず「ファイル」に保存して、このチャットへ添付してください。';
     } catch (error) {
       console.error(error);
       ratingState.textContent =
@@ -2403,7 +2438,8 @@
       chooseHumanCategory(button.dataset.ratingCategory);
     });
   }
-  ratingExportButton.addEventListener('click', exportHumanRatings);
+  ratingExportButton.addEventListener('click', () => exportHumanRatings(false));
+  ratingExportFullButton.addEventListener('click', () => exportHumanRatings(true));
   ratingDeleteButton.addEventListener('click', removeLastHumanRating);
 
   init();
