@@ -371,5 +371,6 @@
   portal.setAttribute('aria-hidden', 'false');
   intro.inert = false;
   menu.inert = true;
-  setMode('intro');
+  // Motion-study CTA can open the already existing mode menu directly.
+  setMode(params.get('portal') === 'menu' ? 'menu' : 'intro');
 })();
