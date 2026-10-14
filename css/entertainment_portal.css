@@ -4,6 +4,8 @@
  */
 #entertainmentPortal[hidden],
 #entertainmentPortal [hidden] { display: none !important; }
+/* Cover the older start overlay before the new script has finished loading. */
+html.pixel-portal-pending #entertainmentPortal[hidden] { display: block !important; }
 
 #entertainmentPortal {
   --portal-paper: #f6edcf;
