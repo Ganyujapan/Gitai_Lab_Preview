@@ -1365,6 +1365,31 @@
     }
   }
 
+  // In the one-screen scoring view, display a center crop of the 360x640
+  // background instead of shrinking the buttons off-screen. Track the chosen
+  // moth location so a specimen at the top or bottom remains visible.
+  function updateRatingPreviewCrop() {
+    if (!ratingMode) {
+      previewCanvas.style.objectPosition = '';
+      return;
+    }
+    const rect = previewCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const scale = Math.max(rect.width / GAME_WIDTH, rect.height / GAME_HEIGHT);
+    const scaledWidth = GAME_WIDTH * scale;
+    const scaledHeight = GAME_HEIGHT * scale;
+    const overflowX = Math.max(0, scaledWidth - rect.width);
+    const overflowY = Math.max(0, scaledHeight - rect.height);
+    const size = Number(appConfig?.game?.display_size_px) || SAMPLE;
+    const cx = targetTopLeft.x + size / 2;
+    const cy = targetTopLeft.y + size / 2;
+    const cropX = overflowX > 0.01
+      ? clamp((cx * scale - rect.width / 2) / overflowX, 0, 1) * 100 : 50;
+    const cropY = overflowY > 0.01
+      ? clamp((cy * scale - rect.height / 2) / overflowY, 0, 1) * 100 : 50;
+    previewCanvas.style.objectPosition = cropX.toFixed(2) + '% ' + cropY.toFixed(2) + '%';
+  }
+
   function renderPreview(showMarker) {
     drawBackground();
     const b = legalBounds();
@@ -1401,6 +1426,7 @@
       previewCtx.stroke();
       previewCtx.restore();
     }
+    updateRatingPreviewCrop();
   }
 
   function renderBest(globalMetrics) {
@@ -1712,7 +1738,9 @@
   }
 
   previewCanvas.addEventListener('pointerdown', (event) => {
-    if (running || ratingBusy) return;
+    // The cropped image no longer maps 1:1 to the old pointer coordinates.
+    // Lock the target during scoring; change position in normal lab mode.
+    if (running || ratingBusy || ratingMode) return;
     if (!ready || !backgroundPixels || !mask) {
       statusEl.textContent =
         '背景と蛾データを読み込み中です。少し待ってから操作してください。';
@@ -2459,6 +2487,9 @@
   ratingExportButton.addEventListener('click', () => exportHumanRatings(false));
   ratingExportFullButton.addEventListener('click', () => exportHumanRatings(true));
   ratingDeleteButton.addEventListener('click', removeLastHumanRating);
+  window.addEventListener('resize', () => {
+    if (ratingMode) updateRatingPreviewCrop();
+  });
 
   init();
 })();
