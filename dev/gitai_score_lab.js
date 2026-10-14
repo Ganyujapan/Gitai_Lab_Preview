@@ -99,6 +99,9 @@
   ];
   let selectedHumanCategoryId = null;
   const ratingModeButton = document.getElementById('ratingModeButton');
+  const ratingSamplingMode = document.getElementById('ratingSamplingMode');
+  let highRatingSeeds = [];
+  const recentlyRatedSeedIds = [];
   const ratingToolsToggle = document.getElementById('ratingToolsToggle');
   const ratingSession = document.getElementById('ratingSession');
   const ratingState = document.getElementById('ratingState');
@@ -1696,7 +1699,14 @@
         fetchJson('config/konchu_univ_alpha.json'),
         fetchJson('data/evolution_models/continuous_v1/config.json'),
         fetchJson('species/moth/species.json'),
+        fetchJson('research/calibration/high_rating_seed_genomes_v1.json').catch((error) => {
+          console.warn('High-rating seed data is unavailable:', error);
+          return null;
+        }),
       ]);
+      highRatingSeeds = Array.isArray(loaded[3]?.seeds)
+        ? loaded[3].seeds.filter((seed) => seed?.genome?.modules && seed?.id)
+        : [];
       appConfig = loaded[0];
       SAMPLE = Math.max(1, Math.round(Number(appConfig.game.display_size_px) || 38));
       evolutionConfig = loaded[1];
@@ -2000,9 +2010,12 @@
 
   function updateRatingControls() {
     ratingModeButton.disabled = ratingBusy || running || !ready;
+    ratingSamplingMode.disabled = ratingBusy || running || !ready;
     ratingModeButton.textContent = ratingMode
       ? '採点モードを終了'
-      : '採点モードを開始（自動選出）';
+      : (ratingSamplingMode.value === 'high'
+        ? '高擬態評価を開始'
+        : 'ランダム評価を開始');
     ratingSession.hidden = false; // Data export stays available outside the active rating screen.
     document.body.classList.toggle('rating-mode', ratingMode);
     document.body.classList.toggle('rating-tools-open', ratingMode && ratingToolsOpen);
@@ -2066,9 +2079,36 @@
     return rows;
   }
 
+  // High-camouflage samples are offspring of genomes previously rated highly
+  // by a person, NOT recycled identical scored specimens. Historic labels are
+  // used only to propose candidate genomes; they are never shown to the rater.
+  function generateHighRatingCandidate(localSeeds, attempt) {
+    const useSeed = localSeeds.length > 0 && Math.random() < 0.88;
+    const useBest = !useSeed && Boolean(best) && Math.random() < 0.65;
+    let genome, source, seedId = null;
+    if (useSeed) {
+      const seed = localSeeds[Math.floor(Math.random() * localSeeds.length)];
+      seedId = seed.id;
+      genome = mutateGenome(seed.genome, 0.18 + Math.random() * 1.12);
+      // A second mutation sometimes explores farther from a promising parent.
+      if (attempt % 5 === 0) {
+        genome = mutateGenome(genome, 0.15 + Math.random() * 0.65);
+      }
+      source = 'human_high_rating_seed_mutation';
+    } else if (useBest) {
+      genome = mutateGenome(best.genome, 0.30 + Math.random() * 0.85);
+      source = 'optimized_best_mutation';
+    } else {
+      genome = makeRandomGenome();
+      source = 'random_genome_high_focus';
+    }
+    return { genome, source, seedId };
+  }
+
   async function makeRatingSample() {
     if (!ratingMode || ratingBusy || !ready || !backgroundPixels) return;
     ratingBusy = true;
+    const samplingMode = ratingSamplingMode.value === 'high' ? 'high' : 'balanced';
     clearRatingSample('候補を選別しています…');
     renderPreview(true);
     environmentSelect.disabled = true;
@@ -2076,61 +2116,99 @@
 
     try {
       const rows = await ratingGetAll('ratings');
-      const counts = HUMAN_RATING_BANDS.map(() => 0);
-      rows.filter((row) => row.environment_id === environmentSelect.value)
-        .forEach((row) => {
-          counts[ratingBandIndex(row.v1_local.total)] += 1;
-        });
-
-      // Score-stratified sampling does not claim that every bin is attainable.
-      // Reservoir sampling within each observed bin limits selection bias.
-      const pool = HUMAN_RATING_BANDS.map(() => null);
-      const seen = HUMAN_RATING_BANDS.map(() => 0);
-      // Smaller batches keep the human-feedback loop responsive on iPhone.
-      const attempts = 24;
-      for (let i = 0; i < attempts; i += 1) {
-        const fromBest = Boolean(best && i % 5 === 0);
-        const genome = fromBest
-          ? mutateGenome(best.genome, 0.15 + Math.random() * 0.85)
-          : makeRandomGenome();
-        const result = evaluateLocal(genome);
-        const bi = ratingBandIndex(result.metrics.total);
-        seen[bi] += 1;
-        if (Math.random() < 1 / seen[bi]) {
-          pool[bi] = {
+      let chosen, chosenIndex, attempts;
+      if (samplingMode === 'high') {
+        const localSeeds = highRatingSeeds.filter(
+          (seed) => seed.environment_id === environmentSelect.value
+        );
+        // If the reference library cannot load for a preset background,
+        // do not silently claim a history-based high rating session.
+        if (!highRatingSeeds.length && environmentSelect.value !== CUSTOM_BACKGROUND_KEY) {
+          throw new Error('高評価Genomeデータを読み込めませんでした。ページを更新して再試行してください');
+        }
+        const pool = [];
+        attempts = 36;
+        for (let i = 0; i < attempts; i += 1) {
+          const generated = generateHighRatingCandidate(localSeeds, i);
+          const result = evaluateLocal(generated.genome);
+          pool.push({
             ...result,
-            source: fromBest ? 'mutated_optimized_best' : 'random_genome',
-          };
+            source: generated.source,
+            seed_id: generated.seedId,
+          });
+          if (i % 6 === 5) {
+            ratingState.textContent = '高擬態候補を探索中… ' + (i + 1) + '/' + attempts;
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
         }
-        if (i % 6 === 5) {
-          ratingState.textContent = '候補を選別しています… ' + (i + 1) + '/' + attempts;
-          await new Promise((resolve) => setTimeout(resolve, 0));
+        pool.sort((a, b) => b.metrics.total - a.metrics.total);
+        // Sample among the top candidates rather than always showing the
+        // single highest v1 score. Leave room to reveal v1 misjudgments.
+        const shortList = pool.slice(0, Math.min(10, pool.length));
+        const diverse = shortList.filter((x) =>
+          !x.seed_id || !recentlyRatedSeedIds.includes(x.seed_id)
+        );
+        const choices = diverse.length ? diverse : shortList;
+        chosen = choices[Math.floor(Math.random() * choices.length)];
+        chosenIndex = ratingBandIndex(chosen.metrics.total);
+        if (chosen.seed_id) {
+          recentlyRatedSeedIds.push(chosen.seed_id);
+          if (recentlyRatedSeedIds.length > 5) recentlyRatedSeedIds.shift();
         }
+      } else {
+        // Preserve the previously implemented stratified random sampling.
+        const counts = HUMAN_RATING_BANDS.map(() => 0);
+        rows.filter((row) => row.environment_id === environmentSelect.value)
+          .forEach((row) => {
+            counts[ratingBandIndex(row.v1_local.total)] += 1;
+          });
+        const pool = HUMAN_RATING_BANDS.map(() => null);
+        const seen = HUMAN_RATING_BANDS.map(() => 0);
+        attempts = 24;
+        for (let i = 0; i < attempts; i += 1) {
+          const fromBest = Boolean(best && i % 5 === 0);
+          const genome = fromBest
+            ? mutateGenome(best.genome, 0.15 + Math.random() * 0.85)
+            : makeRandomGenome();
+          const result = evaluateLocal(genome);
+          const bi = ratingBandIndex(result.metrics.total);
+          seen[bi] += 1;
+          if (Math.random() < 1 / seen[bi]) {
+            pool[bi] = {
+              ...result,
+              source: fromBest ? 'mutated_optimized_best' : 'random_genome',
+            };
+          }
+          if (i % 6 === 5) {
+            ratingState.textContent = '候補を選別しています… ' + (i + 1) + '/' + attempts;
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+        const available = pool.map((item, index) => item ? index : -1)
+          .filter((index) => index >= 0);
+        if (!available.length) throw new Error('採点候補を生成できませんでした');
+        const minCount = Math.min(...available.map((i) => counts[i]));
+        const tied = available.filter((i) => counts[i] === minCount);
+        chosenIndex = tied.find((i) => i > ratingLastBand) ?? tied[0];
+        ratingLastBand = chosenIndex;
+        chosen = pool[chosenIndex];
       }
-      const available = pool.map((item, index) => item ? index : -1)
-        .filter((index) => index >= 0);
-      if (!available.length) throw new Error('採点候補を生成できませんでした');
-
-      // Balance only among bins actually found in this candidate batch.
-      const minCount = Math.min(...available.map((i) => counts[i]));
-      const tied = available.filter((i) => counts[i] === minCount);
-      const chosenIndex = tied.find((i) => i > ratingLastBand) ?? tied[0];
-      ratingLastBand = chosenIndex;
+      if (!chosen) throw new Error('採点候補を生成できませんでした');
       ratingSample = {
-        ...pool[chosenIndex],
+        ...chosen,
         observed_band: chosenIndex,
         candidate_count: attempts,
+        sampling_mode: samplingMode,
       };
       ratingSampleSaved = false;
-      ratingState.textContent =
-        '蛾を表示しました。位置が分かっていても境界を認識できるか、'
-        + '拡大せずに確認し、6段階で評価してください。'
-        + '機械の採点は保存するまで表示しません。';
+      ratingState.textContent = samplingMode === 'high'
+        ? '高擬態候補を表示しました。機械スコアを見ず、6段階で評価してください。'
+        : 'ランダム候補を表示しました。機械スコアを見ず、6段階で評価してください。';
       renderPreview(false);
     } catch (error) {
       console.error(error);
-      ratingState.textContent =
-        '候補の生成に失敗しました：' + (error.message || String(error));
+      ratingState.textContent = '候補の生成に失敗しました：'
+        + (error.message || String(error));
     } finally {
       ratingBusy = false;
       environmentSelect.disabled = false;
@@ -2296,6 +2374,8 @@
         },
         sampling: {
           source: sample.source,
+          mode: sample.sampling_mode || 'manual',
+          seed_id: sample.seed_id || null,
           stratum_v1: ratingBandLabel(sample.observed_band),
           candidates_checked: sample.candidate_count,
         },
@@ -2455,6 +2535,12 @@
     }
   }
 
+  ratingSamplingMode.addEventListener('change', async () => {
+    if (ratingBusy || running) return;
+    recentlyRatedSeedIds.length = 0;
+    updateRatingControls();
+    if (ratingMode) await makeRatingSample();
+  });
   ratingModeButton.addEventListener('click', async () => {
     if (ratingBusy || running || !ready) return;
     ratingMode = !ratingMode;
