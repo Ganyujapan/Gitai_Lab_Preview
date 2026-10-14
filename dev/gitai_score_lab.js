@@ -56,11 +56,55 @@
 
   // Human ratings stay independent of both the custom-background slot and game data.
   const HUMAN_RATING_DB = 'gitai-calibration-human-ratings-v1';
+  // Machine-score bands are used only for unbiased sample selection.
   const HUMAN_RATING_BANDS = [[0, 39], [40, 59], [60, 79], [80, 94], [95, 100]];
+  // Human labels are ordinal, not artificial 0-100 numeric scores.
+  const HUMAN_RATING_CATEGORIES = [
+      {
+          "id": "complete",
+          "label": "完成域",
+          "description": "位置を知っていても、蛾の境界や内部模様をほとんど識別できない",
+          "order": 0
+      },
+      {
+          "id": "almost_complete",
+          "label": "ほぼ完成",
+          "description": "非常によく擬態しているが、注意深く見るとわずかな違和感がある",
+          "order": 1
+      },
+      {
+          "id": "excellent_plus",
+          "label": "非常に優秀",
+          "description": "注意深く見ないと蛾の存在を把握しにくい",
+          "order": 2
+      },
+      {
+          "id": "excellent",
+          "label": "優秀",
+          "description": "擬態していることは明確だが、十分に背景と調和している",
+          "order": 3
+      },
+      {
+          "id": "good",
+          "label": "良好",
+          "description": "ある程度は背景に馴染むが、蛾として認識できる",
+          "order": 4
+      },
+      {
+          "id": "conspicuous",
+          "label": "よく目立つ",
+          "description": "背景との差が大きく、容易に蛾を認識できる",
+          "order": 5
+      }
+  ];
+  let selectedHumanCategoryId = null;
   const ratingModeButton = document.getElementById('ratingModeButton');
   const ratingSession = document.getElementById('ratingSession');
   const ratingState = document.getElementById('ratingState');
-  const ratingInput = document.getElementById('humanRatingInput');
+  const ratingCategoryButtons = Array.from(
+    document.querySelectorAll('[data-rating-category]')
+  );
+  const selectedRatingCategoryText = document.getElementById('selectedRatingCategoryText');
   const ratingNote = document.getElementById('humanRatingNote');
   const ratingSaveButton = document.getElementById('ratingSaveButton');
   const ratingNextButton = document.getElementById('ratingNextButton');
@@ -1898,10 +1942,30 @@
     return HUMAN_RATING_BANDS[index].join('〜');
   }
 
-  function validHumanRating() {
-    const raw = ratingInput.value.trim();
-    if (!/^(?:[0-9]|[1-9][0-9]|100)$/.test(raw)) return false;
-    return Number.isInteger(Number(raw));
+  function getSelectedHumanCategory() {
+    return HUMAN_RATING_CATEGORIES.find(
+      (item) => item.id === selectedHumanCategoryId
+    ) || null;
+  }
+
+  function renderSelectedHumanCategory() {
+    const current = getSelectedHumanCategory();
+    for (const button of ratingCategoryButtons) {
+      const selected = button.dataset.ratingCategory === selectedHumanCategoryId;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    }
+    selectedRatingCategoryText.textContent = current
+      ? '選択中：' + current.label + ' — ' + current.description
+      : 'まだ選択されていません';
+  }
+
+  function chooseHumanCategory(categoryId) {
+    if (ratingBusy || !ratingMode || !ratingSample || ratingSampleSaved) return;
+    if (!HUMAN_RATING_CATEGORIES.some((item) => item.id === categoryId)) return;
+    selectedHumanCategoryId = categoryId;
+    renderSelectedHumanCategory();
+    updateRatingControls();
   }
 
   function updateRatingControls() {
@@ -1913,8 +1977,11 @@
     document.body.classList.toggle('rating-mode', ratingMode);
     ratingSaveButton.disabled = !(
       ratingMode && !ratingBusy && ratingSample && !ratingSampleSaved
-      && validHumanRating()
+      && Boolean(getSelectedHumanCategory())
     );
+    for (const button of ratingCategoryButtons) {
+      button.disabled = !ratingMode || ratingBusy || !ratingSample || ratingSampleSaved;
+    }
     ratingNextButton.disabled = !ratingMode || ratingBusy || !ready;
     ratingUseBestButton.disabled = !ratingMode || ratingBusy || !ready || !best;
     ratingLoadGenomeButton.disabled = !ratingMode || ratingBusy || !ready;
@@ -1936,7 +2003,8 @@
   function clearRatingSample(message) {
     ratingSample = null;
     ratingSampleSaved = false;
-    ratingInput.value = '';
+    selectedHumanCategoryId = null;
+    renderSelectedHumanCategory();
     ratingNote.value = '';
     ratingFeedback.hidden = true;
     ratingFeedback.textContent = '';
@@ -2112,7 +2180,7 @@
   async function saveHumanRating() {
     if (
       ratingBusy || !ratingMode || !ratingSample || ratingSampleSaved
-      || !ready || !validHumanRating()
+      || !ready || !getSelectedHumanCategory()
     ) return;
     ratingBusy = true;
     environmentSelect.disabled = true;
@@ -2121,7 +2189,7 @@
     ratingState.textContent = '背景・画像・スコアを端末内に保存しています…';
     updateRatingControls();
     const sample = ratingSample;
-    const humanScore = Number(ratingInput.value);
+    const humanCategory = getSelectedHumanCategory();
     const humanNote = ratingNote.value.trim().slice(0, 500);
     try {
       // Both the clean background and the composite are saved as immutable
@@ -2161,8 +2229,11 @@
         id: 'rating-' + Date.now().toString(36) + '-'
           + Math.random().toString(36).slice(2, 11),
         created_at: now,
-        definition_version: 'human_camouflage_B_20261014',
-        human_score: humanScore,
+        definition_version: 'human_camouflage_B_categories_v1_20261014',
+        human_category: humanCategory.label,
+        human_category_id: humanCategory.id,
+        human_category_order: humanCategory.order,
+        human_category_description: humanCategory.description,
         note: humanNote,
         environment_id: environmentSelect.value,
         environment_name: environmentSelect.selectedOptions[0]?.textContent || '',
@@ -2191,11 +2262,10 @@
       await ratingWrite(row, backgroundRecord);
       ratingSampleSaved = true;
       ratingFeedback.textContent =
-        '保存しました。あなたの評価：' + humanScore
-        + '点／選択地点のv1：' + sample.metrics.total.toFixed(2)
-        + '点（差：' + (humanScore - sample.metrics.total).toFixed(2)
-        + '点）／背景全体のv1：' + global.total.toFixed(2)
-        + '点。※背景全体は上位10地点平均で、人間評価の対象地点とは異なります。';
+        '保存しました。あなたの評価：' + humanCategory.label
+        + '／選択地点のv1：' + sample.metrics.total.toFixed(2)
+        + '点／背景全体のv1：' + global.total.toFixed(2)
+        + '点。※機械の数値と人間カテゴリは異なる尺度です。背景全体は上位10地点平均です。';
       ratingFeedback.hidden = false;
       ratingState.textContent =
         '評価を保存しました。次の個体を表示できます。';
@@ -2254,6 +2324,9 @@
         score_100_definition:
           'Even when the moth location is known, its boundaries and internal pattern are almost impossible to distinguish from the background.',
         scoring_model: 'gitai_score_v1_baseline',
+        human_rating_categories: HUMAN_RATING_CATEGORIES,
+        // Legacy records with human_score are retained unchanged.
+        rating_format: '6_ordinal_categories_v1_with_legacy_numeric_support',
         exported_at: new Date().toISOString(),
         ratings: exportRatings,
         backgrounds: exportBackgrounds,
@@ -2325,7 +2398,11 @@
   ratingUseBestButton.addEventListener('click', useOptimizedBestForRating);
   ratingLoadGenomeButton.addEventListener('click', loadManualGenomeForRating);
   ratingSaveButton.addEventListener('click', saveHumanRating);
-  ratingInput.addEventListener('input', updateRatingControls);
+  for (const button of ratingCategoryButtons) {
+    button.addEventListener('click', () => {
+      chooseHumanCategory(button.dataset.ratingCategory);
+    });
+  }
   ratingExportButton.addEventListener('click', exportHumanRatings);
   ratingDeleteButton.addEventListener('click', removeLastHumanRating);
 
