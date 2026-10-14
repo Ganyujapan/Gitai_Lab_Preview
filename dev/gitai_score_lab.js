@@ -100,6 +100,8 @@
   let selectedHumanCategoryId = null;
   const ratingModeButton = document.getElementById('ratingModeButton');
   const ratingSamplingMode = document.getElementById('ratingSamplingMode');
+  const ratingStopSearchButton = document.getElementById('ratingStopSearchButton');
+  const ratingSearchProgress = document.getElementById('ratingSearchProgress');
   let highRatingSeeds = [];
   const recentlyRatedSeedIds = [];
   const ratingToolsToggle = document.getElementById('ratingToolsToggle');
@@ -123,6 +125,8 @@
   let ratingMode = false;
   let ratingToolsOpen = false;
   let ratingBusy = false;
+  let ratingOptimizationInProgress = false;
+  let ratingOptimizationCancelled = false;
   let ratingSample = null;
   let ratingSampleSaved = false;
   let ratingLastBand = -1;
@@ -2013,9 +2017,17 @@
     ratingSamplingMode.disabled = ratingBusy || running || !ready;
     ratingModeButton.textContent = ratingMode
       ? '採点モードを終了'
-      : (ratingSamplingMode.value === 'high'
-        ? '高擬態評価を開始'
-        : 'ランダム評価を開始');
+      : (ratingSamplingMode.value === 'optimized1000'
+        ? '1000回最適化評価を開始'
+        : ratingSamplingMode.value === 'high'
+          ? '高擬態評価を開始'
+          : 'ランダム評価を開始');
+    // Keep the abort control available even while all other controls
+    // are disabled for the long-running independent 1000-trial search.
+    ratingStopSearchButton.hidden = !ratingOptimizationInProgress;
+    ratingStopSearchButton.disabled =
+      !ratingOptimizationInProgress || ratingOptimizationCancelled;
+    ratingSearchProgress.hidden = !ratingOptimizationInProgress;
     ratingSession.hidden = false; // Data export stays available outside the active rating screen.
     document.body.classList.toggle('rating-mode', ratingMode);
     document.body.classList.toggle('rating-tools-open', ratingMode && ratingToolsOpen);
@@ -2105,10 +2117,65 @@
     return { genome, source, seedId };
   }
 
+  // One fresh, independent optimization per human judgement.
+  // Mirrors optimize()'s warmup and annealed mutations, but deliberately does
+  // not read or write the global 'best' (which carries over between runs).
+  async function independentlyOptimize1000ForRating() {
+    const iterations = 1000;
+    const warmup = 80;
+    let currentBest = evaluateLocal(makeRandomGenome());
+    ratingSearchProgress.max = iterations;
+    ratingSearchProgress.value = 0;
+
+    for (let i = 0; i < warmup; i += 1) {
+      if (ratingOptimizationCancelled) return null;
+      const trial = evaluateLocal(makeRandomGenome());
+      if (trial.metrics.total > currentBest.metrics.total) currentBest = trial;
+      if (i % 8 === 0) {
+        ratingState.textContent = '準備探索中… ' + (i + 1) + ' / ' + warmup;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    for (let i = 0; i < iterations; i += 1) {
+      if (ratingOptimizationCancelled) return null;
+      const progress = i / (iterations - 1);
+      const scale = Math.max(0.10, 1 - progress * 0.90);
+      const candidateGenome = Math.random() < 0.075
+        ? makeRandomGenome()
+        : mutateGenome(currentBest.genome, scale);
+      const candidate = evaluateLocal(candidateGenome);
+      if (candidate.metrics.total > currentBest.metrics.total) {
+        currentBest = candidate;
+      }
+
+      if (i % 10 === 9 || i === iterations - 1) {
+        ratingSearchProgress.value = i + 1;
+        ratingState.textContent = '独立最適化中… ' + (i + 1)
+          + ' / 1000回（機械スコアは採点後に記録）';
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    if (ratingOptimizationCancelled) return null;
+    return {
+      ...currentBest,
+      source: 'independent_optimization_1000_best',
+      optimization_iterations: iterations,
+      optimization_warmup_trials: warmup,
+      optimization_initial_genomes: 1,
+      optimization_initialization: 'fresh_random',
+      // 1 initial candidate + 80 warmup + 1000 optimization iterations.
+      candidate_count: 1 + warmup + iterations,
+    };
+  }
+
   async function makeRatingSample() {
     if (!ratingMode || ratingBusy || !ready || !backgroundPixels) return;
     ratingBusy = true;
-    const samplingMode = ratingSamplingMode.value === 'high' ? 'high' : 'balanced';
+    const samplingMode = ['balanced', 'high', 'optimized1000'].includes(ratingSamplingMode.value)
+      ? ratingSamplingMode.value : 'balanced';
+    ratingOptimizationCancelled = false;
+    ratingOptimizationInProgress = samplingMode === 'optimized1000';
     clearRatingSample('候補を選別しています…');
     renderPreview(true);
     environmentSelect.disabled = true;
@@ -2117,7 +2184,15 @@
     try {
       const rows = await ratingGetAll('ratings');
       let chosen, chosenIndex, attempts;
-      if (samplingMode === 'high') {
+      if (samplingMode === 'optimized1000') {
+        chosen = await independentlyOptimize1000ForRating();
+        if (!chosen) {
+          ratingState.textContent = '探索を中止しました。「保留／次の蛾」で新しく探索できます。';
+          return;
+        }
+        chosenIndex = ratingBandIndex(chosen.metrics.total);
+        attempts = chosen.candidate_count;
+      } else if (samplingMode === 'high') {
         const localSeeds = highRatingSeeds.filter(
           (seed) => seed.environment_id === environmentSelect.value
         );
@@ -2201,15 +2276,18 @@
         sampling_mode: samplingMode,
       };
       ratingSampleSaved = false;
-      ratingState.textContent = samplingMode === 'high'
-        ? '高擬態候補を表示しました。機械スコアを見ず、6段階で評価してください。'
-        : 'ランダム候補を表示しました。機械スコアを見ず、6段階で評価してください。';
+      ratingState.textContent = samplingMode === 'optimized1000'
+        ? '独立した1000回最適化の最良個体です。機械スコアを見ず評価してください。'
+        : samplingMode === 'high'
+          ? '高擬態候補を表示しました。機械スコアを見ず、6段階で評価してください。'
+          : 'ランダム候補を表示しました。機械スコアを見ず、6段階で評価してください。';
       renderPreview(false);
     } catch (error) {
       console.error(error);
       ratingState.textContent = '候補の生成に失敗しました：'
         + (error.message || String(error));
     } finally {
+      ratingOptimizationInProgress = false;
       ratingBusy = false;
       environmentSelect.disabled = false;
       updateRatingControls();
@@ -2378,6 +2456,12 @@
           seed_id: sample.seed_id || null,
           stratum_v1: ratingBandLabel(sample.observed_band),
           candidates_checked: sample.candidate_count,
+          ...(sample.optimization_iterations ? {
+            optimization_iterations: sample.optimization_iterations,
+            optimization_warmup_trials: sample.optimization_warmup_trials,
+            optimization_initial_genomes: sample.optimization_initial_genomes,
+            optimization_initialization: sample.optimization_initialization,
+          } : {}),
         },
         composite_blob: compositeBlob,
         moth_blob: mothBlob,
@@ -2534,6 +2618,13 @@
       updateRatingControls();
     }
   }
+
+  ratingStopSearchButton.addEventListener('click', () => {
+    if (!ratingOptimizationInProgress || ratingOptimizationCancelled) return;
+    ratingOptimizationCancelled = true;
+    ratingStopSearchButton.disabled = true;
+    ratingState.textContent = '最適化を中止しています…';
+  });
 
   ratingSamplingMode.addEventListener('change', async () => {
     if (ratingBusy || running) return;
