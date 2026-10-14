@@ -19,7 +19,7 @@
   isolation: isolate;
   background: #182b2b;
   color: var(--portal-paper);
-  font-family: 'PixelMplus', 'Courier New', monospace;
+  font-family: 'DotGothic16', 'PixelMplus', 'Courier New', monospace;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -325,7 +325,7 @@
 }
 #entertainmentPortal .portal-mode-sub {
   display: block;
-  font: 700 clamp(9px, 2.55vw, 11px)/1.5 'PixelMplus', 'Courier New', monospace;
+  font: 700 clamp(9px, 2.55vw, 11px)/1.5 'DotGothic16', 'PixelMplus', 'Courier New', monospace;
   letter-spacing: 0;
   margin-top: 4px;
   opacity: .77;
