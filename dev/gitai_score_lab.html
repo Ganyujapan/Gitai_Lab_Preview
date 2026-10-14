@@ -590,14 +590,18 @@
           </p>
           <p class="small">背景をタップして位置を固定し、<strong>拡大せず</strong>同じ端末で評価してください。
             ランダム評価は従来通り幅広い点数帯から出題します。高擬態評価は過去の高評価Genomeを変異させた候補を中心に出題します。
-            「1000回最適化」は毎回新しいランダム個体から最適化し、最良の1匹だけを表示します（事前ランダム探索80回＋最適化1000回）。
+            最適化評価は毎回新しいランダム個体から探索し、最良の1匹だけを表示します。試行回数は100〜1000回から選べます。砂地で1000回だと完成域に偏る場合は100〜300回を試してください。
             どのモードも機械スコアや過去の人間評価は採点前に表示しません。</p>
           <div id="ratingSamplingPicker" class="rating-sampling-picker">
             <label for="ratingSamplingMode">採点の種類</label>
             <select id="ratingSamplingMode">
               <option value="balanced">ランダム評価（従来）</option>
               <option value="high">高擬態評価（36候補）</option>
-              <option value="optimized1000">1000回最適化・最良1匹</option>
+              <option value="optimized100">100回最適化・最良1匹</option>
+              <option value="optimized200">200回最適化・最良1匹</option>
+              <option value="optimized300">300回最適化・最良1匹</option>
+              <option value="optimized500">500回最適化・最良1匹</option>
+              <option value="optimized1000">1000回最適化・最良1匹（従来）</option>
             </select>
           </div>
           <div class="rating-toolbar">
@@ -605,7 +609,7 @@
             <button id="ratingStopSearchButton" type="button" hidden>探索を中止</button>
             <button id="ratingToolsToggle" type="button" hidden aria-expanded="false">メモ・管理</button>
           </div>
-          <progress id="ratingSearchProgress" value="0" max="1000" hidden aria-label="1000回最適化の進捗"></progress>
+          <progress id="ratingSearchProgress" value="0" max="1000" hidden aria-label="最適化の進捗"></progress>
           <div id="ratingSession">
             <div id="ratingState" class="rating-message" aria-live="polite">準備中…</div>
             <div id="ratingEvaluation">
@@ -700,6 +704,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-optimized1000-1"></script>
+  <script src="./gitai_score_lab.js?v=20261014-variableopt1"></script>
 </body>
 </html>
