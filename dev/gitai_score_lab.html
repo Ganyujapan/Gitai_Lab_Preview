@@ -229,7 +229,10 @@
     body.rating-mode .human-rating-lab .rating-sampling-picker select { padding: 4px; font-size: 12px; min-height: 30px; }
     .human-rating-lab .rating-toolbar { display: flex; gap: 6px; }
     .human-rating-lab .rating-toolbar > #ratingModeButton { flex: 1 1 auto; width: auto; min-width: 0; margin-top: 5px; }
-    .human-rating-lab .rating-toolbar > #ratingToolsToggle { flex: 0 0 auto; width: auto; min-width: 0; margin-top: 5px; font-size: 12px; }
+    .human-rating-lab .rating-toolbar > #ratingToolsToggle,
+    .human-rating-lab .rating-toolbar > #ratingStopSearchButton { flex: 0 0 auto; width: auto; min-width: 0; margin-top: 5px; font-size: 12px; }
+    .human-rating-lab #ratingSearchProgress { display: block; width: 100%; height: 5px; margin: 2px 0; }
+    .human-rating-lab #ratingSearchProgress[hidden] { display: none !important; }
     body.rating-mode.rating-tools-open #ratingManagement { display: block !important; max-height: 34dvh; overflow: auto; }
     body.rating-mode.rating-tools-open #ratingManagement .small { display: block; }
     .human-rating-lab #ratingFeedback { color: #ffe0a1; }
@@ -587,18 +590,22 @@
           </p>
           <p class="small">背景をタップして位置を固定し、<strong>拡大せず</strong>同じ端末で評価してください。
             ランダム評価は従来通り幅広い点数帯から出題します。高擬態評価は過去の高評価Genomeを変異させた候補を中心に出題します。
-            どちらも機械スコアや過去の人間評価は採点前に表示しません。</p>
+            「1000回最適化」は毎回新しいランダム個体から最適化し、最良の1匹だけを表示します（事前ランダム探索80回＋最適化1000回）。
+            どのモードも機械スコアや過去の人間評価は採点前に表示しません。</p>
           <div id="ratingSamplingPicker" class="rating-sampling-picker">
             <label for="ratingSamplingMode">採点の種類</label>
             <select id="ratingSamplingMode">
               <option value="balanced">ランダム評価（従来）</option>
-              <option value="high">高擬態評価（新）</option>
+              <option value="high">高擬態評価（36候補）</option>
+              <option value="optimized1000">1000回最適化・最良1匹</option>
             </select>
           </div>
           <div class="rating-toolbar">
             <button id="ratingModeButton" class="primary" type="button" disabled>採点モードを開始</button>
+            <button id="ratingStopSearchButton" type="button" hidden>探索を中止</button>
             <button id="ratingToolsToggle" type="button" hidden aria-expanded="false">メモ・管理</button>
           </div>
+          <progress id="ratingSearchProgress" value="0" max="1000" hidden aria-label="1000回最適化の進捗"></progress>
           <div id="ratingSession">
             <div id="ratingState" class="rating-message" aria-live="polite">準備中…</div>
             <div id="ratingEvaluation">
@@ -693,6 +700,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-highfocus1"></script>
+  <script src="./gitai_score_lab.js?v=20261014-optimized1000-1"></script>
 </body>
 </html>
