@@ -1369,25 +1369,24 @@
   // background instead of shrinking the buttons off-screen. Track the chosen
   // moth location so a specimen at the top or bottom remains visible.
   function updateRatingPreviewCrop() {
+    const frame = previewCanvas.parentElement;
     if (!ratingMode) {
-      previewCanvas.style.objectPosition = '';
+      frame.style.removeProperty('--rating-preview-top');
       return;
     }
-    const rect = previewCanvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const scale = Math.max(rect.width / GAME_WIDTH, rect.height / GAME_HEIGHT);
-    const scaledWidth = GAME_WIDTH * scale;
-    const scaledHeight = GAME_HEIGHT * scale;
-    const overflowX = Math.max(0, scaledWidth - rect.width);
-    const overflowY = Math.max(0, scaledHeight - rect.height);
-    const size = Number(appConfig?.game?.display_size_px) || SAMPLE;
-    const cx = targetTopLeft.x + size / 2;
-    const cy = targetTopLeft.y + size / 2;
-    const cropX = overflowX > 0.01
-      ? clamp((cx * scale - rect.width / 2) / overflowX, 0, 1) * 100 : 50;
-    const cropY = overflowY > 0.01
-      ? clamp((cy * scale - rect.height / 2) / overflowY, 0, 1) * 100 : 50;
-    previewCanvas.style.objectPosition = cropX.toFixed(2) + '% ' + cropY.toFixed(2) + '%';
+    // Render canvas with its native 9:16 aspect ratio inside a fixed-height
+    // viewport; use translation to crop only the excess top/bottom.
+    const viewWidth = frame.clientWidth;
+    const viewHeight = frame.clientHeight;
+    if (!viewWidth || !viewHeight) return;
+    const scale = viewWidth / GAME_WIDTH;
+    const canvasHeight = GAME_HEIGHT * scale;
+    const mothCenterY = targetTopLeft.y + legalBounds().size / 2;
+    const top = canvasHeight <= viewHeight
+      ? (viewHeight - canvasHeight) / 2
+      : clamp(viewHeight / 2 - mothCenterY * scale,
+          viewHeight - canvasHeight, 0);
+    frame.style.setProperty('--rating-preview-top', top.toFixed(2) + 'px');
   }
 
   function renderPreview(showMarker) {
