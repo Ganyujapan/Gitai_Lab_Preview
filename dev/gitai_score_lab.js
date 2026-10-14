@@ -99,6 +99,7 @@
   ];
   let selectedHumanCategoryId = null;
   const ratingModeButton = document.getElementById('ratingModeButton');
+  const ratingToolsToggle = document.getElementById('ratingToolsToggle');
   const ratingSession = document.getElementById('ratingSession');
   const ratingState = document.getElementById('ratingState');
   const ratingCategoryButtons = Array.from(
@@ -117,6 +118,7 @@
   const ratingExportFullButton = document.getElementById('ratingExportFullButton');
   const ratingDeleteButton = document.getElementById('ratingDeleteButton');
   let ratingMode = false;
+  let ratingToolsOpen = false;
   let ratingBusy = false;
   let ratingSample = null;
   let ratingSampleSaved = false;
@@ -1976,6 +1978,10 @@
       : '採点モードを開始（自動選出）';
     ratingSession.hidden = false; // Data export stays available outside the active rating screen.
     document.body.classList.toggle('rating-mode', ratingMode);
+    document.body.classList.toggle('rating-tools-open', ratingMode && ratingToolsOpen);
+    ratingToolsToggle.hidden = !ratingMode;
+    ratingToolsToggle.disabled = ratingBusy;
+    ratingToolsToggle.setAttribute('aria-expanded', ratingToolsOpen ? 'true' : 'false');
     ratingSaveButton.disabled = !(
       ratingMode && !ratingBusy && ratingSample && !ratingSampleSaved
       && Boolean(getSelectedHumanCategory())
@@ -1984,8 +1990,10 @@
       button.disabled = !ratingMode || ratingBusy || !ratingSample || ratingSampleSaved;
     }
     ratingNextButton.disabled = !ratingMode || ratingBusy || !ready;
-    ratingUseBestButton.disabled = !ratingMode || ratingBusy || !ready || !best;
-    ratingLoadGenomeButton.disabled = !ratingMode || ratingBusy || !ready;
+    // From the management panel, choosing an optimized or imported moth
+    // can enter rating mode directly.
+    ratingUseBestButton.disabled = ratingBusy || !ready || !best;
+    ratingLoadGenomeButton.disabled = ratingBusy || !ready;
     ratingExportButton.disabled = ratingBusy;
     ratingExportFullButton.disabled = ratingBusy;
     ratingDeleteButton.disabled = ratingBusy;
@@ -2089,7 +2097,7 @@
       ratingSampleSaved = false;
       ratingState.textContent =
         '蛾を表示しました。位置が分かっていても境界を認識できるか、'
-        + '拡大せずに確認し、0〜100点で評価してください。'
+        + '拡大せずに確認し、6段階で評価してください。'
         + '機械の採点は保存するまで表示しません。';
       renderPreview(false);
     } catch (error) {
@@ -2104,7 +2112,9 @@
   }
 
   function useOptimizedBestForRating() {
-    if (!ratingMode || ratingBusy || !ready || !best) return;
+    if (ratingBusy || !ready || !best) return;
+    ratingMode = true;
+    ratingToolsOpen = false;
     clearRatingSample();
     ratingSample = {
       genome: JSON.parse(JSON.stringify(best.genome)),
@@ -2121,7 +2131,7 @@
   }
 
   function loadManualGenomeForRating() {
-    if (!ratingMode || ratingBusy || !ready) return;
+    if (ratingBusy || !ready) return;
     try {
       const genome = JSON.parse(ratingGenomeInput.value);
       if (
@@ -2135,6 +2145,8 @@
         throw new Error('Genome JSONの形式が正しくありません');
       }
       const candidate = evaluateLocal(genome);
+      ratingMode = true;
+      ratingToolsOpen = false;
       clearRatingSample();
       ratingSample = {
         ...candidate,
@@ -2143,7 +2155,7 @@
         candidate_count: 1,
       };
       ratingState.textContent =
-        '読み込んだGenomeを配置しました。現在の背景と位置で0〜100点をつけてください。';
+        '読み込んだGenomeを配置しました。現在の背景と位置で6段階の評価をつけてください。';
       renderPreview(false);
       updateRatingControls();
     } catch (error) {
@@ -2419,6 +2431,7 @@
   ratingModeButton.addEventListener('click', async () => {
     if (ratingBusy || running || !ready) return;
     ratingMode = !ratingMode;
+    ratingToolsOpen = false;
     if (ratingMode) {
       clearRatingSample('採点モードを開始します。');
       updateRatingControls();
@@ -2428,6 +2441,11 @@
       renderPreview(false);
       updateRatingControls();
     }
+  });
+  ratingToolsToggle.addEventListener('click', () => {
+    if (!ratingMode || ratingBusy) return;
+    ratingToolsOpen = !ratingToolsOpen;
+    updateRatingControls();
   });
   ratingNextButton.addEventListener('click', makeRatingSample);
   ratingUseBestButton.addEventListener('click', useOptimizedBestForRating);
