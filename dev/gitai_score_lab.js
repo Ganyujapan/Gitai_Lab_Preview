@@ -44,6 +44,7 @@
   let best = null;
   let stopRequested = false;
   let running = false;
+  let coreReady = false;
   let ready = false;
 
   function clamp(value, minValue, maxValue) {
@@ -1368,11 +1369,12 @@
       evolutionConfig = loaded[1];
       genetics = evolutionConfig.trait_genetics || {};
 
-      const parentUrl = new URL(
-        loaded[2].genetics.mask_source,
-        ROOT,
-      ).toString();
-      const parentData = await loadImageData(parentUrl, SIZE, SIZE);
+      const maskSource = window.GitaiPreviewMaskDataUri
+        || new URL(
+          loaded[2].genetics.mask_source,
+          ROOT,
+        ).toString();
+      const parentData = await loadImageData(maskSource, SIZE, SIZE);
       mask = new Uint8Array(SIZE * SIZE);
       templateAlpha = new Uint8Array(SIZE * SIZE);
       for (let i = 0; i < SIZE * SIZE; i += 1) {
@@ -1381,12 +1383,14 @@
         templateAlpha[i] = alpha;
       }
 
+      coreReady = true;
       await loadEnvironment(environmentSelect.value);
       ready = true;
       optimizeButton.disabled = false;
       randomButton.disabled = false;
       environmentSelect.disabled = false;
     } catch (error) {
+      coreReady = false;
       ready = false;
       console.error(error);
       optimizeButton.disabled = true;
@@ -1424,6 +1428,12 @@
 
   environmentSelect.addEventListener('change', async () => {
     if (running) return;
+    if (!coreReady) {
+      statusEl.textContent =
+        '基本データを読み込み中です。選んだ背景は読み込み完了後に反映されます。';
+      return;
+    }
+
     const requestedEnvironment = environmentSelect.value;
     ready = false;
     optimizeButton.disabled = true;
