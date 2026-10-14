@@ -253,6 +253,7 @@
         gap: 4px;
       }
       body.rating-mode .layout > .panel:first-child {
+        min-width: 0;
         min-height: 0;
         display: flex;
         flex-direction: column;
@@ -267,14 +268,30 @@
         display: none;
       }
       body.rating-mode .game-wrap {
-        flex: 0 1 auto;
-        width: auto;
+        /* Fill only the space ABOVE the controls. The picture may be cropped. */
+        flex: 1 1 0;
+        min-height: 0;
+        min-width: 0;
+        width: min(100%, 360px);
         height: 100%;
         max-width: 100%;
         max-height: 100%;
+        aspect-ratio: auto;
+        margin: 0 auto;
+        overflow: hidden;
         border-width: 1px;
         border-radius: 4px;
       }
+      body.rating-mode #previewCanvas {
+        width: 100%;
+        height: 100%;
+        /* Preserve game pixels; crop excess edges, rather than covering buttons. */
+        object-fit: cover;
+        object-position: 50% 50%;
+        cursor: default;
+        touch-action: none;
+      }
+      body.rating-mode .controls { min-width: 0; min-height: 0; }
       body.rating-mode .controls {
         display: block;
         padding: 0;
@@ -332,6 +349,16 @@
         min-height: 39px;
         padding: 6px 4px;
         font-size: 13px;
+      }
+      /* Keep essential actions fully inside the browser's usable viewport. */
+      body.rating-mode .layout { padding-bottom: 3px; }
+      @media (max-height: 610px) {
+        body.rating-mode #ratingState { display: none; }
+        body.rating-mode .rating-category-button {
+          min-height: 34px;
+          padding: 2px 1px;
+        }
+        body.rating-mode #ratingActionButtons button { min-height: 34px; }
       }
     }
     @media (max-width: 950px) and (orientation: landscape) {
@@ -625,6 +652,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-quick2"></script>
+  <script src="./gitai_score_lab.js?v=20261014-crop1"></script>
 </body>
 </html>
