@@ -211,7 +211,11 @@
     .human-rating-lab textarea { min-height: 65px; font-size: 14px; }
     .human-rating-lab .rating-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 9px 0; }
     .human-rating-lab .rating-buttons button { min-width: 0; font-size: 13px; }
-    .human-rating-lab #ratingModeButton { margin-top: 5px; }
+    .human-rating-lab .rating-toolbar { display: flex; gap: 6px; }
+    .human-rating-lab .rating-toolbar > #ratingModeButton { flex: 1 1 auto; width: auto; min-width: 0; margin-top: 5px; }
+    .human-rating-lab .rating-toolbar > #ratingToolsToggle { flex: 0 0 auto; width: auto; min-width: 0; margin-top: 5px; font-size: 12px; }
+    body.rating-mode.rating-tools-open #ratingManagement { display: block !important; max-height: 34dvh; overflow: auto; }
+    body.rating-mode.rating-tools-open #ratingManagement .small { display: block; }
     .human-rating-lab #ratingFeedback { color: #ffe0a1; }
     .human-rating-lab .rating-counter { font-size: 12px; color: var(--muted); }
     body.rating-mode #optimizationButtons,
@@ -523,7 +527,10 @@
           </p>
           <p class="small">背景をタップして位置を固定し、<strong>拡大せず</strong>同じ端末で評価してください。
             最適化とは別に、現行v1の点数帯が偏りすぎないよう候補を選別します。低・高得点帯の出現は保証されません。</p>
-          <button id="ratingModeButton" class="primary" type="button" disabled>採点モードを開始</button>
+          <div class="rating-toolbar">
+            <button id="ratingModeButton" class="primary" type="button" disabled>採点モードを開始</button>
+            <button id="ratingToolsToggle" type="button" hidden aria-expanded="false">メモ・管理</button>
+          </div>
           <div id="ratingSession">
             <div id="ratingState" class="rating-message" aria-live="polite">準備中…</div>
             <div id="ratingEvaluation">
@@ -618,6 +625,6 @@
     </div>
   </main>
   <script src="../js/mask_data.js?v=20261014"></script>
-  <script src="./gitai_score_lab.js?v=20261014-quick1"></script>
+  <script src="./gitai_score_lab.js?v=20261014-quick2"></script>
 </body>
 </html>
