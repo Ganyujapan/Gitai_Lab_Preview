@@ -573,7 +573,22 @@
     restartAnimation();
   }
 
+  // The game reloads this page to advance generations. Remember SOLO mode in
+  // the URL so the entertainment title does not reopen after every generation.
+  // replaceState does not reload the page or touch evolution/IndexedDB data.
+  function setSoloRoute(isPlaying) {
+    try {
+      const url = new URL(window.location.href);
+      if (isPlaying) url.searchParams.set('play', '1');
+      else url.searchParams.delete('play');
+      window.history.replaceState(window.history.state, '', url.toString());
+    } catch (error) {
+      console.warn('Could not update SOLO navigation URL:', error);
+    }
+  }
+
   function showMenu() {
+    setSoloRoute(false);
     portal.hidden = false;
     portal.setAttribute('aria-hidden', 'false');
     active = true;
@@ -582,6 +597,7 @@
   }
 
   function startSolo() {
+    setSoloRoute(true);
     document.documentElement.classList.remove('pixel-portal-pending');
     active = false;
     window.cancelAnimationFrame(raf);
