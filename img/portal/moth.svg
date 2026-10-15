@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 560">
+<defs>
+<linearGradient id="wing" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ECE9C8"/><stop offset=".38" stop-color="#AAC29B"/><stop offset=".75" stop-color="#548577"/><stop offset="1" stop-color="#254C46"/></linearGradient>
+<linearGradient id="under" x1="0" x2="1"><stop stop-color="#DECBA1"/><stop offset=".55" stop-color="#AD946F"/><stop offset="1" stop-color="#537565"/></linearGradient>
+</defs>
+<g stroke-linejoin="round">
+<g id="left">
+<path d="M312 248 C255 154 131 87 48 118 C21 157 56 246 122 298 C79 349 106 434 183 463 C245 446 294 371 315 300Z" fill="url(#wing)" stroke="#D9E4C5" stroke-width="6"/>
+<path d="M307 265 C234 197 141 162 71 157 C87 234 150 277 233 304 C153 330 146 389 188 423 C249 391 286 327 307 284Z" fill="#254A43" opacity=".52"/>
+<path d="M307 250 C250 186 171 153 95 150 M307 267 C217 234 151 238 102 220 M307 284 C220 282 164 303 134 348 M307 298 C242 322 211 372 192 429" fill="none" stroke="#E2DCB1" stroke-width="4" opacity=".75"/>
+<path d="M121 171 C152 141 206 167 221 198 C201 231 147 218 121 171Z" fill="#D7B17C"/>
+<path d="M134 178 C159 159 189 177 191 195 C173 207 149 201 134 178Z" fill="#27443F"/>
+<path d="M166 340 C190 316 225 319 245 339 C229 375 197 382 167 358Z" fill="#DFB986"/>
+<path d="M177 344 C202 329 227 335 223 353 C204 369 186 367 177 344Z" fill="#3A574B"/>
+<g fill="#F7E7B9" opacity=".87"><circle cx="99" cy="252" r="6"/><circle cx="124" cy="276" r="4"/><circle cx="163" cy="406" r="6"/><circle cx="221" cy="403" r="4"/><circle cx="260" cy="242" r="6"/></g>
+</g>
+<use href="#left" transform="translate(640 0) scale(-1 1)"/>
+<path d="M317 213 C310 172 297 145 271 128 M323 213 C329 172 346 145 371 128" stroke="#E5D8B0" stroke-width="5" fill="none" stroke-linecap="round"/>
+<path d="M320 205 C300 220 307 306 312 349 C316 388 320 409 320 409 C325 374 332 348 330 349 C337 302 340 218 320 205Z" fill="#23443D" stroke="#E9DDB2" stroke-width="5"/>
+<path d="M320 226L320 378" stroke="#B7BE8E" stroke-width="3" opacity=".8"/>
+<ellipse cx="320" cy="210" rx="19" ry="22" fill="#E2C591" stroke="#25453D" stroke-width="4"/>
+<circle cx="311" cy="206" r="3.3" fill="#23443F"/><circle cx="330" cy="206" r="3.3" fill="#23443F"/>
+</g></svg>

@@ -1,0 +1,176 @@
+/* Motion study — scoped to the entertainment entrance. No game rules affected. */
+#entertainmentPortal {position:fixed;inset:0;background:#071511;}
+#entertainmentPortal .portal-menu{
+ inset:auto;top:50%;left:50%;
+ width:min(100vw,calc(100dvh * .5625));
+ height:min(100dvh,calc(100vw * 1.7777778));
+ transform:translate(-50%,calc(-50% + 7px));background:#142525;
+}
+#entertainmentPortal .portal-menu.is-active{transform:translate(-50%,-50%);}
+#entertainmentPortal .portal-art{
+ inset:auto;top:50%;left:50%;
+ width:min(100vw,calc(100dvh * .5625));
+ height:min(100dvh,calc(100vw * 1.7777778));
+ transform:translate(-50%,-50%);
+}
+#entertainmentPortal.portal-line-mode .portal-art{opacity:0;visibility:hidden;}
+#entertainmentPortal.portal-motion-enabled .portal-intro{
+ background:
+ radial-gradient(ellipse 64% 54% at 50% 52%,rgba(42,95,72,.54),transparent 85%),
+ radial-gradient(ellipse 46% 38% at 83% 17%,rgba(171,142,85,.14),transparent 95%),
+ radial-gradient(ellipse 56% 48% at 5% 82%,rgba(56,122,109,.16),transparent 95%),
+ #071511;
+ overflow:hidden;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro::after{
+ content:'';position:absolute;inset:0;z-index:1;pointer-events:none;
+ background:linear-gradient(180deg,rgba(4,15,12,.45),transparent 26% 68%,rgba(4,13,10,.5));
+}
+#entertainmentPortal .portal-motion-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+#entertainmentPortal .portal-motion-art{position:absolute;inset:0;}
+#entertainmentPortal .portal-motion-scene::before{
+ content:'';position:absolute;inset:-12%;opacity:.75;
+ background:radial-gradient(circle at 50% 54%,transparent 0 14%,rgba(146,204,158,.075) 18%,transparent 29%);
+ animation:portal-breathe 10s ease-in-out infinite alternate;
+}
+#entertainmentPortal .portal-sprite{
+ position:absolute;left:var(--x);top:var(--y);
+ width:min(var(--w),var(--max-w));
+ transform:translate(-50%,-50%);will-change:transform;pointer-events:none;
+}
+#entertainmentPortal .portal-sprite-float{
+ width:100%;transform-origin:50% 54%;
+ animation:portal-float var(--duration) ease-in-out var(--phase) infinite alternate;
+}
+#entertainmentPortal .portal-sprite img{
+ display:block;width:100%;height:auto;transform:rotate(var(--spin));
+}
+#entertainmentPortal .portal-sprite-halo{opacity:.78;}
+#entertainmentPortal .portal-sprite-halo .portal-sprite-float{animation:portal-orbit 55s linear infinite;}
+#entertainmentPortal .portal-sprite-branch{opacity:.8;filter:drop-shadow(0 12px 20px rgba(0,0,0,.2));}
+#entertainmentPortal .portal-sprite-fern{opacity:.68;}
+#entertainmentPortal .portal-sprite-leaf{opacity:.92;filter:drop-shadow(0 12px 12px rgba(0,0,0,.22));}
+#entertainmentPortal .portal-sprite-seed{opacity:.84;}
+#entertainmentPortal .portal-sprite-moth{
+ filter:drop-shadow(0 26px 36px rgba(0,0,0,.53)) drop-shadow(0 0 26px rgba(119,198,151,.13));
+}
+#entertainmentPortal .portal-sprite-moth .portal-sprite-float{
+ animation:portal-moth-breathe 7.7s ease-in-out infinite;
+}
+#entertainmentPortal.portal-motion-enabled .portal-frame{
+ inset:17px;border-color:rgba(232,235,204,.13);z-index:4;
+}
+#entertainmentPortal.portal-motion-enabled .portal-frame::before,
+#entertainmentPortal.portal-motion-enabled .portal-frame::after{border-color:rgba(231,219,173,.42);}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-topline,
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-brand-intro,
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-intro-footer,
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-bottom-meta{z-index:3;}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-topline{
+ top:max(32px,env(safe-area-inset-top));
+ left:clamp(27px,5vw,72px);right:clamp(27px,5vw,72px);
+ font:600 clamp(10px,1.2vw,13px)/1.5 -apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+ letter-spacing:.22em;color:#E9E7D5;opacity:.62;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-brand-intro{
+ top:clamp(96px,13%,162px);left:20px;right:20px;
+ filter:drop-shadow(0 6px 18px #001209);
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-eyebrow{
+ color:#DBCAA1;letter-spacing:.37em;
+ font:600 clamp(10px,1.2vw,14px)/1.4 -apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-main-logo{
+ font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;
+ font-size:clamp(42px,8.8vw,90px);font-weight:780;line-height:1.24;
+ letter-spacing:-.08em;color:#F6F0DD;text-shadow:0 5px 22px rgba(0,0,0,.34);
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-divider-mark{
+ margin:4px 16px 3px;gap:12px;color:#D2BC8B;opacity:.75;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-subtitle{
+ color:#E2E9CE;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+ font-size:clamp(12px,1.75vw,17px);letter-spacing:.17em;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-intro-footer{
+ bottom:max(8%,calc(env(safe-area-inset-bottom) + 56px));left:22px;right:22px;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-intro-footer p{
+ margin-bottom:17px;color:#D9E1D2;opacity:.9;
+ font:400 clamp(12px,1.4vw,15px)/1.5 -apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+ letter-spacing:.09em;text-shadow:0 3px 10px #0A201A;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-tap-prompt{
+ width:min(80%,258px);min-height:56px;border-radius:999px;
+ border:1px solid #F4EACD;box-shadow:0 14px 32px rgba(0,0,0,.35);
+ color:#0B2820;background:#F4EACD;
+ font:700 clamp(14px,1.5vw,17px)/1.2 -apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+ letter-spacing:.17em;transition:transform 260ms ease,box-shadow 260ms ease,background 260ms ease;
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-tap-prompt span{color:#0B2820;}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-tap-prompt:hover{
+ background:#fff;box-shadow:0 20px 43px rgba(0,0,0,.42);transform:translateY(-3px);
+}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-tap-prompt:active{transform:scale(.97);}
+#entertainmentPortal.portal-motion-enabled .portal-intro .portal-bottom-meta{
+ bottom:max(18px,env(safe-area-inset-bottom));color:#C5D3BE;opacity:.52;
+ font:600 10px/1.4 -apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;letter-spacing:.2em;
+}
+#entertainmentPortal .portal-touch-ring{
+ position:absolute;z-index:10;width:24px;height:24px;
+ border:1.5px solid rgba(232,220,177,.9);border-radius:50%;
+ transform:translate(-50%,-50%) scale(.2);
+ animation:portal-touch 800ms ease-out both;
+}
+#entertainmentPortal .portal-motion-scene.is-paused *,
+#entertainmentPortal .portal-motion-scene.is-paused::before{animation-play-state:paused!important;}
+@keyframes portal-moth-breathe{
+ 0%,100%{transform:translate3d(0,4px,0) rotate(-1.7deg) scale(.985);}
+ 50%{transform:translate3d(0,-12px,0) rotate(1.7deg) scale(1.018);}
+}
+@keyframes portal-float{
+ from{transform:translate3d(-14px,14px,0) rotate(-8deg);}
+ to{transform:translate3d(18px,-22px,0) rotate(9deg);}
+}
+@keyframes portal-orbit{to{transform:rotate(360deg);}}
+@keyframes portal-breathe{to{transform:scale(1.09);opacity:.42;}}
+@keyframes portal-touch{
+ 0%{opacity:.85;transform:translate(-50%,-50%) scale(.4);}
+ 100%{opacity:0;transform:translate(-50%,-50%) scale(11);}
+}
+@media(max-width:600px){
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-topline{top:max(23px,env(safe-area-inset-top));}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-brand-intro{top:14%;}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-main-logo{font-size:clamp(38px,10vw,55px);}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-eyebrow{letter-spacing:.25em;}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-subtitle{font-size:12px;}
+ #entertainmentPortal .portal-sprite-moth{width:min(80vw,355px);}
+ #entertainmentPortal .portal-sprite-halo{width:119vw;}
+ #entertainmentPortal .portal-sprite-branch{width:80vw;}
+ #entertainmentPortal .portal-sprite-fern{width:52vw;}
+}
+@media(max-height:650px) and (orientation:landscape){
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-brand-intro{
+  left:6%;right:auto;width:42%;top:26%;text-align:left;
+ }
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-main-logo{font-size:clamp(34px,5vw,70px);}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-divider-mark{justify-content:flex-start;margin-left:0;}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-intro-footer{
+  width:34%;right:6%;left:auto;bottom:23%;
+ }
+ #entertainmentPortal .portal-sprite-moth{width:min(38vw,335px);}
+ #entertainmentPortal .portal-sprite-halo{width:min(53vw,430px);}
+}
+@media(max-height:590px) and (orientation:portrait){
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-brand-intro{top:10%;}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-intro-footer{bottom:8%;}
+ #entertainmentPortal.portal-motion-enabled .portal-intro .portal-intro-footer p{display:none;}
+ #entertainmentPortal .portal-sprite-moth{width:min(62vw,270px);}
+}
+@media(prefers-reduced-motion:reduce){
+ #entertainmentPortal .portal-sprite-float,
+ #entertainmentPortal .portal-motion-scene::before{animation:none!important;}
+ #entertainmentPortal .portal-touch-ring{display:none;}
+ #entertainmentPortal .portal-sprite{transform:translate(-50%,-50%)!important;}
+ #entertainmentPortal .portal-screen{transition:none;}
+}
