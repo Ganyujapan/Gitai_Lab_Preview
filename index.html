@@ -1810,7 +1810,7 @@
     }
     const blob = await response.blob();
     const context = window.GitaiPagesPreview?.context || {};
-    await specimenPut({
+    const record = {
       id,
       generation_id: generationId,
       generation_number: Number(String(generationId).slice(3)),
@@ -1820,7 +1820,11 @@
       run_id: String(context.runId || 'default'),
       saved_at: new Date().toISOString(),
       image_blob: blob,
-    });
+    };
+    await specimenPut(record);
+    // The trophy system accepts only independently calibrated S/SS records.
+    // Until rank calibration is live, this is intentionally a no-op.
+    try { window.GitaiTrophies?.recordSpecimen?.(record); } catch (_) {}
     return true;
   }
 
