@@ -65,7 +65,6 @@
   let pointerY = 0;
   const tapBursts = [];
   let titleMothCanvas = null;
-  let initialMothPending = false;
   const slowTime = (time) => time * 0.001;
 
   function rectangle(c, color, x, y, w, h) {
@@ -600,14 +599,12 @@
   function randomizeTitleMoth() {
     const generator = window.GitaiPortalRandomMoth;
     if (!generator?.ready) {
-      initialMothPending = true;
       return;
     }
     try {
       const canvas = generator.next();
       if (canvas) titleMothCanvas = canvas;
-      initialMothPending = false;
-      if (active && mode === 'intro') {
+        if (active && mode === 'intro') {
         if (reducedMotion.matches) renderScene(now());
         else if (!raf) restartAnimation();
       }
@@ -621,8 +618,7 @@
   if (window.GitaiPortalRandomMoth) {
     window.GitaiPortalRandomMoth.initialize()
       .then(() => {
-        // One initial independent moth. If somebody tapped during loading,
-        // the last tap is satisfied by this new draw.
+        // Draw an initial independent specimen as soon as assets are ready.
         randomizeTitleMoth();
       })
       .catch((error) => {
