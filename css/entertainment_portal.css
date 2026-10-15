@@ -424,3 +424,142 @@ html.pixel-portal-pending #entertainmentPortal[hidden] { display: block !importa
   #entertainmentPortal .portal-tap-prompt { animation: none; }
   #entertainmentPortal .portal-mode { transition: none; }
 }
+/* 2026-10-15: black-on-white-line editorial motion study.
+   This is intentionally scoped to the intro, leaving the second-page
+   retro-game menu visually and functionally unchanged. */
+#entertainmentPortal.portal-line-mode {
+  background: #050505;
+  --portal-paper: #f4f2eb;
+  --portal-gold: #f4f2eb;
+}
+#entertainmentPortal.portal-line-mode .portal-art {
+  image-rendering: auto;
+}
+#entertainmentPortal.portal-line-mode .portal-noise {
+  display: none;
+}
+#entertainmentPortal.portal-line-mode .portal-frame {
+  border-color: rgba(244, 242, 235, .17);
+}
+#entertainmentPortal.portal-line-mode .portal-frame::before,
+#entertainmentPortal.portal-line-mode .portal-frame::after {
+  border-color: rgba(244, 242, 235, .46);
+}
+#entertainmentPortal.portal-line-mode .portal-topline {
+  top: max(25px, env(safe-area-inset-top));
+  color: #f1f1ee;
+  letter-spacing: .19em;
+  opacity: .56;
+}
+#entertainmentPortal.portal-line-mode .portal-brand-intro {
+  top: 14%;
+  pointer-events: none;
+}
+#entertainmentPortal.portal-line-mode .portal-eyebrow {
+  font-family: 'Courier New', monospace;
+  font-size: clamp(10px, 2.6vw, 13px);
+  letter-spacing: .31em;
+  color: #b7d1cb;
+  text-shadow: none;
+  margin-bottom: 9px;
+}
+#entertainmentPortal.portal-line-mode .portal-main-logo {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-size: clamp(37px, 11vw, 58px);
+  font-weight: 850;
+  letter-spacing: -.085em;
+  color: #faf9f3;
+  text-shadow: none;
+  filter: none;
+  line-height: 1.32;
+}
+#entertainmentPortal.portal-line-mode .portal-divider-mark {
+  margin-top: 7px;
+  margin-bottom: 0;
+  color: #c9e0d9;
+  font-size: 14px;
+}
+#entertainmentPortal.portal-line-mode .portal-divider-mark::before,
+#entertainmentPortal.portal-line-mode .portal-divider-mark::after {
+  background: linear-gradient(90deg, transparent, rgba(240,238,232,.62));
+}
+#entertainmentPortal.portal-line-mode .portal-subtitle {
+  margin-top: 5px;
+  color: #e5e3dd;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-size: clamp(11px, 3vw, 14px);
+  letter-spacing: .13em;
+}
+#entertainmentPortal.portal-line-mode .portal-intro-footer {
+  bottom: max(8.4%, 50px);
+  left: 24px;
+  right: 24px;
+  pointer-events: none;
+}
+#entertainmentPortal.portal-line-mode .portal-intro-footer p {
+  margin-bottom: 13px;
+  color: #d3d1cb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-size: clamp(11px, 2.8vw, 13px);
+  letter-spacing: .04em;
+  text-shadow: none;
+}
+#entertainmentPortal.portal-line-mode .portal-tap-prompt {
+  display: inline-flex;
+  width: min(80%, 254px);
+  min-height: 54px;
+  margin: 0 auto;
+  padding: 11px 17px;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  border: 1.5px solid #f4f2eb;
+  background: rgba(5,5,5,.88);
+  color: #fffdfa;
+  box-shadow: none;
+  cursor: pointer;
+  pointer-events: auto;
+  font: 600 clamp(15px, 4vw, 18px)/1.3 'Courier New', monospace;
+  letter-spacing: .27em;
+  animation: none;
+  transition: background 200ms ease, color 200ms ease, transform 180ms ease;
+}
+#entertainmentPortal.portal-line-mode .portal-tap-prompt span {
+  color: inherit;
+  font-size: 23px;
+  line-height: 1;
+}
+#entertainmentPortal.portal-line-mode .portal-tap-prompt:active {
+  transform: scale(.97);
+}
+@media (hover: hover) {
+  #entertainmentPortal.portal-line-mode .portal-tap-prompt:hover {
+    color: #050505;
+    background: #f5f4ee;
+  }
+}
+#entertainmentPortal.portal-line-mode .portal-interaction-hint {
+  color: #aebeb9;
+  font-size: clamp(10px, 2.65vw, 12px);
+  line-height: 1.5;
+  margin-top: 16px;
+  letter-spacing: .07em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+}
+#entertainmentPortal.portal-line-mode .portal-bottom-meta {
+  color: #c4cbc6;
+  opacity: .5;
+  letter-spacing: .19em;
+  bottom: 16px;
+}
+@media (max-height: 570px) {
+  #entertainmentPortal.portal-line-mode .portal-brand-intro { top: 11%; }
+  #entertainmentPortal.portal-line-mode .portal-intro-footer { bottom: 8%; }
+  #entertainmentPortal.portal-line-mode .portal-intro-footer p { display: none; }
+  #entertainmentPortal.portal-line-mode .portal-interaction-hint { margin-top: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #entertainmentPortal.portal-line-mode .portal-tap-prompt {
+    transition: none;
+  }
+}
