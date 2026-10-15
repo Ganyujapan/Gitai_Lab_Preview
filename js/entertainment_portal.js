@@ -562,6 +562,7 @@
     ctx.imageSmoothingEnabled = false;
     portal.classList.toggle('portal-line-mode', introResolution);
     tapBursts.length = 0;
+    window.GitaiTrophies?.close?.();
     hideDialog();
     const introActive = nextMode === 'intro';
     intro.classList.toggle('is-active', introActive);
@@ -667,7 +668,29 @@
     setMode('intro');
     enter.focus({ preventScroll: true });
   });
-  solo.addEventListener('click', startSolo);
+  function playEnvironment(environmentId) {
+    const current = params.get('env') === 'sand' ? 'sand_001'
+      : (!params.get('env') || params.get('env') === 'bark') ? 'bark_001' : params.get('env');
+    if (current === environmentId) {
+      startSolo();
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('model', 'continuous_v1');
+    url.searchParams.set('env', environmentId);
+    url.searchParams.delete('play');
+    url.searchParams.set('portal', 'auto-play-environment');
+    window.location.assign(url.toString());
+  }
+  function showEnvironmentPicker() {
+    if (window.GitaiTrophies?.open) {
+      window.GitaiTrophies.open({ onChoose: playEnvironment });
+    } else {
+      // Optional UI failure must never make the existing game unplayable.
+      startSolo();
+    }
+  }
+  solo.addEventListener('click', showEnvironmentPicker);
   shared.addEventListener('click', () => showDialog('shared'));
   mystery.addEventListener('click', () => showDialog('mystery'));
   closeDialog.addEventListener('click', hideDialog);
@@ -692,5 +715,16 @@
   intro.inert = false;
   menu.inert = true;
   // Motion-study CTA can open the already existing mode menu directly.
-  setMode(params.get('portal') === 'menu' ? 'menu' : 'intro');
+  const portalTarget = params.get('portal');
+  setMode(portalTarget === 'menu' || portalTarget === 'auto-play-environment' ? 'menu' : 'intro');
+  if (portalTarget === 'auto-play-environment') {
+    window.GitaiTrophies?.refresh?.().then((status) => {
+      if (!active) return;
+      const env = params.get('env') === 'sand' ? 'sand_001'
+        : (!params.get('env') || params.get('env') === 'bark') ? 'bark_001' : params.get('env');
+      const entry = status?.environments?.find((e) => e.id === env);
+      if (entry?.unlocked && entry.playable) startSolo();
+      else showEnvironmentPicker();
+    }).catch(showEnvironmentPicker);
+  }
 })();

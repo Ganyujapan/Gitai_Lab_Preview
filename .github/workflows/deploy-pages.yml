@@ -114,7 +114,12 @@ jobs:
           PY
 
       - name: Check preview JavaScript syntax
-        run: node --check js/pages_preview.js
+        run: |
+          node --check js/pages_preview.js
+          node --check js/trophy_rules.js
+          node --check js/portal_trophies.js
+          node --check js/entertainment_portal.js
+          node --test tests/trophy_rules.test.js
 
       - uses: actions/configure-pages@v5
         with:
