@@ -1,6 +1,7 @@
 /* InvisiLab / entertainment-only title + menu.
- * The existing game engine is untouched. Background sprites are rendered
- * on a low-resolution canvas, while their motion stays smoothly interpolated.
+ * Intro: responsive black canvas with smooth vector line art and tap reactions.
+ * Menu: retains the previous low-resolution pixel-world artwork.
+ * The existing game engine, saved progression, and educational model are untouched.
  */
 (() => {
   'use strict';
@@ -41,6 +42,8 @@
 
   const width = 180;
   const height = 320;
+  const lineWidth = 360;
+  const lineHeight = 640;
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { alpha: false });
@@ -60,6 +63,8 @@
   let lastDraw = 0;
   let pointerX = 0;
   let pointerY = 0;
+  const tapBursts = [];
+  const slowTime = (time) => time * 0.001;
 
   function rectangle(c, color, x, y, w, h) {
     c.fillStyle = color;
@@ -238,7 +243,221 @@
     c.restore();
   }
 
+
+  // Vector outlines occupy the same artwork slot as the legacy pixel menu.
+  // None of these decorative forms are filled: their interior stays black.
+  function renderLineArtwork(timestamp) {
+    const t = slowTime(timestamp);
+    const c = ctx;
+    c.setTransform(2, 0, 0, 2, 0, 0);
+    c.clearRect(0, 0, lineWidth, lineHeight);
+    c.fillStyle = '#050505';
+    c.fillRect(0, 0, lineWidth, lineHeight);
+    c.lineJoin = 'round';
+    c.lineCap = 'round';
+
+    // An underlying kinetic illustration, inspired by line-drawing motion,
+    // not by any third-party brand assets.
+    function stroke(color = '#f0eee6', thickness = 1.25, opacity = 1) {
+      c.strokeStyle = color;
+      c.lineWidth = thickness;
+      c.globalAlpha = opacity;
+    }
+    function arc(x, y, radius, a, b, color, thickness = 1.0, alpha = 1) {
+      stroke(color, thickness, alpha);
+      c.beginPath();
+      c.arc(x, y, radius, a, b);
+      c.stroke();
+      c.globalAlpha = 1;
+    }
+    function leaf(x, y, size, angle, tint = '#f0eee6', alpha = .74) {
+      c.save();
+      c.translate(x, y);
+      c.rotate(angle);
+      c.scale(size, size);
+      stroke(tint, 1.05, alpha);
+      c.beginPath();
+      c.moveTo(0, 0);
+      c.bezierCurveTo(-6, -6, -9, -19, 0, -32);
+      c.bezierCurveTo(9, -18, 7, -7, 0, 0);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(0, 0);
+      c.quadraticCurveTo(0, -14, 0, -26);
+      c.stroke();
+      c.restore();
+      c.globalAlpha = 1;
+    }
+    const latest = tapBursts.length ? tapBursts[tapBursts.length - 1] : null;
+    const age = latest ? Math.max(0, (timestamp - latest.time) / 1050) : 1;
+    const impulse = Math.pow(Math.max(0, 1 - age), 2);
+    const targetX = latest ? Math.max(-38, Math.min(38, (latest.x - 180) * .21)) : 0;
+    const targetY = latest ? Math.max(-30, Math.min(30, (latest.y - 335) * .14)) : 0;
+    const gust = impulse * Math.sin(Math.min(1, age) * Math.PI) * 20;
+
+    // A soft orbital gesture gives the scene movement without any filled art.
+    c.save();
+    c.translate(180, 350);
+    c.rotate(Math.sin(t * .16) * .09);
+    c.scale(1.0, .81);
+    arc(0, 0, 121, -.80 + t * .08, 1.62 + t * .08, '#b3cac4', .85, .33);
+    arc(0, 0, 121, 2.25 + t * .08, 4.17 + t * .08, '#f2f2ec', 1.0, .26);
+    c.restore();
+    c.save();
+    c.translate(180, 350);
+    c.rotate(-t * .045);
+    c.scale(.88, 1.08);
+    arc(0, 0, 141, .15, 1.35, '#e5b5aa', 1.0, .32);
+    arc(0, 0, 141, 2.32, 4.81, '#ecece8', .85, .20);
+    c.restore();
+
+    // Two loose, hand-drawn botanical branches, animated by the tap gust.
+    for (const side of [-1, 1]) {
+      c.save();
+      c.translate(side < 0 ? 0 : 360, 0);
+      c.scale(side < 0 ? 1 : -1, 1);
+      c.translate(gust * (side < 0 ? -.55 : .55), 0);
+      stroke(side < 0 ? '#a4beb8' : '#c7b3aa', 1.55, .73);
+      c.beginPath();
+      c.moveTo(-11, 510);
+      c.bezierCurveTo(30, 470, 44, 426, 27, 383);
+      c.bezierCurveTo(7, 332, 35, 283, 73, 246);
+      c.stroke();
+      for (let i = 0; i < 6; i++) {
+        const p = i / 5;
+        const x = 8 + p * 55 + Math.sin(p * 7) * 14;
+        const y = 487 - p * 229;
+        const dx = (i % 2 ? 24 : -18);
+        stroke(side < 0 ? '#c8dcd4' : '#f0d5c4', 1.1, .5 + .07 * (i % 3));
+        c.beginPath();
+        c.moveTo(x, y);
+        c.quadraticCurveTo(x + dx * .55, y - 17, x + dx, y - 25);
+        c.stroke();
+        leaf(x + dx, y - 25,
+          .66 + .2 * (i % 3),
+          (i % 2 ? 1.05 : -.85) + Math.sin(t * .8 + i) * .09,
+          i % 2 ? '#ecddd5' : '#b1d1c9', .78);
+        leaf(x + 4, y - 8, .56, .62 + Math.sin(t + i) * .1, '#d9d8c9', .51);
+      }
+      c.restore();
+    }
+
+    // Floating seed outlines form a loose radial constellation around the moth.
+    for (let i = 0; i < 17; i++) {
+      const a = i * Math.PI * 2 / 17 + Math.sin(t * .23 + i) * .17;
+      const r = 120 + seed(i + 190) * 62;
+      const x = 180 + Math.cos(a) * r + Math.sin(t * .5 + i) * 4;
+      const y = 348 + Math.sin(a) * r * .91 + Math.cos(t * .36 + i) * 3;
+      const tint = i % 4 === 0 ? '#e8bab0' : (i % 3 === 0 ? '#aacac1' : '#e9e8e1');
+      arc(x, y, 1.25 + (i % 4) * .5, 0, Math.PI * 2, tint, .85, .36 + (i % 4) * .09);
+      if (i % 5 === 0) {
+        stroke(tint, .85, .6);
+        c.beginPath();
+        c.moveTo(x - 6, y);
+        c.lineTo(x + 6, y);
+        c.moveTo(x, y - 6);
+        c.lineTo(x, y + 6);
+        c.stroke();
+      }
+    }
+
+    // Central moth: a hand-drawn pair of wings with delicate internal veins.
+    const cx = 180 + Math.sin(t * .58) * 6 + pointerX * 2 + targetX * impulse;
+    const cy = 351 + Math.cos(t * .82) * 6 + pointerY * 1.5 + targetY * impulse;
+    const flap = 1 + Math.sin(t * 2.35) * .045 + impulse * .06;
+    c.save();
+    c.translate(cx, cy);
+    c.rotate(Math.sin(t * .29) * .04 + (latest ? (latest.x - 180) * .00024 * impulse : 0));
+    for (const side of [-1, 1]) {
+      c.save();
+      c.scale(side * flap, 1);
+      stroke('#f2f0e9', 1.9, .96);
+      c.beginPath();
+      c.moveTo(1, -48);
+      c.bezierCurveTo(25, -69, 72, -78, 89, -49);
+      c.bezierCurveTo(102, -26, 103, 3, 83, 22);
+      c.bezierCurveTo(78, 29, 61, 33, 43, 22);
+      c.bezierCurveTo(48, 50, 34, 72, 13, 67);
+      c.bezierCurveTo(3, 64, 3, 39, 2, 22);
+      c.stroke();
+
+      stroke('#bad2c9', 1.0, .77);
+      c.beginPath();
+      c.moveTo(2, -32);
+      c.bezierCurveTo(29, -43, 65, -47, 83, -49);
+      c.moveTo(6, -17);
+      c.bezierCurveTo(34, -8, 68, 1, 89, 5);
+      c.moveTo(10, 8);
+      c.bezierCurveTo(26, 13, 44, 18, 62, 24);
+      c.moveTo(11, 21);
+      c.quadraticCurveTo(22, 43, 19, 61);
+      c.stroke();
+
+      stroke('#e6beb4', 1.1, .77);
+      c.beginPath();
+      c.ellipse(54, -23, 12, 8, .15, 0, Math.PI * 2);
+      c.ellipse(39, 7, 5, 4, .2, 0, Math.PI * 2);
+      c.stroke();
+      stroke('#f4eee6', 1.0, .58);
+      c.beginPath();
+      c.moveTo(25, -47);
+      c.quadraticCurveTo(43, -55, 63, -54);
+      c.moveTo(46, 38);
+      c.quadraticCurveTo(40, 49, 27, 55);
+      c.stroke();
+      c.restore();
+    }
+    stroke('#f6f4ee', 2.1, .95);
+    c.beginPath();
+    c.moveTo(0, -44);
+    c.bezierCurveTo(-5, -31, -5, 34, 0, 51);
+    c.bezierCurveTo(5, 34, 5, -31, 0, -44);
+    c.stroke();
+    stroke('#e5c7b6', 1.15, .87);
+    c.beginPath();
+    c.moveTo(-2, -42);
+    c.quadraticCurveTo(-16, -60, -22, -55);
+    c.moveTo(2, -42);
+    c.quadraticCurveTo(16, -60, 22, -55);
+    c.stroke();
+    c.restore();
+
+    // Taps produce expanding line-only rings, floral spokes and a responsive
+    // gust. Event history is capped so repeated mobile taps stay inexpensive.
+    for (let i = tapBursts.length - 1; i >= 0; i--) {
+      const b = tapBursts[i];
+      const progress = Math.max(0, (timestamp - b.time) / 1250);
+      if (progress >= 1) { tapBursts.splice(i, 1); continue; }
+      const fade = Math.pow(1 - progress, 1.6);
+      const expansion = 5 + progress * 116;
+      for (let ring = 0; ring < 3; ring++) {
+        const rr = expansion - ring * 12;
+        if (rr <= 0) continue;
+        const color = ring === 0 ? '#f6f3eb' : ring === 1 ? '#b5d5d0' : '#ecc4b7';
+        arc(b.x, b.y, rr, .35 + t * .43 + ring, 5.9 + t * .43 + ring,
+          color, ring === 0 ? 1.9 : 1.1, fade * (ring === 0 ? .93 : .55));
+      }
+      for (let j = 0; j < 12; j++) {
+        const a = (j / 12) * Math.PI * 2 + b.twist;
+        const d = 12 + progress * (38 + (j % 4) * 10);
+        const x = b.x + Math.cos(a) * d;
+        const y = b.y + Math.sin(a) * d;
+        stroke(j % 3 === 0 ? '#e9b7a9' : '#b7d5c9', 1.2, fade * .8);
+        c.beginPath();
+        c.moveTo(x - Math.cos(a) * 6, y - Math.sin(a) * 6);
+        c.lineTo(x + Math.cos(a) * 5, y + Math.sin(a) * 5);
+        c.stroke();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+
   function renderScene(time) {
+    if (mode === 'intro') {
+      renderLineArtwork(time);
+      return;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     const t = time * .001;
     const image = backdrops[mode];
     ctx.drawImage(image, 0, 0);
@@ -308,6 +527,13 @@
 
   function setMode(nextMode) {
     mode = nextMode;
+    // Intro is smooth high-resolution line art; menu keeps pixelated 180x320.
+    const introResolution = nextMode === 'intro';
+    canvas.width = introResolution ? lineWidth * 2 : width;
+    canvas.height = introResolution ? lineHeight * 2 : height;
+    ctx.imageSmoothingEnabled = false;
+    portal.classList.toggle('portal-line-mode', introResolution);
+    tapBursts.length = 0;
     hideDialog();
     const introActive = nextMode === 'intro';
     intro.classList.toggle('is-active', introActive);
@@ -342,7 +568,26 @@
     }
   }
 
-  enter.addEventListener('click', showMenu);
+  // The START button is the *only* navigation action on the title.
+  // Every other tap ripples the drawn world instead of leaving the page.
+  enter.addEventListener('click', (event) => {
+    event.stopPropagation();
+    showMenu();
+  });
+  intro.addEventListener('pointerdown', (event) => {
+    if (event.target === enter || enter.contains(event.target)) return;
+    if (mode !== 'intro' || event.button > 0) return;
+    const box = canvas.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+    const x = Math.max(10, Math.min(lineWidth - 10,
+      (event.clientX - box.left) * lineWidth / box.width));
+    const y = Math.max(10, Math.min(lineHeight - 10,
+      (event.clientY - box.top) * lineHeight / box.height));
+    tapBursts.push({ x, y, time: now(), twist: Math.random() * Math.PI * 2 });
+    if (tapBursts.length > 8) tapBursts.shift();
+    if (reducedMotion.matches) renderScene(now());
+    else if (!raf) restartAnimation();
+  });
   returnToIntro.addEventListener('click', () => {
     setMode('intro');
     enter.focus({ preventScroll: true });
