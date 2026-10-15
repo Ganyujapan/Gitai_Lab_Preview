@@ -3951,6 +3951,7 @@
     if (state.submitStatus === 'stale_generation') {
       const u = new URL(location.href);
       u.searchParams.set('v', String(Date.now()));
+      if (isEntertainmentModel()) u.searchParams.set('play', '1');
       location.href = u.toString();
       return;
     }
@@ -3969,6 +3970,7 @@
 
     const u = new URL(location.href);
     u.searchParams.set('v', String(Date.now()));
+    if (isEntertainmentModel()) u.searchParams.set('play', '1');
     location.href = u.toString();
   });
 
@@ -4123,6 +4125,7 @@
     if (state.submitStatus !== 'success') return;
     const u = new URL(location.href);
     u.searchParams.set('v', String(Date.now()));
+    if (isEntertainmentModel()) u.searchParams.set('play', '1');
     location.href = u.toString();
   });
 
