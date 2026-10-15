@@ -482,7 +482,7 @@
 
   function renderScene(time) {
     if (mode === 'intro') {
-      if (!window.GitaiPortalMotion?.enabled) renderLineArtwork(time);
+      renderLineArtwork(time);
       return;
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
