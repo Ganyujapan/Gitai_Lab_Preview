@@ -64,6 +64,8 @@
   let pointerX = 0;
   let pointerY = 0;
   const tapBursts = [];
+  let titleMothCanvas = null;
+  let initialMothPending = false;
   const slowTime = (time) => time * 0.001;
 
   function rectangle(c, color, x, y, w, h) {
@@ -361,6 +363,31 @@
       }
     }
 
+
+    // The central specimen comes directly from CALIBRATION LAB's
+    // random genome generator (128x128 mirrored moth). Preserve the
+    // original outline rendering only while the model is still loading.
+    if (titleMothCanvas) {
+      const cx = 180 + Math.sin(t * .58) * 5 + pointerX * 2 + targetX * impulse;
+      const cy = 351 + Math.cos(t * .82) * 5 + pointerY * 1.5 + targetY * impulse;
+      c.save();
+      c.translate(cx, cy);
+      c.rotate(Math.sin(t * .27) * .025);
+      // A pale specimen disc lets dark and bright random morphs remain
+      // visible on the black, SoundCloud-inspired editorial landing art.
+      c.fillStyle = '#e9e7db';
+      c.beginPath();
+      c.arc(0, 0, 107, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = '#e9e7db';
+      c.lineWidth = 1.3;
+      c.beginPath();
+      c.arc(0, 0, 111, 0, Math.PI * 2);
+      c.stroke();
+      c.imageSmoothingEnabled = false;
+      c.drawImage(titleMothCanvas, -119, -119, 238, 238);
+      c.restore();
+    } else {
     // Central moth: a hand-drawn pair of wings with delicate internal veins.
     const cx = 180 + Math.sin(t * .58) * 6 + pointerX * 2 + targetX * impulse;
     const cy = 351 + Math.cos(t * .82) * 6 + pointerY * 1.5 + targetY * impulse;
@@ -421,6 +448,8 @@
     c.quadraticCurveTo(16, -60, 22, -55);
     c.stroke();
     c.restore();
+
+    }
 
     // Taps produce expanding line-only rings, floral spokes and a responsive
     // gust. Event history is capped so repeated mobile taps stay inexpensive.
@@ -568,6 +597,39 @@
     }
   }
 
+  function randomizeTitleMoth() {
+    const generator = window.GitaiPortalRandomMoth;
+    if (!generator?.ready) {
+      initialMothPending = true;
+      return;
+    }
+    try {
+      const canvas = generator.next();
+      if (canvas) titleMothCanvas = canvas;
+      initialMothPending = false;
+      if (active && mode === 'intro') {
+        if (reducedMotion.matches) renderScene(now());
+        else if (!raf) restartAnimation();
+      }
+    } catch (error) {
+      console.warn('Top-page random moth could not be drawn:', error);
+    }
+  }
+
+  // Initialize once in the title's background. Neither progress nor
+  // random patterns are saved, scored, or handed to the game.
+  if (window.GitaiPortalRandomMoth) {
+    window.GitaiPortalRandomMoth.initialize()
+      .then(() => {
+        // One initial independent moth. If somebody tapped during loading,
+        // the last tap is satisfied by this new draw.
+        randomizeTitleMoth();
+      })
+      .catch((error) => {
+        console.warn('Using fallback title moth artwork:', error);
+      });
+  }
+
   // The START button is the *only* navigation action on the title.
   // Every other tap ripples the drawn world instead of leaving the page.
   enter.addEventListener('click', (event) => {
@@ -577,6 +639,7 @@
   intro.addEventListener('pointerdown', (event) => {
     if (event.target === enter || enter.contains(event.target)) return;
     if (mode !== 'intro' || event.button > 0) return;
+    randomizeTitleMoth();
     const box = canvas.getBoundingClientRect();
     if (!box.width || !box.height) return;
     const x = Math.max(10, Math.min(lineWidth - 10,
