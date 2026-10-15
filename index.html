@@ -17,7 +17,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261014-pixelentry2">
+  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261015-blackline1">
   <title>ギタイラボ — 昆虫大学 α</title>
   <style>
     :root {
@@ -1361,7 +1361,7 @@
 
     <!-- Entertainment-only entrance. Underlying SOLO engine and education model
          continue using the existing overlays and IndexedDB without changes. -->
-    <section id="entertainmentPortal" class="pixel-portal" hidden aria-hidden="true" aria-label="ギタイラボ エンタメ版">
+    <section id="entertainmentPortal" class="pixel-portal portal-line-mode" hidden aria-hidden="true" aria-label="ギタイラボ エンタメ版">
       <canvas id="portalArt" class="portal-art" width="180" height="320" aria-hidden="true"></canvas>
       <div class="portal-noise" aria-hidden="true"></div>
       <div class="portal-frame" aria-hidden="true"></div>
@@ -1378,10 +1378,10 @@
         </div>
         <div class="portal-intro-footer" aria-hidden="true">
           <p>小さな命と、進化の冒険へ。</p>
-          <div class="portal-tap-prompt"><span>◆</span> TAP TO START <span>◆</span></div>
+          <button id="portalEnter" class="portal-tap-prompt" type="button" aria-label="スタート：モード選択へ進む">START <span aria-hidden="true">↗</span></button>
+          <div class="portal-interaction-hint">画面をタップするとアートが動きます</div>
         </div>
         <div class="portal-bottom-meta" aria-hidden="true">A LITTLE WORLD OF MIMICRY</div>
-        <button id="portalEnter" class="portal-intro-hit" type="button" aria-label="タップしてモード選択へ進む">モード選択へ進む</button>
       </div>
 
       <div id="portalMenu" class="portal-screen portal-menu" aria-hidden="true">
@@ -4192,7 +4192,7 @@
   boot();
 })();
 </script>
-<script src="js/entertainment_portal.js?v=20261014-pixelentry2" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/entertainment_portal.js?v=20261015-blackline1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 
 <!--
   フォント：PixelMplus12-Regular（M+ FONT LICENSE）
