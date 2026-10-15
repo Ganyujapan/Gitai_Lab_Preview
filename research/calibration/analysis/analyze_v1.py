@@ -325,6 +325,9 @@ def main():
         json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("GITAI_V1_ANALYSIS_OK rows=1103 environment=bark_001:494,sand_001:609")
     print(report)
+    print("GITAI_V1_JSON_BEGIN")
+    print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+    print("GITAI_V1_JSON_END")
 
 
 if __name__ == "__main__":
