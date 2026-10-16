@@ -2841,6 +2841,9 @@
       theaterFrameJobs.set(key, job);
     }
     const result = await theaterFrameJobs.get(key);
+    // Rendering and background prefetch may request the same generation.
+    // Once one caller has replaced its blob URL, reuse that replacement.
+    if (!window.GitaiTheaterScale.needsRebuild(frame)) return true;
     if (
       !result || result.render_version !== window.GitaiTheaterScale.VERSION
       || !(result.image_blob instanceof Blob)
