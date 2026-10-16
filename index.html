@@ -1430,7 +1430,8 @@
 <script src="js/gen1_06.js"></script>
 <script src="js/mask_data.js"></script>
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
-<script src="js/pages_preview.js?v=20261016-bgcollection1"></script>
+<script src="js/theater_scale.js?v=20261016-ratio1"></script>
+<script src="js/pages_preview.js?v=20261016-ratio1"></script>
 <script>
 (() => {
   'use strict';
@@ -2825,6 +2826,61 @@
     if (scroller) scroller.scrollTop = 0;
   }
 
+  // On-demand and background migration of already saved theater frames.
+  // Replay images are cache only; the original generation and moth PNGs stay put.
+  let theaterRenderTicket = 0;
+  let theaterSession = 0;
+  const theaterFrameJobs = new Map();
+
+  async function refreshSavedTheaterFrame(frame) {
+    if (!window.GitaiTheaterScale.needsRebuild(frame)) return true;
+    const key = String(frame.generation_id);
+    if (!theaterFrameJobs.has(key)) {
+      const job = window.GitaiPagesPreview.ensureTheaterSnapshot(key)
+        .finally(() => theaterFrameJobs.delete(key));
+      theaterFrameJobs.set(key, job);
+    }
+    const result = await theaterFrameJobs.get(key);
+    if (
+      !result || result.render_version !== window.GitaiTheaterScale.VERSION
+      || !(result.image_blob instanceof Blob)
+      || !state.theaterFrames.includes(frame)
+    ) return false;
+
+    const oldUrl = frame.object_url;
+    const nextUrl = URL.createObjectURL(result.image_blob);
+    frame.object_url = nextUrl;
+    frame.render_version = result.render_version;
+    state.theaterObjectUrls.push(nextUrl);
+    const ix = state.theaterObjectUrls.indexOf(oldUrl);
+    if (ix !== -1) state.theaterObjectUrls.splice(ix, 1);
+    // The previous blob URL is not used after this cache upgrade.
+    if (oldUrl) URL.revokeObjectURL(oldUrl);
+    return true;
+  }
+
+  async function upgradeSavedTheaterFramesInBackground(session) {
+    // Let the first frame display immediately. Gradually update historical
+    // frames so the replay can run smoothly on its next pass.
+    const frames = state.theaterFrames;
+    for (const frame of frames) {
+      if (session !== theaterSession || frames !== state.theaterFrames) return;
+      if (window.GitaiTheaterScale.needsRebuild(frame)) {
+        try {
+          await refreshSavedTheaterFrame(frame);
+          if (frames[state.theaterFrameIndex] === frame
+              && theaterOverlay.classList.contains('visible')) {
+            renderEvolutionTheaterFrame();
+          }
+        } catch (error) {
+          console.warn('進化シアターの旧画像を更新できませんでした:', error);
+        }
+      }
+      // Do not monopolize the main thread while upgrading many generations.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
   function releaseTheaterObjectUrls() {
     for (const url of state.theaterObjectUrls) {
       try { URL.revokeObjectURL(url); } catch (_) {}
@@ -2859,17 +2915,42 @@
     );
     state.theaterFrameIndex = index;
     const frame = frames[index];
+    const requestId = ++theaterRenderTicket;
 
-    theaterFrameImage.src = frame.object_url;
+    if (window.GitaiTheaterScale.needsRebuild(frame)) {
+      // Never show oversized cached moths for a selected old generation.
+      theaterFrameImage.removeAttribute('src');
+      theaterMeta.textContent = '第' + Number(frame.generation_number)
+        + '世代 · 画像を更新中…';
+      refreshSavedTheaterFrame(frame).then((ready) => {
+        if (requestId !== theaterRenderTicket
+            || state.theaterFrames !== frames
+            || state.theaterFrames[state.theaterFrameIndex] !== frame
+            || !theaterOverlay.classList.contains('visible')) return;
+        // If original moths were deleted, at least retain the old snapshot.
+        theaterFrameImage.src = frame.object_url;
+        theaterMeta.textContent = '第' + Number(frame.generation_number)
+          + '世代 · ' + String(frame.model_label_ja || '');
+        if (!ready) theaterNote.textContent = '一部の世代は元画像がないため旧表示を維持しています。';
+      }).catch((error) => {
+        console.warn('進化シアターの画像を読み直せませんでした:', error);
+        if (requestId === theaterRenderTicket && state.theaterFrames === frames)
+          theaterFrameImage.src = frame.object_url;
+      });
+    } else {
+      theaterFrameImage.src = frame.object_url;
+    }
     theaterSlider.max = String(Math.max(0, frames.length - 1));
     theaterSlider.value = String(index);
     theaterProgress.textContent =
       (index + 1) + ' / ' + frames.length;
 
-    theaterMeta.textContent =
-      '第' + Number(frame.generation_number) + '世代'
-      + ' · '
-      + String(frame.model_label_ja || '');
+    if (!window.GitaiTheaterScale.needsRebuild(frame)) {
+      theaterMeta.textContent =
+        '第' + Number(frame.generation_number) + '世代'
+        + ' · '
+        + String(frame.model_label_ja || '');
+    }
 
     theaterPrevButton.disabled = index <= 0;
     theaterNextButton.disabled = index >= frames.length - 1;
@@ -2905,6 +2986,8 @@
 
   async function showEvolutionTheater() {
     pauseEvolutionTheater();
+    ++theaterSession;
+    ++theaterRenderTicket;
     releaseTheaterObjectUrls();
     theaterButton.disabled = true;
     const originalText = theaterButton.textContent;
@@ -2944,8 +3027,9 @@
           : '保存された第1世代から最新世代までを再生します。';
       }
 
-      renderEvolutionTheaterFrame();
       theaterOverlay.classList.add('visible');
+      renderEvolutionTheaterFrame();
+      void upgradeSavedTheaterFramesInBackground(theaterSession);
     } catch (error) {
       console.error(error);
       alert('進化シアターを読み込めませんでした。');
@@ -2957,6 +3041,8 @@
 
   function closeEvolutionTheater() {
     pauseEvolutionTheater();
+    ++theaterSession;
+    ++theaterRenderTicket;
     theaterOverlay.classList.remove('visible');
     theaterFrameImage.removeAttribute('src');
     state.theaterFrames = [];

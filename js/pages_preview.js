@@ -88,6 +88,7 @@
   const THEATER_FRAME_HEIGHT = 1000;
   const THEATER_COLUMNS = 6;
   const THEATER_ROWS = 10;
+  const THEATER_FRAME_VERSION = window.GitaiTheaterScale?.VERSION || 2;
   const TOTAL = 60;
   const SIZE = 128;
   const HALF = SIZE / 2;
@@ -996,9 +997,17 @@
     const gridHeight = canvas.height - gridTop - 8;
     const cellWidth = canvas.width / THEATER_COLUMNS;
     const cellHeight = gridHeight / THEATER_ROWS;
-    const mothSize = Math.floor(
-      Math.min(cellWidth * 0.78, cellHeight * 0.82)
-    );
+    // The original theater made each moth 73px to fill its 6x10 cell.
+    // The game displays 38px moths on a 360x640 background. The
+    // 600x1000 theater background is drawn using "cover" (x1.667),
+    // so an identically camouflaged moth should measure 63px here.
+    const mothSize = window.GitaiTheaterScale.mothSize({
+      gameMothSize: Number(appConfig.game.display_size_px),
+      frameWidth: canvas.width,
+      frameHeight: canvas.height,
+      cellWidth,
+      cellHeight,
+    });
 
     for (let i = 0; i < blobs.length; i += 1) {
       const col = i % THEATER_COLUMNS;
@@ -1046,9 +1055,18 @@
     const existing = await idbGet(THEATER_STORE, generationId);
     let imageBlob = existing?.image_blob;
 
-    if (!(imageBlob instanceof Blob)) {
-      imageBlob = await renderTheaterFrameBlob(generationId);
-      if (!(imageBlob instanceof Blob)) return null;
+    let renderVersion = Number(existing?.render_version || 1);
+    if (!(imageBlob instanceof Blob) || renderVersion !== THEATER_FRAME_VERSION) {
+      // Migrate cached pictures from the old 73px theater sprite rendering.
+      // The sixty original moth PNGs, generation IDs and evolution log stay
+      // untouched. If a historical PNG is missing, retain its old preview.
+      const rebuilt = await renderTheaterFrameBlob(generationId);
+      if (rebuilt instanceof Blob) {
+        imageBlob = rebuilt;
+        renderVersion = THEATER_FRAME_VERSION;
+      } else if (!(imageBlob instanceof Blob)) {
+        return null;
+      }
     }
 
     const eatenCount = Number.isFinite(Number(stats.eatenCount))
@@ -1068,6 +1086,7 @@
 
     const record = {
       schema_version: 1,
+      render_version: renderVersion,
       generation_id: generationId,
       generation_number: generationNumber(generationId),
       environment_id:
