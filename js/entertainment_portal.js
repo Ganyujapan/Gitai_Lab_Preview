@@ -43,8 +43,10 @@
 
   function readNickname() {
     try {
-      return String(localStorage.getItem(NICKNAME_KEY)
-        || localStorage.getItem(LEGACY_SHARE_NAME_KEY) || '').trim().slice(0, 16);
+      const current = localStorage.getItem(NICKNAME_KEY);
+      const value = current !== null ? current
+        : localStorage.getItem(LEGACY_SHARE_NAME_KEY);
+      return String(value || '').trim().slice(0, 16);
     } catch (_) {
       return '';
     }
@@ -53,8 +55,8 @@
   function persistNickname(value) {
     const name = String(value || '').trim().slice(0, 16);
     try {
-      if (name) localStorage.setItem(NICKNAME_KEY, name);
-      else localStorage.removeItem(NICKNAME_KEY);
+      // Save even an empty value so an older share name cannot reappear.
+      localStorage.setItem(NICKNAME_KEY, name);
     } catch (_) {}
     return name;
   }
