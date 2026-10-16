@@ -116,6 +116,7 @@ jobs:
       - name: Check preview JavaScript syntax
         run: |
           node --check js/pages_preview.js
+          node --check js/habitat_access.js
           node --check js/trophy_rules.js
           node --check js/portal_trophies.js
           node --check js/entertainment_portal.js

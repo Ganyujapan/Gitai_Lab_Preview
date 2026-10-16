@@ -670,7 +670,8 @@
   });
   function playEnvironment(environmentId) {
     const current = params.get('env') === 'sand' ? 'sand_001'
-      : (!params.get('env') || params.get('env') === 'bark') ? 'bark_001' : params.get('env');
+      : params.get('env') === 'bark' ? 'bark_001'
+      : params.get('env') || 'kusagi_001';
     if (current === environmentId) {
       startSolo();
       return;
@@ -721,7 +722,8 @@
     window.GitaiTrophies?.refresh?.().then((status) => {
       if (!active) return;
       const env = params.get('env') === 'sand' ? 'sand_001'
-        : (!params.get('env') || params.get('env') === 'bark') ? 'bark_001' : params.get('env');
+        : params.get('env') === 'bark' ? 'bark_001'
+        : params.get('env') || 'kusagi_001';
       const entry = status?.environments?.find((e) => e.id === env);
       if (entry?.unlocked && entry.playable) startSolo();
       else showEnvironmentPicker();

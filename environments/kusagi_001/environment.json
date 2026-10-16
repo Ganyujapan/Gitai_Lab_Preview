@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "environment_id": "kusagi_001",
+  "display_name_ja": "クサギ 01",
+  "background": {
+    "src": "img/backgrounds/bg_kusagi_720x1280_01.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}

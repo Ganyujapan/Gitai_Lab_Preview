@@ -9,11 +9,29 @@
     return /^[a-z0-9_-]{1,48}$/i.test(raw) ? raw : fallback;
   }
 
+  const EVOLUTION_MODEL_ID = safeNamespaceId(
+    PREVIEW_QUERY.get('model'), 'continuous_v1',
+  );
+  const HABITAT_ACCESS = window.GitaiHabitatAccess || {
+    testMode: false, defaultEnvironment: 'kusagi_001',
+    releasedEnvironments: ['kusagi_001'],
+  };
   function resolveEnvironmentId(rawValue) {
     const raw = String(rawValue || '').trim();
-    if (!raw || raw === 'bark') return 'bark_001';
-    if (raw === 'sand') return 'sand_001';
-    return safeNamespaceId(raw, 'bark_001');
+    const fallback = EVOLUTION_MODEL_ID === 'morph_v1'
+      ? 'bark_001' : HABITAT_ACCESS.defaultEnvironment;
+    if (!raw) return fallback;
+    const candidate = raw === 'bark' ? 'bark_001'
+      : raw === 'sand' ? 'sand_001'
+      : raw === 'kusagi' || raw === 'kusagi01' ? 'kusagi_001'
+      : safeNamespaceId(raw, fallback);
+    // Public entertainment mode cannot bypass habitat unlocks via a URL.
+    // Only shipped playable, approved user-photo backgrounds are allowed.
+    if (EVOLUTION_MODEL_ID === 'continuous_v1' && !HABITAT_ACCESS.testMode
+        && !HABITAT_ACCESS.releasedEnvironments.includes(candidate)) {
+      return HABITAT_ACCESS.defaultEnvironment;
+    }
+    return candidate;
   }
 
   const PREVIEW_ENV_ID = resolveEnvironmentId(PREVIEW_QUERY.get('env'));
@@ -24,10 +42,6 @@
         ? 'bark'
         : PREVIEW_ENV_ID
     );
-  const EVOLUTION_MODEL_ID = safeNamespaceId(
-    PREVIEW_QUERY.get('model'),
-    'continuous_v1',
-  );
   const PREVIEW_RUN_ID = safeNamespaceId(
     PREVIEW_QUERY.get('run'),
     'default',
@@ -4225,16 +4239,14 @@
       previewSeconds = params.get('fast') === '1' ? 0.5 : 4.0;
     }
 
-    const envLabel = PREVIEW_ENV_ID === 'sand_001'
-      ? '砂漠'
-      : (
-        PREVIEW_ENV_ID === 'bark_001'
-          ? '樹皮'
-          : PREVIEW_ENV_ID
-      );
-    const switchLabel = PREVIEW_ENV_ID === 'sand_001'
-      ? '背景: 樹皮へ'
-      : '背景: 砂漠へ';
+    const envLabels = { kusagi_001:'クサギ01', bark_001:'樹皮', sand_001:'砂地' };
+    const envLabel = envLabels[PREVIEW_ENV_ID] || PREVIEW_ENV_ID;
+    const availableEnvs = EVOLUTION_MODEL_ID === 'continuous_v1' && !HABITAT_ACCESS.testMode
+      ? [...HABITAT_ACCESS.releasedEnvironments]
+      : ['kusagi_001','bark_001','sand_001'];
+    const currentIndex = availableEnvs.indexOf(PREVIEW_ENV_ID);
+    const nextEnv = availableEnvs[(currentIndex + 1) % availableEnvs.length];
+    const switchLabel = '背景: ' + (envLabels[nextEnv] || nextEnv) + 'へ';
 
     badge.innerHTML =
       '<span>SOLO · '
@@ -4296,16 +4308,13 @@
     const environmentButton = badge.querySelector(
       '[data-action="environment"]'
     );
+    if (availableEnvs.length <= 1) environmentButton.hidden = true;
     environmentButton.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
 
       const u = new URL(location.href);
-      if (PREVIEW_ENV_ID === 'sand_001') {
-        u.searchParams.delete('env');
-      } else {
-        u.searchParams.set('env', 'sand');
-      }
+      u.searchParams.set('env', nextEnv);
       u.searchParams.set('v', String(Date.now()));
       location.href = u.toString();
     });
