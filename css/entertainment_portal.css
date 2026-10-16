@@ -282,6 +282,39 @@ html.pixel-portal-pending #entertainmentPortal[hidden] { display: block !importa
   line-height: 1.75;
   margin: 0 0 22px;
 }
+/* A local, freely editable display name; never a unique account ID. */
+#entertainmentPortal .portal-nickname {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 14px;
+  text-align: left;
+}
+#entertainmentPortal .portal-nickname-label {
+  font: 700 11px/1.3 'DotGothic16', 'PixelMplus', monospace;
+  letter-spacing: .1em;
+  color: #f7e9bb;
+}
+#entertainmentPortal .portal-nickname-input {
+  width: 100%;
+  min-width: 0;
+  height: 43px;
+  padding: 7px 11px;
+  border: 2px solid #b5ac85;
+  border-radius: 0;
+  outline-offset: 2px;
+  background: rgba(12, 27, 27, .91);
+  color: #fff4d2;
+  font: 700 16px/1.4 'DotGothic16', 'PixelMplus', monospace;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+#entertainmentPortal .portal-nickname-input:focus {
+  border-color: #ffe7a1;
+}
+#entertainmentPortal .portal-nickname-input[aria-invalid="true"] {
+  border-color: #ffba99;
+}
 #entertainmentPortal .portal-modes { display: flex; flex-direction: column; gap: 11px; }
 #entertainmentPortal .portal-mode {
   display: grid;
