@@ -11,7 +11,7 @@
     {id:'future_002',required:10,playable:false,label:'？？？',en:'???'},
   ]);
   const COMPARISON_LEVELS=Object.freeze(ACCESS.allHabitats.slice(1).map(e=>({
-    id:e.id,required:0,playable:true,comparison:true,
+    id:e.id,required:0,playable:true,comparison:true,legacy:!!e.comparison,
     label:e.ja,en:e.en,asset:e.asset,
   })));
   function eligible(r){

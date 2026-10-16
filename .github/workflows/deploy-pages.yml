@@ -41,6 +41,8 @@ jobs:
               "config/konchu_univ_alpha.json",
               "species/moth/species.json",
               "environments/bark_001/environment.json",
+              "environments/sand_001/environment.json",
+              "img/backgrounds/bg_desert_preview.svg",
               "environments/kusagi_001/environment.json",
               "environments/leaf_002/environment.json",
               "img/backgrounds/bg_leaf02.png",
@@ -77,6 +79,43 @@ jobs:
           missing = [p for p in required if not Path(p).is_file()]
           if missing:
               raise SystemExit(f"Missing preview files: {missing}")
+
+          user_envs = [
+              ("kusagi_001", "bg_leaf01.png"),
+              ("leaf_002", "bg_leaf02.png"),
+              ("leaf_003", "bg_leaf03.png"),
+              ("bush_001", "bg_bush01.png"),
+              ("bush_002", "bg_bush02.png"),
+              ("grass_001", "bg_grass01.png"),
+              ("bark_photo_001", "bg_bark01.png"),
+              ("dryleaf_001", "bg_dryleaf01.png"),
+              ("sand_photo_001", "bg_sand01.png"),
+              ("stone_001", "bg_stone01.png"),
+              ("shell_001", "bg_shell01.png"),
+              ("wood_001", "bg_wood01.png"),
+              ("wood_002", "bg_wood02.png"),
+          ]
+          assert len(set(name for _,name in user_envs)) == 13
+          assert len(set(env for env,_ in user_envs)) == 13
+          for env, name in user_envs:
+              conf = json.loads(
+                  Path(f"environments/{env}/environment.json").read_text("utf-8")
+              )
+              if conf["environment_id"] != env:
+                  raise SystemExit(f"Environment id mismatch: {env}")
+              if conf["background"]["src"] != f"img/backgrounds/{name}":
+                  raise SystemExit(f"Background path mismatch: {env}")
+              if not conf.get("display_name_ja") or not conf.get("display_name_en"):
+                  raise SystemExit(f"Missing locale name: {env}")
+              if (conf["background"]["source_width"],
+                  conf["background"]["source_height"]) != (720,1280):
+                  raise SystemExit(f"Wrong image coordinates: {env}")
+              data = Path(f"img/backgrounds/{name}").read_bytes()
+              if not data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+                  raise SystemExit(f"Invalid PNG: {name}")
+              if (int.from_bytes(data[16:20],"big"),
+                  int.from_bytes(data[20:24],"big")) != (720,1280):
+                  raise SystemExit(f"Wrong PNG size: {name}")
 
           forbidden = [
               Path("data/runs"),

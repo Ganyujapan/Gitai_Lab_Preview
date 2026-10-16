@@ -63,9 +63,12 @@
   function render() {
     const p=rules.progress(state);
     total.textContent='トロフィー：'+p.count+'個体';
+    const english = window.GitaiHabitatAccess?.locale === 'en';
     lead.textContent=p.testMode
-      ? 'テスト中：クサギ01と旧樹皮・旧砂地を自由に比較できます。'
-      : 'S以上の蛾を標本箱に集めて次の環境を解放しよう。';
+      ? (english ? 'TEST MODE: Choose any of the 13 new and 2 legacy backgrounds.'
+        : 'テスト中：新しい13背景と旧比較用2背景を自由に選択できます。')
+      : (english ? 'Collect S/SS specimens to unlock more habitats.'
+        : 'S以上の蛾を標本箱に集めて次の環境を解放しよう。');
     cards.textContent='';
     for(const e of p.environments){
       const card=document.createElement('button');
@@ -78,14 +81,23 @@
       const art=e.asset
         ? '<img src="'+e.asset+'" alt="" loading="lazy">'
         : '<span class="portal-environment-unknown" aria-hidden="true">?</span>';
-      const label=e.comparison?'比較用・既存の進化データを維持'
-        : e.required===0?'最初からプレイ可能'
-        : !e.unlocked?'S以上の標本 '+e.current+' / '+e.required
-        : !e.playable?'条件達成！新背景は準備中':'解放済み・プレイ可能';
+      const label=e.legacy
+        ? (english ? 'Legacy comparison; existing progress retained'
+          : '旧版比較用・進化データは保持')
+        : e.comparison
+          ? (english ? 'Available during testing' : 'テスト期間中は自由に選択可能')
+          : e.required===0
+            ? (english ? 'Available from the start' : '最初からプレイ可能')
+            : !e.unlocked
+              ? (english ? 'S/SS specimens '+e.current+' / '+e.required
+                : 'S以上の標本 '+e.current+' / '+e.required)
+              : !e.playable
+                ? (english ? 'Unlocked; background coming soon' : '条件達成！新背景は準備中')
+                : (english ? 'Unlocked; ready to play' : '解放済み・プレイ可能');
       card.innerHTML=art+
         '<span class="portal-environment-info"><b></b><small></small></span>'+
         '<span class="portal-environment-symbol"></span>';
-      card.querySelector('b').textContent=e.label;
+      card.querySelector('b').textContent=english ? (e.en||e.label) : e.label;
       card.querySelector('small').textContent=label;
       card.querySelector('.portal-environment-symbol').textContent=canPlay?'▶':e.unlocked?'◇':'🔒';
       if(e.required>0){
@@ -122,9 +134,12 @@
   async function open({onChoose}={}){
     choose=typeof onChoose==='function'?onChoose:null;
     const serial=++opened;picker.hidden=false;
+    const english=window.GitaiHabitatAccess?.locale==='en';
     feedback.textContent=window.GitaiHabitatAccess?.testMode
-      ? '比較テスト中です。S・SSの判定はまだ較正中です。'
-      : 'S・SSのランク判定は現在調整中です。';
+      ? (english ? 'Comparison test mode. S/SS calibration is still in progress.'
+        : '全背景の比較テスト中です。S・SSの判定はまだ較正中です。')
+      : (english ? 'S/SS rank calibration is still in progress.'
+        : 'S・SSのランク判定は現在調整中です。');
     back.focus({preventScroll:true});
     await refresh();
     if(serial!==opened)return;
