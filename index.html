@@ -17,7 +17,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261015-blackline1">
+  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261017-nickname1">
   <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
   <title>ギタイラボ — 昆虫大学 α</title>
   <style>
@@ -653,6 +653,11 @@
       background: rgba(3, 5, 6, 0.99);
     }
 
+    /* Specimen detail must be above the collection (z-index: 54). */
+    #mothShareOverlay.from-specimen {
+      z-index: 56;
+    }
+
     .share-panel {
       width: min(96%, 540px);
       max-height: 96%;
@@ -1046,6 +1051,35 @@
       padding: 12px;
     }
 
+    .specimen-bg-toggle {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      min-height: 42px;
+      padding: 0;
+      border: 1px solid rgba(235,221,187,0.48);
+      border-radius: 50%;
+      background: #191c1a;
+      cursor: pointer;
+    }
+
+    .specimen-bg-toggle[aria-pressed="true"] {
+      border-color: #e8ce91;
+      background: #34362b;
+      box-shadow: 0 0 0 2px rgba(232,206,145,0.18);
+    }
+
+    .specimen-bg-icon {
+      display: block;
+      width: 24px;
+      height: 24px;
+      border: 1px solid #bbab8b;
+      border-radius: 50%;
+      background: linear-gradient(90deg, #ede2c8 0 50%, #62765f 50% 100%);
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,0.12);
+    }
+
     .specimen-grid {
       flex: 1 1 auto;
       min-height: 0;
@@ -1103,6 +1137,14 @@
       box-shadow:
         inset 0 0 0 2px rgba(251,238,208,0.66),
         inset 0 0 12px rgba(81,55,29,0.21);
+    }
+
+    .specimen-grid.is-habitat .specimen-card-mount.has-habitat {
+      background-image: var(--specimen-habitat-bg);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      image-rendering: pixelated;
     }
 
     .specimen-card-mount img {
@@ -1403,9 +1445,8 @@
         <div class="evolution-toolbar">
           <button id="specimenBoxCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
           <h2 class="evolution-title">標本箱</h2>
-          <span></span>
+          <button id="specimenBackgroundToggle" class="specimen-bg-toggle" type="button" aria-label="生息環境の背景に切り替える" aria-pressed="false"><span class="specimen-bg-icon" aria-hidden="true"></span></button>
         </div>
-        <p class="evolution-hint">保存した標本は進化には影響しません。Runをリセットしても標本箱には残ります。</p>
         <div id="specimenGrid" class="specimen-grid"></div>
       </div>
     </section>
@@ -1473,6 +1514,10 @@
           <div class="portal-menu-kicker">[ EVOLUTION MODE ]</div>
           <h2 class="portal-menu-heading">どんなギタイをする？</h2>
           <p class="portal-menu-description">遊び方を選んで、進化の世界へ。</p>
+          <label class="portal-nickname" for="portalNickname">
+            <span class="portal-nickname-label">NICKNAME</span>
+            <input id="portalNickname" class="portal-nickname-input" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="ニックネーム">
+          </label>
           <div class="portal-modes">
             <button id="portalSolo" class="portal-mode portal-mode-solo" type="button">
               <span class="portal-mode-icon" aria-hidden="true">◈</span>
@@ -1562,6 +1607,7 @@
 
   const specimenBoxOverlay = document.getElementById('specimenBoxOverlay');
   const specimenBoxCloseButton = document.getElementById('specimenBoxCloseButton');
+  const specimenBackgroundToggle = document.getElementById('specimenBackgroundToggle');
   const specimenGrid = document.getElementById('specimenGrid');
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
@@ -1916,9 +1962,17 @@
     state.specimenObjectUrls = [];
   }
 
+  function setSpecimenHabitatView(enabled) {
+    specimenGrid.classList.toggle('is-habitat', Boolean(enabled));
+    specimenBackgroundToggle.setAttribute('aria-pressed', String(Boolean(enabled)));
+    specimenBackgroundToggle.setAttribute('aria-label',
+      enabled ? 'アイボリー背景に切り替える' : '生息環境の背景に切り替える');
+  }
+
   async function showSpecimenBox() {
     releaseSpecimenObjectUrls();
     specimenGrid.innerHTML = '';
+    setSpecimenHabitatView(false);
     specimenBoxOverlay.classList.add('visible');
 
     try {
@@ -1950,6 +2004,17 @@
         const mount = document.createElement('span');
         mount.className = 'specimen-card-mount';
         mount.appendChild(img);
+
+        // Resolve the saved specimen's environment, not the current run's.
+        // Only allow trusted bundled habitat paths from the shared catalog.
+        const habitat = window.GitaiHabitatAccess?.get?.(
+          String(record.environment_id || '')
+        );
+        if (habitat && habitat.asset) {
+          mount.classList.add('has-habitat');
+          mount.style.setProperty('--specimen-habitat-bg',
+            'url("' + new URL(habitat.asset, document.baseURI).href + '")');
+        }
 
         const meta = document.createElement('span');
         meta.className = 'specimen-card-meta';
@@ -3146,9 +3211,10 @@
     return 'gitai-preview-share-name-v1';
   }
 
+  const PLAYER_NICKNAME_KEY = 'gitai-player-nickname-v1';
+
   function getShareDisplayName() {
-    const value = shareNameInput.value.trim();
-    return value;
+    return shareNameInput.value.trim().slice(0, 16);
   }
 
   function updateShareCardTitle() {
@@ -3170,7 +3236,8 @@
 
     let savedName = '';
     try {
-      savedName = localStorage.getItem(shareNameStorageKey()) || '';
+      savedName = localStorage.getItem(PLAYER_NICKNAME_KEY)
+        || localStorage.getItem(shareNameStorageKey()) || '';
     } catch (_) {}
 
     shareNameInput.value = savedName;
@@ -3193,7 +3260,7 @@
     gitaiScoreButton.textContent = '採点する';
 
     if (isEntertainmentModel()) {
-      const id = specimenIdentity(generationId, index);
+      const id = specimenRecord?.id || specimenIdentity(generationId, index);
       specimenGet(id).then((record) => {
         if (
           state.selectedShare
@@ -3209,6 +3276,8 @@
       }).catch(() => {});
     }
 
+    mothShareOverlay.classList.toggle('from-specimen',
+      Boolean(specimenRecord && specimenBoxOverlay.classList.contains('visible')));
     mothShareOverlay.classList.add('visible');
   }
 
@@ -4240,12 +4309,16 @@
 
   shareBackButton.addEventListener('click', () => {
     mothShareOverlay.classList.remove('visible');
+    mothShareOverlay.classList.remove('from-specimen');
   });
 
   shareNameInput.addEventListener('input', () => {
     updateShareCardTitle();
+    const nickname = getShareDisplayName();
     try {
-      localStorage.setItem(shareNameStorageKey(), getShareDisplayName());
+      localStorage.setItem(shareNameStorageKey(), nickname);
+      if (nickname) localStorage.setItem(PLAYER_NICKNAME_KEY, nickname);
+      else localStorage.removeItem(PLAYER_NICKNAME_KEY);
     } catch (_) {}
   });
 
@@ -4298,6 +4371,10 @@
   specimenBoxCloseButton.addEventListener('click', () => {
     specimenBoxOverlay.classList.remove('visible');
     releaseSpecimenObjectUrls();
+  });
+
+  specimenBackgroundToggle.addEventListener('click', () => {
+    setSpecimenHabitatView(!specimenGrid.classList.contains('is-habitat'));
   });
 
   mutationRevealContinueButton.addEventListener('click', () => {
@@ -4383,7 +4460,7 @@
 <script src="js/trophy_rules.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
-<script src="js/entertainment_portal.js?v=20261016-bgcollection1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/entertainment_portal.js?v=20261017-nickname1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 
 <!--
   フォント：PixelMplus12-Regular（M+ FONT LICENSE）
