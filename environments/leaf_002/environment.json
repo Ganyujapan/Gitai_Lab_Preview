@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "environment_id": "leaf_002",
+  "display_name_ja": "葉2",
+  "display_name_en": "Leaf 2",
+  "background": {
+    "src": "img/backgrounds/bg_leaf02.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}

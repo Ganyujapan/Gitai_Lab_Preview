@@ -4239,14 +4239,15 @@
       previewSeconds = params.get('fast') === '1' ? 0.5 : 4.0;
     }
 
-    const envLabels = { kusagi_001:'クサギ01', bark_001:'樹皮', sand_001:'砂地' };
-    const envLabel = envLabels[PREVIEW_ENV_ID] || PREVIEW_ENV_ID;
-    const availableEnvs = EVOLUTION_MODEL_ID === 'continuous_v1' && !HABITAT_ACCESS.testMode
-      ? [...HABITAT_ACCESS.releasedEnvironments]
-      : ['kusagi_001','bark_001','sand_001'];
+    const envLabel = HABITAT_ACCESS.label?.(PREVIEW_ENV_ID) || PREVIEW_ENV_ID;
+    const availableEnvs = EVOLUTION_MODEL_ID === 'morph_v1'
+      ? ['bark_001','sand_001']
+      : HABITAT_ACCESS.testMode
+        ? [...HABITAT_ACCESS.testingEnvironments]
+        : [...HABITAT_ACCESS.releasedEnvironments];
     const currentIndex = availableEnvs.indexOf(PREVIEW_ENV_ID);
     const nextEnv = availableEnvs[(currentIndex + 1) % availableEnvs.length];
-    const switchLabel = '背景: ' + (envLabels[nextEnv] || nextEnv) + 'へ';
+    const switchLabel = '背景: ' + (HABITAT_ACCESS.label?.(nextEnv) || nextEnv) + 'へ';
 
     badge.innerHTML =
       '<span>SOLO · '

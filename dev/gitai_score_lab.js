@@ -13,6 +13,11 @@
   const mothCanvas = document.getElementById('mothCanvas');
   const mothCtx = mothCanvas.getContext('2d');
   const environmentSelect = document.getElementById('environmentSelect');
+  const habitatLocale = new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'ja';
+  for (const option of environmentSelect.options) {
+    const label = option.dataset[habitatLocale];
+    if (label) option.textContent = label;
+  }
   const customBackgroundTools = document.getElementById('customBackgroundTools');
   const customBackgroundFile = document.getElementById('customBackgroundFile');
   const customBackgroundChooseButton = document.getElementById('customBackgroundChooseButton');

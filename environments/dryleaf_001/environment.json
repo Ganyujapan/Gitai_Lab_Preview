@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "environment_id": "dryleaf_001",
+  "display_name_ja": "落ち葉",
+  "display_name_en": "Fallen Leaves",
+  "background": {
+    "src": "img/backgrounds/bg_dryleaf01.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}

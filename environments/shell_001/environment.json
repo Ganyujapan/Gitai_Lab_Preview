@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "environment_id": "shell_001",
+  "display_name_ja": "貝殻",
+  "display_name_en": "Shell",
+  "background": {
+    "src": "img/backgrounds/bg_shell01.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}

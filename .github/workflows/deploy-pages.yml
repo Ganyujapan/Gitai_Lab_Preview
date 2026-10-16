@@ -22,8 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Reconstruct full-resolution Kusagi PNG
-        run: python3 scripts/expand_kusagi_background.py
       - name: Validate preview contract
         run: |
           python - <<'PY'
@@ -44,7 +42,30 @@ jobs:
               "species/moth/species.json",
               "environments/bark_001/environment.json",
               "environments/kusagi_001/environment.json",
-              "img/backgrounds/bg_kusagi_720x1280_01.png",
+              "environments/leaf_002/environment.json",
+              "img/backgrounds/bg_leaf02.png",
+              "environments/leaf_003/environment.json",
+              "img/backgrounds/bg_leaf03.png",
+              "environments/bush_001/environment.json",
+              "img/backgrounds/bg_bush01.png",
+              "environments/bush_002/environment.json",
+              "img/backgrounds/bg_bush02.png",
+              "environments/grass_001/environment.json",
+              "img/backgrounds/bg_grass01.png",
+              "environments/bark_photo_001/environment.json",
+              "img/backgrounds/bg_bark01.png",
+              "environments/dryleaf_001/environment.json",
+              "img/backgrounds/bg_dryleaf01.png",
+              "environments/sand_photo_001/environment.json",
+              "img/backgrounds/bg_sand01.png",
+              "environments/stone_001/environment.json",
+              "img/backgrounds/bg_stone01.png",
+              "environments/shell_001/environment.json",
+              "img/backgrounds/bg_shell01.png",
+              "environments/wood_001/environment.json",
+              "img/backgrounds/bg_wood01.png",
+              "environments/wood_002/environment.json",
+              "img/backgrounds/bg_wood02.png",
               "data/evo_config/evo_config_v2.json",
               "data/evolution_models/continuous_v1/config.json",
               "data/evolution_models/morph_v1/config.json",
@@ -124,6 +145,7 @@ jobs:
           node --check js/trophy_rules.js
           node --check js/portal_trophies.js
           node --check js/entertainment_portal.js
+          node --check dev/gitai_score_lab.js
           node --test tests/trophy_rules.test.js
 
       - uses: actions/configure-pages@v5

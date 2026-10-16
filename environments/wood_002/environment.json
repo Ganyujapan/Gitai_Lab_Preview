@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "environment_id": "wood_002",
+  "display_name_ja": "木の板2",
+  "display_name_en": "Wood Board 2",
+  "background": {
+    "src": "img/backgrounds/bg_wood02.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}
