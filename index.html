@@ -3236,8 +3236,9 @@
 
     let savedName = '';
     try {
-      savedName = localStorage.getItem(PLAYER_NICKNAME_KEY)
-        || localStorage.getItem(shareNameStorageKey()) || '';
+      const currentNickname = localStorage.getItem(PLAYER_NICKNAME_KEY);
+      savedName = currentNickname !== null ? currentNickname
+        : (localStorage.getItem(shareNameStorageKey()) || '');
     } catch (_) {}
 
     shareNameInput.value = savedName;
@@ -4317,8 +4318,7 @@
     const nickname = getShareDisplayName();
     try {
       localStorage.setItem(shareNameStorageKey(), nickname);
-      if (nickname) localStorage.setItem(PLAYER_NICKNAME_KEY, nickname);
-      else localStorage.removeItem(PLAYER_NICKNAME_KEY);
+      localStorage.setItem(PLAYER_NICKNAME_KEY, nickname);
     } catch (_) {}
   });
 
