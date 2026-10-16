@@ -111,7 +111,7 @@ jobs:
                   conf["background"]["source_height"]) != (720,1280):
                   raise SystemExit(f"Wrong image coordinates: {env}")
               data = Path(f"img/backgrounds/{name}").read_bytes()
-              if not data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+              if not data[:8] == bytes([137,80,78,71,13,10,26,10]):
                   raise SystemExit(f"Invalid PNG: {name}")
               if (int.from_bytes(data[16:20],"big"),
                   int.from_bytes(data[20:24],"big")) != (720,1280):
