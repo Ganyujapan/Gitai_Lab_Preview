@@ -37,6 +37,47 @@
   const closeDialog = document.getElementById('portalDialogClose');
   const backToMenu = document.getElementById('portalBackToMenu');
   const startOverlay = document.getElementById('startOverlay');
+  const nicknameInput = document.getElementById('portalNickname');
+  const NICKNAME_KEY = 'gitai-player-nickname-v1';
+  const LEGACY_SHARE_NAME_KEY = 'gitai-preview-share-name-v1';
+
+  function readNickname() {
+    try {
+      return String(localStorage.getItem(NICKNAME_KEY)
+        || localStorage.getItem(LEGACY_SHARE_NAME_KEY) || '').trim().slice(0, 16);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function persistNickname(value) {
+    const name = String(value || '').trim().slice(0, 16);
+    try {
+      if (name) localStorage.setItem(NICKNAME_KEY, name);
+      else localStorage.removeItem(NICKNAME_KEY);
+    } catch (_) {}
+    return name;
+  }
+
+  if (nicknameInput) {
+    nicknameInput.value = readNickname();
+    nicknameInput.addEventListener('input', () => {
+      nicknameInput.removeAttribute('aria-invalid');
+      persistNickname(nicknameInput.value);
+    });
+    nicknameInput.addEventListener('change', () => {
+      nicknameInput.value = persistNickname(nicknameInput.value);
+    });
+  }
+
+  function ensureNickname() {
+    if (!nicknameInput) return true;
+    const value = persistNickname(nicknameInput.value);
+    if (value) return true;
+    nicknameInput.setAttribute('aria-invalid', 'true');
+    nicknameInput.focus({ preventScroll: true });
+    return false;
+  }
 
   if (!intro || !menu || !canvas || !enter || !solo || !shared || !mystery) return;
 
@@ -589,6 +630,7 @@
   }
 
   function showMenu() {
+    if (nicknameInput) nicknameInput.value = readNickname();
     setSoloRoute(false);
     portal.hidden = false;
     portal.setAttribute('aria-hidden', 'false');
@@ -673,6 +715,7 @@
       : params.get('env') === 'bark' ? 'bark_001'
       : params.get('env') || 'kusagi_001';
     if (current === environmentId) {
+      if (!ensureNickname()) return;
       startSolo();
       return;
     }
@@ -691,7 +734,9 @@
       startSolo();
     }
   }
-  solo.addEventListener('click', showEnvironmentPicker);
+  solo.addEventListener('click', () => {
+    if (ensureNickname()) showEnvironmentPicker();
+  });
   shared.addEventListener('click', () => showDialog('shared'));
   mystery.addEventListener('click', () => showDialog('mystery'));
   closeDialog.addEventListener('click', hideDialog);
@@ -725,8 +770,8 @@
         : params.get('env') === 'bark' ? 'bark_001'
         : params.get('env') || 'kusagi_001';
       const entry = status?.environments?.find((e) => e.id === env);
-      if (entry?.unlocked && entry.playable) startSolo();
-      else showEnvironmentPicker();
+      if (entry?.unlocked && entry.playable && ensureNickname()) startSolo();
+      else if (readNickname()) showEnvironmentPicker();
     }).catch(showEnvironmentPicker);
   }
 })();
