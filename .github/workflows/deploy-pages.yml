@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Reconstruct full-resolution Kusagi PNG
+        run: python3 scripts/expand_kusagi_background.py
       - name: Validate preview contract
         run: |
           python - <<'PY'
@@ -41,6 +43,8 @@ jobs:
               "config/konchu_univ_alpha.json",
               "species/moth/species.json",
               "environments/bark_001/environment.json",
+              "environments/kusagi_001/environment.json",
+              "img/backgrounds/bg_kusagi_720x1280_01.png",
               "data/evo_config/evo_config_v2.json",
               "data/evolution_models/continuous_v1/config.json",
               "data/evolution_models/morph_v1/config.json",

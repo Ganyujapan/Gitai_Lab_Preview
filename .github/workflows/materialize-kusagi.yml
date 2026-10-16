@@ -1,0 +1,29 @@
+name: Materialize Kusagi source PNG
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "img/backgrounds/bg_kusagi_source_90x160.png"
+      - "scripts/expand_kusagi_background.py"
+      - ".github/workflows/materialize-kusagi.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expand original photo pixels
+        run: python3 scripts/expand_kusagi_background.py
+      - name: Commit full-size PNG
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add img/backgrounds/bg_kusagi_720x1280_01.png
+          if ! git diff --cached --quiet; then
+            git commit -m "assets: materialize lossless Kusagi 720x1280 PNG"
+            git push origin HEAD:main
+          fi
