@@ -45,13 +45,17 @@ test('rank records persist across runs but not across habitats',()=>{
  h.context.environmentId='leaf1';
  assert.equal(h.highestPreviouslyReachedRank(),4);
 });
-test('mutation screen shows a single moth and tap advances without skipping on save',()=>{
+test('mutation screen shows a single moth and advances only via the Next button',()=>{
  assert.match(html,/grid-template-columns:\s*minmax\(0, 1fr\)/);
  assert.match(html,/function renderMutationRevealItem\(\)/);
  assert.match(html,/mutationRevealGrid\.replaceChildren\(\)/);
  assert.match(html,/state\.mutationRevealIndex \+= 1;\s*renderMutationRevealItem\(\)/);
- assert.match(html,/mutationRevealOverlay\.addEventListener\('click'/);
- assert.match(html,/event\.target\.closest\('button'\)/);
+ assert.doesNotMatch(html,/mutationRevealOverlay\.addEventListener\('click'/);
+ assert.doesNotMatch(html,/mutation-tap-hint|画面をタップして次の蛾へ/);
+ assert.match(html,/id="mutationRevealContinueButton" type="button">次へ<\/button>/);
+ assert.match(html,/mutationRevealContinueButton\.textContent = '次へ';/);
+ assert.doesNotMatch(html,/mutationRevealContinueButton\.textContent = last/);
+ assert.match(html,/mutationRevealContinueButton\.addEventListener\('click', \(event\) => \{\s*event\.stopPropagation\(\);\s*advanceMutationReveal\(\)/);
  assert.match(html,/save\.addEventListener\('click', async \(event\) => \{\s*event\.stopPropagation\(\)/);
  assert.match(html,/await saveSpecimen\(state\.currentGenerationId, index, src\)/);
 });
@@ -97,4 +101,33 @@ test('new rank celebration has only a short Next action, retaining its specimen 
 test('rank headline adds exactly one ASCII space on either side of the grade',()=>{
  const expected = '<h2 id="rankMilestoneTitle">ギタイ度 <span id="rankMilestoneGrade">C</span> ランク発生！！！</h2>';
  assert.equal(html.split(expected).length-1,1);
+});
+
+test('Next progresses across mutation specimens, then exits to rank/gallery when last',()=>{
+ const begin=html.indexOf('  function advanceMutationReveal() {');
+ const end=html.indexOf('  function showGenerationGenerating() {',begin);
+ assert.ok(begin>=0&&end>begin,'mutation advance function exists');
+ const fragment=html.slice(begin,end);
+ const state={mutationRevealItems:[{index:1},{index:2}],mutationRevealIndex:0};
+ const overlay={
+   visible:true,
+   classList:{
+     contains:()=>overlay.visible,
+     remove:()=>{overlay.visible=false;}
+   }
+ };
+ let rendered=0,cleared=0,departed=0;
+ const advance=new Function(
+   'state','mutationRevealOverlay','renderMutationRevealItem','clearPendingMutationEvent','showRankMilestoneOrGallery',
+   fragment+';return advanceMutationReveal;'
+ )(state,overlay,()=>rendered++,()=>cleared++,()=>departed++);
+ advance();
+ assert.equal(state.mutationRevealIndex,1);
+ assert.equal(rendered,1);
+ assert.equal(departed,0);
+ advance();
+ assert.equal(state.mutationRevealItems.length,0);
+ assert.equal(overlay.visible,false);
+ assert.equal(cleared,1);
+ assert.equal(departed,1);
 });

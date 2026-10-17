@@ -1152,12 +1152,6 @@
       border: 1px solid #91a99d;
       font: 700 14px/1.4 system-ui, -apple-system, sans-serif;
     }
-    .mutation-panel .mutation-tap-hint {
-      font: 11px/1.5 system-ui, sans-serif;
-      color: #80948a;
-      text-align: center;
-      margin: 0;
-    }
     #rankMilestoneOverlay {
       z-index: 54;
       background: rgba(3, 5, 6, .99);
@@ -1680,8 +1674,7 @@
         <h2>突然変異の正体</h2>
         <p id="mutationRevealMessage" class="subtle"></p>
         <div id="mutationRevealGrid" class="mutation-grid"></div>
-        <p class="mutation-tap-hint">画面をタップして次の蛾へ</p>
-        <button id="mutationRevealContinueButton" type="button">次の蛾へ ▶</button>
+        <button id="mutationRevealContinueButton" type="button">次へ</button>
       </div>
     </section>
 
@@ -2612,12 +2605,9 @@
     mutationRevealGrid.append(card);
     mutationRevealMessage.textContent = '突然変異 ' + (state.mutationRevealIndex + 1)
       + ' / ' + state.mutationRevealItems.length;
-    const last = state.mutationRevealIndex === state.mutationRevealItems.length - 1;
-    mutationRevealContinueButton.textContent = last
-      ? '新ランクの発表へ ▶' : '次の蛾へ ▶';
-    if (last && !state.pendingRankMilestone) {
-      mutationRevealContinueButton.textContent = 'この世代の蛾を見る ▶';
-    }
+    // The same short label is used for every mutant, including the final one.
+    // advanceMutationReveal() handles the destination after the last moth.
+    mutationRevealContinueButton.textContent = '次へ';
   }
 
   function advanceMutationReveal() {
@@ -5021,10 +5011,6 @@
 
   mutationRevealContinueButton.addEventListener('click', (event) => {
     event.stopPropagation();
-    advanceMutationReveal();
-  });
-  mutationRevealOverlay.addEventListener('click', (event) => {
-    if (event.target.closest('button')) return;
     advanceMutationReveal();
   });
   rankMilestoneSaveButton.addEventListener('click', async (event) => {

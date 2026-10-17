@@ -13,7 +13,7 @@ test('solo fifth round follows shutter, mutation pages, and optional new-rank an
  assert.match(last,/playEndOfGenerationShutter\(async \(\) => \{[\s\S]*?showResults\(\);[\s\S]*?await calculatePlayedGenerationRanks\(\);[\s\S]*?selectNewRankMilestone\(scores\);/);
  assert.match(last,/if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showRankMilestoneOrGallery\(\);/);
  assert.match(html,/mutationRevealContinueButton\.addEventListener\('click', \(event\) => \{\s*event\.stopPropagation\(\);\s*advanceMutationReveal\(\)/);
- assert.match(html,/id="mutationRevealContinueButton"[^>]*>次の蛾へ/);
+ assert.match(html,/id="mutationRevealContinueButton"[^>]*>次へ<\/button>/);
 });
 
 test('gallery buttons stay above its scrolling grid; theater button follows last moth',()=>{
