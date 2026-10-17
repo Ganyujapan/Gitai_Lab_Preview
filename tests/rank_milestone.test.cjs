@@ -74,12 +74,12 @@ test('sequence is shutter, mutation, rank, gallery; D is the baseline',()=>{
 });
 
 test('rank announcement letter inherits its headline font but gallery badges stay pixel styled',()=>{
- const announcement=html.match(/#rankMilestoneGrade\\s*\\{([^}]+)\\}/)?.[1]||'';
- const gallery=html.match(/\\.moth-rank-badge\\s*\\{([^}]+)\\}/)?.[1]||'';
- assert.match(announcement,/font-family:\\s*inherit/);
- assert.match(announcement,/font-size:\\s*inherit/);
- assert.match(announcement,/font-weight:\\s*inherit/);
+ const announcement=html.match(/#rankMilestoneGrade\s*\{([^}]+)\}/)?.[1]||'';
+ const gallery=html.match(/\.moth-rank-badge\s*\{([^}]+)\}/)?.[1]||'';
+ assert.match(announcement,/font-family:\s*inherit/);
+ assert.match(announcement,/font-size:\s*inherit/);
+ assert.match(announcement,/font-weight:\s*inherit/);
  assert.doesNotMatch(announcement,/Press Start 2P/);
- assert.match(gallery,/font-family:\\s*"Press Start 2P"/);
- assert.match(html,/#rankMilestoneGrade\\[data-rank="SS"\\]\\s*\\{[^}]*background:\\s*linear-gradient/s);
+ assert.match(gallery,/font-family:\s*"Press Start 2P"/);
+ assert.match(html,/#rankMilestoneGrade\[data-rank="SS"\]\s*\{[^}]*background:\s*linear-gradient/s);
 });
