@@ -8,7 +8,8 @@
 
   const params = new URLSearchParams(window.location.search);
   const model = params.get('model') || 'continuous_v1';
-  if (model !== 'continuous_v1' || params.get('play') === '1') return;
+  if (model !== 'continuous_v1') return;
+  const directSolo = params.get('play') === '1';
 
   // Font is requested only on the entertainment entrance.
   // If offline (e.g. exhibition iPad), fallback fonts keep the UI usable.
@@ -36,6 +37,9 @@
   const dialogText = document.getElementById('portalDialogText');
   const closeDialog = document.getElementById('portalDialogClose');
   const backToMenu = document.getElementById('portalBackToMenu');
+  const resultBackToMenu = document.getElementById('resultBackToMenu');
+  const soloHomeButton = document.getElementById('soloHomeButton');
+  const reviewOverlay = document.getElementById('reviewOverlay');
   const startOverlay = document.getElementById('startOverlay');
   const nicknameInput = document.getElementById('portalNickname');
   const NICKNAME_KEY = 'gitai-player-nickname-v1';
@@ -651,6 +655,13 @@
     portal.setAttribute('aria-hidden', 'true');
     // Do not reset or mutate the existing IndexedDB evolution state.
     if (backToMenu) backToMenu.hidden = false;
+    if (soloHomeButton) {
+      soloHomeButton.hidden = Boolean(
+        startOverlay?.classList.contains('visible')
+        || reviewOverlay?.classList.contains('visible')
+      );
+    }
+    window.dispatchEvent(new Event('gitai:solo-resume'));
     const startButton = document.getElementById('startButton');
     if (startOverlay && startOverlay.classList.contains('visible') && startButton && !startButton.disabled) {
       startButton.focus({ preventScroll: true });
@@ -742,7 +753,14 @@
   shared.addEventListener('click', () => showDialog('shared'));
   mystery.addEventListener('click', () => showDialog('mystery'));
   closeDialog.addEventListener('click', hideDialog);
-  if (backToMenu) backToMenu.addEventListener('click', showMenu);
+  function returnToMenuWithoutReset() {
+    window.dispatchEvent(new Event('gitai:solo-pause'));
+    if (soloHomeButton) soloHomeButton.hidden = true;
+    showMenu();
+  }
+  if (backToMenu) backToMenu.addEventListener('click', returnToMenuWithoutReset);
+  if (resultBackToMenu) resultBackToMenu.addEventListener('click', returnToMenuWithoutReset);
+  if (soloHomeButton) soloHomeButton.addEventListener('click', returnToMenuWithoutReset);
   portal.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       if (!dialog.hidden) { event.preventDefault(); hideDialog(); }
@@ -758,14 +776,21 @@
   document.addEventListener('visibilitychange', restartAnimation);
   reducedMotion.addEventListener?.('change', restartAnimation);
 
-  portal.hidden = false;
-  portal.setAttribute('aria-hidden', 'false');
-  intro.inert = false;
+  portal.hidden = directSolo;
+  portal.setAttribute('aria-hidden', String(directSolo));
+  intro.inert = directSolo;
   menu.inert = true;
-  // Motion-study CTA can open the already existing mode menu directly.
+  // Direct SOLO page loads must also initialize the menu for an eventual return.
   const portalTarget = params.get('portal');
-  setMode(portalTarget === 'menu' || portalTarget === 'auto-play-environment' ? 'menu' : 'intro');
-  if (portalTarget === 'auto-play-environment') {
+  setMode(directSolo || portalTarget === 'menu' || portalTarget === 'auto-play-environment' ? 'menu' : 'intro');
+  if (directSolo) {
+    active = false;
+    window.cancelAnimationFrame(raf);
+    raf = 0;
+    if (backToMenu) backToMenu.hidden = false;
+    if (soloHomeButton) soloHomeButton.hidden = Boolean(reviewOverlay?.classList.contains('visible'));
+  }
+  if (!directSolo && portalTarget === 'auto-play-environment') {
     window.GitaiTrophies?.refresh?.().then((status) => {
       if (!active) return;
       const env = params.get('env') === 'sand' ? 'sand_001'
