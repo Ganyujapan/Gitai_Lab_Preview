@@ -2012,15 +2012,6 @@
     wakeLock: null,
   };
 
-  // Only the actual game-loaded images are exposed to the visual tutorial.
-  // Reading this bridge does not modify evolution or local saves.
-  window.GitaiSoloTutorialAssets = () => ({
-    background: state.backgroundImage,
-    moths: state.mothImages,
-    size: CONFIG?.MOTH_SIZE,
-    generation: state.generationNumber
-  });
-
   function applyAppConfig(appConfig) {
     if (!appConfig || !appConfig.game || !appConfig.species || !appConfig.environment) {
       throw new Error('アプリ設定が不正です');
@@ -5098,7 +5089,6 @@
       state.uiTransitionLocked = false;
       startButton.disabled = false;
       startButton.textContent = 'はじめる';
-      window.GitaiSoloTutorial?.refreshAssets();
       window.dispatchEvent(new Event('gitai:solo-assets-ready'));
       requestScreenWakeLock();
 
