@@ -1068,9 +1068,9 @@
 
     .mutation-grid {
       min-height: 0;
-      overflow-y: auto;
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
       gap: 8px;
       margin: 8px 0 12px;
       padding: 2px;
@@ -1078,8 +1078,9 @@
 
     .mutation-card {
       position: relative;
+      width: min(100%, 292px);
       min-width: 0;
-      padding: 8px;
+      padding: 10px;
       border: 1px solid rgba(255,218,108,0.32);
       border-radius: 10px;
       background-color: rgba(0,0,0,0.26);
@@ -1091,7 +1092,8 @@
 
     .mutation-card img {
       display: block;
-      width: 100%;
+      width: min(100%, 260px);
+      margin: 0 auto;
       aspect-ratio: 1;
       object-fit: contain;
       image-rendering: pixelated;
@@ -1116,6 +1118,115 @@
       border-color: rgba(255,218,108,0.46);
     }
 
+
+    /* One-per-screen mutation and first rank achievement use the same
+       low-noise black visual language as battle matchmaking. */
+    .mutation-panel {
+      background: #080a0b;
+      border-color: rgba(157, 188, 174, .48);
+      gap: 10px;
+    }
+    .mutation-panel .generation {
+      font: 600 10px/1.5 ui-monospace, Menlo, monospace;
+      letter-spacing: .17em;
+      color: #8a9f96;
+    }
+    .mutation-panel h2 {
+      font: 800 clamp(21px, 5.8vw, 28px)/1.4 system-ui, sans-serif;
+      color: #f4f5f1;
+    }
+    .mutation-panel #mutationRevealMessage {
+      font-size: 12px;
+      color: #9baca3;
+    }
+    .mutation-panel .mutation-card {
+      border-color: rgba(165, 184, 160, .4);
+      background-color: rgba(18, 28, 27, .7);
+    }
+    .mutation-panel #mutationRevealContinueButton,
+    #rankMilestoneOverlay button {
+      min-height: 46px;
+      border-radius: 9px;
+      background: #263a38;
+      color: #f3f5f1;
+      border: 1px solid #91a99d;
+      font: 700 14px/1.4 system-ui, -apple-system, sans-serif;
+    }
+    .mutation-panel .mutation-tap-hint {
+      font: 11px/1.5 system-ui, sans-serif;
+      color: #80948a;
+      text-align: center;
+      margin: 0;
+    }
+    #rankMilestoneOverlay {
+      z-index: 54;
+      background: rgba(3, 5, 6, .99);
+    }
+    #rankMilestoneOverlay .rank-milestone-panel {
+      background: #080a0b;
+      border: 1px solid rgba(165, 195, 177, .46);
+      width: min(94%, 420px);
+      max-height: 95%;
+      padding: 22px 18px;
+      gap: 13px;
+      align-items: center;
+      text-align: center;
+      overflow-y: auto;
+    }
+    .rank-milestone-eyebrow {
+      color: #94a79b;
+      font: 700 10px/1.5 ui-monospace, Menlo, monospace;
+      letter-spacing: .18em;
+    }
+    #rankMilestoneTitle {
+      margin: 2px 0;
+      font: 800 clamp(22px, 5.5vw, 31px)/1.4 system-ui, sans-serif;
+      color: #f5f5f0;
+    }
+    #rankMilestoneGrade {
+      display: inline-block;
+      color: #eee;
+      font-family: "Press Start 2P", monospace;
+      font-size: .85em;
+    }
+    #rankMilestoneGrade[data-rank="C"] { color: #9c9c9c; }
+    #rankMilestoneGrade[data-rank="B"] { color: #d4d4d4; }
+    #rankMilestoneGrade[data-rank="A"] { color: #fff; }
+    #rankMilestoneGrade[data-rank="S"] { color: #e9c35e; }
+    #rankMilestoneGrade[data-rank="SS"] {
+      background: linear-gradient(90deg, #ff5d89, #ffda65, #63e7a9, #6eaaff, #dd93f9);
+      color: transparent;
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+    .rank-milestone-preview {
+      position: relative;
+      width: min(66vw, 218px);
+      aspect-ratio: 1;
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(191, 208, 195, .45);
+      border-radius: 9px;
+      overflow: hidden;
+    }
+    #rankMilestoneImage {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    #rankMilestoneDescription {
+      font-size: 12px;
+      color: #bbc9c1;
+      line-height: 1.7;
+      margin: 0;
+    }
+    #rankMilestoneOverlay button { width: 100%; }
+    #rankMilestoneSaveButton {
+      background: #1c2925 !important;
+      border-color: #667e70 !important;
+    }
     #gitaiScoreOverlay {
       z-index: 70;
       background: rgba(3,5,6,0.99);
@@ -1574,7 +1685,21 @@
         <h2>突然変異の正体</h2>
         <p id="mutationRevealMessage" class="subtle"></p>
         <div id="mutationRevealGrid" class="mutation-grid"></div>
-        <button id="mutationRevealContinueButton" type="button">プレイした世代を見る</button>
+        <p class="mutation-tap-hint">画面をタップして次の蛾へ</p>
+        <button id="mutationRevealContinueButton" type="button">次の蛾へ ▶</button>
+      </div>
+    </section>
+
+    <section id="rankMilestoneOverlay" class="overlay" aria-label="新ランク達成">
+      <div class="panel rank-milestone-panel">
+        <div class="rank-milestone-eyebrow">INVISILAB / NEW RANK</div>
+        <h2 id="rankMilestoneTitle">ギタイ度<span id="rankMilestoneGrade">C</span>ランク発生！！！</h2>
+        <div class="rank-milestone-preview">
+          <img id="rankMilestoneImage" alt="新ランクを達成した蛾">
+        </div>
+        <p id="rankMilestoneDescription"></p>
+        <button id="rankMilestoneSaveButton" type="button">標本箱に入れる</button>
+        <button id="rankMilestoneContinueButton" type="button">第◯世代の蛾を見る ▶</button>
       </div>
     </section>
 
@@ -1773,6 +1898,12 @@
   const mutationRevealMessage = document.getElementById('mutationRevealMessage');
   const mutationRevealGrid = document.getElementById('mutationRevealGrid');
   const mutationRevealContinueButton = document.getElementById('mutationRevealContinueButton');
+  const rankMilestoneOverlay = document.getElementById('rankMilestoneOverlay');
+  const rankMilestoneGrade = document.getElementById('rankMilestoneGrade');
+  const rankMilestoneImage = document.getElementById('rankMilestoneImage');
+  const rankMilestoneDescription = document.getElementById('rankMilestoneDescription');
+  const rankMilestoneSaveButton = document.getElementById('rankMilestoneSaveButton');
+  const rankMilestoneContinueButton = document.getElementById('rankMilestoneContinueButton');
 
   const specimenBoxOverlay = document.getElementById('specimenBoxOverlay');
   const specimenBoxCloseButton = document.getElementById('specimenBoxCloseButton');
@@ -1873,6 +2004,10 @@
     theaterTimerId: null,
     theaterObjectUrls: [],
     pendingMutationEvent: null,
+    pendingRankMilestone: null,
+    mutationRevealItems: [],
+    mutationRevealIndex: 0,
+    rankScoredGenerationId: null,
     hitEffects: [],
     hitEffectFrameId: null,
     comboCount: 0,
@@ -2429,66 +2564,78 @@
 
   function showMutationReveal() {
     const event = state.pendingMutationEvent;
-    if (
-      !isEntertainmentModel()
-      || !event
-      || !Array.isArray(event.mutants)
-      || !event.mutants.length
-    ) {
-      showResults();
+    if (!isEntertainmentModel() || !event || !Array.isArray(event.mutants)) {
+      showRankMilestoneOrGallery();
       return;
     }
-
-    mutationRevealGrid.innerHTML = '';
-    mutationRevealMessage.textContent =
-      `前世代で予告された突然変異 ${event.mutants.length}個体です。`;
-
-    for (const mutant of event.mutants) {
+    state.mutationRevealItems = event.mutants.filter((mutant) => {
       const index = Number(mutant.index);
-      if (!Number.isInteger(index) || index < 1 || index > CONFIG.TOTAL_MOTHS) {
-        continue;
-      }
-
-      const src = cacheBustUrl(
-        individualAssetPath(state.currentGenerationId, index)
-      );
-      const card = document.createElement('div');
-      card.className = 'mutation-card';
-
-      const img = document.createElement('img');
-      img.src = src;
-      img.alt = `突然変異個体 MOTH ${String(index).padStart(2, '0')}`;
-
-      const status = document.createElement('span');
-      status.className = 'mutation-card-status';
-      const eaten = state.eatenIndices.has(index);
-      const types = (mutant.event_types || []).map(mutationTypeLabel).join(' / ');
-      status.textContent =
-        `MOTH ${String(index).padStart(2, '0')} · ${types || '突然変異'}`;
-
-      if (eaten) {
-        card.appendChild(createPredationSkull());
-      }
-
-      const save = document.createElement('button');
-      save.type = 'button';
-      save.textContent = '標本箱へ';
-      save.addEventListener('click', async () => {
-        save.disabled = true;
-        try {
-          await saveSpecimen(state.currentGenerationId, index, src);
-          save.textContent = '保存済み';
-        } catch (_) {
-          save.textContent = '保存失敗';
-          save.disabled = false;
-        }
-      });
-
-      card.append(img, status, save);
-      mutationRevealGrid.appendChild(card);
+      return Number.isInteger(index) && index >= 1 && index <= CONFIG.TOTAL_MOTHS;
+    });
+    state.mutationRevealIndex = 0;
+    if (!state.mutationRevealItems.length) {
+      clearPendingMutationEvent();
+      showRankMilestoneOrGallery();
+      return;
     }
-
+    renderMutationRevealItem();
     mutationRevealOverlay.classList.add('visible');
+  }
+
+  function renderMutationRevealItem() {
+    const mutant = state.mutationRevealItems[state.mutationRevealIndex];
+    if (!mutant) return;
+    const index = Number(mutant.index);
+    const src = String(state.playedMothSources[index - 1] || '')
+      || cacheBustUrl(individualAssetPath(state.currentGenerationId, index));
+    mutationRevealGrid.replaceChildren();
+    const card = document.createElement('div');
+    card.className = 'mutation-card';
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '突然変異個体 MOTH ' + String(index).padStart(2, '0');
+    const status = document.createElement('span');
+    status.className = 'mutation-card-status';
+    const types = (mutant.event_types || []).map(mutationTypeLabel).join(' / ');
+    status.textContent = 'MOTH ' + String(index).padStart(2, '0') + ' · ' + (types || '突然変異');
+    if (state.eatenIndices.has(index)) card.appendChild(createPredationSkull());
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.textContent = '標本箱に入れる';
+    save.addEventListener('click', async (event) => {
+      event.stopPropagation(); // Saving must not skip this moth.
+      save.disabled = true;
+      try {
+        await saveSpecimen(state.currentGenerationId, index, src);
+        save.textContent = '保存済み';
+      } catch (_) {
+        save.textContent = '保存失敗・再試行';
+        save.disabled = false;
+      }
+    });
+    card.append(img, status, save);
+    mutationRevealGrid.append(card);
+    mutationRevealMessage.textContent = '突然変異 ' + (state.mutationRevealIndex + 1)
+      + ' / ' + state.mutationRevealItems.length;
+    const last = state.mutationRevealIndex === state.mutationRevealItems.length - 1;
+    mutationRevealContinueButton.textContent = last
+      ? '新ランクの発表へ ▶' : '次の蛾へ ▶';
+    if (last && !state.pendingRankMilestone) {
+      mutationRevealContinueButton.textContent = 'この世代の蛾を見る ▶';
+    }
+  }
+
+  function advanceMutationReveal() {
+    if (!mutationRevealOverlay.classList.contains('visible')) return;
+    if (state.mutationRevealIndex < state.mutationRevealItems.length - 1) {
+      state.mutationRevealIndex += 1;
+      renderMutationRevealItem();
+      return;
+    }
+    mutationRevealOverlay.classList.remove('visible');
+    state.mutationRevealItems = [];
+    clearPendingMutationEvent();
+    showRankMilestoneOrGallery();
   }
 
   function showGenerationGenerating() {
@@ -3046,13 +3193,9 @@
   function playEndOfGenerationShutter(onClosed) {
     clearShutterTimers();
 
-    // Mirror the CSS slide duration: smooth 680ms descent and ascent.
-    // The hold is long enough to register as an intentional transition.
     const SHUTTER_DOWN_MS = 680;
     const SHUTTER_HOLD_MS = 1000;
     const SHUTTER_UP_MS = 680;
-    const shutterOpenAt = SHUTTER_DOWN_MS + SHUTTER_HOLD_MS;
-    const shutterDoneAt = shutterOpenAt + SHUTTER_UP_MS;
 
     roundShutterGeneration.textContent = generationLabel();
     roundShutter.classList.remove('closing', 'opening');
@@ -3060,27 +3203,29 @@
     roundShutter.setAttribute('aria-hidden', 'false');
 
     void roundShutter.offsetHeight;
-    requestAnimationFrame(() => {
-      roundShutter.classList.add('closing');
-    });
+    requestAnimationFrame(() => roundShutter.classList.add('closing'));
 
-    // Prepare the result only after the shutter has fully closed.
-    state.shutterTimerIds.push(setTimeout(() => {
-      if (typeof onClosed === 'function') onClosed();
+    // Wait for rank assessment behind the closed shutter, without exposing
+    // the old result screen or skipping a mutation/achievement announcement.
+    state.shutterTimerIds.push(setTimeout(async () => {
+      const heldAt = performance.now();
+      try {
+        if (typeof onClosed === 'function') await onClosed();
+      } catch (error) {
+        console.error('世代終了の演出に失敗しました', error);
+        showEvolutionComparison();
+      }
+      const waitMore = Math.max(0, SHUTTER_HOLD_MS - (performance.now() - heldAt));
+      state.shutterTimerIds.push(setTimeout(() => {
+        roundShutter.classList.remove('closing');
+        roundShutter.classList.add('opening');
+        state.shutterTimerIds.push(setTimeout(() => {
+          roundShutter.classList.remove('active', 'opening');
+          roundShutter.setAttribute('aria-hidden', 'true');
+          state.shutterTimerIds = [];
+        }, SHUTTER_UP_MS));
+      }, waitMore));
     }, SHUTTER_DOWN_MS));
-
-    // Keep the shutter completely closed for its own independent pause.
-    state.shutterTimerIds.push(setTimeout(() => {
-      roundShutter.classList.remove('closing');
-      roundShutter.classList.add('opening');
-    }, shutterOpenAt));
-
-    // Remove the input shield only after the upward motion has completed.
-    state.shutterTimerIds.push(setTimeout(() => {
-      roundShutter.classList.remove('active', 'opening');
-      roundShutter.setAttribute('aria-hidden', 'true');
-      state.shutterTimerIds = [];
-    }, shutterDoneAt));
   }
 
   function render() {
@@ -3154,14 +3299,15 @@
       capturePlayedMothSources();
 
       if (isEntertainmentModel()) {
-        playEndOfGenerationShutter(() => {
-          // Set up existing next-generation handling behind the gallery.
-          // The intermediate result screen is skipped for solo players.
-          showResults();
+        playEndOfGenerationShutter(async () => {
+          // Compute score-based achievements while the shutter is CLOSED.
+          showResults(); // Keep existing next-generation/submit state intact.
+          const scores = await calculatePlayedGenerationRanks();
+          state.pendingRankMilestone = selectNewRankMilestone(scores);
           if (state.pendingMutationEvent) {
             showMutationReveal();
           } else {
-            showEvolutionComparison();
+            showRankMilestoneOrGallery();
           }
         });
       } else {
@@ -3222,7 +3368,18 @@
   }
 
   async function calculatePlayedGenerationRanks() {
-    if (!isEntertainmentModel() || !state.backgroundImage || !CONFIG) return;
+    if (!isEntertainmentModel() || !state.backgroundImage || !CONFIG) return new Map();
+    const winners = new Map();
+    const noteScore = (index, score) => {
+      const rank = temporaryRank(score);
+      if (!rank) return;
+      const current = winners.get(rank);
+      if (!current || score > current.score) winners.set(rank, {
+        rank, score, index, generationId: state.currentGenerationId,
+        src: String(state.playedMothSources[index - 1] || '')
+          || cacheBustUrl(individualAssetPath(state.currentGenerationId, index))
+      });
+    };
     const token = ++state.rankCalculationToken;
     try {
       const backgroundCanvas = document.createElement('canvas');
@@ -3271,6 +3428,7 @@
               buildMothAnalysis(image), bgData, m.x, m.y, m.size
             ).total;
             updateRenderedRank(state.currentGenerationId, index, score);
+            noteScore(index, score);
           } catch (error) {
             console.warn('暫定擬態ランクを計算できませんでした', index, error);
           }
@@ -3278,9 +3436,85 @@
         // Never block Safari's scrolling while computing all 60 moths.
         if (index % 4 === 0) await new Promise(resolve => setTimeout(resolve, 0));
       }
+      if (token === state.rankCalculationToken) state.rankScoredGenerationId = state.currentGenerationId;
     } catch (error) {
       console.warn('暫定擬態ランクの計算を省略しました', error);
+      return new Map(); // Never announce a rank on incomplete calculations.
     }
+    return token === state.rankCalculationToken ? winners : new Map();
+  }
+
+  // Milestones are kept by HABITAT, across solo runs on this device.
+  // D is the starting rank and does not trigger a ceremony.
+  const RANK_ORDER = Object.freeze(['D', 'C', 'B', 'A', 'S', 'SS']);
+  function rankMilestoneStorageKey() {
+    const context = window.GitaiPagesPreview?.context || {};
+    return 'gitai-rank-milestone-v1:' + String(context.environmentId || 'environment')
+      + ':' + String(context.evolutionModelId || 'continuous_v1');
+  }
+
+  function highestPreviouslyReachedRank() {
+    try {
+      const raw = Number(localStorage.getItem(rankMilestoneStorageKey()));
+      return Number.isInteger(raw) && raw >= 0 && raw < RANK_ORDER.length ? raw : 0;
+    } catch (_) { return 0; }
+  }
+
+  function selectNewRankMilestone(winners) {
+    if (!isEntertainmentModel() || !(winners instanceof Map)) return null;
+    const prior = highestPreviouslyReachedRank();
+    let best = null;
+    for (const [rank, candidate] of winners) {
+      const level = RANK_ORDER.indexOf(rank);
+      if (level > prior && (!best || level > best.level)) {
+        best = { ...candidate, level };
+      }
+    }
+    return best;
+  }
+
+  function acknowledgeRankMilestone() {
+    const milestone = state.pendingRankMilestone;
+    if (milestone) {
+      try {
+        const level = Math.max(highestPreviouslyReachedRank(), milestone.level);
+        localStorage.setItem(rankMilestoneStorageKey(), String(level));
+      } catch (error) {
+        console.warn('新ランクの記録を保存できませんでした', error);
+      }
+    }
+    state.pendingRankMilestone = null;
+  }
+
+  function showRankMilestoneOrGallery() {
+    if (!state.pendingRankMilestone) {
+      showEvolutionComparison();
+      return;
+    }
+    const event = state.pendingRankMilestone;
+    rankMilestoneGrade.textContent = event.rank;
+    rankMilestoneGrade.dataset.rank = event.rank;
+    rankMilestoneImage.src = event.src;
+    rankMilestoneDescription.textContent = 'MOTH ' + String(event.index).padStart(2, '0')
+      + ' · 暫定擬態スコア ' + event.score.toFixed(1) + '点';
+    rankMilestoneSaveButton.disabled = false;
+    rankMilestoneSaveButton.textContent = '標本箱に入れる';
+    rankMilestoneContinueButton.textContent = '第' + state.generationNumber + '世代の蛾を見る ▶';
+    rankMilestoneOverlay.classList.add('visible');
+    // Mark saved specimens, but do not change their Genome or score data.
+    specimenGet(specimenIdentity(event.generationId, event.index)).then((record) => {
+      if (record && state.pendingRankMilestone === event) {
+        rankMilestoneSaveButton.disabled = true;
+        rankMilestoneSaveButton.textContent = '保存済み';
+      }
+    }).catch(() => {});
+  }
+
+  function closeRankMilestone() {
+    if (!rankMilestoneOverlay.classList.contains('visible')) return;
+    rankMilestoneOverlay.classList.remove('visible');
+    acknowledgeRankMilestone();
+    showEvolutionComparison();
   }
 
   function revealEvolutionTheaterAtBottom() {
@@ -3374,7 +3608,9 @@
     evolutionScroller.scrollTop = 0;
     requestAnimationFrame(() => {
       revealEvolutionTheaterAtBottom();
-      void calculatePlayedGenerationRanks();
+      if (state.rankScoredGenerationId !== latestId) {
+        void calculatePlayedGenerationRanks();
+      }
     });
   }
 
@@ -4568,6 +4804,8 @@
     state.scoreSummary = null;
     state.playedMothSources = [];
     state.temporaryMothRanks.clear();
+    state.rankScoredGenerationId = null;
+    state.pendingRankMilestone = null;
     ++state.rankCalculationToken;
     state.submitStatus = 'idle';
     startRound();
@@ -4786,11 +5024,28 @@
     setSpecimenHabitatView(!specimenGrid.classList.contains('is-habitat'));
   });
 
-  mutationRevealContinueButton.addEventListener('click', () => {
-    mutationRevealOverlay.classList.remove('visible');
-    clearPendingMutationEvent();
-    showEvolutionComparison();
+  mutationRevealContinueButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    advanceMutationReveal();
   });
+  mutationRevealOverlay.addEventListener('click', (event) => {
+    if (event.target.closest('button')) return;
+    advanceMutationReveal();
+  });
+  rankMilestoneSaveButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    const milestone = state.pendingRankMilestone;
+    if (!milestone || rankMilestoneSaveButton.disabled) return;
+    rankMilestoneSaveButton.disabled = true;
+    try {
+      await saveSpecimen(milestone.generationId, milestone.index, milestone.src);
+      rankMilestoneSaveButton.textContent = '保存済み';
+    } catch (error) {
+      rankMilestoneSaveButton.textContent = '保存失敗・再試行';
+      rankMilestoneSaveButton.disabled = false;
+    }
+  });
+  rankMilestoneContinueButton.addEventListener('click', closeRankMilestone);
 
   generationContinueButton.addEventListener('click', () => {
     if (state.submitStatus !== 'success') return;
