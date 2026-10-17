@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="css/entertainment_portal.css?v=20261017-nickname1">
   <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
   <link rel="stylesheet" href="css/portal_minimal.css?v=20261017-minimal1">
+  <link rel="stylesheet" href="css/solo_tutorial.css?v=20261017-tutorial1">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
   <title>ギタイラボ — 昆虫大学 α</title>
   <style>
@@ -2010,6 +2011,15 @@
     uiTransitionLocked: false,
     wakeLock: null,
   };
+
+  // Only the actual game-loaded images are exposed to the visual tutorial.
+  // Reading this bridge does not modify evolution or local saves.
+  window.GitaiSoloTutorialAssets = () => ({
+    background: state.backgroundImage,
+    moths: state.mothImages,
+    size: CONFIG?.MOTH_SIZE,
+    generation: state.generationNumber
+  });
 
   function applyAppConfig(appConfig) {
     if (!appConfig || !appConfig.game || !appConfig.species || !appConfig.environment) {
@@ -5088,6 +5098,8 @@
       state.uiTransitionLocked = false;
       startButton.disabled = false;
       startButton.textContent = 'はじめる';
+      window.GitaiSoloTutorial?.refreshAssets();
+      window.dispatchEvent(new Event('gitai:solo-assets-ready'));
       requestScreenWakeLock();
 
     } catch (err) {
@@ -5105,7 +5117,8 @@
 <script src="js/trophy_rules.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
-<script src="js/entertainment_portal.js?v=20261017-minimal1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/solo_tutorial.js?v=20261017-tutorial1" defer></script>
+<script src="js/entertainment_portal.js?v=20261017-tutorial1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 <script src="js/battle_portal.js?v=20261017-battle2" defer></script>
 
 <!--

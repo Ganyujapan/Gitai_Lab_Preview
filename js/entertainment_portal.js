@@ -662,10 +662,27 @@
         || reviewOverlay?.classList.contains('visible')
       );
     }
-    window.dispatchEvent(new Event('gitai:solo-resume'));
-    const startButton = document.getElementById('startButton');
-    if (startOverlay && startOverlay.classList.contains('visible') && startButton && !startButton.disabled) {
-      startButton.focus({ preventScroll: true });
+    // The live round stays paused until the tutorial is completed.
+    // Completing or skipping returns to the original engine.
+    function enterGame() {
+      window.dispatchEvent(new Event('gitai:solo-resume'));
+      const startButton = document.getElementById('startButton');
+      if (!startOverlay?.classList.contains('visible') || !startButton) return;
+      if (!startButton.disabled) {
+        startButton.click();
+      } else {
+        window.addEventListener('gitai:solo-assets-ready', () => {
+          if (portal.hidden && startOverlay.classList.contains('visible') && !startButton.disabled) {
+            startButton.click();
+          }
+        }, { once: true });
+      }
+    }
+    if (window.GitaiSoloTutorial?.open) {
+      window.GitaiSoloTutorial.open({ onDone: enterGame });
+    } else {
+      // A missing optional tutorial may not block the game.
+      enterGame();
     }
   }
 
