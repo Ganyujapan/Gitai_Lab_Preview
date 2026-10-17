@@ -48,3 +48,18 @@ test('gallery is break between generations: original persistence and theater sta
  assert.match(html,/async function sendEvolutionData\(\)/);
  assert.match(html,/async function saveSpecimen\(/);
 });
+
+test('gallery heading displays current generation and removes two explanatory paragraphs',()=>{
+ assert.match(html,/id="evolutionTitle" class="evolution-title">第1世代の蛾/);
+ assert.ok(html.includes('evolutionTitle.textContent = `第${latestNumber}世代の蛾`;'));
+ assert.doesNotMatch(html,/class="evolution-hint"|class="evolution-rank-note"/);
+});
+test('rank badge and skull share flat frame, letters use a loaded pixel font',()=>{
+ const rank=html.match(/\.moth-rank-badge\s*\{([^}]+)\}/)?.[1]||'';
+ const skull=html.match(/\.predation-skull\s*\{([^}]+)\}/)?.[1]||'';
+ for(const v of ['width: 24px','height: 24px','border: 1px solid rgba(255,255,255,0.76)','border-radius: 4px','box-shadow: none','text-shadow: none'])assert.ok(rank.includes(v),v);
+ for(const v of ['width: 24px','height: 24px','border: 1px solid rgba(255,255,255,0.76)','border-radius: 4px'])assert.ok(skull.includes(v),v);
+ assert.ok(html.includes('fonts.googleapis.com/css2?family=Press+Start+2P'));
+ assert.ok(rank.includes('font-family: "Press Start 2P"'));
+ assert.match(html,/\.moth-rank-badge\[data-rank="SS"\][\s\S]*?linear-gradient/);
+});
