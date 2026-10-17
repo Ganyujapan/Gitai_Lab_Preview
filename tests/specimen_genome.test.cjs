@@ -97,16 +97,16 @@ test('old specimen gets optional genome backfill without touching its PNG or met
   assert.equal(stored.genome,genome);
   assert.equal(reads,1);assert.equal(fetches,0);
 });
-test('missing genome leaves original specimen untouched, while new PNG remains saveable',async()=>{
+test('missing original genome never creates image-only specimens',async()=>{
   const old={id:'old',image_blob:new Blob(['old'])};
   const existing=saver({existing:old,genome:null});
-  assert.equal(await existing.run(),true);
+  await assert.rejects(existing.run(),/標本の情報を取得できませんでした/);
   assert.equal(existing.result().stored,null);
   assert.equal(existing.result().fetches,0);
   const fresh=saver({genome:null,readFails:true});
-  assert.equal(await fresh.run(),true);
-  assert.ok(fresh.result().stored.image_blob instanceof Blob);
-  assert.equal(Object.hasOwn(fresh.result().stored,'genome'),false);
+  await assert.rejects(fresh.run(),/標本の情報を取得できませんでした/);
+  assert.equal(fresh.result().stored,null);
+  assert.equal(fresh.result().fetches,0);
 });
 test('Genome data stays internal and user-facing labels are simple',()=>{
   assert.match(page,/getStoredGenomeForSpecimen,\s*context:/);

@@ -2251,10 +2251,16 @@
     // Only fetch Genome on an explicit save; never scan all generations.
     const genome = existing?.genome ? null : await loadSpecimenGenome(generationId, index);
     if (existing) {
-      // Backfill DNA on an existing specimen without rewriting its PNG.
-      if (!existing.genome && genome) await specimenPut({ ...existing, genome });
+      // Preserve legacy specimens, but never treat a missing original
+      // genome as a successful completion of the save/backfill request.
+      if (!existing.genome) {
+        if (!genome) throw new Error('標本の情報を取得できませんでした');
+        await specimenPut({ ...existing, genome });
+      }
       return true;
     }
+    // New specimens ALWAYS store their original genome and PNG together.
+    if (!genome) throw new Error('標本の情報を取得できませんでした');
 
     const response = await fetch(src, { cache: 'no-store' });
     if (!response.ok) {
@@ -2272,7 +2278,7 @@
       run_id: String(context.runId || 'default'),
       saved_at: new Date().toISOString(),
       image_blob: blob,
-      ...(genome ? { genome } : {}),
+      genome,
     };
     await specimenPut(record);
     // The trophy system accepts only independently calibrated S/SS records.
