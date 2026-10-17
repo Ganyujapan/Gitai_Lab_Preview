@@ -1186,8 +1186,13 @@
     #rankMilestoneGrade {
       display: inline-block;
       color: #eee;
-      font-family: "Press Start 2P", monospace;
-      font-size: .85em;
+      /* The announcement letter matches the surrounding headline.
+         Pixel typography is reserved for moth rank badges in the gallery. */
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      line-height: inherit;
+      letter-spacing: inherit;
     }
     #rankMilestoneGrade[data-rank="C"] { color: #9c9c9c; }
     #rankMilestoneGrade[data-rank="B"] { color: #d4d4d4; }
