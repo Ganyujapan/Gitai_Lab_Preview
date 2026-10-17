@@ -24,4 +24,4 @@ jobs:
       - name: Verify script syntax
         run: node --check js/pages_preview.js
       - name: Exercise specimen save and legacy backfill
-        run: node --test tests/specimen_genome.test.cjs tests/solo_navigation.test.cjs
+        run: node --test tests/specimen_genome.test.cjs tests/solo_navigation.test.cjs tests/touch_zoom.test.cjs

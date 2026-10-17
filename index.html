@@ -40,6 +40,9 @@
       font-family: 'PixelMplus', monospace;
       overflow: hidden;
       overscroll-behavior: none;
+      /* Disable Safari double-tap zoom while retaining standard pinch accessibility
+         outside the predator canvas. */
+      touch-action: manipulation;
       -webkit-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
@@ -57,6 +60,7 @@
       aspect-ratio: 9 / 16;
       background: #111;
       overflow: hidden;
+      touch-action: manipulation;
     }
 
     #gameCanvas {
@@ -64,7 +68,8 @@
       height: 100%;
       display: block;
       image-rendering: pixelated;
-      touch-action: manipulation;
+      /* Predation taps must not become zoom, pan, or Safari gesture handling. */
+      touch-action: none;
     }
 
     .overlay {
@@ -4260,6 +4265,12 @@
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     handleTap(e.clientX, e.clientY);
+  });
+
+  // Fallback for browsers that still generate dblclick after fast touch taps.
+  // Does not cancel individual pointerdown events or actual moth captures.
+  canvas.addEventListener('dblclick', (event) => {
+    event.preventDefault();
   });
 
   roundShutter.addEventListener('pointerdown', (event) => {
