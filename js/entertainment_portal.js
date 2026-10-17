@@ -662,27 +662,19 @@
         || reviewOverlay?.classList.contains('visible')
       );
     }
-    // The live round stays paused until the tutorial is completed.
-    // Completing or skipping returns to the original engine.
-    function enterGame() {
-      window.dispatchEvent(new Event('gitai:solo-resume'));
-      const startButton = document.getElementById('startButton');
-      if (!startOverlay?.classList.contains('visible') || !startButton) return;
-      if (!startButton.disabled) {
-        startButton.click();
-      } else {
-        window.addEventListener('gitai:solo-assets-ready', () => {
-          if (portal.hidden && startOverlay.classList.contains('visible') && !startButton.disabled) {
-            startButton.click();
-          }
-        }, { once: true });
-      }
-    }
-    if (window.GitaiSoloTutorial?.open) {
-      window.GitaiSoloTutorial.open({ onDone: enterGame });
+    // Background has already been selected: start or resume SOLO immediately.
+    // The tutorial now happens BEFORE the habitat picker, once per mode entry.
+    window.dispatchEvent(new Event('gitai:solo-resume'));
+    const startButton = document.getElementById('startButton');
+    if (!startOverlay?.classList.contains('visible') || !startButton) return;
+    if (!startButton.disabled) {
+      startButton.click();
     } else {
-      // A missing optional tutorial may not block the game.
-      enterGame();
+      window.addEventListener('gitai:solo-assets-ready', () => {
+        if (portal.hidden && startOverlay.classList.contains('visible') && !startButton.disabled) {
+          startButton.click();
+        }
+      }, { once: true });
     }
   }
 
@@ -765,8 +757,18 @@
       startSolo();
     }
   }
+  function beginSoloTutorial() {
+    // Menu → tutorial (4 slides, or skip) → habitat selection → live game.
+    // Do not repeat tutorial on the environment's auto-play page load.
+    if (window.GitaiSoloTutorial?.open) {
+      window.GitaiSoloTutorial.open({ onDone: showEnvironmentPicker });
+    } else {
+      // The tutorial is optional; a loading failure must not block the picker.
+      showEnvironmentPicker();
+    }
+  }
   solo.addEventListener('click', () => {
-    if (ensureNickname()) showEnvironmentPicker();
+    if (ensureNickname()) beginSoloTutorial();
   });
   shared.addEventListener('click', () => showDialog('shared'));
   mystery.addEventListener('click', () => showDialog('mystery'));

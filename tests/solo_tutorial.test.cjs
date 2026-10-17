@@ -45,8 +45,15 @@ test('each of the four tutorial steps and skip have predictable behavior',()=>{
  h.api.open({onDone:()=>done++});assert.equal(n.textContent,'01 / 04');
  h.click('#soloTutorialSkip');assert.equal(done,2);
 });
-test('tutorial launches on each menu entry and loads exact gameplay assets',()=>{
- assert.match(portal,/window\.GitaiSoloTutorial\.open\(\{ onDone: enterGame \}\)/);
+test('tutorial opens BEFORE habitat choice and cannot reopen after changing background',()=>{
+ const modeEntry=portal.slice(portal.indexOf("  function beginSoloTutorial() {"),
+   portal.indexOf("  shared.addEventListener('click'"));
+ const gameplayEntry=portal.slice(portal.indexOf("  function startSolo() {"),
+   portal.indexOf("  function randomizeTitleMoth() {"));
+ assert.match(modeEntry,/window\.GitaiSoloTutorial\.open\(\{ onDone: showEnvironmentPicker \}\)/);
+ assert.match(modeEntry,/if \(ensureNickname\(\)\) beginSoloTutorial\(\)/);
+ assert.doesNotMatch(modeEntry,/startSolo\(\)/);
+ assert.doesNotMatch(gameplayEntry,/GitaiSoloTutorial/);
  assert.match(portal,/if \(entry\?\.unlocked && entry\.playable && ensureNickname\(\)\) startSolo\(\)/);
  assert.match(portal,/gitai:solo-assets-ready/);
  assert.match(html,/window\.GitaiSoloTutorialAssets = \(\) => \(\{/);
@@ -62,4 +69,20 @@ test('gameplay remains separate and tap-zoom resistant',()=>{
  assert.match(js,/id="soloTutorialSkip"/);
  assert.match(js,/id="soloTutorialNext"/);
  assert.doesNotMatch(js,/indexedDB|localStorage|createGenome|Math\.random/);
+});
+
+test('tutorial displays the approved Japanese copy in the intended order',()=>{
+ const approved=[
+  'あなたは蛾を食べる捕食者です。\\nタップすることで蛾を食べることが出来ます。',
+  '1世代あたり60匹の蛾が表示されます。\\n食べられずに生き残った蛾が親となり、次の世代の子を作ります。',
+  'あなたは背景に似ている蛾を残し、似ていない蛾だけを積極的に食べていくことで、蛾の模様が背景にギタイしていきます。',
+  '究極にギタイした蛾を作ることが目的です。\\nお気に入りの蛾は標本箱に入れられます。'
+ ];
+ for(let index=0;index<approved.length;index++){
+  const phrase=approved[index];
+  const expected=phrase.replace(/\\\\n/g, '\\n');
+  assert.ok(js.includes("description:'"+expected+"'"),'missing exact copy at slide '+(index+1));
+ }
+ assert.match(css,/white-space:pre-line/);
+ assert.equal((js.match(/\{heading:/g)||[]).length,4);
 });

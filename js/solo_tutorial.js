@@ -5,10 +5,10 @@
  const stage=document.getElementById('stage');
  if(!stage)return;
  const slides=Object.freeze([
-  {heading:'あなたは捕食者',description:'あなたは蛾を食べる捕食者です。タップすることで蛾を食べることができます。'},
-  {heading:'60匹の蛾',description:'1世代あたり60匹の蛾が登場します。12匹ずつ、5ラウンドに分かれて現れます。'},
-  {heading:'生き残った蛾',description:'食べられずに生き残った蛾が、次の世代へ子孫を残します。'},
-  {heading:'擬態の進化',description:'世代を重ねると、背景に似た蛾が増えていきます。見つけられるかな？'}
+  {heading:'あなたは捕食者',description:'あなたは蛾を食べる捕食者です。\nタップすることで蛾を食べることが出来ます。'},
+  {heading:'60匹の蛾',description:'1世代あたり60匹の蛾が表示されます。\n食べられずに生き残った蛾が親となり、次の世代の子を作ります。'},
+  {heading:'背景にギタイ',description:'あなたは背景に似ている蛾を残し、似ていない蛾だけを積極的に食べていくことで、蛾の模様が背景にギタイしていきます。'},
+  {heading:'究極のギタイ',description:'究極にギタイした蛾を作ることが目的です。\nお気に入りの蛾は標本箱に入れられます。'}
  ]);
  const root=document.createElement('section');
  root.id='soloTutorialOverlay';root.hidden=true;
