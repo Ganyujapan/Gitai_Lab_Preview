@@ -6,7 +6,11 @@ on:
     paths:
       - index.html
       - js/pages_preview.js
+      - js/entertainment_portal.js
       - tests/specimen_genome.test.cjs
+      - tests/solo_navigation.test.cjs
+      - tests/touch_zoom.test.cjs
+      - tests/specimen_name_ui.test.cjs
       - tests/portal_minimal_ui.test.cjs
       - css/portal_minimal.css
       - .github/workflows/specimen-genome-tests.yml
