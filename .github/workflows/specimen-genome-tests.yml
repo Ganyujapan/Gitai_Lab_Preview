@@ -1,0 +1,27 @@
+name: Specimen Genome preservation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - js/pages_preview.js
+      - tests/specimen_genome.test.cjs
+      - .github/workflows/specimen-genome-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  specimen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify script syntax
+        run: node --check js/pages_preview.js
+      - name: Exercise specimen save and legacy backfill
+        run: node --test tests/specimen_genome.test.cjs
