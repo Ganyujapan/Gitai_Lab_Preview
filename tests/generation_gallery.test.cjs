@@ -10,7 +10,7 @@ function fragment(a,b){
 }
 test('solo fifth round leads straight to gallery, via mutation reveal when present',()=>{
  const last=fragment('  function endRound() {','  function createEvolutionMothButton(');
- assert.match(last,/playEndOfGenerationShutter\(\(\) => \{\s*showResults\(\);\s*if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showEvolutionComparison\(\);/);
+ assert.match(last,/playEndOfGenerationShutter\(\(\) => \{[\s\S]*?showResults\(\);\s*if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showEvolutionComparison\(\);/);
  assert.match(html,/mutationRevealContinueButton\.addEventListener\('click', \(\) => \{\s*mutationRevealOverlay\.classList\.remove\('visible'\);\s*clearPendingMutationEvent\(\);\s*showEvolutionComparison\(\);/);
  assert.match(html,/id="mutationRevealContinueButton"[^>]*>プレイした世代を見る/);
 });
@@ -32,6 +32,7 @@ test('left dot-style rank is actual-play camouflage score, not arbitrary rarity 
  assert.match(html,/className = 'moth-rank-badge'/);
  assert.match(html,/button\.dataset\.mothIndex = String\(index\)/);
  assert.match(html,/mothPositions\.set\(m\.index, m\)/);
+ assert.match(html,/for \(const button of targets\)/);
  assert.match(html,/analyzeGitaiPlacement\(\s*buildMothAnalysis\(image\), bgData, m\.x, m\.y, m\.size/s);
  for(const grade of ['D','C','B','A','S','SS'])
    assert.match(html,new RegExp('data-rank="'+grade+'"'));

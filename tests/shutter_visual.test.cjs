@@ -34,7 +34,7 @@ test('shutter blocks stray taps, hides result preparation, and preserves existin
  assert.match(section,/roundShutterGeneration\.textContent = generationLabel\(\)/);
  assert.match(section,/if \(typeof onClosed === 'function'\) onClosed\(\)/);
  assert.match(section,/setTimeout\(\(\) => \{[\s\S]*roundShutter\.classList\.remove\('closing'\);[\s\S]*roundShutter\.classList\.add\('opening'\)/);
- assert.match(html,/if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showResults\(\);/);
+ assert.match(html,/if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showEvolutionComparison\(\);/);
  assert.match(html,/roundShutter\.addEventListener\('pointerdown', \(event\) => \{\s*event\.preventDefault\(\);\s*event\.stopPropagation\(\)/);
 });
 test('reduced motion turns off ornamental blinking without changing the game',()=>{

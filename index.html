@@ -3229,11 +3229,19 @@
   function updateRenderedRank(generationId, index, score) {
     const key = generationId + ':' + index;
     state.temporaryMothRanks.set(key, score);
-    const button = generationId === 'gen00001'
-      ? evolutionGen1.querySelector('.moth-preview-button')
-      : evolutionLatestGrid.querySelector('[data-moth-index="' + index + '"]');
-    const previous = button?.querySelector('.moth-rank-badge');
-    if (previous) previous.replaceWith(createMothRankBadge(score));
+    // Generation one can appear as BOTH the reference specimen and the
+    // just-played 60-moth grid. Keep their badges in sync.
+    const targets = [];
+    if (generationId === 'gen00001' && index === 1) {
+      targets.push(evolutionGen1.querySelector('.moth-preview-button'));
+    }
+    if (generationId === state.currentGenerationId) {
+      targets.push(evolutionLatestGrid.querySelector('[data-moth-index="' + index + '"]'));
+    }
+    for (const button of targets) {
+      const previous = button?.querySelector('.moth-rank-badge');
+      if (previous) previous.replaceWith(createMothRankBadge(score));
+    }
   }
 
   async function calculatePlayedGenerationRanks() {
