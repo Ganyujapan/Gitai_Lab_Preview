@@ -1,6 +1,6 @@
 /* InvisiLab / entertainment-only title + menu.
  * Intro: responsive black canvas with smooth vector line art and tap reactions.
- * Menu: retains the previous low-resolution pixel-world artwork.
+ * Menu: minimalist black, matching the battle matchmaking scene.
  * The existing game engine, saved progression, and educational model are untouched.
  */
 (() => {
@@ -570,7 +570,8 @@
 
   function frame(timestamp) {
     raf = 0;
-    if (!active || document.hidden || portal.hidden) return;
+    // The menu uses a solid black surface, so do not redraw hidden pixel scenery.
+    if (!active || document.hidden || portal.hidden || mode !== 'intro') return;
     if (timestamp - lastDraw >= 30) {
       renderScene(timestamp);
       lastDraw = timestamp;
@@ -581,7 +582,7 @@
     window.cancelAnimationFrame(raf);
     raf = 0;
     lastDraw = 0;
-    if (!active || document.hidden || portal.hidden) return;
+    if (!active || document.hidden || portal.hidden || mode !== 'intro') return;
     if (reducedMotion.matches) renderScene(now());
     else raf = window.requestAnimationFrame(frame);
   }
