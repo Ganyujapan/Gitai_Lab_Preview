@@ -79,5 +79,5 @@ test('direct ?play=1 routes still initialize the return-to-menu handler',()=>{
  assert.doesNotMatch(portal,/model !== 'continuous_v1' \|\| params\.get\('play'\) === '1'/);
  assert.match(portal,/portal\.hidden = directSolo/);
  assert.match(portal,/setMode\(directSolo \|\|/);
- assert.match(html,/js\/entertainment_portal\.js\?v=20261017-solo-home1/);
+ assert.match(html,/<script src="js\/entertainment_portal\.js\?v=[^"]+" defer/);
 });
