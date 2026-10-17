@@ -726,29 +726,6 @@
       gap: 8px;
     }
 
-    .share-name-row {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    #shareNameInput {
-      width: 100%;
-      min-width: 0;
-      border: 1px solid rgba(255,255,255,0.24);
-      border-radius: 9px;
-      background: rgba(255,255,255,0.06);
-      color: #fff;
-      font: inherit;
-      font-size: 16px;
-      padding: 9px 10px;
-      -webkit-user-select: text;
-      user-select: text;
-    }
-
     .share-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1412,17 +1389,13 @@
         </div>
 
         <div class="share-controls">
-          <label class="share-name-row">
-            <span>表示名</span>
-            <input id="shareNameInput" type="text" maxlength="16" autocomplete="off" placeholder="任意">
-          </label>
           <button id="specimenSaveButton" class="specimen-entry-action" type="button" hidden>標本箱に入れる</button>
           <button id="gitaiScoreButton" class="specimen-entry-action" type="button" hidden>採点する</button>
           <div class="share-actions">
             <button id="shareBackButton" type="button">戻る</button>
             <button id="shareButton" type="button">SNSへシェア</button>
           </div>
-          <p id="shareStatus">表示名は任意です。この画面をスクリーンショットしても使えます。</p>
+          <p id="shareStatus">この画面をスクリーンショットしても使えます。</p>
         </div>
       </div>
     </section>
@@ -1671,7 +1644,6 @@
   const shareMothImage = document.getElementById('shareMothImage');
   const shareGeneration = document.getElementById('shareGeneration');
   const shareMothIndex = document.getElementById('shareMothIndex');
-  const shareNameInput = document.getElementById('shareNameInput');
   const shareBackButton = document.getElementById('shareBackButton');
   const shareButton = document.getElementById('shareButton');
   const specimenSaveButton = document.getElementById('specimenSaveButton');
@@ -3334,7 +3306,15 @@
   const PLAYER_NICKNAME_KEY = 'gitai-player-nickname-v1';
 
   function getShareDisplayName() {
-    return shareNameInput.value.trim().slice(0, 16);
+    // Use the nickname already entered in the main menu; specimen saving
+    // itself never asks for or changes a player's name.
+    try {
+      const current = localStorage.getItem(PLAYER_NICKNAME_KEY);
+      const fallback = localStorage.getItem(shareNameStorageKey());
+      return String(current !== null ? current : (fallback || '')).trim().slice(0, 16);
+    } catch (_) {
+      return '';
+    }
   }
 
   function updateShareCardTitle() {
@@ -3354,20 +3334,12 @@
       specimenRecord,
     };
 
-    let savedName = '';
-    try {
-      const currentNickname = localStorage.getItem(PLAYER_NICKNAME_KEY);
-      savedName = currentNickname !== null ? currentNickname
-        : (localStorage.getItem(shareNameStorageKey()) || '');
-    } catch (_) {}
-
-    shareNameInput.value = savedName;
     updateShareCardTitle();
     shareMothImage.src = src;
     shareGeneration.textContent = `第${generationNumber}世代`;
     shareMothIndex.textContent = `MOTH ${String(index).padStart(2, '0')}`;
     shareStatus.textContent =
-      '表示名は任意です。この画面をスクリーンショットしても使えます。';
+      'この画面をスクリーンショットしても使えます。';
 
     specimenSaveButton.hidden = !isEntertainmentModel();
     specimenSaveButton.disabled = false;
@@ -4022,11 +3994,6 @@
     shareStatus.textContent = '';
 
     try {
-      const name = getShareDisplayName();
-      try {
-        localStorage.setItem(shareNameStorageKey(), name);
-      } catch (_) {}
-
       const blob = await buildShareImageBlob();
       const file = new File(
         [blob],
@@ -4440,15 +4407,6 @@
   shareBackButton.addEventListener('click', () => {
     mothShareOverlay.classList.remove('visible');
     mothShareOverlay.classList.remove('from-specimen');
-  });
-
-  shareNameInput.addEventListener('input', () => {
-    updateShareCardTitle();
-    const nickname = getShareDisplayName();
-    try {
-      localStorage.setItem(shareNameStorageKey(), nickname);
-      localStorage.setItem(PLAYER_NICKNAME_KEY, nickname);
-    } catch (_) {}
   });
 
   gitaiScoreButton.addEventListener('click', () => {
