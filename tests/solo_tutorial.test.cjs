@@ -131,11 +131,27 @@ test('tutorial overlays portal and forces a new Safari script version',()=>{
  assert.match(css,/#soloTutorialOverlay\{[^}]*z-index:110/s);
  assert.match(css,/#soloTutorialOverlay \.tutorial-copy\{[^}]*white-space:pre-line/s);
  assert.match(css,/aspect-ratio:9\/16/);
- assert.match(html,/js\/solo_tutorial\.js\?v=20261018-tutorial3/);
+ assert.match(html,/js\/solo_tutorial\.js\?v=20261018-hide1/);
  assert.match(html,/js\/entertainment_portal\.js\?v=20261018-tutorial3/);
  assert.match(html,/css\/solo_tutorial\.css\?v=20261018-tutorial3/);
  const tutorialScript=html.indexOf('js/solo_tutorial.js?v=');
  const portalScript=html.indexOf('js/entertainment_portal.js?v=');
  assert.ok(tutorialScript>0 && tutorialScript<portalScript,'tutorial is ready before mode click handler');
  assert.match(portal,/window\.GitaiTrophies\.open\(\{ onChoose: playEnvironment \}\)/);
+});
+
+test('hide mode has a separate 4-page introduction and the solo tutorial still works',()=>{
+ const h=harness();
+ h.api.open({mode:'hide'});
+ assert.match(h.nodes.get('#soloTutorialText').textContent,/標本箱から、かくれんぼに使う蛾を3匹/);
+ h.click('#soloTutorialNext');
+ assert.match(h.nodes.get('#soloTutorialText').textContent,/同じ背景に3匹/);
+ h.click('#soloTutorialNext');
+ assert.match(h.nodes.get('#soloTutorialText').textContent,/各背景3秒/);
+ h.click('#soloTutorialNext');
+ assert.match(h.nodes.get('#soloTutorialText').textContent,/＋10点/);
+ h.click('#soloTutorialSkip');
+ h.api.open();
+ assert.match(h.nodes.get('#soloTutorialText').textContent,/あなたは蛾を食べる捕食者/);
+ h.click('#soloTutorialSkip');
 });
