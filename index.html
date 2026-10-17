@@ -2350,8 +2350,7 @@
         const mothLabel = document.createElement('span');
         mothLabel.className = 'specimen-card-id';
         mothLabel.textContent =
-          'MOTH ' + String(record.individual_index).padStart(2, '0')
-          + (record.genome ? ' · DNA' : '');
+          'MOTH ' + String(record.individual_index).padStart(2, '0');
         meta.append(generationLabel, mothLabel);
 
         card.setAttribute('aria-label', img.alt + ' を見る');
@@ -4988,9 +4987,7 @@
         state.selectedShare.specimenRecord = record;
         gitaiScoreButton.hidden = false;
       }
-      shareStatus.textContent = record?.genome
-        ? '標本箱に画像とGenomeを保存しました。進化や次世代生成には影響しません。'
-        : '標本箱に画像を保存しました。元のGenomeが残っていないため、この標本は画像のみです。';
+      shareStatus.textContent = '標本箱に保存しました。';
     } catch (error) {
       specimenSaveButton.textContent = '保存できませんでした';
       specimenSaveButton.disabled = false;

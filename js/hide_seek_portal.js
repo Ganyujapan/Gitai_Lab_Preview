@@ -106,7 +106,7 @@
   for(const b of grid.querySelectorAll('button')){
    b.setAttribute('aria-pressed',String(selected.includes(entries[Number(b.dataset.idx)])));
   }
-  note.textContent='DNA付き標本を3匹選ぶ · '+selected.length+'/3匹';
+  note.textContent='標本を3匹選ぶ · '+selected.length+'/3匹';
   advance.disabled=selected.length!==3;
  }
  async function show(){
@@ -120,7 +120,7 @@
    entries=all.filter(r=>r&&r.genome?.schema_version===1
     &&r.evolution_model_id==='continuous_v1'&&r.image_blob instanceof Blob)
     .sort((a,b)=>String(b.saved_at||'').localeCompare(String(a.saved_at||'')));
-   if(entries.length<3){note.textContent='DNA付きの標本が3匹必要です。ひとりでギタイで保存してください。';return;}
+   if(entries.length<3){note.textContent='標本が3匹必要です。ひとりでギタイで保存してください。';return;}
    entries.forEach((r,i)=>{
     const url=URL.createObjectURL(r.image_blob),img=new Image();
     img.src=url;urls.push(url);
@@ -166,7 +166,7 @@
   if(!name){note.textContent='ニックネームを入力してください';return;}
   const data={version:1,name,placements:positions.map((p,i)=>({...p,genome:selected[i].genome}))};
   const packed=encodeURIComponent(JSON.stringify(data));
-  if(packed.length>160000){note.textContent='標本のDNAが大きすぎます';return;}
+  if(packed.length>160000){note.textContent='標本のデータが大きすぎます';return;}
   advance.disabled=true;
   note.textContent='バトルサーバーへ移動します…';
   window.location.assign('http://192.168.1.25:3000/hide_seek#hide='+packed);

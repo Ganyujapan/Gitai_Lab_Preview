@@ -22,7 +22,7 @@
    '<button type="button" data-background="leaf2" aria-pressed="false"><img alt="" src="img/backgrounds/bg_leaf02.png">葉2</button>',
    '<button type="button" data-background="bark" aria-pressed="false"><img alt="" src="img/backgrounds/bg_bark01.png">樹皮</button></div>',
    '<p class="battle-picker-caption">② 標本箱から戦わせる蛾を選ぶ</p>',
-   '<div id="battleSpecimens" class="battle-specimens" role="group" aria-label="DNA付き標本"></div>',
+   '<div id="battleSpecimens" class="battle-specimens" role="group" aria-label="標本"></div>',
    '<p id="battlePickerStatus" class="battle-picker-status" role="status"></p>',
    '<button id="battleStartMatch" type="button" disabled>対戦相手を探す ▶</button>',
    '<p class="battle-picker-note">家庭内Wi-Fiテスト版です。iMacのバトルサーバーを起動してください。</p>'
@@ -87,22 +87,23 @@
    for(const b of backgrounds)b.setAttribute('aria-pressed',String(b.dataset.background===background));
    clearUrls();grid.replaceChildren();note.textContent='標本箱を読み込んでいます…';
    try{
-     const entries=(await readSpecimens()).filter(r=>r&&r.image_blob instanceof Blob)
+     // Check compatibility internally; retain historical data unchanged.
+     const entries=(await readSpecimens()).filter(r=>r
+       && r.image_blob instanceof Blob
+       && r.genome?.schema_version===1
+       && r.evolution_model_id==='continuous_v1')
        .sort((a,b)=>String(b.saved_at||'').localeCompare(String(a.saved_at||'')));
      if(mine!==ticket)return;
-     if(!entries.length){note.textContent='まだ標本がありません。「ひとりでギタイ」で保存してください。';return;}
-     let eligible=0;
+     if(!entries.length){note.textContent='対戦に使える標本がありません。「ひとりでギタイ」で保存してください。';return;}
      for(const r of entries){
-       const hasGenome=r.genome?.schema_version===1&&r.evolution_model_id==='continuous_v1';
-       if(hasGenome)eligible++;
        const button=document.createElement('button');
-       button.type='button';button.disabled=!hasGenome;button.setAttribute('aria-pressed','false');
+       button.type='button';button.setAttribute('aria-pressed','false');
        const img=document.createElement('img'),url=URL.createObjectURL(r.image_blob);
        objectUrls.push(url);img.src=url;img.alt='';
        const caption=document.createElement('span');
-       caption.textContent='第'+r.generation_number+'世代 '+(hasGenome?'DNA':'画像のみ');
+       caption.textContent='第'+r.generation_number+'世代';
        button.append(img,caption);
-       if(hasGenome)button.addEventListener('click',()=>{
+       button.addEventListener('click',()=>{
          chosen=r;
          for(const b of grid.querySelectorAll('button'))b.setAttribute('aria-pressed',String(b===button));
          start.disabled=false;
@@ -110,9 +111,7 @@
        });
        grid.append(button);
      }
-     note.textContent=eligible
-       ? eligible+'匹のDNA付き標本から選んでください。画像のみの標本はグレー表示です。'
-       : 'DNA付き標本がありません。進化ゲームで新しく保存してください。';
+     note.textContent=entries.length+'匹の標本から選んでください。';
    }catch(e){if(mine===ticket)note.textContent='標本箱を開けません：'+(e.message||e);}
  }
  backgrounds.forEach(b=>b.addEventListener('click',()=>{

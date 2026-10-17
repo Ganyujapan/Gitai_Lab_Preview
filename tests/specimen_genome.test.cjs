@@ -108,9 +108,9 @@ test('missing genome leaves original specimen untouched, while new PNG remains s
   assert.ok(fresh.result().stored.image_blob instanceof Blob);
   assert.equal(Object.hasOwn(fresh.result().stored,'genome'),false);
 });
-test('Genome availability is visible and source evolution rules are unchanged by the save flow',()=>{
+test('Genome data stays internal and user-facing labels are simple',()=>{
   assert.match(page,/getStoredGenomeForSpecimen,\s*context:/);
-  assert.match(html,/record\.genome \? ' · DNA'/);
-  assert.match(html,/画像とGenomeを保存しました/);
+  assert.match(html,/shareStatus\.textContent = '標本箱に保存しました。'/);
+  assert.doesNotMatch(html,/画像とGenomeを保存しました|画像のみです| · DNA/);
   assert.doesNotMatch(sourceLookup,/idbPut\(/);
 });
