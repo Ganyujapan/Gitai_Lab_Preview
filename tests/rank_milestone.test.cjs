@@ -93,3 +93,8 @@ test('new rank celebration has only a short Next action, retaining its specimen 
  assert.match(html,/rankMilestoneSaveButton\.addEventListener\('click'/);
  assert.match(html,/rankMilestoneContinueButton\.addEventListener\('click', closeRankMilestone\)/);
 });
+
+test('rank headline adds exactly one ASCII space on either side of the grade',()=>{
+ const expected = '<h2 id="rankMilestoneTitle">ギタイ度 <span id="rankMilestoneGrade">C</span> ランク発生！！！</h2>';
+ assert.equal(html.split(expected).length-1,1);
+});
