@@ -10,6 +10,15 @@
   {heading:'背景にギタイ',description:'あなたは背景に似ている蛾を残し、似ていない蛾だけを積極的に食べていくことで、蛾の模様が背景にギタイしていきます。'},
   {heading:'究極のギタイ',description:'究極にギタイした蛾を作ることが目的です。\nお気に入りの蛾は標本箱に入れられます。'}
  ]);
+ // A mode-specific four-page introduction shares the original live-art panel.
+ // Battle unlocks, coins, and saved population data are never modified here.
+ const hideSlides=Object.freeze([
+  {heading:'蛾を3匹選ぶ',description:'標本箱から、かくれんぼに使う蛾を3匹選びます。'},
+  {heading:'好きな場所に隠す',description:'葉1・葉2・樹皮に蛾を自由に配置します。\n同じ背景に3匹隠してもかまいません。'},
+  {heading:'相手の蛾を探す',description:'相手が隠した蛾を探します。\n各背景3秒ずつ、合計9秒です。'},
+  {heading:'ギタイ度で勝負',description:'蛾を見つけると＋10点。\n空振りすると−1点。'}
+ ]);
+ let activeSlides=slides;
  const root=document.createElement('section');
  root.id='soloTutorialOverlay';root.hidden=true;
  root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');
@@ -142,8 +151,8 @@
  }
  function render(){
   number.textContent=String(page+1).padStart(2,'0')+' / 04';
-  heading.textContent=slides[page].heading;
-  description.textContent=slides[page].description;
+  heading.textContent=activeSlides[page].heading;
+  description.textContent=activeSlides[page].description;
   next.textContent=page===3?'はじめる':'次へ';
   [...progress.children].forEach((dot,i)=>dot.classList.toggle('active',i===page));
   draw();
@@ -159,9 +168,10 @@
  skip.addEventListener('click',finish);
  root.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();finish();}});
  window.GitaiSoloTutorial={
-  open({onDone:finishHandler}={}){
+  open({onDone:finishHandler,mode='solo'}={}){
    if(opened)return;
-   opened=true;page=0;onDone=finishHandler;priorFocus=document.activeElement;
+   opened=true;page=0;activeSlides=mode==='hide'?hideSlides:slides;
+   onDone=finishHandler;priorFocus=document.activeElement;
    root.hidden=false;render();next.focus({preventScroll:true});
    // Display the tutorial immediately; load its Leaf 1 artwork in parallel.
    void initializeAssets();
