@@ -767,6 +767,8 @@
       padding: 12px 8px;
     }
     #soloHomeButton[hidden], #resultBackToMenu[hidden] { display: none !important; }
+    /* End-of-generation transition: the ENTIRE black screen descends as
+       one panel, using the restrained look of the battle Matching... screen. */
     #roundShutter {
       position: absolute;
       inset: 0;
@@ -783,62 +785,135 @@
     .round-shutter-panel {
       position: absolute;
       inset: 0;
-      display: grid;
-      place-items: center;
-      transform: translateY(-101%);
-      transition: transform 520ms cubic-bezier(0.20, 0.82, 0.24, 1);
+      overflow: hidden;
+      isolation: isolate;
+      color: #f2f4ef;
+      background: #080a0b;
+      font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+      transform: translate3d(0, -102%, 0);
+      will-change: transform;
+      transition: transform 680ms cubic-bezier(.42, 0, .58, 1);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+      border-bottom: 1px solid rgba(157, 188, 174, .48);
+      backface-visibility: hidden;
+    }
+
+    /* A barely visible halo provides depth while keeping the screen black. */
+    .round-shutter-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
       background:
-        linear-gradient(rgba(255,255,255,0.035), rgba(0,0,0,0.08)),
-        repeating-linear-gradient(
-          to bottom,
-          #1c2225 0,
-          #1c2225 28px,
-          #111619 29px,
-          #111619 32px
-        );
-      border-bottom: 4px solid rgba(184,247,255,0.48);
-      box-shadow: 0 14px 28px rgba(0,0,0,0.58);
+        radial-gradient(ellipse 82% 35% at 50% 43%,
+          rgba(39, 65, 59, .22), transparent 75%),
+        linear-gradient(180deg, #080a0b 0%, #0b1112 48%, #080a0b 100%);
+      pointer-events: none;
+    }
+
+    .round-shutter-panel::after {
+      content: '';
+      position: absolute;
+      inset: 18px 18px 19px;
+      border: 1px solid rgba(116, 142, 130, .26);
+      pointer-events: none;
     }
 
     #roundShutter.closing .round-shutter-panel {
-      transform: translateY(0);
+      transform: translate3d(0, 0, 0);
     }
 
     #roundShutter.opening .round-shutter-panel {
-      transform: translateY(-101%);
-      transition-duration: 900ms;
-      transition-timing-function: cubic-bezier(0.40, 0, 0.60, 1);
+      transform: translate3d(0, -102%, 0);
     }
 
-    .round-shutter-brand {
+    .round-shutter-layout {
+      position: absolute;
+      inset: 32px 26px;
+      z-index: 1;
       display: grid;
-      gap: 10px;
-      padding: 24px;
+      grid-template-rows: auto 1fr auto;
+      align-items: center;
+      justify-items: center;
       text-align: center;
     }
 
+    .round-shutter-header {
+      color: #7e9089;
+      font: 600 10px/1.5 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .24em;
+    }
+
+    .round-shutter-brand {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 2px;
+      transform: translateY(-5%);
+    }
+
     .round-shutter-logo {
-      color: #fff;
-      font-size: clamp(34px, 10vw, 58px);
-      line-height: 1;
-      letter-spacing: 0.08em;
-      text-shadow: 0 3px 0 rgba(0,0,0,0.52);
+      color: #f4f5f1;
+      font: 800 clamp(32px, 9vw, 44px)/1.45 system-ui, -apple-system, sans-serif;
+      letter-spacing: .035em;
+      white-space: nowrap;
+      text-shadow: none;
+    }
+
+    .round-shutter-rule {
+      width: 70px;
+      height: 1px;
+      margin: 25px 0 25px;
+      background: #687b70;
+      opacity: .76;
     }
 
     .round-shutter-sub {
-      color: rgba(184,247,255,0.72);
-      font-size: clamp(10px, 2.4vw, 14px);
-      letter-spacing: 0.22em;
+      color: #d1dcd5;
+      font: 600 clamp(12px, 3.15vw, 15px)/1.5
+        ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .13em;
+    }
+
+    .round-shutter-message {
+      margin-top: 15px;
+      color: #9baaa1;
+      font-size: clamp(11px, 2.8vw, 13px);
+      line-height: 1.7;
+      letter-spacing: .04em;
+    }
+
+    .round-shutter-dots {
+      display: inline-block;
+      min-width: 1.8em;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .round-shutter-dot {
+      display: inline-block;
+      opacity: .15;
+      animation: round-shutter-blink 1.35s infinite;
+    }
+
+    .round-shutter-dot:nth-child(2) { animation-delay: .25s; }
+    .round-shutter-dot:nth-child(3) { animation-delay: .5s; }
+
+    @keyframes round-shutter-blink {
+      0%, 16% { opacity: .15; }
+      21%, 63% { opacity: 1; }
+      75%, 100% { opacity: .15; }
+    }
+
+    .round-shutter-footer {
+      color: #61766a;
+      font: 600 10px/1.5 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .17em;
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .round-shutter-panel {
-        transition-duration: 180ms;
-      }
-
-      #roundShutter.opening .round-shutter-panel {
-        transition-duration: 180ms;
-      }
+      .round-shutter-panel { transition-duration: 180ms; }
+      .round-shutter-dot { animation: none; opacity: 1; }
     }
 
     .specimen-entry-action {
@@ -1263,9 +1338,15 @@
     <button id="soloHomeButton" type="button" hidden aria-label="進化を保持してトップへ戻る">⌂ トップへ</button>
     <div id="roundShutter" aria-hidden="true">
       <div class="round-shutter-panel">
-        <div class="round-shutter-brand">
-          <div class="round-shutter-logo">ギタイラボ</div>
-          <div class="round-shutter-sub">GENERATION COMPLETE</div>
+        <div class="round-shutter-layout">
+          <div class="round-shutter-header">INVISILAB / EVOLUTION</div>
+          <div class="round-shutter-brand">
+            <div class="round-shutter-logo">ギタイラボ</div>
+            <div class="round-shutter-rule" aria-hidden="true"></div>
+            <div class="round-shutter-sub">GENERATION COMPLETE</div>
+            <div class="round-shutter-message">この世代の結果を準備中<span class="round-shutter-dots" aria-hidden="true"><span class="round-shutter-dot">.</span><span class="round-shutter-dot">.</span><span class="round-shutter-dot">.</span></span></div>
+          </div>
+          <div id="roundShutterGeneration" class="round-shutter-footer">GENERATION -----</div>
         </div>
       </div>
     </div>
@@ -1577,6 +1658,7 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
   const roundShutter = document.getElementById('roundShutter');
+  const roundShutterGeneration = document.getElementById('roundShutterGeneration');
   const soloHomeButton = document.getElementById('soloHomeButton');
   const resultBackToMenu = document.getElementById('resultBackToMenu');
 
@@ -2880,12 +2962,15 @@
   function playEndOfGenerationShutter(onClosed) {
     clearShutterTimers();
 
-    const SHUTTER_DOWN_MS = 520;
-    const SHUTTER_HOLD_MS = 600;
-    const SHUTTER_UP_MS = 900;
+    // Mirror the CSS slide duration: smooth 680ms descent and ascent.
+    // The hold is long enough to register as an intentional transition.
+    const SHUTTER_DOWN_MS = 680;
+    const SHUTTER_HOLD_MS = 1000;
+    const SHUTTER_UP_MS = 680;
     const shutterOpenAt = SHUTTER_DOWN_MS + SHUTTER_HOLD_MS;
     const shutterDoneAt = shutterOpenAt + SHUTTER_UP_MS;
 
+    roundShutterGeneration.textContent = generationLabel();
     roundShutter.classList.remove('closing', 'opening');
     roundShutter.classList.add('active');
     roundShutter.setAttribute('aria-hidden', 'false');
