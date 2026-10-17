@@ -1448,6 +1448,10 @@
           <button id="specimenBackgroundToggle" class="specimen-bg-toggle" type="button" aria-label="生息環境の背景に切り替える" aria-pressed="false"><span class="specimen-bg-icon" aria-hidden="true"></span></button>
         </div>
         <div id="specimenGrid" class="specimen-grid"></div>
+        <div style="margin:16px 0 4px;text-align:center">
+          <button type="button" id="battleSpecimenExport" class="specimen-entry-action">バトル用に標本箱を書き出す</button>
+          <p id="battleSpecimenExportStatus" class="subtle" role="status">保存した標本をギタイでバトルに持ち込めます。標本箱の元データは変更しません。</p>
+        </div>
       </div>
     </section>
 
@@ -4461,6 +4465,7 @@
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
 <script src="js/entertainment_portal.js?v=20261017-nickname1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/specimen_battle_export.js?v=20261017-battle1" defer></script>
 
 <!--
   フォント：PixelMplus12-Regular（M+ FONT LICENSE）
