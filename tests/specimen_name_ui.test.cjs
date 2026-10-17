@@ -28,5 +28,6 @@ test('sharing uses the existing menu nickname without modifying it',()=>{
 test('genome and image preservation remain independent from naming',()=>{
   assert.match(saveLogic,/const genome = existing\?\.genome/);
   assert.match(saveLogic,/image_blob: blob/);
-  assert.match(saveLogic,/\.\.\.\(genome \? \{ genome \} : \{\}\)/);
+  assert.match(saveLogic,/image_blob: blob,\s*genome,/);
+  assert.match(saveLogic,/if \(!genome\) throw new Error/);
 });
