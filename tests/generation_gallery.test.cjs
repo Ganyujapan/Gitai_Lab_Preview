@@ -65,3 +65,8 @@ test('rank badge and skull share flat frame, letters use a loaded pixel font',()
  assert.ok(rank.includes('font-family: "Press Start 2P"'));
  assert.match(html,/\.moth-rank-badge\[data-rank="SS"\][\s\S]*?linear-gradient/);
 });
+
+test('generation list continue button uses the concise label 次へ',()=>{
+ assert.ok(html.includes('<button id="evolutionNextButton" type="button">次へ</button>'));
+ assert.ok(!html.includes('id="evolutionNextButton" type="button">次の世代へ'));
+});
