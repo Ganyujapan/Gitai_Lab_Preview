@@ -27,6 +27,6 @@ test('all three habitats allow independent moth placement and no reward on the t
  assert.match(src,/selected\[i\]\.genome/);
  assert.match(src,/192\.168\.1\.25:3000\/hide_seek#hide=/);
  assert.match(css,/#entertainmentPortal #hidePicker\{/);
- assert.match(html,/js\/hide_seek_portal\.js\?v=20261018-hide1/);
+ assert.match(html,/js\/hide_seek_portal\.js\?v=20261018-specimens1/);
  assert.match(html,/css\/hide_seek_portal\.css\?v=20261018-hide1/);
 });
