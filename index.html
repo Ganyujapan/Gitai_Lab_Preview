@@ -1926,10 +1926,30 @@
     });
   }
 
+  async function loadSpecimenGenome(generationId, index) {
+    // The preview reads only the currently selected run's source genome.
+    // No guessing from pixels, no side effects on evolution.
+    try {
+      const getGenome = window.GitaiPagesPreview?.getStoredGenomeForSpecimen;
+      if (typeof getGenome !== 'function') return null;
+      return await getGenome(generationId, Number(index));
+    } catch (error) {
+      console.warn('標本のGenomeを取得できませんでした', error);
+      return null;
+    }
+  }
+
   async function saveSpecimen(generationId, index, src) {
     if (!isEntertainmentModel()) return false;
     const id = specimenIdentity(generationId, index);
-    if (await specimenGet(id)) return true;
+    const existing = await specimenGet(id);
+    // Only fetch Genome on an explicit save; never scan all generations.
+    const genome = existing?.genome ? null : await loadSpecimenGenome(generationId, index);
+    if (existing) {
+      // Backfill DNA on an existing specimen without rewriting its PNG.
+      if (!existing.genome && genome) await specimenPut({ ...existing, genome });
+      return true;
+    }
 
     const response = await fetch(src, { cache: 'no-store' });
     if (!response.ok) {
@@ -1947,6 +1967,7 @@
       run_id: String(context.runId || 'default'),
       saved_at: new Date().toISOString(),
       image_blob: blob,
+      ...(genome ? { genome } : {}),
     };
     await specimenPut(record);
     // The trophy system accepts only independently calibrated S/SS records.
@@ -2024,7 +2045,8 @@
         const mothLabel = document.createElement('span');
         mothLabel.className = 'specimen-card-id';
         mothLabel.textContent =
-          'MOTH ' + String(record.individual_index).padStart(2, '0');
+          'MOTH ' + String(record.individual_index).padStart(2, '0')
+          + (record.genome ? ' · DNA' : '');
         meta.append(generationLabel, mothLabel);
 
         card.setAttribute('aria-label', img.alt + ' を見る');
@@ -4355,8 +4377,9 @@
         state.selectedShare.specimenRecord = record;
         gitaiScoreButton.hidden = false;
       }
-      shareStatus.textContent =
-        '標本箱に保存しました。進化や次世代生成には影響しません。';
+      shareStatus.textContent = record?.genome
+        ? '標本箱に画像とGenomeを保存しました。進化や次世代生成には影響しません。'
+        : '標本箱に画像を保存しました。元のGenomeが残っていないため、この標本は画像のみです。';
     } catch (error) {
       specimenSaveButton.textContent = '保存できませんでした';
       specimenSaveButton.disabled = false;

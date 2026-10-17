@@ -1817,6 +1817,29 @@
   function genomeKey(generationId, index) {
     return `genome:${generationId}:${String(index).padStart(2, '0')}`;
   }
+  
+  // Read-only bridge for the specimen box. Do not infer missing genomes from PNGs:
+  // an approximated genome would not necessarily reproduce the original moth.
+  async function getStoredGenomeForSpecimen(generationId, index) {
+    if (
+      EVOLUTION_MODEL_ID !== 'continuous_v1'
+      || !/^gen\d{5}$/.test(String(generationId))
+      || !Number.isInteger(index)
+      || index < 1
+      || index > TOTAL
+    ) return null;
+    const genome = await idbGet(META_STORE, genomeKey(generationId, index));
+    if (
+      !genome
+      || typeof genome !== 'object'
+      || Number(genome.schema_version) !== 1
+      || !genome.modules
+      || typeof genome.modules !== 'object'
+      || Array.isArray(genome.modules)
+    ) return null;
+    // IndexedDB returns a structured clone; the original data stays unchanged.
+    return genome;
+  }
 
   async function deleteGeneration(generationId) {
     if (!generationId || generationId === 'gen00001') return;
@@ -4414,6 +4437,7 @@
     prepareChatGPTDiagnosticCopy,
     getEvolutionTheaterFrames,
     ensureTheaterSnapshot,
+    getStoredGenomeForSpecimen,
     context: Object.freeze({
       environmentId: PREVIEW_ENV_ID,
       evolutionModelId: EVOLUTION_MODEL_ID,
