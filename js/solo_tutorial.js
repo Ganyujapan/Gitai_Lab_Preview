@@ -36,11 +36,54 @@
   const dot=document.createElement('span');dot.setAttribute('aria-hidden','true');progress.appendChild(dot);
  }
  let opened=false,page=0,onDone=null,priorFocus=null;
+
+ // All four slides use Leaf 1 (kusagi_001), BEFORE any habitat is selected.
+ // Each moth uses the same renderGenome() pipeline that powers the game:
+ // GitaiPortalRandomMoth is a read-only copy of the production renderer.
+ // Never read the active game's environment or its stored population.
+ const TUTORIAL_BACKGROUND='img/backgrounds/bg_leaf01.png';
+ const demonstration={background:null,moths:[],size:38,generation:1};
+ let assetPromise=null;
+ function initializeAssets(){
+  if(demonstration.background && demonstration.moths.length===12)return Promise.resolve(demonstration);
+  if(assetPromise)return assetPromise;
+  assetPromise=(async()=>{
+   const image=new Image();
+   const background=await new Promise((resolve,reject)=>{
+    image.onload=()=>resolve(image);
+    image.onerror=()=>reject(new Error('葉1の背景を読み込めません'));
+    image.src=new URL(TUTORIAL_BACKGROUND,document.baseURI).toString();
+   });
+   const renderer=window.GitaiPortalRandomMoth;
+   if(!renderer)throw new Error('蛾の描画処理が利用できません');
+   await renderer.initialize();
+   const moths=[];
+   for(let index=0;index<12;index++){
+    const rendered=renderer.next();
+    if(!rendered)throw new Error('蛾を描画できません');
+    // next() uses a shared canvas; take a snapshot of every real sprite.
+    const snapshot=document.createElement('canvas');
+    snapshot.width=128;snapshot.height=128;
+    snapshot.getContext('2d').drawImage(rendered,0,0,128,128);
+    moths.push(snapshot);
+   }
+   demonstration.background=background;
+   demonstration.moths=moths;
+   if(opened)draw();
+   return demonstration;
+  })().catch(error=>{
+   console.warn('チュートリアル素材の読み込みに失敗しました',error);
+   assetPromise=null;
+   if(opened)draw();
+   return null;
+  });
+  return assetPromise;
+ }
  const spots=[[43,117],[164,97],[277,139],[96,233],[229,248],[37,337],
   [160,350],[280,382],[73,471],[217,478],[133,537],[291,527]];
  function sprite(a,i,x,y,size){
   const img=a.moths[i%a.moths.length];
-  if(img?.complete && img.naturalWidth>0)ctx.drawImage(img,x,y,size,size);
+  if(img && (img.naturalWidth>0 || img.width>0))ctx.drawImage(img,x,y,size,size);
  }
  function hud(left,right){
   ctx.fillStyle='rgba(5,12,14,.80)';ctx.fillRect(0,0,360,48);ctx.fillRect(0,594,360,46);
@@ -60,9 +103,9 @@
   }
  }
  function draw(){
-  const a=window.GitaiSoloTutorialAssets?.();
+  const a=demonstration;
   ctx.fillStyle='#101816';ctx.fillRect(0,0,360,640);
-  if(!a?.background?.complete||!a?.moths?.length){
+  if(!a.background?.complete||!a.moths.length){
    ctx.fillStyle='#b4c5ba';ctx.font='17px system-ui,sans-serif';
    ctx.textAlign='center';ctx.fillText('ゲームの画像を準備中…',180,320);
    return;
@@ -120,6 +163,8 @@
    if(opened)return;
    opened=true;page=0;onDone=finishHandler;priorFocus=document.activeElement;
    root.hidden=false;render();next.focus({preventScroll:true});
+   // Display the tutorial immediately; load its Leaf 1 artwork in parallel.
+   void initializeAssets();
   },
   refreshAssets(){if(opened)draw();},
   get isOpen(){return opened;}
