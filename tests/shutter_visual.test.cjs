@@ -32,9 +32,10 @@ test('the whole panel comes down and goes back up at exactly the same speed',()=
 test('shutter blocks stray taps, hides result preparation, and preserves existing result/mutation behavior',()=>{
  assert.match(html,/#roundShutter\.active\s*\{[^}]*pointer-events:\s*auto/s);
  assert.match(section,/roundShutterGeneration\.textContent = generationLabel\(\)/);
- assert.match(section,/if \(typeof onClosed === 'function'\) onClosed\(\)/);
+ assert.match(section,/if \(typeof onClosed === 'function'\) await onClosed\(\)/);
  assert.match(section,/setTimeout\(\(\) => \{[\s\S]*roundShutter\.classList\.remove\('closing'\);[\s\S]*roundShutter\.classList\.add\('opening'\)/);
- assert.match(html,/if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showEvolutionComparison\(\);/);
+ assert.match(section,/const waitMore = Math\.max\(0, SHUTTER_HOLD_MS -/);
+ assert.match(html,/if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showRankMilestoneOrGallery\(\);/);
  assert.match(html,/roundShutter\.addEventListener\('pointerdown', \(event\) => \{\s*event\.preventDefault\(\);\s*event\.stopPropagation\(\)/);
 });
 test('reduced motion turns off ornamental blinking without changing the game',()=>{

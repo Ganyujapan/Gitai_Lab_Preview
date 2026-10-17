@@ -8,12 +8,14 @@ function fragment(a,b){
  const p=html.indexOf(a),q=html.indexOf(b,p+a.length);
  assert.ok(p>=0&&q>p,'missing '+a);return html.slice(p,q);
 }
-test('solo fifth round leads straight to gallery, via mutation reveal when present',()=>{
+test('solo fifth round follows shutter, mutation pages, and optional new-rank announcement',()=>{
  const last=fragment('  function endRound() {','  function createEvolutionMothButton(');
- assert.match(last,/playEndOfGenerationShutter\(\(\) => \{[\s\S]*?showResults\(\);\s*if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showEvolutionComparison\(\);/);
- assert.match(html,/mutationRevealContinueButton\.addEventListener\('click', \(\) => \{\s*mutationRevealOverlay\.classList\.remove\('visible'\);\s*clearPendingMutationEvent\(\);\s*showEvolutionComparison\(\);/);
- assert.match(html,/id="mutationRevealContinueButton"[^>]*>プレイした世代を見る/);
+ assert.match(last,/playEndOfGenerationShutter\(async \(\) => \{[\s\S]*?showResults\(\);[\s\S]*?await calculatePlayedGenerationRanks\(\);[\s\S]*?selectNewRankMilestone\(scores\);/);
+ assert.match(last,/if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);\s*\} else \{\s*showRankMilestoneOrGallery\(\);/);
+ assert.match(html,/mutationRevealContinueButton\.addEventListener\('click', \(event\) => \{\s*event\.stopPropagation\(\);\s*advanceMutationReveal\(\)/);
+ assert.match(html,/id="mutationRevealContinueButton"[^>]*>次の蛾へ/);
 });
+
 test('gallery buttons stay above its scrolling grid; theater button follows last moth',()=>{
  const panel=fragment('<section id="evolutionOverlay"','<section id="theaterOverlay"');
  const top=panel.indexOf('id="evolutionSpecimenButton"');
