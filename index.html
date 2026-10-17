@@ -1185,24 +1185,14 @@
     }
     #rankMilestoneGrade {
       display: inline-block;
-      color: #eee;
-      /* The announcement letter matches the surrounding headline.
-         Pixel typography is reserved for moth rank badges in the gallery. */
+      /* A single high-contrast accent for every new-rank announcement.
+         Keep the surrounding Japanese headline's type metrics unchanged. */
+      color: #8be8f3;
       font-family: inherit;
       font-size: inherit;
       font-weight: inherit;
       line-height: inherit;
       letter-spacing: inherit;
-    }
-    #rankMilestoneGrade[data-rank="C"] { color: #9c9c9c; }
-    #rankMilestoneGrade[data-rank="B"] { color: #d4d4d4; }
-    #rankMilestoneGrade[data-rank="A"] { color: #fff; }
-    #rankMilestoneGrade[data-rank="S"] { color: #e9c35e; }
-    #rankMilestoneGrade[data-rank="SS"] {
-      background: linear-gradient(90deg, #ff5d89, #ffda65, #63e7a9, #6eaaff, #dd93f9);
-      color: transparent;
-      background-clip: text;
-      -webkit-background-clip: text;
     }
     .rank-milestone-preview {
       position: relative;
@@ -1704,7 +1694,7 @@
         </div>
         <p id="rankMilestoneDescription"></p>
         <button id="rankMilestoneSaveButton" type="button">標本箱に入れる</button>
-        <button id="rankMilestoneContinueButton" type="button">第◯世代の蛾を見る ▶</button>
+        <button id="rankMilestoneContinueButton" type="button">次へ</button>
       </div>
     </section>
 
@@ -3504,7 +3494,7 @@
       + ' · 暫定擬態スコア ' + event.score.toFixed(1) + '点';
     rankMilestoneSaveButton.disabled = false;
     rankMilestoneSaveButton.textContent = '標本箱に入れる';
-    rankMilestoneContinueButton.textContent = '第' + state.generationNumber + '世代の蛾を見る ▶';
+    rankMilestoneContinueButton.textContent = '次へ';
     rankMilestoneOverlay.classList.add('visible');
     // Mark saved specimens, but do not change their Genome or score data.
     specimenGet(specimenIdentity(event.generationId, event.index)).then((record) => {

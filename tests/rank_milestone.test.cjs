@@ -81,5 +81,15 @@ test('rank announcement letter inherits its headline font but gallery badges sta
  assert.match(announcement,/font-weight:\s*inherit/);
  assert.doesNotMatch(announcement,/Press Start 2P/);
  assert.match(gallery,/font-family:\s*"Press Start 2P"/);
- assert.match(html,/#rankMilestoneGrade\[data-rank="SS"\]\s*\{[^}]*background:\s*linear-gradient/s);
+ const colorRules=html.match(/#rankMilestoneGrade(?:\[data-rank="[^"]+"\])?\s*\{[^}]*\}/g)||[];
+ assert.equal(colorRules.length,1,'All grades use a single headline color rule');
+ assert.match(announcement,/color:\s*#8be8f3/);
+ assert.doesNotMatch(announcement,/background-clip|linear-gradient/);
+});
+
+test('new rank celebration has only a short Next action, retaining its specimen save button',()=>{
+ assert.match(html,/id="rankMilestoneContinueButton" type="button">次へ<\/button>/);
+ assert.match(html,/rankMilestoneContinueButton\.textContent = '次へ';/);
+ assert.match(html,/rankMilestoneSaveButton\.addEventListener\('click'/);
+ assert.match(html,/rankMilestoneContinueButton\.addEventListener\('click', closeRankMilestone\)/);
 });
