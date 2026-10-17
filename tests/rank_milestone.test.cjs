@@ -62,7 +62,7 @@ test('rank celebration uses the top scoring moth of the new grade and offers spe
  assert.match(html,/rankMilestoneSaveButton\.addEventListener\('click'/);
  assert.match(html,/await saveSpecimen\(milestone\.generationId, milestone\.index, milestone\.src\)/);
  assert.match(html,/if \(!current \|\| score > current\.score\) winners\.set\(rank,/);
- assert.match(html,/analyzeGitaiPlacement\(\s*buildMothAnalysis\(image\), bgData, m\.x, m\.y, m\.size\)/);
+ assert.match(html,/analyzeGitaiPlacement\(\s*buildMothAnalysis\(image\), bgData, m\.x, m\.y, m\.size\s*\)\.total/);
  assert.match(html,/rankMilestoneGrade\.dataset\.rank = event\.rank/);
 });
 test('sequence is shutter, mutation, rank, gallery; D is the baseline',()=>{
