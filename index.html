@@ -498,6 +498,101 @@
       height: 26px;
     }
 
+
+    /* After each SOLO generation, the scrollable specimen gallery is the
+       primary review surface; its navigation remains above the scrolling grid. */
+    #evolutionOverlay .evolution-panel {
+      background: rgba(7, 11, 12, .98);
+      border: 1px solid rgba(129, 159, 145, .38);
+    }
+    .evolution-quick-actions {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 8px 0 10px;
+    }
+    .evolution-quick-actions button {
+      min-height: 44px;
+      margin: 0;
+      border: 1px solid rgba(169, 198, 181, .65);
+      background: #182824;
+      color: #f0f4ef;
+      border-radius: 8px;
+      font: 700 clamp(12px, 3.1vw, 15px)/1.4 system-ui, -apple-system, sans-serif;
+      padding: 8px 4px;
+    }
+    .evolution-quick-actions #evolutionNextButton {
+      background: #2b4342;
+      border-color: #b6cfca;
+    }
+    .evolution-quick-actions [hidden] { display: none !important; }
+    #evolutionOverlay .evolution-hint {
+      font-size: clamp(11px, 2.5vw, 13px);
+      color: #a3b0aa;
+      margin-bottom: 6px;
+    }
+    #evolutionOverlay .evolution-rank-note {
+      flex: 0 0 auto;
+      margin: 0 0 8px;
+      color: #7f9185;
+      font: 10px/1.5 system-ui, -apple-system, sans-serif;
+    }
+    #evolutionTheaterButton {
+      width: 100%;
+      margin: 11px 0 9px;
+      min-height: 48px;
+      padding: 10px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(165, 150, 213, .82);
+      background: rgba(61, 47, 77, .74);
+      color: #f1eafb;
+      font: 700 15px/1.4 system-ui, -apple-system, sans-serif;
+    }
+    #evolutionTheaterButton[hidden] { display: none !important; }
+    .moth-rank-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 3;
+      width: 25px;
+      min-height: 24px;
+      display: grid;
+      place-items: center;
+      border: 2px solid rgba(255,255,255,.72);
+      border-radius: 3px;
+      color: #fff;
+      background: #171717;
+      box-shadow: 2px 2px 0 rgba(0,0,0,.75);
+      pointer-events: none;
+      font: 900 12px/1 "PixelMplus", ui-monospace, monospace;
+      letter-spacing: -.07em;
+      text-shadow: 1px 1px 0 rgba(0,0,0,.35);
+      image-rendering: pixelated;
+    }
+    .moth-rank-badge[data-rank="D"] { background: #090909; color: #fff; }
+    .moth-rank-badge[data-rank="C"] { background: #747474; color: #fff; }
+    .moth-rank-badge[data-rank="B"] { background: #c5c5c5; color: #111; text-shadow: none; }
+    .moth-rank-badge[data-rank="A"] { background: #fff; color: #111; text-shadow: none; }
+    .moth-rank-badge[data-rank="S"] { background: #d4ab38; border-color: #ffdf7c; color: #161008; text-shadow: none; }
+    .moth-rank-badge[data-rank="SS"] {
+      background: linear-gradient(135deg,
+        #ff4b78 0%, #ffd760 24%, #53e9a0 48%,
+        #5eafff 72%, #d986ff 100%);
+      border-color: #fff3bd;
+      color: #10131b;
+      text-shadow: 1px 1px 0 rgba(255,255,255,.58);
+      font-size: 10px;
+    }
+    .moth-rank-badge[data-rank="pending"] {
+      background: rgba(11,16,16,.85);
+      border-color: rgba(211,225,216,.45);
+      color: #a2b1a8;
+    }
+    @media (max-width: 375px) {
+      .moth-rank-badge { width: 23px; min-height: 23px; font-size: 11px; top: 5px; left: 5px; }
+      .moth-rank-badge[data-rank="SS"] { font-size: 9px; }
+    }
     .theater-entry-action {
       flex: 0 0 auto;
       width: 100%;
@@ -1411,7 +1506,12 @@
           <h2 class="evolution-title">プレイした世代を見る</h2>
           <span></span>
         </div>
-        <p class="evolution-hint">今プレイした世代の個体です。縦にスクロールし、気になる蛾をタップすると大きく表示できます。</p>
+        <p class="evolution-hint">今プレイした世代の個体です。気になる蛾をタップして標本に保存できます。</p>
+        <div class="evolution-quick-actions">
+          <button id="evolutionSpecimenButton" type="button">標本箱</button>
+          <button id="evolutionNextButton" type="button">次の世代へ ▶</button>
+        </div>
+        <p class="evolution-rank-note">左上のランクは、実際の配置場所での擬態スコアから求めた暫定評価です。</p>
         <div class="evolution-scroll">
           <section class="evolution-generation-block">
             <div class="evolution-heading">第1世代</div>
@@ -1421,6 +1521,7 @@
             <div id="latestGenerationTitle" class="evolution-heading">現在世代</div>
             <div id="evolutionLatestGrid" class="evolution-latest-grid"></div>
           </section>
+          <button id="evolutionTheaterButton" type="button" hidden>進化シアターを見る ▶</button>
         </div>
       </div>
     </section>
@@ -1497,7 +1598,7 @@
         <h2>突然変異の正体</h2>
         <p id="mutationRevealMessage" class="subtle"></p>
         <div id="mutationRevealGrid" class="mutation-grid"></div>
-        <button id="mutationRevealContinueButton" type="button">成績を見る</button>
+        <button id="mutationRevealContinueButton" type="button">プレイした世代を見る</button>
       </div>
     </section>
 
@@ -1704,6 +1805,10 @@
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
   const evolutionCloseButton = document.getElementById('evolutionCloseButton');
+  const evolutionSpecimenButton = document.getElementById('evolutionSpecimenButton');
+  const evolutionNextButton = document.getElementById('evolutionNextButton');
+  const evolutionTheaterButton = document.getElementById('evolutionTheaterButton');
+  const evolutionScroller = evolutionOverlay.querySelector('.evolution-scroll');
   const evolutionGen1 = document.getElementById('evolutionGen1');
   const evolutionLatestGrid = document.getElementById('evolutionLatestGrid');
   const latestGenerationTitle = document.getElementById('latestGenerationTitle');
@@ -1798,6 +1903,8 @@
     generationStartedAt: 0,
     specimenObjectUrls: [],
     playedMothSources: [],
+    temporaryMothRanks: new Map(),
+    rankCalculationToken: 0,
     shutterTimerIds: [],
     bootReady: false,
     uiTransitionLocked: false,
@@ -3071,10 +3178,13 @@
 
       if (isEntertainmentModel()) {
         playEndOfGenerationShutter(() => {
+          // Set up existing next-generation handling behind the gallery.
+          // The intermediate result screen is skipped for solo players.
+          showResults();
           if (state.pendingMutationEvent) {
             showMutationReveal();
           } else {
-            showResults();
+            showEvolutionComparison();
           }
         });
       } else {
@@ -3089,6 +3199,118 @@
     }
   }
 
+
+  // Temporary visual ranking: uses the existing Lab-color + luminance +
+  // texture + outline score at each moth's ACTUAL played screen position.
+  // This is not the separately calibrated S/SS trophy system.
+  function temporaryRank(score) {
+    if (!Number.isFinite(score)) return null;
+    if (score >= 90) return 'SS';
+    if (score >= 80) return 'S';
+    if (score >= 68) return 'A';
+    if (score >= 54) return 'B';
+    if (score >= 40) return 'C';
+    return 'D';
+  }
+
+  function createMothRankBadge(score) {
+    const rank = temporaryRank(score);
+    const badge = document.createElement('span');
+    badge.className = 'moth-rank-badge';
+    badge.dataset.rank = rank || 'pending';
+    badge.textContent = rank || '—';
+    badge.setAttribute('aria-label', rank
+      ? '擬態ランク（暫定）' + rank + ' · ' + Math.round(score) + '点'
+      : '擬態ランク（暫定）計算中');
+    if (Number.isFinite(score)) badge.title = '暫定擬態スコア ' + score.toFixed(1);
+    return badge;
+  }
+
+  function updateRenderedRank(generationId, index, score) {
+    const key = generationId + ':' + index;
+    state.temporaryMothRanks.set(key, score);
+    const button = generationId === 'gen00001'
+      ? evolutionGen1.querySelector('.moth-preview-button')
+      : evolutionLatestGrid.querySelector('[data-moth-index="' + index + '"]');
+    const previous = button?.querySelector('.moth-rank-badge');
+    if (previous) previous.replaceWith(createMothRankBadge(score));
+  }
+
+  async function calculatePlayedGenerationRanks() {
+    if (!isEntertainmentModel() || !state.backgroundImage || !CONFIG) return;
+    const token = ++state.rankCalculationToken;
+    try {
+      const backgroundCanvas = document.createElement('canvas');
+      backgroundCanvas.width = GAME_WIDTH;
+      backgroundCanvas.height = GAME_HEIGHT;
+      const bctx = backgroundCanvas.getContext('2d', { willReadFrequently: true });
+      bctx.drawImage(state.backgroundImage, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+      const bgData = bctx.getImageData(0, 0, GAME_WIDTH, GAME_HEIGHT).data;
+      const mothPositions = new Map();
+      for (const round of state.roundRecords) {
+        for (const m of round.individuals || []) {
+          mothPositions.set(m.index, m);
+        }
+      }
+      // A gen1 reference is shown above the current generation. Its position
+      // is a fixed reference point rather than a reconstructed play location.
+      if (state.currentGenerationId === 'gen00001') {
+        const m = mothPositions.get(1);
+        if (m) {
+          const a = buildMothAnalysis(state.mothImages[0]);
+          const score = analyzeGitaiPlacement(a, bgData, m.x, m.y, m.size).total;
+          updateRenderedRank('gen00001', 1, score);
+        }
+      } else {
+        try {
+          const gen1 = await loadImage(
+            cacheBustUrl(individualAssetPath('gen00001', 1))
+          );
+          if (token !== state.rankCalculationToken) return;
+          const a = buildMothAnalysis(gen1);
+          const x = (GAME_WIDTH - CONFIG.MOTH_SIZE) / 2;
+          const y = (GAME_HEIGHT - CONFIG.MOTH_SIZE) / 2;
+          updateRenderedRank('gen00001', 1,
+            analyzeGitaiPlacement(a, bgData, x, y, CONFIG.MOTH_SIZE).total);
+        } catch (_) {
+          // Old gen1 source may have been deleted; leave its rank unknown.
+        }
+      }
+      for (let index = 1; index <= CONFIG.TOTAL_MOTHS; index++) {
+        if (token !== state.rankCalculationToken) return;
+        const m = mothPositions.get(index);
+        const image = state.mothImages[index - 1];
+        if (m && image) {
+          try {
+            const score = analyzeGitaiPlacement(
+              buildMothAnalysis(image), bgData, m.x, m.y, m.size
+            ).total;
+            updateRenderedRank(state.currentGenerationId, index, score);
+          } catch (error) {
+            console.warn('暫定擬態ランクを計算できませんでした', index, error);
+          }
+        }
+        // Never block Safari's scrolling while computing all 60 moths.
+        if (index % 4 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    } catch (error) {
+      console.warn('暫定擬態ランクの計算を省略しました', error);
+    }
+  }
+
+  function revealEvolutionTheaterAtBottom() {
+    if (!isEntertainmentModel() || !evolutionOverlay.classList.contains('visible')) return;
+    const atEnd = evolutionScroller.scrollTop + evolutionScroller.clientHeight
+      >= evolutionScroller.scrollHeight - 36;
+    if (atEnd) evolutionTheaterButton.hidden = false;
+  }
+
+  function continueFromEvolutionList() {
+    if (!isEntertainmentModel() || state.submitStatus !== 'ready' || state.uiTransitionLocked) return;
+    evolutionOverlay.classList.remove('visible');
+    continueButton.click();
+  }
+
   function createEvolutionMothButton(
     generationId,
     index,
@@ -3098,6 +3320,7 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'moth-preview-button';
+    button.dataset.mothIndex = String(index);
 
     const img = document.createElement('img');
     img.src = srcOverride
@@ -3110,6 +3333,10 @@
     label.textContent = `MOTH ${String(index).padStart(2, '0')}`;
 
     button.append(img, label);
+    if (isEntertainmentModel()) {
+      const score = state.temporaryMothRanks.get(generationId + ':' + index);
+      button.appendChild(createMothRankBadge(score));
+    }
     if (eaten) {
       button.appendChild(createPredationSkull());
     }
@@ -3149,14 +3376,20 @@
 
   function showEvolutionComparison() {
     const latestId = state.currentGenerationId;
+    evolutionTheaterButton.hidden = true;
+    evolutionNextButton.hidden = !isEntertainmentModel();
+    evolutionSpecimenButton.hidden = !isEntertainmentModel();
     const latestNumber = Number(latestId.slice(3));
 
     latestGenerationTitle.textContent = `第${latestNumber}世代`;
     renderEvolutionComparison(latestId);
     evolutionOverlay.classList.add('visible');
 
-    const scroller = evolutionOverlay.querySelector('.evolution-scroll');
-    if (scroller) scroller.scrollTop = 0;
+    evolutionScroller.scrollTop = 0;
+    requestAnimationFrame(() => {
+      revealEvolutionTheaterAtBottom();
+      void calculatePlayedGenerationRanks();
+    });
   }
 
   // On-demand and background migration of already saved theater frames.
@@ -4348,6 +4581,8 @@
     state.scoreRecordId = null;
     state.scoreSummary = null;
     state.playedMothSources = [];
+    state.temporaryMothRanks.clear();
+    ++state.rankCalculationToken;
     state.submitStatus = 'idle';
     startRound();
   });
@@ -4433,6 +4668,20 @@
       saveCurrentName();
       renderRanking();
     }
+  });
+
+  evolutionScroller.addEventListener('scroll', revealEvolutionTheaterAtBottom, { passive: true });
+  evolutionSpecimenButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    showSpecimenBox();
+  });
+  evolutionNextButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    continueFromEvolutionList();
+  });
+  evolutionTheaterButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    showEvolutionTheater();
   });
 
   compareButton.addEventListener('click', (event) => {
@@ -4554,7 +4803,7 @@
   mutationRevealContinueButton.addEventListener('click', () => {
     mutationRevealOverlay.classList.remove('visible');
     clearPendingMutationEvent();
-    showResults();
+    showEvolutionComparison();
   });
 
   generationContinueButton.addEventListener('click', () => {
