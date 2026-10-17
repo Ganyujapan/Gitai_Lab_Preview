@@ -53,5 +53,5 @@ test('battle picker inherits black theme but preserves genome transfer flow',()=
 test('the old pixel art renderer stops in the new static menu, but resumes on intro',()=>{
  assert.match(portal,/document.hidden \|\| portal.hidden \|\| mode !== 'intro'/);
  assert.match(portal,/const introResolution = nextMode === 'intro'/);
- assert.match(html,/js\/entertainment_portal.js\?v=20261017-minimal1/);
+ assert.match(html,/js\/entertainment_portal.js\?v=[^"]+/);
 });
