@@ -1,0 +1,12 @@
+import {parseGenome,renderToCanvas,toPNG} from '../js/moth_renderer.mjs';
+const $=s=>document.querySelector(s);let genome=null,revision=0;
+function invalidate(){revision++;genome=null;$('#png').disabled=$('#save').disabled=true;$('#preview').replaceChildren();$('#message').textContent='プレビューを生成してください。';}
+$('#json').addEventListener('input',invalidate);
+const choices=[['透明',null],['アイボリー','#fff9e9'],['葉1','../img/backgrounds/bg_leaf01.png'],['葉2','../img/backgrounds/bg_leaf02.png'],['樹皮','../img/backgrounds/bg_bark01.png']];
+for(const [index,[name,value]] of choices.entries()){const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(index===0));const thumb=document.createElement(index>1?'img':'span');if(index>1){thumb.src=value;thumb.alt='';}else{thumb.className='swatch'+(index===0?' checker':'');thumb.style.backgroundColor=value||'';}b.append(thumb,document.createTextNode(name));b.onclick=()=>{for(const other of $('#backgrounds').children)other.setAttribute('aria-pressed',String(other===b));const p=$('#preview');p.className=index===0?'checker':'';p.style.backgroundImage=index>1?`url("${value}")`:'';p.style.backgroundColor=index===1?value:'';};$('#backgrounds').append(b);}
+async function render(){invalidate();const token=revision;$('#message').textContent='描画中…';try{const g=parseGenome($('#json').value);const canvas=await renderToCanvas(g);if(token!==revision)return;genome=g;$('#preview').replaceChildren(canvas);$('#png').disabled=$('#save').disabled=false;$('#message').textContent='128×128px・透過画像を生成しました。';}catch(e){if(token===revision)$('#message').textContent='読み込みエラー：'+e.message;}}
+$('#render').onclick=render;
+$('#file').onchange=async()=>{const f=$('#file').files[0];if(!f)return;invalidate();const token=revision;try{if(f.size>1024*1024)throw Error('1MB以下のJSONを選んでください');const text=await f.text();if(token!==revision)return;$('#json').value=text;await render();}catch(e){if(token===revision)$('#message').textContent=e.message;}};
+function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+$('#png').onclick=async()=>{if(!genome)return;const token=revision;try{const blob=await toPNG(genome);if(token===revision)download(blob,'moth-128.png');}catch(e){$('#message').textContent=e.message;}};
+$('#save').onclick=()=>{if(genome)download(new Blob([JSON.stringify(genome,null,2)+'\n'],{type:'application/json'}),'moth-genome.json');};
