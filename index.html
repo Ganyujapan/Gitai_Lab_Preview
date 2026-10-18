@@ -557,11 +557,12 @@
       letter-spacing: 0;
       image-rendering: pixelated;
     }
-    .moth-rank-badge[data-rank="D"] { background: #090909; color: #fff; }
-    .moth-rank-badge[data-rank="C"] { background: #747474; color: #fff; }
-    .moth-rank-badge[data-rank="B"] { background: #c5c5c5; color: #111; }
-    .moth-rank-badge[data-rank="A"] { background: #fff; color: #111; }
-    .moth-rank-badge[data-rank="S"] { background: #d4ab38; color: #161008; }
+    /* Rank badges share one palette in generation and specimen galleries. */
+    .moth-rank-badge[data-rank="D"] { background: #777777; color: #fff; }
+    .moth-rank-badge[data-rank="C"] { background: #5bc97c; color: #11251a; }
+    .moth-rank-badge[data-rank="B"] { background: #f4d65e; color: #28210a; }
+    .moth-rank-badge[data-rank="A"] { background: #8dddfa; color: #102c3b; }
+    .moth-rank-badge[data-rank="S"] { background: #9860d6; color: #fff; }
     .moth-rank-badge[data-rank="SS"] {
       background: linear-gradient(135deg,
         #ff4b78 0%, #ffd760 24%, #53e9a0 48%,
@@ -1381,6 +1382,7 @@
     }
 
     .specimen-card-mount {
+      position: relative;
       display: grid;
       place-items: center;
       flex: 0 0 auto;
@@ -2250,13 +2252,22 @@
     const existing = await specimenGet(id);
     // Only fetch Genome on an explicit save; never scan all generations.
     const genome = existing?.genome ? null : await loadSpecimenGenome(generationId, index);
+    // Keep the same position-based provisional score used in the generation
+    // gallery. Do not score a different habitat/position on specimen reopen.
+    const rankScore = state.temporaryMothRanks.get(generationId + ':' + index);
+    const hasRankScore = Number.isFinite(rankScore);
     if (existing) {
-      // Preserve legacy specimens, but never treat a missing original
-      // genome as a successful completion of the save/backfill request.
+      // Keep the original PNG and all existing metadata. A missing historical
+      // rank is filled only when the played-generation score is available.
+      const changes = {};
       if (!existing.genome) {
         if (!genome) throw new Error('標本の情報を取得できませんでした');
-        await specimenPut({ ...existing, genome });
+        changes.genome = genome;
       }
+      if (!Number.isFinite(existing.temporary_rank_score) && hasRankScore) {
+        changes.temporary_rank_score = rankScore;
+      }
+      if (Object.keys(changes).length) await specimenPut({ ...existing, ...changes });
       return true;
     }
     // New specimens ALWAYS store their original genome and PNG together.
@@ -2279,6 +2290,7 @@
       saved_at: new Date().toISOString(),
       image_blob: blob,
       genome,
+      ...(hasRankScore ? { temporary_rank_score: rankScore } : {}),
     };
     await specimenPut(record);
     // The trophy system accepts only independently calibrated S/SS records.
@@ -2336,6 +2348,14 @@
         const mount = document.createElement('span');
         mount.className = 'specimen-card-mount';
         mount.appendChild(img);
+        const savedScore = Number.isFinite(record.temporary_rank_score)
+          ? record.temporary_rank_score
+          : state.temporaryMothRanks.get(
+            String(record.generation_id) + ':' + Number(record.individual_index)
+          );
+        // For older specimens with no original score, show the same
+        // ungraded badge as the generation gallery instead of guessing.
+        mount.appendChild(createMothRankBadge(savedScore));
 
         // Resolve the saved specimen's environment, not the current run's.
         // Only allow trusted bundled habitat paths from the shared catalog.

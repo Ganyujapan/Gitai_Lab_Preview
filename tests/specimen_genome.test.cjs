@@ -39,13 +39,14 @@ function saver({existing=null,genome=null,readFails=false}={}){
     },
     GitaiTrophies:{recordSpecimen:()=>{trophies++;}}
   };
-  const fn=new Function('window','specimenIdentity','specimenGet','specimenPut','isEntertainmentModel','fetch','console',
+  const state={temporaryMothRanks:new Map([['gen00027:12',73.5]])};
+  const fn=new Function('window','specimenIdentity','specimenGet','specimenPut','isEntertainmentModel','fetch','console','state',
     sourceSave+'; return saveSpecimen;'
   )(
     window,()=> 'leaf_001:continuous_v1:default:gen00027:12',
     async()=>existing,async r=>{stored=r;},()=>true,
     async()=>{fetches++;return {ok:true,blob:async()=>image};},
-    {warn:()=>{}}
+    {warn:()=>{}},state
   );
   return {
     fn,run:()=>fn('gen00027',12,'/moth.png'),
@@ -82,6 +83,7 @@ test('new specimen saves the original image and genome together',async()=>{
   assert.equal(stored.generation_number,27);
   assert.equal(stored.individual_index,12);
   assert.equal(stored.environment_id,'leaf_001');
+  assert.equal(stored.temporary_rank_score,73.5,'the original played-position score is saved');
   assert.equal(reads,1);assert.equal(fetches,1);assert.equal(trophies,1);
 });
 test('old specimen gets optional genome backfill without touching its PNG or metadata',async()=>{
@@ -95,6 +97,7 @@ test('old specimen gets optional genome backfill without touching its PNG or met
   assert.equal(stored.saved_at,existing.saved_at);
   assert.deepEqual(stored.other_data,{kept:true});
   assert.equal(stored.genome,genome);
+  assert.equal(stored.temporary_rank_score,73.5);
   assert.equal(reads,1);assert.equal(fetches,0);
 });
 test('missing original genome never creates image-only specimens',async()=>{

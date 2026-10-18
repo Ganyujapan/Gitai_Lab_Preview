@@ -131,3 +131,26 @@ test('Next progresses across mutation specimens, then exits to rank/gallery when
  assert.equal(cleared,1);
  assert.equal(departed,1);
 });
+
+test('specimen box shares the generation badge and persists the original played score',()=>{
+ const specimen=html.slice(html.indexOf('  async function showSpecimenBox() {'),html.indexOf('  function readHitColor(',html.indexOf('  async function showSpecimenBox() {')));
+ const save=html.slice(html.indexOf('  async function saveSpecimen('),html.indexOf('  function releaseSpecimenObjectUrls()',html.indexOf('  async function saveSpecimen(')));
+ assert.match(specimen,/mount\.appendChild\(createMothRankBadge\(savedScore\)\)/);
+ assert.match(specimen,/Number\.isFinite\(record\.temporary_rank_score\)/);
+ assert.match(specimen,/state\.temporaryMothRanks\.get/);
+ assert.match(save,/temporary_rank_score: rankScore/);
+ assert.match(save,/if \(!Number\.isFinite\(existing\.temporary_rank_score\) && hasRankScore\)/);
+ assert.match(html,/\.specimen-card-mount\s*\{\s*position:\s*relative;/);
+});
+test('rank badge colors follow D gray, C green, B yellow, A light-blue, S purple, SS rainbow',()=>{
+ const colors={D:'#777777',C:'#5bc97c',B:'#f4d65e',A:'#8dddfa',S:'#9860d6'};
+ for(const [rank,color] of Object.entries(colors)){
+  const rule=html.match(new RegExp('\\.moth-rank-badge\\[data-rank="'+rank+'"\\] \\{([^}]+)\\}'));
+  assert.ok(rule,'missing '+rank+' palette');
+  assert.ok(rule[1].includes('background: '+color),rank+' must have '+color);
+ }
+ assert.match(html,/\.moth-rank-badge\[data-rank="SS"\]\s*\{[^}]*linear-gradient\(135deg,/s);
+ assert.match(html,/const rank = temporaryRank\(score\);/);
+ assert.match(html,/if \(!Number\.isFinite\(score\)\) return null;/);
+ assert.match(html,/if \(score >= 90\) return 'SS'/);
+});
