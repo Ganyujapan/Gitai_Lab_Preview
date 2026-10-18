@@ -557,18 +557,70 @@
       letter-spacing: 0;
       image-rendering: pixelated;
     }
-    /* Rank badges share one palette in generation and specimen galleries. */
+    /* Grade colors stay uniform, but only S and SS have animated badges. */
     .moth-rank-badge[data-rank="D"] { background: #777777; color: #fff; }
     .moth-rank-badge[data-rank="C"] { background: #5bc97c; color: #11251a; }
     .moth-rank-badge[data-rank="B"] { background: #f4d65e; color: #28210a; }
     .moth-rank-badge[data-rank="A"] { background: #8dddfa; color: #102c3b; }
-    .moth-rank-badge[data-rank="S"] { background: #9860d6; color: #fff; }
+    .moth-rank-badge[data-rank="S"] {
+      background: #9860d6; /* Purple remains completely static. */
+      color: #fff;
+      border-color: #f8f8ff;
+      animation: rankSilverFrame 3.4s ease-in-out infinite;
+    }
+    .moth-rank-badge[data-rank="S"] .moth-rank-silver-letter {
+      display: inline-block;
+      color: #fff;
+      /* The moving white/silver gradient is restricted to the letter. */
+      background: linear-gradient(105deg,
+        #ffffff 0%, #b2b7c0 24%, #fbfdff 49%,
+        #9197a3 73%, #ffffff 100%);
+      background-size: 260% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: rankSilverLetter 3.4s ease-in-out infinite alternate;
+    }
     .moth-rank-badge[data-rank="SS"] {
       background: linear-gradient(135deg,
-        #ff4b78 0%, #ffd760 24%, #53e9a0 48%,
-        #5eafff 72%, #d986ff 100%);
+        #ff4b78 0%, #ffd760 13%, #53e9a0 26%,
+        #5eafff 39%, #d986ff 52%, #ff4b78 65%,
+        #ffd760 78%, #53e9a0 91%, #5eafff 100%);
+      background-size: 270% 270%;
       color: #10131b;
       font-size: 8px;
+      animation: rankRainbowSpectrum 5s linear infinite alternate;
+    }
+    @keyframes rankRainbowSpectrum {
+      from { background-position: 0% 10%; }
+      to { background-position: 100% 90%; }
+    }
+    @keyframes rankSilverLetter {
+      from { background-position: 0% 50%; }
+      to { background-position: 100% 50%; }
+    }
+    @keyframes rankSilverFrame {
+      0%, 100% {
+        border-color: #ffffff;
+        box-shadow: 0 0 4px rgba(255,255,255,.42);
+      }
+      32% {
+        border-color: #a5aab3;
+        box-shadow: 0 0 1px rgba(225,230,239,.35);
+      }
+      58% {
+        border-color: #f5f8ff;
+        box-shadow: 0 0 7px rgba(244,248,255,.83);
+      }
+      82% {
+        border-color: #bcc0c9;
+        box-shadow: 0 0 2px rgba(215,221,233,.38);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .moth-rank-badge[data-rank="S"],
+      .moth-rank-badge[data-rank="S"] .moth-rank-silver-letter,
+      .moth-rank-badge[data-rank="SS"] { animation: none; }
     }
     .moth-rank-badge[data-rank="pending"] {
       background: rgba(11,16,16,.85);
@@ -1382,7 +1434,6 @@
     }
 
     .specimen-card-mount {
-      position: relative;
       display: grid;
       place-items: center;
       flex: 0 0 auto;
@@ -2348,20 +2399,6 @@
         const mount = document.createElement('span');
         mount.className = 'specimen-card-mount';
         mount.appendChild(img);
-        const currentContext = window.GitaiPagesPreview?.context || {};
-        const isSameRun = String(record.environment_id || '') === String(currentContext.environmentId || '')
-          && String(record.evolution_model_id || '') === String(currentContext.evolutionModelId || '')
-          && String(record.run_id || 'default') === String(currentContext.runId || 'default');
-        const savedScore = Number.isFinite(record.temporary_rank_score)
-          ? record.temporary_rank_score
-          : isSameRun
-            ? state.temporaryMothRanks.get(
-              String(record.generation_id) + ':' + Number(record.individual_index)
-            )
-            : undefined;
-        // For older specimens with no original score, show the same
-        // ungraded badge as the generation gallery instead of guessing.
-        mount.appendChild(createMothRankBadge(savedScore));
 
         // Resolve the saved specimen's environment, not the current run's.
         // Only allow trusted bundled habitat paths from the shared catalog.
@@ -3360,6 +3397,13 @@
     badge.className = 'moth-rank-badge';
     badge.dataset.rank = rank || 'pending';
     badge.textContent = rank || '—';
+    if (rank === 'S') {
+      // Text-only silver reflection; the surrounding purple never changes.
+      const letter = document.createElement('span');
+      letter.className = 'moth-rank-silver-letter';
+      letter.textContent = 'S';
+      badge.replaceChildren(letter);
+    }
     badge.setAttribute('aria-label', rank
       ? '擬態ランク（暫定）' + rank + ' · ' + Math.round(score) + '点'
       : '擬態ランク（暫定）計算中');

@@ -132,18 +132,15 @@ test('Next progresses across mutation specimens, then exits to rank/gallery when
  assert.equal(departed,1);
 });
 
-test('specimen box shares the generation badge and persists the original played score',()=>{
+test('specimen box remains an unranked museum-style collection',()=>{
  const specimen=html.slice(html.indexOf('  async function showSpecimenBox() {'),html.indexOf('  function readHitColor(',html.indexOf('  async function showSpecimenBox() {')));
  const save=html.slice(html.indexOf('  async function saveSpecimen('),html.indexOf('  function releaseSpecimenObjectUrls()',html.indexOf('  async function saveSpecimen(')));
- assert.match(specimen,/mount\.appendChild\(createMothRankBadge\(savedScore\)\)/);
- assert.match(specimen,/Number\.isFinite\(record\.temporary_rank_score\)/);
- assert.match(specimen,/state\.temporaryMothRanks\.get/);
- assert.match(specimen,/const isSameRun =/);
- assert.match(specimen,/record\.environment_id/);
- assert.match(specimen,/record\.run_id/);
+ assert.match(specimen,/mount\.appendChild\(img\)/);
+ assert.doesNotMatch(specimen,/createMothRankBadge|temporary_rank_score|temporaryMothRanks/);
+ assert.doesNotMatch(html,/\.specimen-card-mount\s*\{\s*position:\s*relative;/);
+ // Previously saved provisional score metadata is retained, without showing badges.
  assert.match(save,/temporary_rank_score: rankScore/);
  assert.match(save,/if \(!Number\.isFinite\(existing\.temporary_rank_score\) && hasRankScore\)/);
- assert.match(html,/\.specimen-card-mount\s*\{\s*position:\s*relative;/);
 });
 test('rank badge colors follow D gray, C green, B yellow, A light-blue, S purple, SS rainbow',()=>{
  const colors={D:'#777777',C:'#5bc97c',B:'#f4d65e',A:'#8dddfa',S:'#9860d6'};
@@ -156,4 +153,26 @@ test('rank badge colors follow D gray, C green, B yellow, A light-blue, S purple
  assert.match(html,/const rank = temporaryRank\(score\);/);
  assert.match(html,/if \(!Number\.isFinite\(score\)\) return null;/);
  assert.match(html,/if \(score >= 90\) return 'SS'/);
+});
+
+test('only S and SS badges animate: rainbow spectrum and purple-backed silver lettering',()=>{
+ const css=html.slice(html.indexOf('    .moth-rank-badge {'),html.indexOf('    .theater-entry-action {'));
+ const silver=css.match(/\.moth-rank-badge\[data-rank="S"\]\s*\{([^}]+)\}/)?.[1]||'';
+ const rainbow=css.match(/\.moth-rank-badge\[data-rank="SS"\]\s*\{([^}]+)\}/)?.[1]||'';
+ assert.match(silver,/background:\s*#9860d6/);
+ assert.match(silver,/animation:\s*rankSilverFrame/);
+ assert.doesNotMatch(silver,/linear-gradient|background-position/);
+ assert.match(css,/\.moth-rank-silver-letter\s*\{[^}]*linear-gradient\(105deg,[^}]*background-clip:\s*text;[^}]*-webkit-text-fill-color:\s*transparent;[^}]*animation:\s*rankSilverLetter/s);
+ assert.match(css,/@keyframes rankSilverLetter/);
+ assert.match(css,/@keyframes rankSilverFrame/);
+ assert.match(rainbow,/linear-gradient\(135deg/);
+ assert.match(rainbow,/background-size:\s*270%\s+270%/);
+ assert.match(rainbow,/animation:\s*rankRainbowSpectrum/);
+ assert.match(css,/@keyframes rankRainbowSpectrum/);
+ assert.match(html,/if \(rank === 'S'\) \{[\s\S]*?badge\.replaceChildren\(letter\);/);
+ for(const rank of ['A','B','C','D']){
+  const rule=css.match(new RegExp('\\.moth-rank-badge\\[data-rank="'+rank+'"\\] \\{([^}]+)\\}'))?.[1]||'';
+  assert.doesNotMatch(rule,/animation:/,rank+' must stay static');
+ }
+ assert.match(css,/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/);
 });
