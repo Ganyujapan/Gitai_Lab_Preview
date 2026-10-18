@@ -2348,11 +2348,17 @@
         const mount = document.createElement('span');
         mount.className = 'specimen-card-mount';
         mount.appendChild(img);
+        const currentContext = window.GitaiPagesPreview?.context || {};
+        const isSameRun = String(record.environment_id || '') === String(currentContext.environmentId || '')
+          && String(record.evolution_model_id || '') === String(currentContext.evolutionModelId || '')
+          && String(record.run_id || 'default') === String(currentContext.runId || 'default');
         const savedScore = Number.isFinite(record.temporary_rank_score)
           ? record.temporary_rank_score
-          : state.temporaryMothRanks.get(
-            String(record.generation_id) + ':' + Number(record.individual_index)
-          );
+          : isSameRun
+            ? state.temporaryMothRanks.get(
+              String(record.generation_id) + ':' + Number(record.individual_index)
+            )
+            : undefined;
         // For older specimens with no original score, show the same
         // ungraded badge as the generation gallery instead of guessing.
         mount.appendChild(createMothRankBadge(savedScore));

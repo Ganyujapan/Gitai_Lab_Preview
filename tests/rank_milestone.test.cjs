@@ -138,6 +138,9 @@ test('specimen box shares the generation badge and persists the original played 
  assert.match(specimen,/mount\.appendChild\(createMothRankBadge\(savedScore\)\)/);
  assert.match(specimen,/Number\.isFinite\(record\.temporary_rank_score\)/);
  assert.match(specimen,/state\.temporaryMothRanks\.get/);
+ assert.match(specimen,/const isSameRun =/);
+ assert.match(specimen,/record\.environment_id/);
+ assert.match(specimen,/record\.run_id/);
  assert.match(save,/temporary_rank_score: rankScore/);
  assert.match(save,/if \(!Number\.isFinite\(existing\.temporary_rank_score\) && hasRankScore\)/);
  assert.match(html,/\.specimen-card-mount\s*\{\s*position:\s*relative;/);
