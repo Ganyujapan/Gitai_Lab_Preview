@@ -596,3 +596,65 @@ html.pixel-portal-pending #entertainmentPortal[hidden] { display: block !importa
     transition: none;
   }
 }
+
+
+/* Solo evolution experiment selection overlays the existing menu only. */
+#entertainmentPortal .portal-experiment-choice {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  padding: 19vh 20px max(25px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 13px;
+  background: rgba(9, 25, 23, .97);
+  border: 3px solid #b8ab76;
+  overflow-y: auto;
+  text-align: left;
+}
+#entertainmentPortal .portal-experiment-choice[hidden] { display: none !important; }
+#entertainmentPortal .portal-experiment-choice h2 {
+  margin: 0 0 14px;
+  font-size: clamp(21px, 6vw, 30px);
+  color: #fff1bd;
+}
+#entertainmentPortal .portal-experiment-eyebrow {
+  font: bold 10px/1.5 'Courier New', monospace;
+  color: #c6d6bc;
+  letter-spacing: .12em;
+}
+#entertainmentPortal .portal-experiment-button {
+  width: 100%;
+  min-height: 96px;
+  border: 2px solid #dfc77d;
+  padding: 14px 13px;
+  background: #263b33;
+  color: #f6f0ce;
+  text-align: left;
+  box-shadow: 4px 4px 0 #101c1a;
+  cursor: pointer;
+}
+#entertainmentPortal .portal-experiment-button strong {
+  display: block;
+  font-size: clamp(16px, 4.5vw, 22px);
+  line-height: 1.35;
+}
+#entertainmentPortal .portal-experiment-button small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 8px;
+  color: #d3dcca;
+}
+#entertainmentPortal .portal-experiment-button:active {
+  transform: translate(2px,2px);
+}
+#entertainmentPortal .portal-experiment-back {
+  align-self: flex-start;
+  padding: 8px 14px;
+  color: #f5e4b8;
+  border: 1px solid #a8b9a1;
+  background: #1a2c2a;
+  cursor: pointer;
+}
