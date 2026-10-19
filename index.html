@@ -1922,7 +1922,7 @@
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
 <script src="js/warning_color.js?v=20261019-warning1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261019-warning1"></script>
+<script src="js/pages_preview.js?v=20261020-neutral11"></script>
 <script>
 (() => {
   'use strict';
@@ -2153,11 +2153,16 @@
       WARNING_POOL: WARNING_MODE ? appConfig.warning_color?.background_pool : null,
       POISON_PAUSE_MS: WARNING_MODE
         ? Number(appConfig.warning_color?.poison_pause_ms || 1000) : 0,
+      CAPTURES_TO_FINISH_ROUND: WARNING_MODE
+        ? Number(appConfig.warning_color?.capture_target_per_round) : null,
     });
     if (WARNING_MODE && (
       !WARNING
       || !Array.isArray(CONFIG.WARNING_POOL)
       || CONFIG.WARNING_POOL.length < 1
+      || !Number.isInteger(CONFIG.CAPTURES_TO_FINISH_ROUND)
+      || CONFIG.CAPTURES_TO_FINISH_ROUND < 1
+      || CONFIG.CAPTURES_TO_FINISH_ROUND > CONFIG.MOTHS_PER_ROUND
       || CONFIG.WARNING_POOL.some(bg => !/^img\/backgrounds\/[a-zA-Z0-9_.-]+$/.test(bg.src))
     )) {
       throw new Error('警戒色の背景プールが不正です');
@@ -2183,7 +2188,7 @@
       ? '毒蛾と無毒蛾が混ざっています。<br>見つけた蛾をタップしてください。'
       : `見つけた${label}を<br>タップしてください。`;
     introSubtle.innerHTML = WARNING_MODE
-      ? '毒蛾を食べると1秒間「毒」と表示されます。<br>毒蛾も無毒蛾も捕食されれば死亡します。'
+      ? '時間制限はありません。蛾を6匹食べると次のラウンドへ。<br>毒蛾を食べると1秒間「毒」と表示されます。'
       : `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
 
     compareButton.textContent = 'プレイした世代を見る';
@@ -3069,16 +3074,18 @@
     if (!isEntertainmentModel() || state.soloPaused) return;
     state.soloPaused = true;
     if (state.toxinPaused) {
-      // Leaving the game while "毒" is shown must never consume round time.
+      // When leaving during the poison overlay, keep all captures intact.
       clearTimeout(state.toxinTimeoutId);
       state.toxinTimeoutId = null;
       state.toxinPaused = false;
       warningPoisonOverlay.hidden = true;
-      state.roundStartedAt = performance.now()
-        - (CONFIG.ROUND_TIME_MS - state.toxinRemainingMs);
+      if (!WARNING_MODE) {
+        state.roundStartedAt = performance.now()
+          - (CONFIG.ROUND_TIME_MS - state.toxinRemainingMs);
+      }
       state.toxinRemainingMs = null;
     }
-    if (state.roundActive) {
+    if (state.roundActive && !WARNING_MODE) {
       state.pausedRoundRemainingMs = Math.max(1,
         CONFIG.ROUND_TIME_MS - (performance.now() - state.roundStartedAt));
       clearTimers();
@@ -3110,6 +3117,12 @@
     }
     if (state.pausedInterRoundRemainingMs !== null) {
       scheduleInterRound(state.pausedInterRoundRemainingMs);
+    }
+    // If the sixth eaten moth was poisonous and the player left during
+    // the "毒" message, end the finished round only after they return.
+    if (WARNING_MODE && state.roundActive
+        && state.activeMoths.filter(m => m.clicked).length >= CONFIG.CAPTURES_TO_FINISH_ROUND) {
+      endRound();
     }
     state.pausedRoundRemainingMs = null;
     state.pausedInterRoundRemainingMs = null;
@@ -3295,7 +3308,9 @@
 
     ctx.textAlign = 'right';
     ctx.fillText(
-      `残り ${state.remainingSeconds} 秒`,
+      WARNING_MODE
+        ? `捕食 ${state.activeMoths.filter(m => m.clicked).length} / ${CONFIG.CAPTURES_TO_FINISH_ROUND}`
+        : `残り ${state.remainingSeconds} 秒`,
       GAME_WIDTH - 12,
       GAME_HEIGHT - hudMidY
     );
@@ -3394,7 +3409,8 @@
       return;
     }
 
-    state.remainingSeconds = Math.ceil(CONFIG.ROUND_TIME_MS / 1000);
+    state.remainingSeconds = WARNING_MODE
+      ? 0 : Math.ceil(CONFIG.ROUND_TIME_MS / 1000);
     state.roundTapEvents = [];
     state.hitEffects = [];
     state.comboCount = 0;
@@ -3403,16 +3419,20 @@
     state.roundActive = true;
     render();
 
-    state.countdownIntervalId = setInterval(() => {
-      state.remainingSeconds = Math.max(0, state.remainingSeconds - 1);
-      render();
-    }, 1000);
-
-    state.roundTimeoutId = setTimeout(endRound, CONFIG.ROUND_TIME_MS);
+    // Warning-color mode has no countdown. Capturing six moths ends it.
+    if (!WARNING_MODE) {
+      state.countdownIntervalId = setInterval(() => {
+        state.remainingSeconds = Math.max(0, state.remainingSeconds - 1);
+        render();
+      }, 1000);
+      state.roundTimeoutId = setTimeout(endRound, CONFIG.ROUND_TIME_MS);
+    }
   }
 
   function endRound() {
-    if (!state.roundActive) return;
+    if (!state.roundActive || state.soloPaused || state.toxinPaused) return;
+    if (WARNING_MODE &&
+        state.activeMoths.filter(m => m.clicked).length < CONFIG.CAPTURES_TO_FINISH_ROUND) return;
 
     clearTimers();
     state.roundActive = false;
@@ -3424,7 +3444,7 @@
 
     state.roundRecords.push({
       round_index: state.currentRoundIndex + 1,
-      configured_duration_ms: CONFIG.ROUND_TIME_MS,
+      configured_duration_ms: WARNING_MODE ? null : CONFIG.ROUND_TIME_MS,
       background_id: WARNING_MODE ? state.warningCurrentBackground?.id : null,
       individuals: state.activeMoths.map((m) => ({
         index: m.index,
@@ -4908,30 +4928,21 @@
 
   function showPoisonPenalty() {
     if (!WARNING_MODE || !state.roundActive || state.toxinPaused) return;
-    state.toxinRemainingMs = Math.max(
-      1, CONFIG.ROUND_TIME_MS - (performance.now() - state.roundStartedAt)
-    );
     state.toxinPaused = true;
-    clearTimers();
     warningPoisonOverlay.hidden = false;
     state.toxinTimeoutId = setTimeout(() => {
       state.toxinTimeoutId = null;
-      const remaining = state.toxinRemainingMs;
       state.toxinPaused = false;
-      state.toxinRemainingMs = null;
       warningPoisonOverlay.hidden = true;
-      if (state.soloPaused) {
-        state.pausedRoundRemainingMs = remaining;
-        return;
-      }
-      state.roundStartedAt = performance.now() - (CONFIG.ROUND_TIME_MS - remaining);
-      state.remainingSeconds = Math.ceil(remaining / 1000);
-      state.countdownIntervalId = setInterval(() => {
-        state.remainingSeconds = Math.max(0, state.remainingSeconds - 1);
+      // The poison message is still shown for a sixth poisonous capture.
+      // Leaving for the menu cannot finish a round in the background.
+      if (state.soloPaused) return;
+      if (state.activeMoths.filter(m => m.clicked).length
+          >= CONFIG.CAPTURES_TO_FINISH_ROUND) {
+        endRound();
+      } else {
         render();
-      }, 1000);
-      state.roundTimeoutId = setTimeout(endRound, remaining);
-      render();
+      }
     }, CONFIG.POISON_PAUSE_MS);
   }
 
@@ -4959,8 +4970,13 @@
           ),
         });
         render();
-        if (WARNING_MODE && WARNING.lineage(moth.index) === WARNING.POISON) {
-          showPoisonPenalty();
+        if (WARNING_MODE) {
+          if (WARNING.lineage(moth.index) === WARNING.POISON) {
+            showPoisonPenalty();
+          } else if (state.activeMoths.filter(m => m.clicked).length
+              >= CONFIG.CAPTURES_TO_FINISH_ROUND) {
+            endRound();
+          }
         }
         break;
       }
@@ -5316,8 +5332,8 @@
 <script src="js/trophy_rules.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
-<script src="js/solo_tutorial.js?v=20261019-warning1" defer></script>
-<script src="js/entertainment_portal.js?v=20261019-warning1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/solo_tutorial.js?v=20261020-neutral11" defer></script>
+<script src="js/entertainment_portal.js?v=20261020-neutral11" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 <script src="js/battle_portal.js?v=20261018-specimens1" defer></script>
 <script src="js/hide_seek_portal.js?v=20261018-specimens1" defer></script>
 

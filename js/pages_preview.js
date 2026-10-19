@@ -51,7 +51,7 @@
         : PREVIEW_ENV_ID
     );
   const PREVIEW_RUN_ID = WARNING_EXPERIMENT
-    ? 'warning_color_v1'
+    ? 'warning_color_v2'
     : safeNamespaceId(
       PREVIEW_QUERY.get('run'),
       'default',
@@ -1242,6 +1242,8 @@
         || warningConfig.rounds_per_generation !== 5
         || !Array.isArray(warningConfig.background_pool)
         || !warningConfig.background_pool.length
+        || !Number.isInteger(warningConfig.neutral_generations)
+        || warningConfig.neutral_generations !== 10
       ) {
         throw new Error('警戒色の実験設定が不正です');
       }
@@ -1295,6 +1297,11 @@
       && currentGenerationId === 'gen00001'
     ) {
       await ensureFounderGeneration();
+      if (WARNING_EXPERIMENT) {
+        // Start a new experiment at generation 11 after ten generations
+        // of neutral reproduction (no moth was eaten).
+        await ensureWarningNeutralHeadstart();
+      }
     }
 
     let loaded = await loadGeneratedGeneration(currentGenerationId);
@@ -1302,6 +1309,7 @@
       currentGenerationId = 'gen00001';
       if (usesBrowserGeneratedFounder()) {
         await ensureFounderGeneration();
+        if (WARNING_EXPERIMENT) await ensureWarningNeutralHeadstart();
       }
       await idbPut(META_STORE, 'current_generation_id', currentGenerationId);
       loaded = await loadGeneratedGeneration(currentGenerationId);
@@ -1333,10 +1341,10 @@
     return fallbackPath;
   }
 
-  function shuffle(values) {
+  function shuffle(values, rng = Math.random) {
     const a = [...values];
     for (let i = a.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(rng() * (i + 1));
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
@@ -1435,7 +1443,7 @@
     return mask;
   }
 
-  function selectParents(eatenIndices, eligibleIndices = null) {
+  function selectParents(eatenIndices, eligibleIndices = null, rng = Math.random) {
     const eaten = new Set(eatenIndices);
     const candidates = eligibleIndices
       || Array.from({ length: TOTAL }, (_, i) => i + 1);
@@ -1447,16 +1455,16 @@
     }
 
     const poolSize = Number(evolutionConfig.parent_pool_size || 12);
-    const shuffled = shuffle(survivors);
+    const shuffled = shuffle(survivors, rng);
     let selected;
     if (shuffled.length >= poolSize) {
       selected = shuffled.slice(0, poolSize);
     } else {
       selected = [...shuffled];
       while (selected.length < poolSize) {
-        selected.push(shuffled[Math.floor(Math.random() * shuffled.length)]);
+        selected.push(shuffled[Math.floor(rng() * shuffled.length)]);
       }
-      selected = shuffle(selected);
+      selected = shuffle(selected, rng);
     }
     return selected;
   }
@@ -1464,16 +1472,17 @@
   function buildPairingPlan(
     parentIndices,
     childIndices = Array.from({ length: TOTAL }, (_, i) => i + 1),
+    rng = Math.random,
   ) {
-    const parents = shuffle(parentIndices);
+    const parents = shuffle(parentIndices, rng);
     const plan = [];
     for (const childIndex of childIndices) {
       const a = parents[(childIndex - 1) % parents.length];
       const choices = parentIndices.filter((b) => b !== a);
-      const b = choices[Math.floor(Math.random() * choices.length)];
+      const b = choices[Math.floor(rng() * choices.length)];
       plan.push({ childIndex, parentA: a, parentB: b });
     }
-    const shuffled = shuffle(plan);
+    const shuffled = shuffle(plan, rng);
     return shuffled.map((item, offset) => ({
       ...item,
       childIndex: childIndices[offset],
@@ -3654,6 +3663,14 @@
 
     const founderA = makePureWhiteFounderGenome(1);
     const founderB = makePureWhiteFounderGenome(2);
+    // In this experiment all gen1 moths are white; rendering each lineage
+    // once avoids 58 identical PNG renders on the first iPhone launch.
+    const whiteBlobs = WARNING_EXPERIMENT
+      ? [
+        await imageDataToBlob(renderGenome(founderA)),
+        await imageDataToBlob(renderGenome(founderB)),
+      ]
+      : null;
 
     for (let i = 1; i <= TOTAL; i += 1) {
       let genome;
@@ -3693,8 +3710,9 @@
       }
 
       if (WARNING_EXPERIMENT) genome.lineage = WARNING.lineage(i);
-      const imageData = renderGenome(genome);
-      const blob = await imageDataToBlob(imageData);
+      const blob = WARNING_EXPERIMENT
+        ? whiteBlobs[WARNING.lineage(i) === WARNING.POISON ? 0 : 1]
+        : await imageDataToBlob(renderGenome(genome));
 
       await idbPut(IMAGE_STORE, imageKey('gen00001', i), blob);
       await idbPut(
@@ -3714,6 +3732,115 @@
       'current_generation_id',
       'gen00001',
     );
+    return true;
+  }
+
+  // Neutral 10-generation prelude, confined to the warning-color experiment.
+  // Gen1 remains white; only gen11 is shown to the first player. All parents
+  // are chosen from the living members of the same lineage, with NO predation.
+  // Intermediate genomes live in memory rather than writing 600 PNGs to IDB.
+  async function ensureWarningNeutralHeadstart() {
+    if (!WARNING_EXPERIMENT) return false;
+    await ensureConfig();
+    await ensureMask();
+    await ensureTemplateAlpha();
+
+    const neutralGenerations = appConfig.warning_color.neutral_generations;
+    const firstPlayableId = `gen${String(neutralGenerations + 1).padStart(5, '0')}`;
+    const markerKey = 'warning_neutral_headstart_v2';
+    const markerValue = `neutral:${neutralGenerations}:${evolutionConfig.config_id}`;
+    const savedMarker = await idbGet(META_STORE, markerKey);
+    if (savedMarker === markerValue) {
+      const storedId = await idbGet(META_STORE, 'current_generation_id');
+      if (storedId === firstPlayableId) {
+        const first = await idbGet(IMAGE_STORE, imageKey(firstPlayableId, 1));
+        const last = await idbGet(IMAGE_STORE, imageKey(firstPlayableId, TOTAL));
+        if (first instanceof Blob && last instanceof Blob) {
+          currentGenerationId = firstPlayableId;
+          return true;
+        }
+      }
+    }
+
+    // Start both lineages independently from pure-white founders.
+    let population = new Map();
+    for (let i = 1; i <= TOTAL; i += 1) {
+      const genome = makePureWhiteFounderGenome(
+        WARNING.lineage(i) === WARNING.POISON ? 1 : 2,
+      );
+      genome.lineage = WARNING.lineage(i);
+      population.set(i, genome);
+    }
+
+    const genetics = evolutionConfig.trait_genetics || {};
+    const specialP = clamp01(
+      Number(genetics.special_mutation_generation_p || 0),
+    );
+    for (let generation = 1; generation <= neutralGenerations; generation += 1) {
+      const sourceId = `gen${String(generation).padStart(5, '0')}`;
+      const nextId = nextGenerationId(sourceId);
+      const rng = makeSeededRng(
+        `warning_color_v2:neutral:${evolutionConfig.config_id}:${generation}`,
+      );
+      const nextPopulation = new Map();
+      const nextPlans = [];
+
+      for (const kind of [WARNING.POISON, WARNING.HARMLESS]) {
+        const childIndices = WARNING.indices(kind);
+        const parents = selectParents([], childIndices, rng);
+        if (!parents) throw new Error('中立進化の親選抜に失敗しました');
+        nextPlans.push(...buildPairingPlan(parents, childIndices, rng));
+      }
+
+      // Mirror the existing entertainment evolution engine, including its
+      // rare large mutation (one possible offspring each generation).
+      const mutatedChildIndex = rng() < specialP
+        ? 1 + Math.floor(rng() * TOTAL)
+        : null;
+      for (const item of nextPlans) {
+        const result = makeChildGenome(
+          population.get(item.parentA),
+          population.get(item.parentB),
+          item.childIndex,
+          nextId,
+          item.parentA,
+          item.parentB,
+          rng,
+        );
+        const genome = result.genome;
+        genome.lineage = WARNING.lineage(item.childIndex);
+        if (item.childIndex === mutatedChildIndex) {
+          applyEntertainmentSpecialMutation(
+            genome,
+            result.diagnostic,
+            generationNumber(nextId) * 1000 + item.childIndex,
+            rng,
+          );
+        }
+        nextPopulation.set(item.childIndex, genome);
+      }
+      population = nextPopulation;
+      // Keep Safari responsive while processing the ten invisible generations.
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    // Save only the first playable generation. The existing gen1 white
+    // founders are still available for the comparison screen.
+    for (let i = 1; i <= TOTAL; i += 1) {
+      const genome = population.get(i);
+      const blob = await imageDataToBlob(renderGenome(genome));
+      await idbPut(IMAGE_STORE, imageKey(firstPlayableId, i), blob);
+      await idbPut(META_STORE, genomeKey(firstPlayableId, i), genome);
+      if (i % 8 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+
+    // Commit the startup marker and generation ID last, after all 60
+    // complete images and genomes exist. If interrupted, retry from white.
+    await idbPut(META_STORE, markerKey, markerValue);
+    await idbPut(META_STORE, 'current_generation_id', firstPlayableId);
+    currentGenerationId = firstPlayableId;
     return true;
   }
 
