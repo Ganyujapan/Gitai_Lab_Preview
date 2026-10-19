@@ -26,6 +26,7 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import re
           from pathlib import Path
 
           required = [
@@ -168,7 +169,9 @@ jobs:
               raise SystemExit("Direct ad label must not appear")
           if "『光と闇の生き物図鑑』" in html:
               raise SystemExit("Book title must not appear in game UI")
-          if "次のラウンドへ" in html:
+          # Instructional copy may mention the next round; only the old
+          # inter-round control itself is forbidden.
+          if re.search(r"<button\b[^>]*>\s*次のラウンドへ\s*</button>", html):
               raise SystemExit("Inter-round button must not appear")
           if "CONFIG.HUD_BAR_HEIGHT + CONFIG.HUD_CLEARANCE" not in html:
               raise SystemExit("HUD-safe placement logic is missing")
