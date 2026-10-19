@@ -10,6 +10,12 @@
   {heading:'背景にギタイ',description:'あなたは背景に似ている蛾を残し、似ていない蛾だけを積極的に食べていくことで、蛾の模様が背景にギタイしていきます。'},
   {heading:'究極のギタイ',description:'究極にギタイした蛾を作ることが目的です。\nお気に入りの蛾は標本箱に入れられます。'}
  ]);
+ const warningSlides=Object.freeze([
+  {heading:'2種類の蛾',description:'毒のある蛾30匹と毒のない蛾30匹が混ざっています。\n最初は、どちらも真っ白です。'},
+  {heading:'毒を食べると',description:'毒蛾を食べると「毒」と表示され、1秒間だけ時間が止まります。\n食べられた毒蛾も死亡します。'},
+  {heading:'毒を見分ける',description:'捕食者であるあなたの行動が、生き残る蛾を変えます。\n各系統で2匹以上残らなければ、同じ世代をやり直します。'},
+  {heading:'2つの進化を観察',description:'毒蛾と無毒蛾は別々に子孫を残し、両方に突然変異が起こります。\n背景もラウンドごとに変わる実験です。'}
+ ]);
  // A mode-specific four-page introduction shares the original live-art panel.
  // Battle unlocks, coins, and saved population data are never modified here.
  const hideSlides=Object.freeze([
@@ -92,7 +98,15 @@
   [160,350],[280,382],[73,471],[217,478],[133,537],[291,527]];
  function sprite(a,i,x,y,size){
   const img=a.moths[i%a.moths.length];
-  if(img && (img.naturalWidth>0 || img.width>0))ctx.drawImage(img,x,y,size,size);
+  if(img && (img.naturalWidth>0 || img.width>0)){
+   if(activeSlides===warningSlides){
+    ctx.save();
+    // Both warning-experiment founder lineages begin white.
+    ctx.filter='brightness(0) invert(1)';
+    ctx.drawImage(img,x,y,size,size);
+    ctx.restore();
+   }else ctx.drawImage(img,x,y,size,size);
+  }
  }
  function hud(left,right){
   ctx.fillStyle='rgba(5,12,14,.80)';ctx.fillRect(0,0,360,48);ctx.fillRect(0,594,360,46);
@@ -170,7 +184,7 @@
  window.GitaiSoloTutorial={
   open({onDone:finishHandler,mode='solo'}={}){
    if(opened)return;
-   opened=true;page=0;activeSlides=mode==='hide'?hideSlides:slides;
+   opened=true;page=0;activeSlides=mode==='hide'?hideSlides:mode==='warning'?warningSlides:slides;
    onDone=finishHandler;priorFocus=document.activeElement;
    root.hidden=false;render();next.focus({preventScroll:true});
    // Display the tutorial immediately; load its Leaf 1 artwork in parallel.

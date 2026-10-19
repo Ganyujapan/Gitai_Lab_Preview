@@ -30,6 +30,11 @@
   const enter = document.getElementById('portalEnter');
   const returnToIntro = document.getElementById('portalToIntro');
   const solo = document.getElementById('portalSolo');
+  const experimentModes = document.getElementById('portalEvolutionModes');
+  const crypticMode = document.getElementById('portalCrypticMode');
+  const warningMode = document.getElementById('portalWarningMode');
+  const evolutionBack = document.getElementById('portalEvolutionBack');
+  const menuContent = menu?.querySelector('.portal-menu-content');
   const shared = document.getElementById('portalShared');
   const mystery = document.getElementById('portalMystery');
   const dialog = document.getElementById('portalDialog');
@@ -629,7 +634,10 @@
     try {
       const url = new URL(window.location.href);
       if (isPlaying) url.searchParams.set('play', '1');
-      else url.searchParams.delete('play');
+      else {
+        url.searchParams.delete('play');
+        url.searchParams.delete('portal');
+      }
       window.history.replaceState(window.history.state, '', url.toString());
     } catch (error) {
       console.warn('Could not update SOLO navigation URL:', error);
@@ -637,6 +645,9 @@
   }
 
   function showMenu() {
+    // Returning to the menu must not auto-launch the experiment on refresh.
+    if (experimentModes) experimentModes.hidden = true;
+    if (menuContent) menuContent.inert = false;
     if (nicknameInput) nicknameInput.value = readNickname();
     setSoloRoute(false);
     portal.hidden = false;
@@ -737,7 +748,7 @@
     const current = params.get('env') === 'sand' ? 'sand_001'
       : params.get('env') === 'bark' ? 'bark_001'
       : params.get('env') || 'kusagi_001';
-    if (current === environmentId) {
+    if (current === environmentId && params.get('experiment') !== 'warning_color') {
       if (!ensureNickname()) return;
       startSolo();
       return;
@@ -745,6 +756,10 @@
     const url = new URL(window.location.href);
     url.searchParams.set('model', 'continuous_v1');
     url.searchParams.set('env', environmentId);
+    url.searchParams.delete('experiment');
+    if (params.get('experiment') === 'warning_color') {
+      url.searchParams.delete('run');
+    }
     url.searchParams.delete('play');
     url.searchParams.set('portal', 'auto-play-environment');
     window.location.assign(url.toString());
@@ -767,9 +782,43 @@
       showEnvironmentPicker();
     }
   }
-  solo.addEventListener('click', () => {
-    if (ensureNickname()) beginSoloTutorial();
+  function closeEvolutionModePicker() {
+    if (experimentModes) experimentModes.hidden = true;
+    if (menuContent) menuContent.inert = false;
+    solo.focus({ preventScroll: true });
+  }
+  function openEvolutionModePicker() {
+    if (!ensureNickname()) return;
+    if (!experimentModes) {
+      beginSoloTutorial();
+      return;
+    }
+    experimentModes.hidden = false;
+    if (menuContent) menuContent.inert = true;
+    crypticMode?.focus({ preventScroll: true });
+  }
+  function beginWarningExperiment() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('model', 'continuous_v1');
+    url.searchParams.set('env', 'kusagi_001');
+    url.searchParams.set('experiment', 'warning_color');
+    url.searchParams.set('run', 'warning_color_v1');
+    url.searchParams.delete('play');
+    url.searchParams.set('portal', 'auto-play-warning');
+    window.location.assign(url.toString());
+  }
+  solo.addEventListener('click', openEvolutionModePicker);
+  crypticMode?.addEventListener('click', () => {
+    closeEvolutionModePicker();
+    beginSoloTutorial();
   });
+  warningMode?.addEventListener('click', () => {
+    closeEvolutionModePicker();
+    if (window.GitaiSoloTutorial?.open) {
+      window.GitaiSoloTutorial.open({ mode: 'warning', onDone: beginWarningExperiment });
+    } else beginWarningExperiment();
+  });
+  evolutionBack?.addEventListener('click', closeEvolutionModePicker);
   shared.addEventListener('click', () => showDialog('shared'));
   mystery.addEventListener('click', () => showDialog('mystery'));
   closeDialog.addEventListener('click', hideDialog);
@@ -784,6 +833,9 @@
   portal.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       if (!dialog.hidden) { event.preventDefault(); hideDialog(); }
+      else if (experimentModes && !experimentModes.hidden) {
+        event.preventDefault(); closeEvolutionModePicker();
+      }
       else if (mode === 'menu') { event.preventDefault(); setMode('intro'); }
     }
   });
@@ -809,6 +861,13 @@
     raf = 0;
     if (backToMenu) backToMenu.hidden = false;
     if (soloHomeButton) soloHomeButton.hidden = Boolean(reviewOverlay?.classList.contains('visible'));
+  }
+  if (!directSolo && portalTarget === 'auto-play-warning') {
+    if (params.get('experiment') === 'warning_color' && readNickname()) {
+      startSolo();
+    } else {
+      showMenu();
+    }
   }
   if (!directSolo && portalTarget === 'auto-play-environment') {
     window.GitaiTrophies?.refresh?.().then((status) => {

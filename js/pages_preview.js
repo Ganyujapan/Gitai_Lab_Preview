@@ -12,6 +12,14 @@
   const EVOLUTION_MODEL_ID = safeNamespaceId(
     PREVIEW_QUERY.get('model'), 'continuous_v1',
   );
+  const WARNING_EXPERIMENT = (
+    EVOLUTION_MODEL_ID === 'continuous_v1'
+    && PREVIEW_QUERY.get('experiment') === 'warning_color'
+  );
+  const WARNING = window.GitaiWarningColor;
+  if (WARNING_EXPERIMENT && !WARNING) {
+    throw new Error('警戒色の進化実験モジュールがありません');
+  }
   const HABITAT_ACCESS = window.GitaiHabitatAccess || {
     testMode: false, defaultEnvironment: 'kusagi_001',
     releasedEnvironments: ['kusagi_001'],
@@ -42,10 +50,12 @@
         ? 'bark'
         : PREVIEW_ENV_ID
     );
-  const PREVIEW_RUN_ID = safeNamespaceId(
-    PREVIEW_QUERY.get('run'),
-    'default',
-  );
+  const PREVIEW_RUN_ID = WARNING_EXPERIMENT
+    ? 'warning_color_v1'
+    : safeNamespaceId(
+      PREVIEW_QUERY.get('run'),
+      'default',
+    );
 
   const LEGACY_DEFAULT_STORAGE = (
     EVOLUTION_MODEL_ID === 'continuous_v1'
@@ -1222,6 +1232,20 @@
 
     environmentConfig = await loadJson(environmentPath);
     evolutionConfig = await loadJson(evolutionPath);
+    const warningConfig = WARNING_EXPERIMENT
+      ? await loadJson('config/warning_color_experiment.json')
+      : null;
+    if (WARNING_EXPERIMENT) {
+      if (
+        warningConfig.lineage_size !== WARNING.PER_LINEAGE
+        || warningConfig.per_round_by_lineage !== 6
+        || warningConfig.rounds_per_generation !== 5
+        || !Array.isArray(warningConfig.background_pool)
+        || !warningConfig.background_pool.length
+      ) {
+        throw new Error('警戒色の実験設定が不正です');
+      }
+    }
 
     const loadedModelId = String(
       evolutionConfig.model_id || EVOLUTION_MODEL_ID
@@ -1234,6 +1258,9 @@
 
     appConfig = JSON.parse(JSON.stringify(appConfig));
     appConfig.mode = 'pages_preview';
+    if (WARNING_EXPERIMENT) {
+      appConfig.warning_color = warningConfig;
+    }
     appConfig.environment_config = environmentPath;
     appConfig.evolution_config = evolutionPath;
     appConfig.evolution_model_id = EVOLUTION_MODEL_ID;
@@ -1408,12 +1435,11 @@
     return mask;
   }
 
-  function selectParents(eatenIndices) {
+  function selectParents(eatenIndices, eligibleIndices = null) {
     const eaten = new Set(eatenIndices);
-    const survivors = [];
-    for (let i = 1; i <= TOTAL; i += 1) {
-      if (!eaten.has(i)) survivors.push(i);
-    }
+    const candidates = eligibleIndices
+      || Array.from({ length: TOTAL }, (_, i) => i + 1);
+    const survivors = candidates.filter(i => !eaten.has(i));
     if (survivors.length < 2) return null;
 
     if (evolutionConfig.parent_selection === 'all_survivors') {
@@ -1435,18 +1461,22 @@
     return selected;
   }
 
-  function buildPairingPlan(parentIndices) {
+  function buildPairingPlan(
+    parentIndices,
+    childIndices = Array.from({ length: TOTAL }, (_, i) => i + 1),
+  ) {
     const parents = shuffle(parentIndices);
     const plan = [];
-    for (let childIndex = 1; childIndex <= TOTAL; childIndex += 1) {
+    for (const childIndex of childIndices) {
       const a = parents[(childIndex - 1) % parents.length];
       const choices = parentIndices.filter((b) => b !== a);
       const b = choices[Math.floor(Math.random() * choices.length)];
       plan.push({ childIndex, parentA: a, parentB: b });
     }
-    return shuffle(plan).map((item, offset) => ({
+    const shuffled = shuffle(plan);
+    return shuffled.map((item, offset) => ({
       ...item,
-      childIndex: offset + 1,
+      childIndex: childIndices[offset],
     }));
   }
 
@@ -3628,7 +3658,12 @@
     for (let i = 1; i <= TOTAL; i += 1) {
       let genome;
 
-      if (
+      if (WARNING_EXPERIMENT) {
+        // Both independent lineages begin entirely white, before mutation.
+        genome = makePureWhiteFounderGenome(
+          WARNING.lineage(i) === WARNING.POISON ? 1 : 2
+        );
+      } else if (
         String(evolutionConfig?.inheritance || '')
           .startsWith('discrete_morph_')
       ) {
@@ -3657,6 +3692,7 @@
         genome = result.genome;
       }
 
+      if (WARNING_EXPERIMENT) genome.lineage = WARNING.lineage(i);
       const imageData = renderGenome(genome);
       const blob = await imageDataToBlob(imageData);
 
@@ -3948,7 +3984,17 @@
     await ensureMask();
     await ensureTemplateAlpha();
 
-    const parentIndices = selectParents(eatenIndices);
+    // Keep the poison and harmless gene pools completely independent.
+    const poisonParents = WARNING_EXPERIMENT
+      ? selectParents(eatenIndices, WARNING.indices(WARNING.POISON))
+      : null;
+    const harmlessParents = WARNING_EXPERIMENT
+      ? selectParents(eatenIndices, WARNING.indices(WARNING.HARMLESS))
+      : null;
+    if (WARNING_EXPERIMENT && (!poisonParents || !harmlessParents)) return null;
+    const parentIndices = WARNING_EXPERIMENT
+      ? [...poisonParents, ...harmlessParents]
+      : selectParents(eatenIndices);
     if (!parentIndices) return null;
 
     const uniqueParents = [...new Set(parentIndices)];
@@ -3964,7 +4010,12 @@
       );
     }
 
-    const plan = buildPairingPlan(parentIndices);
+    const plan = WARNING_EXPERIMENT
+      ? [
+        ...buildPairingPlan(poisonParents, WARNING.indices(WARNING.POISON)),
+        ...buildPairingPlan(harmlessParents, WARNING.indices(WARNING.HARMLESS)),
+      ]
+      : buildPairingPlan(parentIndices);
     const nextId = nextGenerationId(generationId);
     const blobs = new Map();
     const genomes = new Map();
@@ -3989,6 +4040,10 @@
         item.parentB,
       );
       const genome = result.genome;
+      if (WARNING_EXPERIMENT) {
+        genome.lineage = WARNING.lineage(item.childIndex);
+        result.diagnostic.lineage = genome.lineage;
+      }
       if (
         specialMutationChildIndex !== null
         && item.childIndex === specialMutationChildIndex
@@ -4126,6 +4181,10 @@
   }
 
   async function evolveGeneration(generationId, eatenIndices) {
+    if (
+      WARNING_EXPERIMENT
+      && (!Array.isArray(eatenIndices) || !WARNING.viable(eatenIndices))
+    ) return null;
     // A single survivor cannot reproduce without selecting the same moth
     // as both parents. Treat 0 or 1 survivors as an invalid generation.
     // Refuse BEFORE saving snapshots or writing offspring.
@@ -4195,6 +4254,7 @@
         founder_set_id:
           evolutionConfig?.founder_model?.founder_set_id || null,
         legacy_default_storage: LEGACY_DEFAULT_STORAGE,
+        experiment_id: WARNING_EXPERIMENT ? 'warning_color_v1' : null,
       };
       return jsonResponse(200, publicConfig);
     }
@@ -4239,12 +4299,24 @@
       });
     }
 
+    const validEaten = eaten.length === new Set(eaten).size
+      && eaten.every(i => Number.isInteger(i) && i >= 1 && i <= TOTAL);
+    if (!validEaten) {
+      return jsonResponse(400, { error: 'invalid_eaten_indices' });
+    }
     const survivorCount = TOTAL - eaten.length;
-    if (survivorCount < 2) {
+    const lineageSurvivors = WARNING_EXPERIMENT
+      ? WARNING.survivorCounts(eaten)
+      : null;
+    if (
+      survivorCount < 2
+      || (WARNING_EXPERIMENT && !WARNING.viable(eaten))
+    ) {
       return jsonResponse(422, {
         error: 'insufficient_survivors',
         generation_id: currentGenerationId,
         survivor_count: survivorCount,
+        lineage_survivors: lineageSurvivors,
         minimum_survivors: 2,
         retry_same_generation: true,
         preview: true,

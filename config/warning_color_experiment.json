@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "experiment_id": "warning_color_v1",
+  "title": "警戒色 — 進化実験",
+  "lineage_size": 30,
+  "poison_pause_ms": 1000,
+  "rounds_per_generation": 5,
+  "per_round_by_lineage": 6,
+  "background_selection": "per_round",
+  "background_pool": [
+    {
+      "id": "leaf_1",
+      "label": "葉1（仮）",
+      "src": "img/backgrounds/bg_leaf01.png"
+    }
+  ]
+}

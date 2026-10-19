@@ -17,7 +17,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261017-nickname1">
+  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261019-warning1">
   <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
   <link rel="stylesheet" href="css/portal_minimal.css?v=20261017-minimal1">
   <link rel="stylesheet" href="css/solo_tutorial.css?v=20261018-tutorial3">
@@ -1551,6 +1551,22 @@
       background: rgba(255,90,90,0.14);
     }
 
+    #warningPoisonOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 82;
+      display: grid;
+      place-items: center;
+      background: rgba(115, 24, 26, 0.85);
+      color: #fff8e2;
+      font-family: 'PixelMplus', monospace;
+      font-size: clamp(68px, 20vw, 112px);
+      font-weight: 900;
+      text-shadow: 6px 6px 0 #260a09;
+      pointer-events: auto;
+    }
+    #warningPoisonOverlay[hidden] { display: none; }
+
     #errorText {
       color: #ffb2b2;
       white-space: pre-wrap;
@@ -1578,6 +1594,8 @@
         </div>
       </div>
     </div>
+
+    <div id="warningPoisonOverlay" hidden role="status" aria-live="assertive" aria-label="毒蛾を捕食しました">毒</div>
 
     <section id="startOverlay" class="overlay visible">
       <div class="panel">
@@ -1871,6 +1889,20 @@
           </div>
         </div>
         <div class="portal-menu-footer">INVISILAB / EVERY LIFE HAS A STORY</div>
+        <section id="portalEvolutionModes" class="portal-experiment-choice" role="dialog"
+          aria-label="進化モードを選ぶ" aria-modal="true" hidden>
+          <div class="portal-experiment-eyebrow">SOLO / EVOLUTION EXPERIMENT</div>
+          <h2>進化実験を選ぶ</h2>
+          <button id="portalCrypticMode" class="portal-experiment-button" type="button">
+            <strong>隠蔽擬態 — 進化実験</strong>
+            <small>背景に隠れる蛾を進化させる</small>
+          </button>
+          <button id="portalWarningMode" class="portal-experiment-button" type="button">
+            <strong>警戒色 — 進化実験</strong>
+            <small>毒蛾と無毒蛾、それぞれの進化を観察する</small>
+          </button>
+          <button id="portalEvolutionBack" class="portal-experiment-back" type="button">← 戻る</button>
+        </section>
         <div id="portalDialog" class="portal-dialog" role="dialog" aria-modal="true" aria-labelledby="portalDialogTitle" hidden>
           <h3 id="portalDialogTitle" class="portal-dialog-title">準備中</h3>
           <p id="portalDialogText" class="portal-dialog-text"></p>
@@ -1888,8 +1920,9 @@
 <script src="js/gen1_06.js"></script>
 <script src="js/mask_data.js"></script>
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
+<script src="js/warning_color.js?v=20261019-warning1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261017-specimen-genome1"></script>
+<script src="js/pages_preview.js?v=20261019-warning1"></script>
 <script>
 (() => {
   'use strict';
@@ -1902,6 +1935,12 @@
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  const WARNING_MODE = (
+    new URLSearchParams(location.search).get('experiment') === 'warning_color'
+    && (new URLSearchParams(location.search).get('model') || 'continuous_v1') === 'continuous_v1'
+  );
+  const WARNING = window.GitaiWarningColor;
+  const warningPoisonOverlay = document.getElementById('warningPoisonOverlay');
   const roundShutter = document.getElementById('roundShutter');
   const roundShutterGeneration = document.getElementById('roundShutterGeneration');
   const soloHomeButton = document.getElementById('soloHomeButton');
@@ -2018,6 +2057,11 @@
     currentGenerationId: 'gen00001',
     generationNumber: 1,
     backgroundImage: null,
+    warningBackgrounds: new Map(),
+    warningCurrentBackground: null,
+    toxinPaused: false,
+    toxinRemainingMs: null,
+    toxinTimeoutId: null,
     mothImages: [],
     rounds: [],
     currentRoundIndex: 0,
@@ -2106,7 +2150,18 @@
       BG_TRUE_WIDTH: Number(background.source_width),
       BG_TRUE_HEIGHT: Number(background.source_height),
       BACKGROUND_SRC: String(background.src),
+      WARNING_POOL: WARNING_MODE ? appConfig.warning_color?.background_pool : null,
+      POISON_PAUSE_MS: WARNING_MODE
+        ? Number(appConfig.warning_color?.poison_pause_ms || 1000) : 0,
     });
+    if (WARNING_MODE && (
+      !WARNING
+      || !Array.isArray(CONFIG.WARNING_POOL)
+      || CONFIG.WARNING_POOL.length < 1
+      || CONFIG.WARNING_POOL.some(bg => !/^img\/backgrounds\/[a-zA-Z0-9_.-]+$/.test(bg.src))
+    )) {
+      throw new Error('警戒色の背景プールが不正です');
+    }
 
     document.documentElement.style.setProperty(
       '--gitai-preview-bg',
@@ -2124,8 +2179,12 @@
 
     const label = String(speciesConfig.display_name_ja || '生き物');
     document.title = appConfig.title || 'ギタイラボ';
-    introLead.innerHTML = `見つけた${label}を<br>タップしてください。`;
-    introSubtle.innerHTML = `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
+    introLead.innerHTML = WARNING_MODE
+      ? '毒蛾と無毒蛾が混ざっています。<br>見つけた蛾をタップしてください。'
+      : `見つけた${label}を<br>タップしてください。`;
+    introSubtle.innerHTML = WARNING_MODE
+      ? '毒蛾を食べると1秒間「毒」と表示されます。<br>毒蛾も無毒蛾も捕食されれば死亡します。'
+      : `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
 
     compareButton.textContent = 'プレイした世代を見る';
   }
@@ -3009,6 +3068,16 @@
   function pauseSolo() {
     if (!isEntertainmentModel() || state.soloPaused) return;
     state.soloPaused = true;
+    if (state.toxinPaused) {
+      // Leaving the game while "毒" is shown must never consume round time.
+      clearTimeout(state.toxinTimeoutId);
+      state.toxinTimeoutId = null;
+      state.toxinPaused = false;
+      warningPoisonOverlay.hidden = true;
+      state.roundStartedAt = performance.now()
+        - (CONFIG.ROUND_TIME_MS - state.toxinRemainingMs);
+      state.toxinRemainingMs = null;
+    }
     if (state.roundActive) {
       state.pausedRoundRemainingMs = Math.max(1,
         CONFIG.ROUND_TIME_MS - (performance.now() - state.roundStartedAt));
@@ -3060,6 +3129,10 @@
   }
 
   function buildRounds() {
+    if (WARNING_MODE) {
+      state.rounds = WARNING.makeRounds();
+      return;
+    }
     const order = shuffle(Array.from({ length: CONFIG.TOTAL_MOTHS }, (_, i) => i + 1));
     state.rounds = [];
     for (let r = 0; r < CONFIG.ROUND_LIMIT; r++) {
@@ -3087,6 +3160,14 @@
 
   async function preloadAssets() {
     state.backgroundImage = await loadImage(cacheBustUrl(CONFIG.BACKGROUND_SRC));
+    if (WARNING_MODE) {
+      for (const bg of CONFIG.WARNING_POOL) {
+        if (!state.warningBackgrounds.has(bg.src)) {
+          const img = await loadImage(cacheBustUrl(bg.src));
+          state.warningBackgrounds.set(bg.src, img);
+        }
+      }
+    }
 
     const promises = [];
     for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i++) {
@@ -3296,6 +3377,16 @@
     soloHomeButton.hidden = !isEntertainmentModel();
     clearTimers();
 
+    if (WARNING_MODE) {
+      // A new image is selected each round, never changing an active round.
+      const bg = WARNING.chooseBackground(CONFIG.WARNING_POOL);
+      state.warningCurrentBackground = bg;
+      state.backgroundImage = state.warningBackgrounds.get(bg.src);
+      document.documentElement.style.setProperty(
+        '--gitai-preview-bg', 'url("' + bg.src + '")'
+      );
+    }
+
     try {
       placeRoundMoths();
     } catch (err) {
@@ -3334,11 +3425,13 @@
     state.roundRecords.push({
       round_index: state.currentRoundIndex + 1,
       configured_duration_ms: CONFIG.ROUND_TIME_MS,
+      background_id: WARNING_MODE ? state.warningCurrentBackground?.id : null,
       individuals: state.activeMoths.map((m) => ({
         index: m.index,
         x: Math.round(m.x * 100) / 100,
         y: Math.round(m.y * 100) / 100,
         size: m.size,
+        lineage: WARNING_MODE ? WARNING.lineage(m.index) : null,
         eaten: Boolean(m.clicked),
       })),
       tap_events: state.roundTapEvents.map((event) => ({ ...event })),
@@ -3357,8 +3450,10 @@
         playEndOfGenerationShutter(async () => {
           // Compute score-based achievements while the shutter is CLOSED.
           showResults(); // Keep existing next-generation/submit state intact.
-          const scores = await calculatePlayedGenerationRanks();
-          state.pendingRankMilestone = selectNewRankMilestone(scores);
+          const scores = WARNING_MODE
+            ? new Map() : await calculatePlayedGenerationRanks();
+          state.pendingRankMilestone = WARNING_MODE
+            ? null : selectNewRankMilestone(scores);
           if (state.pendingMutationEvent) {
             showMutationReveal();
           } else {
@@ -3611,10 +3706,13 @@
 
     const label = document.createElement('span');
     label.className = 'moth-preview-index';
-    label.textContent = `MOTH ${String(index).padStart(2, '0')}`;
+    label.textContent = `MOTH ${String(index).padStart(2, '0')}`
+      + (WARNING_MODE
+        ? (WARNING.lineage(index) === WARNING.POISON ? ' · 毒蛾' : ' · 無毒蛾')
+        : '');
 
     button.append(img, label);
-    if (isEntertainmentModel()) {
+    if (isEntertainmentModel() && !WARNING_MODE) {
       const score = state.temporaryMothRanks.get(generationId + ':' + index);
       button.appendChild(createMothRankBadge(score));
     }
@@ -3670,7 +3768,7 @@
     evolutionScroller.scrollTop = 0;
     requestAnimationFrame(() => {
       revealEvolutionTheaterAtBottom();
-      if (state.rankScoredGenerationId !== latestId) {
+      if (!WARNING_MODE && state.rankScoredGenerationId !== latestId) {
         void calculatePlayedGenerationRanks();
       }
     });
@@ -4637,7 +4735,9 @@
     resultBackToMenu.hidden = !isEntertainmentModel();
     reviewGeneration.textContent = generationLabel();
     reviewTitle.textContent = 'この世代の結果';
-    reviewMessage.textContent = '';
+    reviewMessage.textContent = WARNING_MODE
+      ? '毒蛾30匹と無毒蛾30匹、それぞれの進化を観察できます。'
+      : '';
     evolutionStatus.textContent = '';
     compareButton.hidden = true;
     specimenBoxButton.hidden = !isEntertainmentModel();
@@ -4709,8 +4809,11 @@
         state.nextGenerationId = null;
 
         reviewTitle.textContent = 'この世代はもう一度';
-        reviewMessage.textContent =
-          '生き残りが0匹または1匹だったため、次世代は誕生しませんでした。';
+        reviewMessage.textContent = WARNING_MODE && data.lineage_survivors
+          ? '毒蛾 ' + data.lineage_survivors.poison + '匹／無毒蛾 '
+            + data.lineage_survivors.harmless
+            + '匹が生存。両系統に2匹以上の生存が必要です。'
+          : '生き残りが0匹または1匹だったため、次世代は誕生しませんでした。';
         evolutionStatus.textContent =
           '世代は進みません。同じ60個体で、もう一度5ラウンドを行います。';
         state.uiTransitionLocked = false;
@@ -4803,8 +4906,37 @@
     }
   }
 
+  function showPoisonPenalty() {
+    if (!WARNING_MODE || !state.roundActive || state.toxinPaused) return;
+    state.toxinRemainingMs = Math.max(
+      1, CONFIG.ROUND_TIME_MS - (performance.now() - state.roundStartedAt)
+    );
+    state.toxinPaused = true;
+    clearTimers();
+    warningPoisonOverlay.hidden = false;
+    state.toxinTimeoutId = setTimeout(() => {
+      state.toxinTimeoutId = null;
+      const remaining = state.toxinRemainingMs;
+      state.toxinPaused = false;
+      state.toxinRemainingMs = null;
+      warningPoisonOverlay.hidden = true;
+      if (state.soloPaused) {
+        state.pausedRoundRemainingMs = remaining;
+        return;
+      }
+      state.roundStartedAt = performance.now() - (CONFIG.ROUND_TIME_MS - remaining);
+      state.remainingSeconds = Math.ceil(remaining / 1000);
+      state.countdownIntervalId = setInterval(() => {
+        state.remainingSeconds = Math.max(0, state.remainingSeconds - 1);
+        render();
+      }, 1000);
+      state.roundTimeoutId = setTimeout(endRound, remaining);
+      render();
+    }, CONFIG.POISON_PAUSE_MS);
+  }
+
   function handleTap(clientX, clientY) {
-    if (!state.roundActive || state.soloPaused) return;
+    if (!state.roundActive || state.soloPaused || state.toxinPaused) return;
 
     const rect = canvas.getBoundingClientRect();
     const x = (clientX - rect.left) * (canvas.width / rect.width);
@@ -4827,6 +4959,9 @@
           ),
         });
         render();
+        if (WARNING_MODE && WARNING.lineage(moth.index) === WARNING.POISON) {
+          showPoisonPenalty();
+        }
         break;
       }
     }
@@ -5181,8 +5316,8 @@
 <script src="js/trophy_rules.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
-<script src="js/solo_tutorial.js?v=20261018-hide1" defer></script>
-<script src="js/entertainment_portal.js?v=20261018-tutorial3" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/solo_tutorial.js?v=20261019-warning1" defer></script>
+<script src="js/entertainment_portal.js?v=20261019-warning1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 <script src="js/battle_portal.js?v=20261018-specimens1" defer></script>
 <script src="js/hide_seek_portal.js?v=20261018-specimens1" defer></script>
 
