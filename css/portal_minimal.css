@@ -1,0 +1,459 @@
+/* InvisiLab / minimal black UI.
+   Visual-only restyle of MODE SELECT, HABITAT COLLECTION, and its battle picker.
+   The intro motion-study, SOLO canvas/overlays, and saved evolution are untouched.
+   Reference: battle server's black "Matching..." waiting screen. */
+
+/* No low-resolution scenery, scanline noise, or gameboy frame in the menus.
+   Keep the vector animation on the separate intro screen as designed. */
+#entertainmentPortal:not(.portal-line-mode) > .portal-art,
+#entertainmentPortal:not(.portal-line-mode) > .portal-noise,
+#entertainmentPortal:not(.portal-line-mode) > .portal-frame {
+  display: none;
+}
+
+#entertainmentPortal .portal-menu,
+#entertainmentPortal .portal-menu * {
+  font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+#entertainmentPortal .portal-menu {
+  background: #080a0b;
+  color: #f1f3ee;
+  padding: max(21px, env(safe-area-inset-top)) 20px max(19px, env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+#entertainmentPortal .portal-menu::before {
+  content: none;
+}
+#entertainmentPortal .portal-menu-header {
+  min-height: 42px;
+  gap: 14px;
+}
+#entertainmentPortal .portal-menu .portal-back {
+  display: grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #4a5752;
+  background: transparent;
+  border-radius: 9px;
+  box-shadow: none;
+  color: #d7dfd9;
+  font: 500 23px/1 system-ui, sans-serif;
+}
+#entertainmentPortal .portal-menu .portal-back:active {
+  background: #1b2625;
+}
+#entertainmentPortal .portal-menu-header-label {
+  color: #cfd7d2;
+  font: 700 11px/1.45 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  letter-spacing: .19em;
+}
+#entertainmentPortal .portal-menu-header-label span {
+  font: 500 9px/1.6 ui-monospace, Menlo, monospace;
+  color: #788780;
+  opacity: 1;
+  margin-top: 3px;
+  letter-spacing: .11em;
+}
+#entertainmentPortal .portal-menu .portal-menu-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: auto 0;
+  padding: 12px 0 10px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+#entertainmentPortal .portal-menu-content::-webkit-scrollbar { display: none; }
+#entertainmentPortal .portal-menu-kicker {
+  font: 700 10px/1.5 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color: #8e9c94;
+  letter-spacing: .14em;
+}
+#entertainmentPortal .portal-menu-heading {
+  margin: 11px 0 0;
+  color: #f2f3ef;
+  font-size: clamp(28px, 8vw, 38px);
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: .03em;
+  white-space: normal;
+  text-shadow: none;
+}
+#entertainmentPortal .portal-menu-description {
+  color: #9ba7a0;
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 400;
+  margin: 7px 0 23px;
+}
+#entertainmentPortal .portal-menu-description::after {
+  content: '';
+  display: block;
+  height: 1px;
+  width: 56px;
+  margin: 19px 0 0;
+  background: #56665e;
+}
+#entertainmentPortal .portal-nickname {
+  gap: 8px;
+  margin: 0 0 15px;
+}
+#entertainmentPortal .portal-nickname-label {
+  color: #899992;
+  font: 600 10px/1.5 ui-monospace, Menlo, monospace;
+  letter-spacing: .17em;
+}
+#entertainmentPortal .portal-menu .portal-nickname-input {
+  height: 47px;
+  padding: 9px 13px;
+  border: 1px solid #3a4843;
+  border-radius: 10px;
+  outline-offset: 2px;
+  background: #111718;
+  color: #f2f4f0;
+  font: 500 16px/1.4 system-ui, sans-serif;
+  box-shadow: none;
+}
+#entertainmentPortal .portal-menu .portal-nickname-input:focus {
+  border-color: #b6c6bc;
+}
+#entertainmentPortal .portal-menu .portal-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  counter-reset: mode-number;
+}
+#entertainmentPortal .portal-menu .portal-mode {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 44px;
+  min-height: 69px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 13px;
+  border: 1px solid #394942;
+  border-radius: 12px;
+  background: #101618;
+  color: #ecf1ed;
+  box-shadow: none;
+  text-align: left;
+  transition: background 130ms ease, border-color 130ms ease;
+  cursor: pointer;
+}
+#entertainmentPortal .portal-menu .portal-mode::before {
+  counter-increment: mode-number;
+  content: counter(mode-number, decimal-leading-zero);
+  color: #83958a;
+  font: 600 11px/1.4 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  letter-spacing: .01em;
+}
+#entertainmentPortal .portal-menu .portal-mode:active {
+  transform: none;
+  box-shadow: none;
+  background: #22302e;
+}
+#entertainmentPortal .portal-menu .portal-mode-solo {
+  background: #1c2726;
+  border-color: #8ba49a;
+  color: #fafbf8;
+}
+#entertainmentPortal .portal-menu .portal-mode-icon {
+  display: none;
+}
+#entertainmentPortal .portal-menu .portal-mode-title {
+  font-size: clamp(15px, 4.2vw, 18px);
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: .01em;
+  white-space: normal;
+}
+#entertainmentPortal .portal-menu .portal-mode-sub {
+  margin-top: 3px;
+  font: 400 clamp(10px, 2.8vw, 12px)/1.5 system-ui, sans-serif;
+  color: #9aa8a1;
+  opacity: 1;
+  letter-spacing: 0;
+}
+#entertainmentPortal .portal-menu .portal-mode-arrow {
+  color: #cad7cf;
+  font: 700 10px/1.4 ui-monospace, Menlo, monospace;
+  letter-spacing: 0;
+  text-align: right;
+}
+#entertainmentPortal .portal-menu .portal-mode-locked {
+  border-style: solid;
+  background: #0d1112;
+  border-color: #26312e;
+  color: #89928d;
+}
+#entertainmentPortal .portal-menu .portal-mode-locked .portal-mode-title {
+  letter-spacing: 0;
+}
+#entertainmentPortal .portal-menu .portal-mode-locked .portal-mode-arrow {
+  color: #7a8780;
+}
+#entertainmentPortal .portal-menu-footer {
+  padding: 10px 0 2px;
+  color: #66756e;
+  font: 600 9px/1.5 ui-monospace, Menlo, monospace;
+  letter-spacing: .16em;
+}
+#entertainmentPortal .portal-menu-footer::before {
+  background: #59675e;
+  width: 50px;
+  height: 1px;
+  opacity: .7;
+  margin-bottom: 9px;
+}
+#entertainmentPortal .portal-menu .portal-dialog {
+  background: #111719;
+  border: 1px solid #596962;
+  border-radius: 13px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .75);
+  padding: 23px 19px;
+}
+#entertainmentPortal .portal-menu .portal-dialog-title {
+  color: #eef1ec;
+  font-size: 19px;
+  letter-spacing: .02em;
+}
+#entertainmentPortal .portal-menu .portal-dialog-text {
+  color: #acb8b0;
+  font-size: 13px;
+  font-weight: 400;
+}
+#entertainmentPortal .portal-menu .portal-dialog button {
+  background: #1e3030;
+  border: 1px solid #7c9a91;
+  color: #f3f5f2;
+  border-radius: 9px;
+  min-height: 44px;
+  box-shadow: none;
+}
+
+/* Habitat picker: match the same black editorial surfaces and typography. */
+#entertainmentPortal .portal-menu .portal-environments {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  padding: max(20px, env(safe-area-inset-top)) 19px max(15px, env(safe-area-inset-bottom));
+  background: #080a0b;
+  color: #eff3ee;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
+}
+#entertainmentPortal .portal-menu .portal-environments-head {
+  gap: 13px;
+  align-items: center;
+}
+#entertainmentPortal .portal-menu #portalEnvironmentBack {
+  width: 41px;
+  height: 41px;
+  flex: 0 0 41px;
+  padding: 0;
+  border: 1px solid #4a5752;
+  border-radius: 9px;
+  box-shadow: none;
+  background: transparent;
+  color: #d7dfd9;
+  font: 500 22px/1 system-ui, sans-serif;
+}
+#entertainmentPortal .portal-menu .portal-environments-heading { gap: 5px; }
+#entertainmentPortal .portal-menu .portal-environments-heading span {
+  color: #84958b;
+  font: 700 10px/1.4 ui-monospace, Menlo, monospace;
+  letter-spacing: .12em;
+}
+#entertainmentPortal .portal-menu .portal-environments-heading strong {
+  color: #f1f4ef;
+  font-size: clamp(22px, 5.8vw, 27px);
+  font-weight: 750;
+  line-height: 1.3;
+}
+#entertainmentPortal .portal-menu .portal-environments-lead {
+  color: #a2afa8;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 22px 0 16px;
+}
+#entertainmentPortal .portal-menu .portal-environments-list {
+  gap: 9px;
+  padding-bottom: 12px;
+}
+#entertainmentPortal .portal-menu .portal-environment-card {
+  min-height: 93px;
+  padding: 9px;
+  gap: 13px;
+  border: 1px solid #35433d;
+  border-radius: 11px;
+  background: #111718;
+  color: #eef2ee;
+  box-shadow: none;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+#entertainmentPortal .portal-menu .portal-environment-card:active {
+  background: #22302e;
+  border-color: #778e82;
+}
+#entertainmentPortal .portal-menu .portal-environment-card[aria-disabled="true"] {
+  color: #87938c;
+  background: #0d1112;
+  border-color: #25312c;
+}
+#entertainmentPortal .portal-menu .portal-environment-card img,
+#entertainmentPortal .portal-menu .portal-environment-unknown {
+  width: 66px;
+  height: 73px;
+  flex: 0 0 66px;
+  object-fit: cover;
+  border: 0;
+  border-radius: 6px;
+  background: #26332e;
+}
+#entertainmentPortal .portal-menu .portal-environment-unknown {
+  color: #a9b8ae;
+  font: 600 28px/1 system-ui, sans-serif;
+}
+#entertainmentPortal .portal-menu .portal-environment-info { gap: 6px; }
+#entertainmentPortal .portal-menu .portal-environment-info b {
+  color: inherit;
+  font-size: 17px;
+  font-weight: 650;
+}
+#entertainmentPortal .portal-menu .portal-environment-info small {
+  color: #87968d;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+#entertainmentPortal .portal-menu .portal-environment-symbol {
+  color: #c1d0c6;
+  font-size: 13px;
+}
+#entertainmentPortal .portal-menu .portal-trophy-meter {
+  background: #1e2b27;
+  border: 0;
+  border-radius: 5px;
+  height: 5px;
+}
+#entertainmentPortal .portal-menu .portal-trophy-meter i {
+  background: #a3c5b3;
+}
+#entertainmentPortal .portal-menu .portal-environment-feedback {
+  color: #8d9c92;
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+#entertainmentPortal .portal-menu .portal-environment-total {
+  color: #a7b9af;
+  font: 600 11px/1.5 ui-monospace, Menlo, monospace;
+}
+
+/* The battle specimen picker is dynamically inserted by battle_portal.js.
+   This extra .portal-menu selector beats its old pixel-style inline stylesheet. */
+#entertainmentPortal .portal-menu #battlePicker {
+  border: 1px solid #42554b;
+  border-radius: 12px;
+  background: #080a0b;
+  color: #f0f3ee;
+  box-shadow: 0 0 0 200vmax rgba(0,0,0,.84);
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 17px 15px;
+}
+#entertainmentPortal .portal-menu #battlePicker h2 {
+  color: #f0f3ee;
+  font-size: 23px;
+  font-weight: 750;
+}
+#entertainmentPortal .portal-menu #battleBack {
+  border: 1px solid #506158;
+  border-radius: 8px;
+  color: #dce7de;
+  background: #151e1d;
+}
+#entertainmentPortal .portal-menu #battlePicker .battle-picker-caption {
+  color: #9aaba1;
+  font-size: 12px;
+}
+#entertainmentPortal .portal-menu #battlePicker .battle-backgrounds button,
+#entertainmentPortal .portal-menu #battlePicker .battle-specimens button {
+  background: #111718;
+  color: #eef2ed;
+  border: 1px solid #37473f;
+  border-radius: 8px;
+}
+#entertainmentPortal .portal-menu #battlePicker .battle-backgrounds button[aria-pressed="true"],
+#entertainmentPortal .portal-menu #battlePicker .battle-specimens button[aria-pressed="true"] {
+  background: #20312c;
+  border-color: #a8c6b4;
+}
+#entertainmentPortal .portal-menu #battlePicker #battleStartMatch {
+  background: #293d3e;
+  border: 1px solid #a2c2b5;
+  border-radius: 9px;
+  color: #f0f4ef;
+  font-size: 15px;
+}
+#entertainmentPortal .portal-menu #battlePicker .battle-picker-status {
+  color: #c1cfc5;
+}
+#entertainmentPortal .portal-menu #battlePicker .battle-picker-note {
+  color: #84948a;
+}
+#entertainmentPortal .portal-menu #battlePicker img {
+  border-radius: 5px;
+}
+
+/* Compact devices: maintain readable touch targets and a scrollable menu. */
+@media (max-height: 710px) {
+  #entertainmentPortal .portal-menu {
+    padding-top: 14px;
+    padding-bottom: 11px;
+  }
+  #entertainmentPortal .portal-menu .portal-menu-content {
+    padding: 5px 0 7px;
+    justify-content: flex-start;
+  }
+  #entertainmentPortal .portal-menu-heading {
+    font-size: 29px;
+    margin-top: 6px;
+  }
+  #entertainmentPortal .portal-menu-description {
+    margin-bottom: 13px;
+  }
+  #entertainmentPortal .portal-menu-description::after {
+    margin-top: 12px;
+  }
+  #entertainmentPortal .portal-menu .portal-mode {
+    min-height: 61px;
+    padding: 9px 10px;
+  }
+  #entertainmentPortal .portal-menu .portal-modes { gap: 7px; }
+  #entertainmentPortal .portal-menu .portal-nickname-input { height: 41px; }
+  #entertainmentPortal .portal-nickname { margin-bottom: 9px; }
+  #entertainmentPortal .portal-menu .portal-environments {
+    padding-top: 13px;
+    padding-bottom: 9px;
+  }
+  #entertainmentPortal .portal-menu .portal-environment-card {
+    min-height: 80px;
+    padding: 7px;
+  }
+  #entertainmentPortal .portal-menu .portal-environment-card img,
+  #entertainmentPortal .portal-menu .portal-environment-unknown {
+    width: 58px;
+    height: 62px;
+    flex-basis: 58px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #entertainmentPortal .portal-menu .portal-mode,
+  #entertainmentPortal .portal-menu .portal-environment-card {
+    transition: none;
+  }
+}

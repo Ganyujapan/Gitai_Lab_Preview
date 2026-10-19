@@ -1,0 +1,37 @@
+/* Same restrained black palette as the Battle "Matching" scene. */
+#entertainmentPortal #hidePicker[hidden],#entertainmentPortal #hidePicker [hidden]{display:none!important}
+#entertainmentPortal #hidePicker{
+ position:absolute;inset:0;z-index:38;padding:15px 14px 12px;
+ background:#080a0b;color:#f1f5ef;display:flex;flex-direction:column;
+ font-family:system-ui,-apple-system,sans-serif;overflow:hidden;gap:10px;
+}
+#hidePicker *{box-sizing:border-box}
+#hidePicker .hide-top{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+#hidePicker h2{font-size:21px;line-height:1.4;font-weight:800;margin:0}
+#hidePicker .hide-sub{font:11px/1.5 ui-monospace,monospace;color:#99b1a3;margin:0}
+#hidePicker .hide-back{border:1px solid #657b71;color:#e9f0eb;background:transparent;border-radius:9px;min-height:42px;width:42px;font-size:23px;flex:0 0 42px}
+#hidePicker .hide-note{font-size:12px;line-height:1.5;color:#a2b7aa;min-height:19px;margin:0}
+#hidePicker button{border:1px solid #5a766a;border-radius:9px;color:#edf3ef;background:#141e1d;font-family:system-ui,-apple-system,sans-serif;touch-action:manipulation}
+#hidePicker button[aria-pressed="true"]{background:#243b36;border-color:#d0e0d3}
+#hidePicker #hideSelect{display:flex;flex:1 1 auto;min-height:0;overflow:hidden}
+#hidePicker .hide-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+#hidePicker .hide-specimens{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-content:start}
+#hidePicker .hide-specimens button{min-height:91px;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:4px;padding:7px 3px;font-size:11px}
+#hidePicker .hide-specimens button:disabled{opacity:.45}
+#hidePicker .hide-specimens img{width:min(70%,64px);aspect-ratio:1;object-fit:contain;image-rendering:pixelated}
+#hidePicker .hide-action{width:100%;flex:0 0 auto;min-height:48px;background:#293f3b;font-weight:750}
+#hidePicker .hide-action:disabled{opacity:.4}
+#hidePicker .hide-slot-row,#hidePicker .hide-stage-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;flex:0 0 auto}
+#hidePicker .hide-slot-row button{height:57px;display:flex;align-items:center;justify-content:center;gap:5px;padding:5px;font-size:11px;white-space:nowrap}
+#hidePicker .hide-slot-row img{width:38px;height:38px;object-fit:contain;image-rendering:pixelated}
+#hidePicker .hide-stage-row button{min-height:40px;padding:5px 2px;font-size:12px}
+#hidePicker .hide-board-wrap{flex:1 1 auto;min-height:0;min-width:0;display:flex;justify-content:center;align-items:center}
+#hidePicker #hideBoard{height:100%;width:auto;max-width:100%;aspect-ratio:9/16;object-fit:contain;display:block;border:1px solid #6b8275;border-radius:5px;touch-action:none}
+#hidePicker .hide-position-label{color:#d4e8dd;text-align:center;font:11px/1.5 system-ui;min-height:17px;margin:0}
+@media(max-height:650px){
+ #entertainmentPortal #hidePicker{padding:9px 10px;gap:6px}
+ #hidePicker h2{font-size:19px}
+ #hidePicker .hide-slot-row button{height:46px}
+ #hidePicker .hide-slot-row img{width:28px;height:28px}
+ #hidePicker .hide-stage-row button{min-height:34px}
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "environment_id": "kusagi_001",
+  "display_name_ja": "葉1",
+  "display_name_en": "Leaf 1",
+  "background": {
+    "src": "img/backgrounds/bg_leaf01.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}

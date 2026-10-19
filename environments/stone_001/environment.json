@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "environment_id": "stone_001",
+  "display_name_ja": "岩肌",
+  "display_name_en": "Rock",
+  "background": {
+    "src": "img/backgrounds/bg_stone01.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}

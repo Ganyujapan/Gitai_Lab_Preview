@@ -1,0 +1,64 @@
+name: Verify public preview bundle
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [security/public-runtime-only-20261019]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public source scope and app assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          required = [
+              "index.html", "manifest.webmanifest", ".nojekyll",
+              "js/pages_preview.js", "js/entertainment_portal.js",
+              "js/hide_seek_portal.js", "js/solo_tutorial.js",
+              "config/konchu_univ_alpha.json",
+              "data/evolution_models/continuous_v1/config.json",
+              "data/evolution_models/morph_v1/config.json",
+              "species/moth/species.json",
+              "img/backgrounds/bg_leaf01.png",
+          ]
+          missing = [p for p in required if not Path(p).is_file()]
+          if missing:
+              raise SystemExit(f"Missing public game assets: {missing}")
+          for name in ("dev", "docs", "research", "tests"):
+              if Path(name).exists():
+                  raise SystemExit(f"Private development content still in public tree: {name}")
+          for file in Path("config").rglob("*.json"):
+              json.loads(file.read_text(encoding="utf-8"))
+          for file in Path("data").rglob("*.json"):
+              json.loads(file.read_text(encoding="utf-8"))
+          for file in Path("environments").rglob("*.json"):
+              conf=json.loads(file.read_text(encoding="utf-8"))
+              bg=conf.get("background", {}).get("src", "")
+              if bg and not Path(bg).is_file():
+                  raise SystemExit(f"Missing environment background: {file} -> {bg}")
+          print("Public preview source scope and required assets: OK")
+          PY
+      - name: Check JavaScript syntax
+        run: |
+          for file in js/*.js; do node --check "$file"; done
+      - name: Build and validate Pages artifact
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp index.html manifest.webmanifest .nojekyll _site/
+          cp -R config css data environments img js species _site/
+          test -f _site/index.html
+          test -f _site/js/pages_preview.js
+          test -f _site/img/backgrounds/bg_leaf01.png
+          test ! -e _site/dev
+          test ! -e _site/research
+          test ! -e _site/docs
+          test ! -e _site/tests

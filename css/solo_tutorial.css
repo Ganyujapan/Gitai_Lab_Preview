@@ -1,0 +1,22 @@
+/* Live-image SOLO tutorial, independent of evolution, storage and scoring. */
+#soloTutorialOverlay[hidden]{display:none!important}
+#soloTutorialOverlay{position:absolute;inset:0;z-index:110;background:#080a0b;color:#f2f5ef;display:flex;justify-content:center;padding:max(14px,env(safe-area-inset-top)) 17px max(15px,env(safe-area-inset-bottom));touch-action:manipulation;font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif}
+#soloTutorialOverlay *{box-sizing:border-box}
+#soloTutorialOverlay .tutorial-inner{width:100%;max-width:410px;height:100%;min-height:0;display:flex;flex-direction:column;align-items:center}
+#soloTutorialOverlay .tutorial-header{flex:none;align-self:stretch;display:flex;justify-content:space-between;align-items:center;padding:3px 3px 12px;border-bottom:1px solid rgba(157,188,174,.22)}
+#soloTutorialOverlay .tutorial-brand{color:#9bac9f;letter-spacing:.15em;font:700 10px/1.5 ui-monospace,Menlo,monospace}
+#soloTutorialOverlay .tutorial-step{color:#81958b;letter-spacing:.1em;font:600 11px/1.5 ui-monospace,Menlo,monospace}
+#soloTutorialOverlay .tutorial-title{flex:none;margin:14px 0 10px;text-align:center;font-weight:800;font-size:clamp(20px,5.3vw,25px);letter-spacing:.02em;line-height:1.35}
+#soloTutorialOverlay .tutorial-viewport{flex:1 1 auto;min-height:0;min-width:0;display:flex;align-items:center;justify-content:center;padding:0 4px}
+#soloTutorialOverlay .tutorial-canvas-wrap{height:100%;width:auto;max-width:100%;aspect-ratio:9/16;overflow:hidden;position:relative;background:#17201d;border:1px solid rgba(180,205,190,.5);border-radius:9px}
+#soloTutorialOverlay canvas{display:block;height:100%;width:100%;image-rendering:pixelated;pointer-events:none;touch-action:none}
+#soloTutorialOverlay .tutorial-copy{flex:none;width:100%;margin:14px 0 12px;min-height:88px;text-align:center;color:#d8e2d9;font-size:clamp(12px,3.3vw,15px);line-height:1.7;white-space:pre-line;overflow-wrap:anywhere}
+#soloTutorialOverlay .tutorial-progress{flex:none;display:flex;justify-content:center;gap:8px;margin:0 0 13px}
+#soloTutorialOverlay .tutorial-progress span{width:21px;height:3px;border-radius:2px;background:#42544c}
+#soloTutorialOverlay .tutorial-progress span.active{background:#b0cdc0}
+#soloTutorialOverlay .tutorial-actions{flex:none;width:100%;display:grid;grid-template-columns:1fr 1.5fr;gap:9px}
+#soloTutorialOverlay button{min-height:49px;padding:9px 5px;border-radius:9px;border:1px solid #8ba79b;background:#182523;color:#edf2ee;font:700 15px/1.4 system-ui,-apple-system,sans-serif;touch-action:manipulation}
+#soloTutorialOverlay #soloTutorialNext{background:#293d3d;border-color:#b4cec3;color:#f5f8f5}
+#soloTutorialOverlay button:focus-visible{outline:2px solid #afe7e1;outline-offset:3px}
+@media(max-height:580px){#soloTutorialOverlay{padding:9px 13px}#soloTutorialOverlay .tutorial-header{padding-bottom:6px}#soloTutorialOverlay .tutorial-title{margin:6px 0;font-size:19px}#soloTutorialOverlay .tutorial-copy{margin:7px 0 6px;min-height:49px;font-size:12px}#soloTutorialOverlay .tutorial-progress{margin-bottom:7px}#soloTutorialOverlay button{min-height:40px}}
+@media(prefers-reduced-motion:reduce){#soloTutorialOverlay *{transition:none!important;animation:none!important}}

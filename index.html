@@ -1,0 +1,5194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#090b0c">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script>
+    // Mark the entertainment entry before first paint to avoid a flash of
+    // the underlying game screen while the animated portal script loads.
+    (() => {
+      const q = new URLSearchParams(location.search);
+      if ((q.get('model') || 'continuous_v1') === 'continuous_v1' && q.get('play') !== '1') {
+        document.documentElement.classList.add('pixel-portal-pending');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261017-nickname1">
+  <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
+  <link rel="stylesheet" href="css/portal_minimal.css?v=20261017-minimal1">
+  <link rel="stylesheet" href="css/solo_tutorial.css?v=20261018-tutorial3">
+  <link rel="stylesheet" href="css/hide_seek_portal.css?v=20261018-hide1">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+  <title>ギタイラボ — 昆虫大学 α</title>
+  <style>
+    :root {
+      --panel: rgba(8, 12, 14, 0.88);
+      --line: rgba(255,255,255,0.18);
+      --text: #fff;
+      --muted: rgba(255,255,255,0.72);
+      --accent: #b8f7ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: #090b0c;
+      color: var(--text);
+      font-family: 'PixelMplus', monospace;
+      overflow: hidden;
+      overscroll-behavior: none;
+      /* Disable Safari double-tap zoom while retaining standard pinch accessibility
+         outside the predator canvas. */
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    #stage {
+      position: relative;
+      width: min(100vw, calc(100dvh * 0.5625));
+      height: min(100dvh, calc(100vw * 1.7777778));
+      aspect-ratio: 9 / 16;
+      background: #111;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: pixelated;
+      /* Predation taps must not become zoom, pan, or Safari gesture handling. */
+      touch-action: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      padding:
+        calc(env(safe-area-inset-top) + 20px)
+        18px
+        calc(env(safe-area-inset-bottom) + 20px);
+      background: rgba(0, 0, 0, 0.48);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overlay.visible { display: flex; }
+
+    .panel {
+      width: min(92%, 520px);
+      max-height: 92%;
+      overflow: hidden;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.42);
+    }
+
+    h1, h2, p { margin-top: 0; }
+
+    h1 {
+      font-size: clamp(22px, 4.4vw, 34px);
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: clamp(18px, 3.6vw, 28px);
+      margin-bottom: 10px;
+    }
+
+    .lead {
+      line-height: 1.8;
+      font-size: clamp(14px, 2.7vw, 20px);
+      margin-bottom: 20px;
+    }
+
+    .generation {
+      color: var(--accent);
+      font-size: clamp(16px, 3.2vw, 22px);
+      margin-bottom: 14px;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: clamp(14px, 2.8vw, 18px);
+      line-height: 1.55;
+    }
+
+    .score-card {
+      margin: 4px 0 10px;
+      padding: 18px 12px 16px;
+      border: 1px solid rgba(184,247,255,0.30);
+      border-radius: 14px;
+      background: rgba(184,247,255,0.07);
+    }
+
+    .score-label {
+      color: var(--muted);
+      font-size: clamp(11px, 2.2vw, 15px);
+      margin-bottom: 3px;
+    }
+
+    .score-main {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    #scoreValue {
+      color: var(--accent);
+      font-size: clamp(38px, 10vw, 62px);
+      line-height: 1;
+      letter-spacing: 0.02em;
+    }
+
+    .score-unit {
+      font-size: clamp(13px, 2.8vw, 18px);
+    }
+
+    .rank-text {
+      margin-top: 10px;
+      font-size: clamp(13px, 2.7vw, 18px);
+      line-height: 1.45;
+    }
+
+    .name-entry {
+      margin: 4px 0 8px;
+      padding: 10px;
+      border: 1px solid rgba(255,223,128,0.38);
+      border-radius: 12px;
+      background: rgba(255,223,128,0.07);
+    }
+
+    .name-entry[hidden] { display: none; }
+
+    .name-entry-title {
+      color: #ffe9a8;
+      font-size: clamp(13px, 2.7vw, 18px);
+      margin-bottom: 3px;
+    }
+
+    .name-entry-sub {
+      color: var(--muted);
+      font-size: clamp(10px, 2vw, 13px);
+      margin-bottom: 8px;
+    }
+
+    .name-entry-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 7px;
+    }
+
+    #playerName {
+      min-width: 0;
+      border: 1px solid rgba(255,255,255,0.24);
+      border-radius: 9px;
+      background: rgba(0,0,0,0.28);
+      color: #fff;
+      font: inherit;
+      font-size: 16px;
+      padding: 9px 10px;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    #saveNameButton {
+      width: auto;
+      min-height: 42px;
+      padding: 7px 12px;
+      border-color: rgba(255,223,128,0.52);
+      background: rgba(255,223,128,0.14);
+      font-size: 13px;
+    }
+
+    .name-saved {
+      margin: 7px 0 0;
+      color: #ffe9a8;
+      font-size: 11px;
+    }
+
+    .ranking-panel {
+      width: min(94%, 520px);
+      max-height: 92%;
+    }
+
+    .ranking-note {
+      margin: 0 0 10px;
+      color: rgba(255,255,255,0.58);
+      font-size: clamp(12px, 2.2vw, 15px);
+      line-height: 1.5;
+    }
+
+    .ranking-list {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+
+    .ranking-group {
+      padding: 9px 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .ranking-group-head {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .ranking-rank {
+      color: #ffe9a8;
+      font-size: clamp(14px, 2.8vw, 18px);
+    }
+
+    .ranking-score {
+      color: var(--accent);
+      font-size: clamp(14px, 2.8vw, 18px);
+      text-align: right;
+    }
+
+    .ranking-names {
+      margin-top: 5px;
+      padding-left: 80px;
+      color: rgba(255,255,255,0.82);
+      font-size: clamp(12px, 2.3vw, 15px);
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .ranking-empty {
+      padding: 28px 8px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    button {
+      width: 100%;
+      min-height: 58px;
+      flex: 0 0 auto;
+      border: 1px solid rgba(184,247,255,0.48);
+      border-radius: 12px;
+      background: rgba(184,247,255,0.16);
+      color: #fff;
+      font-family: 'PixelMplus', monospace;
+      font-size: clamp(15px, 2.8vw, 20px);
+      padding: 12px 16px;
+      touch-action: manipulation;
+    }
+
+    button:disabled {
+      opacity: 0.48;
+    }
+
+    .review-actions {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: 6px;
+    }
+
+    .compare-action {
+      border-color: rgba(255,223,128,0.52);
+      background: rgba(255,196,64,0.18);
+    }
+
+    .continue-action {
+      border-color: rgba(184,247,255,0.48);
+      background: rgba(184,247,255,0.16);
+    }
+
+    .text-action {
+      width: auto;
+      min-height: 30px;
+      align-self: center;
+      margin: 0 0 7px;
+      padding: 3px 8px;
+      border-color: transparent;
+      background: transparent;
+      color: rgba(184,247,255,0.72);
+      font-size: clamp(10px, 2vw, 13px);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .text-action:active {
+      color: #fff;
+    }
+
+    .author-news-teaser {
+      flex: 0 0 auto;
+      margin-top: 8px;
+      padding: 7px 8px;
+      text-align: center;
+      color: rgba(184,247,255,0.62);
+      font-size: clamp(11px, 2vw, 13px);
+      letter-spacing: 0.04em;
+      line-height: 1.25;
+    }
+
+    .author-news-teaser[hidden] {
+      display: none;
+    }
+
+    #evolutionOverlay {
+      z-index: 30;
+      background: rgba(5, 8, 9, 0.98);
+    }
+
+    .evolution-panel {
+      width: min(96%, 540px);
+      height: min(96%, 760px);
+      max-height: 96%;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .evolution-toolbar {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 42px 1fr 42px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .evolution-title {
+      margin: 0;
+      font-size: clamp(18px, 3.5vw, 25px);
+    }
+
+    .overlay-close {
+      width: 42px;
+      min-height: 42px;
+      padding: 0;
+      border-color: rgba(255,255,255,0.20);
+      background: rgba(255,255,255,0.06);
+      font-size: 20px;
+    }
+
+    .evolution-scroll {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 2px 2px 18px;
+    }
+
+    .evolution-generation-block {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .evolution-heading {
+      padding: 6px 0 7px;
+      color: var(--accent);
+      font-size: clamp(13px, 2.6vw, 17px);
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .evolution-gen1,
+    .evolution-latest-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .evolution-gen1 .moth-preview-button {
+      grid-column: 2;
+    }
+
+    .moth-preview-button {
+      position: relative;
+      width: 100%;
+      min-height: 0;
+      padding: 5px 4px 4px;
+      border-color: rgba(255,255,255,0.24);
+      background-color: rgba(0,0,0,0.22);
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .moth-preview-button img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      margin: 0 auto;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .moth-preview-index {
+      display: block;
+      margin-top: 3px;
+      padding: 2px 3px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.58);
+      color: rgba(255,255,255,0.88);
+      font-size: clamp(8px, 1.9vw, 10px);
+    }
+
+    .predation-skull {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 3;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.76);
+      border-radius: 4px;
+      background: rgba(0,0,0,0.78);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.48);
+      pointer-events: none;
+    }
+
+    .predation-skull svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+      image-rendering: pixelated;
+      shape-rendering: crispEdges;
+    }
+
+    .mutation-card .predation-skull {
+      top: 8px;
+      right: 8px;
+      width: 26px;
+      height: 26px;
+    }
+
+
+    /* After each SOLO generation, the scrollable specimen gallery is the
+       primary review surface; its navigation remains above the scrolling grid. */
+    #evolutionOverlay .evolution-panel {
+      background: rgba(7, 11, 12, .98);
+      border: 1px solid rgba(129, 159, 145, .38);
+    }
+    .evolution-quick-actions {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 8px 0 10px;
+    }
+    .evolution-quick-actions button {
+      min-height: 44px;
+      margin: 0;
+      border: 1px solid rgba(169, 198, 181, .65);
+      background: #182824;
+      color: #f0f4ef;
+      border-radius: 8px;
+      font: 700 clamp(12px, 3.1vw, 15px)/1.4 system-ui, -apple-system, sans-serif;
+      padding: 8px 4px;
+    }
+    .evolution-quick-actions #evolutionNextButton {
+      background: #2b4342;
+      border-color: #b6cfca;
+    }
+    .evolution-quick-actions [hidden] { display: none !important; }
+    #evolutionTheaterButton {
+      width: 100%;
+      margin: 11px 0 9px;
+      min-height: 48px;
+      padding: 10px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(165, 150, 213, .82);
+      background: rgba(61, 47, 77, .74);
+      color: #f1eafb;
+      font: 700 15px/1.4 system-ui, -apple-system, sans-serif;
+    }
+    #evolutionTheaterButton[hidden] { display: none !important; }
+    .moth-rank-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 3;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.76);
+      border-radius: 4px;
+      color: #fff;
+      background: #090909;
+      box-shadow: none;
+      text-shadow: none;
+      pointer-events: none;
+      font-family: "Press Start 2P", "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 400;
+      line-height: 1;
+      letter-spacing: 0;
+      image-rendering: pixelated;
+    }
+    /* Grade colors stay uniform, but only S and SS have animated badges. */
+    .moth-rank-badge[data-rank="D"] { background: #777777; color: #fff; }
+    .moth-rank-badge[data-rank="C"] { background: #5bc97c; color: #11251a; }
+    .moth-rank-badge[data-rank="B"] { background: #f4d65e; color: #28210a; }
+    .moth-rank-badge[data-rank="A"] { background: #8dddfa; color: #102c3b; }
+    .moth-rank-badge[data-rank="S"] {
+      background: #9860d6; /* Purple remains completely static. */
+      color: #fff;
+      border-color: #f8f8ff;
+      animation: rankSilverFrame 3.4s ease-in-out infinite;
+    }
+    .moth-rank-badge[data-rank="S"] .moth-rank-silver-letter {
+      display: inline-block;
+      color: #fff;
+      /* The moving white/silver gradient is restricted to the letter. */
+      background: linear-gradient(105deg,
+        #ffffff 0%, #b2b7c0 24%, #fbfdff 49%,
+        #9197a3 73%, #ffffff 100%);
+      background-size: 260% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: rankSilverLetter 3.4s ease-in-out infinite alternate;
+    }
+    .moth-rank-badge[data-rank="SS"] {
+      background: linear-gradient(135deg,
+        #ff4b78 0%, #ffd760 13%, #53e9a0 26%,
+        #5eafff 39%, #d986ff 52%, #ff4b78 65%,
+        #ffd760 78%, #53e9a0 91%, #5eafff 100%);
+      background-size: 270% 270%;
+      color: #10131b;
+      font-size: 8px;
+      animation: rankRainbowSpectrum 5s linear infinite alternate;
+    }
+    @keyframes rankRainbowSpectrum {
+      from { background-position: 0% 10%; }
+      to { background-position: 100% 90%; }
+    }
+    @keyframes rankSilverLetter {
+      from { background-position: 0% 50%; }
+      to { background-position: 100% 50%; }
+    }
+    @keyframes rankSilverFrame {
+      0%, 100% {
+        border-color: #ffffff;
+        box-shadow: 0 0 4px rgba(255,255,255,.42);
+      }
+      32% {
+        border-color: #a5aab3;
+        box-shadow: 0 0 1px rgba(225,230,239,.35);
+      }
+      58% {
+        border-color: #f5f8ff;
+        box-shadow: 0 0 7px rgba(244,248,255,.83);
+      }
+      82% {
+        border-color: #bcc0c9;
+        box-shadow: 0 0 2px rgba(215,221,233,.38);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .moth-rank-badge[data-rank="S"],
+      .moth-rank-badge[data-rank="S"] .moth-rank-silver-letter,
+      .moth-rank-badge[data-rank="SS"] { animation: none; }
+    }
+    .moth-rank-badge[data-rank="pending"] {
+      background: rgba(11,16,16,.85);
+      color: #a2b1a8;
+    }
+    .theater-entry-action {
+      flex: 0 0 auto;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-color: rgba(198,168,255,0.54);
+      background: rgba(138,96,210,0.18);
+      font-size: clamp(13px, 2.5vw, 17px);
+    }
+
+    #theaterOverlay {
+      z-index: 40;
+      background: rgba(3, 5, 6, 0.99);
+    }
+
+    .theater-panel {
+      width: min(96%, 620px);
+      height: min(94dvh, 900px);
+      max-height: 94dvh;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .theater-toolbar {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 42px 1fr 42px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .theater-title {
+      margin: 0;
+      font-size: clamp(18px, 3.5vw, 25px);
+    }
+
+    .theater-meta {
+      flex: 0 0 auto;
+      min-height: 38px;
+      margin: 0 0 6px;
+      color: var(--accent);
+      font-size: clamp(12px, 2.4vw, 15px);
+      line-height: 1.45;
+    }
+
+    .theater-stage {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 10px;
+      background: #080b0c;
+    }
+
+    #theaterFrameImage {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      object-fit: contain;
+    }
+
+    @media (max-height: 760px) {
+      .theater-panel {
+        height: 93dvh;
+        max-height: 93dvh;
+        padding: 9px;
+      }
+
+      .theater-meta {
+        min-height: 30px;
+        margin-bottom: 4px;
+        font-size: 11px;
+      }
+
+      .theater-controls {
+        margin-top: 5px;
+      }
+
+      #theaterNote {
+        margin-top: 4px;
+      }
+    }
+
+    .theater-slider-row {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    #theaterSlider {
+      width: 100%;
+      accent-color: #b8f7ff;
+    }
+
+    #theaterProgress {
+      min-width: 68px;
+      color: rgba(255,255,255,0.70);
+      font-size: 11px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .theater-controls {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.3fr 1fr auto;
+      gap: 7px;
+      margin-top: 8px;
+      align-items: stretch;
+    }
+
+    .theater-controls button {
+      min-height: 44px;
+      padding: 7px 8px;
+      font-size: clamp(12px, 2.4vw, 16px);
+    }
+
+    .theater-speed {
+      display: grid;
+      align-content: center;
+      gap: 2px;
+      padding: 3px 6px;
+      border: 1px solid rgba(184,247,255,0.30);
+      border-radius: 9px;
+      color: rgba(255,255,255,0.68);
+      font-size: 9px;
+      text-align: left;
+    }
+
+    #theaterSpeed {
+      min-width: 76px;
+      border: 0;
+      background: #111719;
+      color: #fff;
+      font-family: 'PixelMplus', monospace;
+      font-size: 11px;
+    }
+
+    #theaterNote {
+      flex: 0 0 auto;
+      min-height: 18px;
+      margin: 7px 2px 0;
+      color: rgba(255,255,255,0.58);
+      font-size: clamp(9px, 1.9vw, 12px);
+      line-height: 1.4;
+    }
+
+    #mothShareOverlay {
+      z-index: 45;
+      background: rgba(3, 5, 6, 0.99);
+    }
+
+    /* Specimen detail must be above the collection (z-index: 54). */
+    #mothShareOverlay.from-specimen {
+      z-index: 56;
+    }
+
+    .share-panel {
+      width: min(96%, 540px);
+      max-height: 96%;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .share-card {
+      width: 100%;
+      aspect-ratio: 4 / 5;
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 18px 20px;
+      border: 2px solid rgba(184,247,255,0.38);
+      background:
+        radial-gradient(circle at 50% 36%, rgba(184,247,255,0.10), transparent 42%),
+        #0a0d0f;
+      text-align: center;
+    }
+
+    .share-card-title {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(20px, 4.5vw, 30px);
+      line-height: 1.35;
+    }
+
+    .share-moth-wrap {
+      width: min(78%, 300px);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 12px;
+      background-color: rgba(0,0,0,0.22);
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    #shareMothImage {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .share-generation {
+      color: var(--accent);
+      font-size: clamp(18px, 4vw, 26px);
+    }
+
+    .share-controls {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .share-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    #shareStatus {
+      min-height: 18px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    #soloHomeButton {
+      position: absolute;
+      top: max(8px, env(safe-area-inset-top));
+      right: 10px;
+      z-index: 35;
+      width: auto;
+      min-width: 90px;
+      min-height: 35px;
+      padding: 5px 9px;
+      color: #e9f9f6;
+      background: rgba(6, 26, 30, 0.85);
+      border: 1px solid rgba(185, 247, 255, .7);
+      border-radius: 6px;
+      font: 700 11px/1.4 'PixelMplus', monospace;
+    }
+    #resultBackToMenu {
+      width: 100%;
+      margin-top: 12px;
+      color: #e5f7f1;
+      background: rgba(31, 64, 62, .85);
+      border: 1px solid #8cb5ab;
+      font: inherit;
+      border-radius: 8px;
+      padding: 12px 8px;
+    }
+    #soloHomeButton[hidden], #resultBackToMenu[hidden] { display: none !important; }
+    /* End-of-generation transition: the ENTIRE black screen descends as
+       one panel, using the restrained look of the battle Matching... screen. */
+    #roundShutter {
+      position: absolute;
+      inset: 0;
+      z-index: 58;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    #roundShutter.active {
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .round-shutter-panel {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      isolation: isolate;
+      color: #f2f4ef;
+      background: #080a0b;
+      font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+      transform: translate3d(0, -102%, 0);
+      will-change: transform;
+      transition: transform 680ms cubic-bezier(.42, 0, .58, 1);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+      border-bottom: 1px solid rgba(157, 188, 174, .48);
+      backface-visibility: hidden;
+    }
+
+    /* A barely visible halo provides depth while keeping the screen black. */
+    .round-shutter-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 82% 35% at 50% 43%,
+          rgba(39, 65, 59, .22), transparent 75%),
+        linear-gradient(180deg, #080a0b 0%, #0b1112 48%, #080a0b 100%);
+      pointer-events: none;
+    }
+
+    .round-shutter-panel::after {
+      content: '';
+      position: absolute;
+      inset: 18px 18px 19px;
+      border: 1px solid rgba(116, 142, 130, .26);
+      pointer-events: none;
+    }
+
+    #roundShutter.closing .round-shutter-panel {
+      transform: translate3d(0, 0, 0);
+    }
+
+    #roundShutter.opening .round-shutter-panel {
+      transform: translate3d(0, -102%, 0);
+    }
+
+    .round-shutter-layout {
+      position: absolute;
+      inset: 32px 26px;
+      z-index: 1;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      align-items: center;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .round-shutter-header {
+      color: #7e9089;
+      font: 600 10px/1.5 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .24em;
+    }
+
+    .round-shutter-brand {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 2px;
+      transform: translateY(-5%);
+    }
+
+    .round-shutter-logo {
+      color: #f4f5f1;
+      font: 800 clamp(32px, 9vw, 44px)/1.45 system-ui, -apple-system, sans-serif;
+      letter-spacing: .035em;
+      white-space: nowrap;
+      text-shadow: none;
+    }
+
+    .round-shutter-rule {
+      width: 70px;
+      height: 1px;
+      margin: 25px 0 25px;
+      background: #687b70;
+      opacity: .76;
+    }
+
+    .round-shutter-sub {
+      color: #d1dcd5;
+      font: 600 clamp(12px, 3.15vw, 15px)/1.5
+        ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .13em;
+    }
+
+    .round-shutter-message {
+      margin-top: 15px;
+      color: #9baaa1;
+      font-size: clamp(11px, 2.8vw, 13px);
+      line-height: 1.7;
+      letter-spacing: .04em;
+    }
+
+    .round-shutter-dots {
+      display: inline-block;
+      min-width: 1.8em;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .round-shutter-dot {
+      display: inline-block;
+      opacity: .15;
+      animation: round-shutter-blink 1.35s infinite;
+    }
+
+    .round-shutter-dot:nth-child(2) { animation-delay: .25s; }
+    .round-shutter-dot:nth-child(3) { animation-delay: .5s; }
+
+    @keyframes round-shutter-blink {
+      0%, 16% { opacity: .15; }
+      21%, 63% { opacity: 1; }
+      75%, 100% { opacity: .15; }
+    }
+
+    .round-shutter-footer {
+      color: #61766a;
+      font: 600 10px/1.5 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .17em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .round-shutter-panel { transition-duration: 180ms; }
+      .round-shutter-dot { animation: none; opacity: 1; }
+    }
+
+    .specimen-entry-action {
+      flex: 0 0 auto;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 7px;
+      padding: 8px 12px;
+      border-color: rgba(255,223,128,0.46);
+      background: rgba(255,196,64,0.12);
+      font-size: clamp(13px, 2.5vw, 17px);
+    }
+
+    #generationOverlay {
+      z-index: 52;
+      background: rgba(3,5,6,0.97);
+    }
+
+    .generation-panel {
+      width: min(90%, 460px);
+      min-height: 300px;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .generation-orb {
+      width: 74px;
+      height: 74px;
+      margin: 2px auto 8px;
+      border: 3px solid rgba(184,247,255,0.22);
+      border-top-color: rgba(184,247,255,0.92);
+      border-radius: 50%;
+      animation: gitai-spin 0.9s linear infinite;
+    }
+
+    .generation-panel.rare {
+      border-color: rgba(255,218,108,0.72);
+      background:
+        radial-gradient(circle at 50% 24%, rgba(255,196,64,0.18), transparent 44%),
+        var(--panel);
+    }
+
+    .generation-panel.rare .generation-orb {
+      border-color: rgba(255,218,108,0.24);
+      border-top-color: #ffe08a;
+      box-shadow: 0 0 20px rgba(255,196,64,0.28);
+    }
+
+    .generation-alert {
+      color: #ffe08a;
+      font-size: clamp(24px, 6.2vw, 40px);
+      line-height: 1.25;
+      letter-spacing: 0.05em;
+    }
+
+    #generationContinueButton[hidden] {
+      display: none;
+    }
+
+    @keyframes gitai-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .generation-orb { animation: none; }
+    }
+
+    #mutationRevealOverlay {
+      z-index: 53;
+      background: rgba(3,5,6,0.98);
+    }
+
+    .mutation-panel {
+      width: min(94%, 520px);
+      max-height: 94%;
+      overflow: hidden;
+      border-color: rgba(255,218,108,0.55);
+    }
+
+    .mutation-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      gap: 8px;
+      margin: 8px 0 12px;
+      padding: 2px;
+    }
+
+    .mutation-card {
+      position: relative;
+      width: min(100%, 292px);
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid rgba(255,218,108,0.32);
+      border-radius: 10px;
+      background-color: rgba(0,0,0,0.26);
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      text-align: center;
+    }
+
+    .mutation-card img {
+      display: block;
+      width: min(100%, 260px);
+      margin: 0 auto;
+      aspect-ratio: 1;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .mutation-card-status {
+      display: block;
+      margin-top: 5px;
+      padding: 4px 5px;
+      border-radius: 6px;
+      background: rgba(0,0,0,0.68);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .mutation-card button {
+      min-height: 36px;
+      margin-top: 6px;
+      padding: 5px 7px;
+      font-size: 11px;
+      background: rgba(255,196,64,0.18);
+      border-color: rgba(255,218,108,0.46);
+    }
+
+
+    /* One-per-screen mutation and first rank achievement use the same
+       low-noise black visual language as battle matchmaking. */
+    .mutation-panel {
+      background: #080a0b;
+      border-color: rgba(157, 188, 174, .48);
+      gap: 10px;
+    }
+    .mutation-panel .generation {
+      font: 600 10px/1.5 ui-monospace, Menlo, monospace;
+      letter-spacing: .17em;
+      color: #8a9f96;
+    }
+    .mutation-panel h2 {
+      font: 800 clamp(21px, 5.8vw, 28px)/1.4 system-ui, sans-serif;
+      color: #f4f5f1;
+    }
+    .mutation-panel #mutationRevealMessage {
+      font-size: 12px;
+      color: #9baca3;
+    }
+    .mutation-panel .mutation-card {
+      border-color: rgba(165, 184, 160, .4);
+      background-color: rgba(18, 28, 27, .7);
+    }
+    .mutation-panel #mutationRevealContinueButton,
+    #rankMilestoneOverlay button {
+      min-height: 46px;
+      border-radius: 9px;
+      background: #263a38;
+      color: #f3f5f1;
+      border: 1px solid #91a99d;
+      font: 700 14px/1.4 system-ui, -apple-system, sans-serif;
+    }
+    #rankMilestoneOverlay {
+      z-index: 54;
+      background: rgba(3, 5, 6, .99);
+    }
+    #rankMilestoneOverlay .rank-milestone-panel {
+      background: #080a0b;
+      border: 1px solid rgba(165, 195, 177, .46);
+      width: min(94%, 420px);
+      max-height: 95%;
+      padding: 22px 18px;
+      gap: 13px;
+      align-items: center;
+      text-align: center;
+      overflow-y: auto;
+    }
+    .rank-milestone-eyebrow {
+      color: #94a79b;
+      font: 700 10px/1.5 ui-monospace, Menlo, monospace;
+      letter-spacing: .18em;
+    }
+    #rankMilestoneTitle {
+      margin: 2px 0;
+      font: 800 clamp(22px, 5.5vw, 31px)/1.4 system-ui, sans-serif;
+      color: #f5f5f0;
+    }
+    #rankMilestoneGrade {
+      display: inline-block;
+      /* A single high-contrast accent for every new-rank announcement.
+         Keep the surrounding Japanese headline's type metrics unchanged. */
+      color: #8be8f3;
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      line-height: inherit;
+      letter-spacing: inherit;
+    }
+    .rank-milestone-preview {
+      position: relative;
+      width: min(66vw, 218px);
+      aspect-ratio: 1;
+      background-image: var(--gitai-preview-bg, none);
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(191, 208, 195, .45);
+      border-radius: 9px;
+      overflow: hidden;
+    }
+    #rankMilestoneImage {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    #rankMilestoneDescription {
+      font-size: 12px;
+      color: #bbc9c1;
+      line-height: 1.7;
+      margin: 0;
+    }
+    #rankMilestoneOverlay button { width: 100%; }
+    #rankMilestoneSaveButton {
+      background: #1c2925 !important;
+      border-color: #667e70 !important;
+    }
+    #gitaiScoreOverlay {
+      z-index: 70;
+      background: rgba(3,5,6,0.99);
+    }
+
+    .gitai-score-panel {
+      width: min(92%, 520px);
+      max-height: 94vh;
+      overflow-y: auto;
+      gap: 14px;
+    }
+
+    .gitai-score-stage {
+      position: relative;
+      width: min(100%, 390px);
+      aspect-ratio: 9 / 16;
+      flex: 0 0 auto;
+      align-self: center;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 2px solid rgba(184,247,255,0.34);
+      border-radius: 10px;
+      background: #15191a;
+    }
+
+    #gitaiScoreCanvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      image-rendering: pixelated;
+    }
+
+    .gitai-score-value {
+      text-align: center;
+      font-family: "PixelMplus", monospace;
+      font-size: clamp(46px, 13vw, 72px);
+      line-height: 1;
+      color: #fff;
+      text-shadow: 0 3px 0 rgba(0,0,0,0.45);
+    }
+
+    .gitai-score-label {
+      text-align: center;
+      color: #b8f7ff;
+      font-size: 14px;
+      letter-spacing: 0.14em;
+    }
+
+    .gitai-score-breakdown {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .gitai-score-metric {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 7px;
+      background: rgba(255,255,255,0.04);
+      font-size: 13px;
+    }
+
+    .gitai-score-metric strong {
+      color: #fff;
+    }
+
+    .gitai-score-note {
+      margin: 0;
+      color: rgba(255,255,255,0.64);
+      font-size: 11px;
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    /* Each saved moth sits in its own tall display case. No compressed grid rows. */
+    #specimenBoxOverlay {
+      z-index: 54;
+      background: rgba(3,5,6,0.99);
+    }
+
+    .specimen-panel {
+      width: min(96%, 560px);
+      height: min(92%, 820px);
+      max-height: 92%;
+      overflow: hidden;
+      padding: 12px;
+    }
+
+    .specimen-bg-toggle {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      min-height: 42px;
+      padding: 0;
+      border: 1px solid rgba(235,221,187,0.48);
+      border-radius: 50%;
+      background: #191c1a;
+      cursor: pointer;
+    }
+
+    .specimen-bg-toggle[aria-pressed="true"] {
+      border-color: #e8ce91;
+      background: #34362b;
+      box-shadow: 0 0 0 2px rgba(232,206,145,0.18);
+    }
+
+    .specimen-bg-icon {
+      display: block;
+      width: 24px;
+      height: 24px;
+      border: 1px solid #bbab8b;
+      border-radius: 50%;
+      background: linear-gradient(90deg, #ede2c8 0 50%, #62765f 50% 100%);
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,0.12);
+    }
+
+    .specimen-grid {
+      flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-rows: max-content;
+      align-content: start;
+      gap: 9px 7px;
+      padding: 4px 2px 20px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .specimen-card {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 5px;
+      width: 100%;
+      height: auto;
+      min-width: 0;
+      min-height: 0;
+      padding: 6px 5px;
+      margin: 0;
+      border: 2px solid #392e26;
+      border-radius: 2px;
+      background: linear-gradient(135deg, #4c3e30, #241b16 12%, #110e0c 49%, #30241d 84%, #17110e);
+      box-shadow:
+        inset 0 0 0 1px rgba(220,175,108,0.36),
+        inset 0 0 0 3px rgba(0,0,0,0.65),
+        0 3px 6px rgba(0,0,0,0.65);
+      color: #2b2117;
+      text-align: center;
+      cursor: pointer;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .specimen-card-mount {
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 100%;
+      min-width: 0;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      border: 1px solid #9a825b;
+      border-radius: 1px;
+      background:
+        radial-gradient(circle at 36% 25%, rgba(255,255,255,0.58), transparent 72%),
+        linear-gradient(145deg, #f0ead9, #dcd3bf);
+      box-shadow:
+        inset 0 0 0 2px rgba(251,238,208,0.66),
+        inset 0 0 12px rgba(81,55,29,0.21);
+    }
+
+    .specimen-grid.is-habitat .specimen-card-mount.has-habitat {
+      background-image: var(--specimen-habitat-bg);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      image-rendering: pixelated;
+    }
+
+    .specimen-card-mount img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: drop-shadow(1px 2px 1px rgba(0,0,0,0.25));
+      pointer-events: none;
+    }
+
+    .specimen-card-meta {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      flex: 0 0 auto;
+      gap: 1px;
+      min-width: 0;
+      min-height: 30px;
+      padding: 3px 2px;
+      border: 1px solid #967952;
+      border-radius: 2px;
+      background: linear-gradient(155deg, #f7ecd2, #d6be8f 70%, #c6a978);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+      line-height: 1.1;
+      color: #292016;
+    }
+
+    .specimen-card-generation {
+      font-size: clamp(9px, 2.2vw, 12px);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .specimen-card-id {
+      font-size: clamp(8px, 1.9vw, 10px);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .specimen-card:focus-visible {
+      outline: 2px solid #ffdfa4;
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 350px) {
+      .specimen-grid { gap: 7px 5px; }
+      .specimen-card { padding: 5px 4px; gap: 4px; }
+    }
+
+    .specimen-empty {
+      grid-column: 1 / -1;
+      padding: 36px 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    #specimenSaveButton.saved {
+      border-color: rgba(255,223,128,0.74);
+      background: rgba(255,196,64,0.26);
+      color: #fff2bd;
+    }
+
+    #resetConfirmOverlay {
+      z-index: 60;
+      background: rgba(0,0,0,0.78);
+    }
+
+    .confirm-panel {
+      width: min(90%, 430px);
+    }
+
+    .confirm-warning {
+      color: #ffd6d6;
+      line-height: 1.7;
+      font-size: clamp(14px, 2.8vw, 18px);
+    }
+
+    .confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .danger-action {
+      border-color: rgba(255,120,120,0.55);
+      background: rgba(255,90,90,0.14);
+    }
+
+    #errorText {
+      color: #ffb2b2;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <main id="stage" aria-label="ギタイラボ">
+    <canvas id="gameCanvas" width="360" height="640"></canvas>
+
+    <!-- Pause/return is independent from the explicit evolution reset. -->
+    <button id="soloHomeButton" type="button" hidden aria-label="進化を保持してトップへ戻る">⌂ トップへ</button>
+    <div id="roundShutter" aria-hidden="true">
+      <div class="round-shutter-panel">
+        <div class="round-shutter-layout">
+          <div class="round-shutter-header">INVISILAB / EVOLUTION</div>
+          <div class="round-shutter-brand">
+            <div class="round-shutter-logo">ギタイラボ</div>
+            <div class="round-shutter-rule" aria-hidden="true"></div>
+            <div class="round-shutter-sub">GENERATION COMPLETE</div>
+            <div class="round-shutter-message">この世代の結果を準備中<span class="round-shutter-dots" aria-hidden="true"><span class="round-shutter-dot">.</span><span class="round-shutter-dot">.</span><span class="round-shutter-dot">.</span></span></div>
+          </div>
+          <div id="roundShutterGeneration" class="round-shutter-footer">GENERATION -----</div>
+        </div>
+      </div>
+    </div>
+
+    <section id="startOverlay" class="overlay visible">
+      <div class="panel">
+        <div id="startGeneration" class="generation">GENERATION --</div>
+        <h1>ギタイラボ</h1>
+        <p id="introLead" class="lead">見つけた生き物を<br>タップしてください。</p>
+        <p id="introSubtle" class="subtle">見つからなかった個体が生き残り、<br>次の世代へ子孫を残します。</p>
+        <button id="startButton" type="button" disabled>準備中…</button>
+        <button id="portalBackToMenu" type="button" hidden>← モード選択へ戻る</button>
+      </div>
+    </section>
+
+    <section id="reviewOverlay" class="overlay">
+      <div class="panel">
+        <div id="reviewGeneration" class="generation">GENERATION --</div>
+        <h2 id="reviewTitle">この世代の結果</h2>
+        <p id="reviewMessage" class="subtle"></p>
+
+        <div class="score-card" hidden>
+          <div class="score-label">1秒あたり</div>
+          <div class="score-main">
+            <span id="scoreValue">--</span>
+            <span class="score-unit">匹 捕食</span>
+          </div>
+          <div id="rankText" class="rank-text">順位を計算中…</div>
+        </div>
+
+        <div id="nameEntry" class="name-entry" hidden>
+          <div class="name-entry-title">歴代20位以内！</div>
+          <div class="name-entry-sub">なまえをのこせます</div>
+          <div class="name-entry-row">
+            <input id="playerName" type="text" maxlength="12" autocomplete="off" placeholder="なまえ">
+            <button id="saveNameButton" type="button">記録</button>
+          </div>
+          <p id="nameSaved" class="name-saved" hidden>なまえを記録しました</p>
+        </div>
+
+        <button id="rankingButton" class="text-action" type="button" hidden>ランキングを見る</button>
+        <p id="evolutionStatus" class="subtle"></p>
+
+        <div class="review-actions">
+          <button id="compareButton" class="compare-action" type="button" hidden>この世代を見る</button>
+          <button id="continueButton" class="continue-action" type="button">次の人へ</button>
+        </div>
+        <button id="specimenBoxButton" class="specimen-entry-action" type="button" hidden>標本箱</button>
+        <button id="theaterButton" class="theater-entry-action" type="button" hidden>進化シアター</button>
+        <button id="resultBackToMenu" type="button" hidden>← 進化を残してトップへ戻る</button>
+
+        <div id="authorNewsTeaser" class="author-news-teaser" hidden>
+          作者からのお知らせ
+        </div>
+      </div>
+    </section>
+
+    <section id="evolutionOverlay" class="overlay" aria-label="世代比較">
+      <div class="panel evolution-panel">
+        <div class="evolution-toolbar">
+          <button id="evolutionCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 id="evolutionTitle" class="evolution-title">第1世代の蛾</h2>
+          <span></span>
+        </div>
+        <div class="evolution-quick-actions">
+          <button id="evolutionSpecimenButton" type="button">標本箱</button>
+          <button id="evolutionNextButton" type="button">次へ</button>
+        </div>
+        <div class="evolution-scroll">
+          <section class="evolution-generation-block">
+            <div class="evolution-heading">第1世代</div>
+            <div id="evolutionGen1" class="evolution-gen1"></div>
+          </section>
+          <section class="evolution-generation-block">
+            <div id="latestGenerationTitle" class="evolution-heading">現在世代</div>
+            <div id="evolutionLatestGrid" class="evolution-latest-grid"></div>
+          </section>
+          <button id="evolutionTheaterButton" type="button" hidden>進化シアターを見る ▶</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="theaterOverlay" class="overlay" aria-label="進化シアター">
+      <div class="panel theater-panel">
+        <div class="theater-toolbar">
+          <button id="theaterCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 class="theater-title">進化シアター</h2>
+          <span></span>
+        </div>
+        <div id="theaterMeta" class="theater-meta">世代を読み込み中…</div>
+        <div class="theater-stage">
+          <img id="theaterFrameImage" alt="進化シアター 世代一覧">
+        </div>
+        <div class="theater-slider-row">
+          <input id="theaterSlider" type="range" min="0" max="0" value="0" step="1" aria-label="世代">
+          <span id="theaterProgress">-- / --</span>
+        </div>
+        <div class="theater-controls">
+          <button id="theaterPrevButton" type="button">◀</button>
+          <button id="theaterPlayButton" type="button">再生</button>
+          <button id="theaterNextButton" type="button">▶</button>
+          <label class="theater-speed">
+            <span>速度</span>
+            <select id="theaterSpeed">
+              <option value="1000">ゆっくり</option>
+              <option value="600" selected>ふつう</option>
+              <option value="300">はやい</option>
+            </select>
+          </label>
+        </div>
+        <p id="theaterNote"></p>
+      </div>
+    </section>
+
+    <section id="mothShareOverlay" class="overlay" aria-label="蛾をシェア">
+      <div class="panel share-panel">
+        <div id="shareCard" class="share-card">
+          <h2 id="shareCardTitle" class="share-card-title">あなたのギタイラボ</h2>
+          <div class="share-moth-wrap">
+            <img id="shareMothImage" alt="選択した蛾">
+          </div>
+          <div>
+            <div id="shareGeneration" class="share-generation">第--世代</div>
+            <div id="shareMothIndex" class="subtle">MOTH --</div>
+          </div>
+        </div>
+
+        <div class="share-controls">
+          <button id="specimenSaveButton" class="specimen-entry-action" type="button" hidden>標本箱に入れる</button>
+          <button id="gitaiScoreButton" class="specimen-entry-action" type="button" hidden>採点する</button>
+          <div class="share-actions">
+            <button id="shareBackButton" type="button">戻る</button>
+            <button id="shareButton" type="button">SNSへシェア</button>
+          </div>
+          <p id="shareStatus">この画面をスクリーンショットしても使えます。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="generationOverlay" class="overlay" aria-label="次世代生成">
+      <div id="generationPanel" class="panel generation-panel">
+        <div id="generationOrb" class="generation-orb" aria-hidden="true"></div>
+        <h2 id="generationTitle">次の世代を生成中…</h2>
+        <p id="generationMessage" class="subtle">生き残った個体から子孫をつくっています。</p>
+        <button id="generationContinueButton" type="button" hidden>次の世代へ</button>
+      </div>
+    </section>
+
+    <section id="mutationRevealOverlay" class="overlay" aria-label="突然変異の結果">
+      <div class="panel mutation-panel">
+        <div class="generation">MUTATION RESULT</div>
+        <h2>突然変異の正体</h2>
+        <p id="mutationRevealMessage" class="subtle"></p>
+        <div id="mutationRevealGrid" class="mutation-grid"></div>
+        <button id="mutationRevealContinueButton" type="button">次へ</button>
+      </div>
+    </section>
+
+    <section id="rankMilestoneOverlay" class="overlay" aria-label="新ランク達成">
+      <div class="panel rank-milestone-panel">
+        <div class="rank-milestone-eyebrow">INVISILAB / NEW RANK</div>
+        <h2 id="rankMilestoneTitle">ギタイ度 <span id="rankMilestoneGrade">C</span> ランク発生！！！</h2>
+        <div class="rank-milestone-preview">
+          <img id="rankMilestoneImage" alt="新ランクを達成した蛾">
+        </div>
+        <p id="rankMilestoneDescription"></p>
+        <button id="rankMilestoneSaveButton" type="button">標本箱に入れる</button>
+        <button id="rankMilestoneContinueButton" type="button">次へ</button>
+      </div>
+    </section>
+
+    <section id="gitaiScoreOverlay" class="overlay" aria-label="GITAI SCORE">
+      <div class="panel gitai-score-panel">
+        <div class="evolution-header">
+          <button id="gitaiScoreCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 class="evolution-title">GITAI SCORE</h2>
+          <span></span>
+        </div>
+        <div class="gitai-score-stage">
+          <canvas id="gitaiScoreCanvas" width="360" height="640"></canvas>
+        </div>
+        <div>
+          <div class="gitai-score-label">GITAI SCORE v1</div>
+          <div id="gitaiScoreValue" class="gitai-score-value">--</div>
+        </div>
+        <div class="gitai-score-breakdown">
+          <div class="gitai-score-metric"><span>色</span><strong id="gitaiColorScore">--</strong></div>
+          <div class="gitai-score-metric"><span>明るさ</span><strong id="gitaiValueScore">--</strong></div>
+          <div class="gitai-score-metric"><span>模様・質感</span><strong id="gitaiTextureScore">--</strong></div>
+          <div class="gitai-score-metric"><span>輪郭</span><strong id="gitaiOutlineScore">--</strong></div>
+        </div>
+        <p id="gitaiScoreMeta" class="subtle"></p>
+        <p class="gitai-score-note">
+          試作スコアです。背景内の最大100地点を仮想評価し、上位10地点の平均を表示しています。
+          現段階では人間の見え方との一致を検証するための開発用指標です。
+        </p>
+      </div>
+    </section>
+
+    <section id="specimenBoxOverlay" class="overlay" aria-label="標本箱">
+      <div class="panel specimen-panel">
+        <div class="evolution-toolbar">
+          <button id="specimenBoxCloseButton" class="overlay-close" type="button" aria-label="戻る">←</button>
+          <h2 class="evolution-title">標本箱</h2>
+          <button id="specimenBackgroundToggle" class="specimen-bg-toggle" type="button" aria-label="生息環境の背景に切り替える" aria-pressed="false"><span class="specimen-bg-icon" aria-hidden="true"></span></button>
+        </div>
+        <div id="specimenGrid" class="specimen-grid"></div>
+      </div>
+    </section>
+
+    <section id="resetConfirmOverlay" class="overlay" aria-label="リセット確認">
+      <div class="panel confirm-panel">
+        <h2>第1世代に戻しますか？</h2>
+        <p id="resetConfirmText" class="confirm-warning"></p>
+        <p class="subtle">この操作は元に戻せません。</p>
+        <div class="confirm-actions">
+          <button id="resetCancelButton" type="button">キャンセル</button>
+          <button id="resetConfirmButton" class="danger-action" type="button">第1世代に戻す</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="rankingOverlay" class="overlay" aria-label="歴代ランキング">
+      <div class="panel ranking-panel">
+        <h2>歴代ランキング</h2>
+        <p class="ranking-note">同じ捕食数は同順位です<br>テスト版では、この端末・同じ制限時間の記録を表示します</p>
+        <div id="rankingList" class="ranking-list"></div>
+        <button id="rankingCloseButton" type="button">戻る</button>
+      </div>
+    </section>
+
+    <section id="errorOverlay" class="overlay">
+      <div class="panel">
+        <h2>エラー</h2>
+        <p id="errorText"></p>
+        <button id="reloadButton" type="button">再読み込み</button>
+      </div>
+    </section>
+
+    <!-- Entertainment-only entrance. Underlying SOLO engine and education model
+         continue using the existing overlays and IndexedDB without changes. -->
+    <section id="entertainmentPortal" class="pixel-portal portal-line-mode" hidden aria-hidden="true" aria-label="ギタイラボ エンタメ版">
+      <canvas id="portalArt" class="portal-art" width="180" height="320" aria-hidden="true"></canvas>
+      <div class="portal-noise" aria-hidden="true"></div>
+      <div class="portal-frame" aria-hidden="true"></div>
+
+      <div id="portalIntro" class="portal-screen portal-intro is-active" aria-hidden="false">
+        <div class="portal-topline" aria-hidden="true">
+          <span>GITAI / LAB</span><span>EST. 2026</span>
+        </div>
+        <div class="portal-brand-intro">
+          <div class="portal-eyebrow">- INVISILAB -</div>
+          <h1 class="portal-main-logo">ギタイラボ</h1>
+          <div class="portal-divider-mark" aria-hidden="true">✦</div>
+          <div class="portal-subtitle">見つかるか。生き残るか。</div>
+        </div>
+        <div class="portal-intro-footer" aria-hidden="true">
+          <p>小さな命と、進化の冒険へ。</p>
+          <button id="portalEnter" class="portal-tap-prompt" type="button" aria-label="スタート：モード選択へ進む">START <span aria-hidden="true">↗</span></button>
+          
+        </div>
+        <div class="portal-bottom-meta" aria-hidden="true">A LITTLE WORLD OF MIMICRY</div>
+      </div>
+
+      <div id="portalMenu" class="portal-screen portal-menu" aria-hidden="true">
+        <div class="portal-menu-header">
+          <button id="portalToIntro" class="portal-back" type="button" aria-label="タイトルに戻る">←</button>
+          <div class="portal-menu-header-label">GITAI LAB<span>SELECT YOUR PATH / 02</span></div>
+        </div>
+        <div class="portal-menu-content">
+          <div class="portal-menu-kicker">INVISILAB / MODE SELECT</div>
+          <h2 class="portal-menu-heading">ギタイラボ</h2>
+          <p class="portal-menu-description">どんなギタイをする？</p>
+          <label class="portal-nickname" for="portalNickname">
+            <span class="portal-nickname-label">NICKNAME</span>
+            <input id="portalNickname" class="portal-nickname-input" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="ニックネーム">
+          </label>
+          <div class="portal-modes">
+            <button id="portalSolo" class="portal-mode portal-mode-solo" type="button">
+              <span class="portal-mode-icon" aria-hidden="true">◈</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">ひとりでギタイ</span><span class="portal-mode-sub">自分だけの進化を育てよう</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">PLAY ▶</span>
+            </button>
+            <button id="portalShared" class="portal-mode" type="button" aria-haspopup="dialog">
+              <span class="portal-mode-icon" aria-hidden="true">◇</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">みんなでギタイ</span><span class="portal-mode-sub">世界をつなぐ / 準備中</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">SOON</span>
+            </button>
+            <button id="portalMystery" class="portal-mode portal-mode-locked" type="button" aria-haspopup="dialog">
+              <span class="portal-mode-icon" aria-hidden="true">?</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">？？？？</span><span class="portal-mode-sub">まだ見ぬ研究区画</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">LOCK</span>
+            </button>
+          </div>
+        </div>
+        <div class="portal-menu-footer">INVISILAB / EVERY LIFE HAS A STORY</div>
+        <div id="portalDialog" class="portal-dialog" role="dialog" aria-modal="true" aria-labelledby="portalDialogTitle" hidden>
+          <h3 id="portalDialogTitle" class="portal-dialog-title">準備中</h3>
+          <p id="portalDialogText" class="portal-dialog-text"></p>
+          <button id="portalDialogClose" type="button">もどる</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script src="js/gen1_01.js"></script>
+<script src="js/gen1_02.js"></script>
+<script src="js/gen1_03.js"></script>
+<script src="js/gen1_04.js"></script>
+<script src="js/gen1_05.js"></script>
+<script src="js/gen1_06.js"></script>
+<script src="js/mask_data.js"></script>
+<script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
+<script src="js/theater_scale.js?v=20261016-ratio1"></script>
+<script src="js/pages_preview.js?v=20261017-specimen-genome1"></script>
+<script>
+(() => {
+  'use strict';
+
+  let CONFIG = null;
+  let speciesConfig = null;
+  let environmentConfig = null;
+  let submitTimeoutMs = 30000;
+  let scaledForbiddenAreas = [];
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const roundShutter = document.getElementById('roundShutter');
+  const roundShutterGeneration = document.getElementById('roundShutterGeneration');
+  const soloHomeButton = document.getElementById('soloHomeButton');
+  const resultBackToMenu = document.getElementById('resultBackToMenu');
+
+  const startOverlay = document.getElementById('startOverlay');
+  const startGeneration = document.getElementById('startGeneration');
+  const startButton = document.getElementById('startButton');
+  const introLead = document.getElementById('introLead');
+  const introSubtle = document.getElementById('introSubtle');
+
+  const reviewOverlay = document.getElementById('reviewOverlay');
+  const reviewGeneration = document.getElementById('reviewGeneration');
+  const reviewTitle = document.getElementById('reviewTitle');
+  const reviewMessage = document.getElementById('reviewMessage');
+  const scoreValue = document.getElementById('scoreValue');
+  const rankText = document.getElementById('rankText');
+  const nameEntry = document.getElementById('nameEntry');
+  const playerName = document.getElementById('playerName');
+  const saveNameButton = document.getElementById('saveNameButton');
+  const nameSaved = document.getElementById('nameSaved');
+  const rankingButton = document.getElementById('rankingButton');
+  const evolutionStatus = document.getElementById('evolutionStatus');
+  const continueButton = document.getElementById('continueButton');
+  const compareButton = document.getElementById('compareButton');
+  const authorNewsTeaser = document.getElementById('authorNewsTeaser');
+  const specimenBoxButton = document.getElementById('specimenBoxButton');
+
+  const generationOverlay = document.getElementById('generationOverlay');
+  const generationPanel = document.getElementById('generationPanel');
+  const generationOrb = document.getElementById('generationOrb');
+  const generationTitle = document.getElementById('generationTitle');
+  const generationMessage = document.getElementById('generationMessage');
+  const generationContinueButton = document.getElementById('generationContinueButton');
+
+  const mutationRevealOverlay = document.getElementById('mutationRevealOverlay');
+  const mutationRevealMessage = document.getElementById('mutationRevealMessage');
+  const mutationRevealGrid = document.getElementById('mutationRevealGrid');
+  const mutationRevealContinueButton = document.getElementById('mutationRevealContinueButton');
+  const rankMilestoneOverlay = document.getElementById('rankMilestoneOverlay');
+  const rankMilestoneGrade = document.getElementById('rankMilestoneGrade');
+  const rankMilestoneImage = document.getElementById('rankMilestoneImage');
+  const rankMilestoneDescription = document.getElementById('rankMilestoneDescription');
+  const rankMilestoneSaveButton = document.getElementById('rankMilestoneSaveButton');
+  const rankMilestoneContinueButton = document.getElementById('rankMilestoneContinueButton');
+
+  const specimenBoxOverlay = document.getElementById('specimenBoxOverlay');
+  const specimenBoxCloseButton = document.getElementById('specimenBoxCloseButton');
+  const specimenBackgroundToggle = document.getElementById('specimenBackgroundToggle');
+  const specimenGrid = document.getElementById('specimenGrid');
+
+  const evolutionOverlay = document.getElementById('evolutionOverlay');
+  const evolutionCloseButton = document.getElementById('evolutionCloseButton');
+  const evolutionTitle = document.getElementById('evolutionTitle');
+  const evolutionSpecimenButton = document.getElementById('evolutionSpecimenButton');
+  const evolutionNextButton = document.getElementById('evolutionNextButton');
+  const evolutionTheaterButton = document.getElementById('evolutionTheaterButton');
+  const evolutionScroller = evolutionOverlay.querySelector('.evolution-scroll');
+  const evolutionGen1 = document.getElementById('evolutionGen1');
+  const evolutionLatestGrid = document.getElementById('evolutionLatestGrid');
+  const latestGenerationTitle = document.getElementById('latestGenerationTitle');
+
+  const theaterButton = document.getElementById('theaterButton');
+  const theaterOverlay = document.getElementById('theaterOverlay');
+  const theaterCloseButton = document.getElementById('theaterCloseButton');
+  const theaterMeta = document.getElementById('theaterMeta');
+  const theaterFrameImage = document.getElementById('theaterFrameImage');
+  const theaterSlider = document.getElementById('theaterSlider');
+  const theaterProgress = document.getElementById('theaterProgress');
+  const theaterPrevButton = document.getElementById('theaterPrevButton');
+  const theaterPlayButton = document.getElementById('theaterPlayButton');
+  const theaterNextButton = document.getElementById('theaterNextButton');
+  const theaterSpeed = document.getElementById('theaterSpeed');
+  const theaterNote = document.getElementById('theaterNote');
+
+  const mothShareOverlay = document.getElementById('mothShareOverlay');
+  const shareCard = document.getElementById('shareCard');
+  const shareCardTitle = document.getElementById('shareCardTitle');
+  const shareMothImage = document.getElementById('shareMothImage');
+  const shareGeneration = document.getElementById('shareGeneration');
+  const shareMothIndex = document.getElementById('shareMothIndex');
+  const shareBackButton = document.getElementById('shareBackButton');
+  const shareButton = document.getElementById('shareButton');
+  const specimenSaveButton = document.getElementById('specimenSaveButton');
+  const gitaiScoreButton = document.getElementById('gitaiScoreButton');
+  const shareStatus = document.getElementById('shareStatus');
+  const gitaiScoreOverlay = document.getElementById('gitaiScoreOverlay');
+  const gitaiScoreCloseButton = document.getElementById('gitaiScoreCloseButton');
+  const gitaiScoreCanvas = document.getElementById('gitaiScoreCanvas');
+  const gitaiScoreValue = document.getElementById('gitaiScoreValue');
+  const gitaiColorScore = document.getElementById('gitaiColorScore');
+  const gitaiValueScore = document.getElementById('gitaiValueScore');
+  const gitaiTextureScore = document.getElementById('gitaiTextureScore');
+  const gitaiOutlineScore = document.getElementById('gitaiOutlineScore');
+  const gitaiScoreMeta = document.getElementById('gitaiScoreMeta');
+
+  const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
+  const resetConfirmText = document.getElementById('resetConfirmText');
+  const resetCancelButton = document.getElementById('resetCancelButton');
+  const resetConfirmButton = document.getElementById('resetConfirmButton');
+
+  const rankingOverlay = document.getElementById('rankingOverlay');
+  const rankingList = document.getElementById('rankingList');
+  const rankingCloseButton = document.getElementById('rankingCloseButton');
+
+  const errorOverlay = document.getElementById('errorOverlay');
+  const errorText = document.getElementById('errorText');
+  const reloadButton = document.getElementById('reloadButton');
+
+  const GAME_WIDTH = canvas.width;
+  const GAME_HEIGHT = canvas.height;
+
+  const state = {
+    currentGenerationId: 'gen00001',
+    generationNumber: 1,
+    backgroundImage: null,
+    mothImages: [],
+    rounds: [],
+    currentRoundIndex: 0,
+    activeMoths: [],
+    eatenIndices: new Set(),
+    allSurvivorIndices: [],
+    roundRecords: [],
+    roundTapEvents: [],
+    roundStartedAt: 0,
+    roundActive: false,
+    remainingSeconds: 0,
+    countdownIntervalId: null,
+    roundTimeoutId: null,
+    interRoundTimeoutId: null,
+    interRoundDueAt: 0,
+    soloPaused: false,
+    pausedRoundRemainingMs: null,
+    pausedInterRoundRemainingMs: null,
+    nextGenerationId: null,
+    submitStatus: 'idle',
+    runId: null,
+    scoreRecordId: null,
+    scoreSummary: null,
+    selectedShare: null,
+    theaterFrames: [],
+    theaterFrameIndex: 0,
+    theaterTimerId: null,
+    theaterObjectUrls: [],
+    pendingMutationEvent: null,
+    pendingRankMilestone: null,
+    mutationRevealItems: [],
+    mutationRevealIndex: 0,
+    rankScoredGenerationId: null,
+    hitEffects: [],
+    hitEffectFrameId: null,
+    comboCount: 0,
+    lastHitAt: 0,
+    generationStartedAt: 0,
+    specimenObjectUrls: [],
+    playedMothSources: [],
+    temporaryMothRanks: new Map(),
+    rankCalculationToken: 0,
+    shutterTimerIds: [],
+    bootReady: false,
+    uiTransitionLocked: false,
+    wakeLock: null,
+  };
+
+  function applyAppConfig(appConfig) {
+    if (!appConfig || !appConfig.game || !appConfig.species || !appConfig.environment) {
+      throw new Error('アプリ設定が不正です');
+    }
+
+    speciesConfig = appConfig.species;
+    environmentConfig = appConfig.environment;
+    submitTimeoutMs = Number(
+      appConfig.network?.submit_timeout_ms || 30000
+    );
+
+    const game = appConfig.game;
+    const background = environmentConfig.background;
+    const population = Number(speciesConfig.population_size);
+    const rounds = Number(game.rounds_per_generation);
+    const perRound = Number(game.individuals_per_round);
+
+    if (!Number.isInteger(population) || population <= 0) {
+      throw new Error('population_size が不正です');
+    }
+    if (rounds * perRound !== population) {
+      throw new Error('ラウンド構成と個体数が一致しません');
+    }
+
+    CONFIG = Object.freeze({
+      ROUND_LIMIT: rounds,
+      ROUND_TIME_MS: Number(game.round_time_ms),
+      INTER_ROUND_DELAY_MS: Number(
+        game.inter_round_delay_ms ?? 250
+      ),
+      MOTHS_PER_ROUND: perRound,
+      TOTAL_MOTHS: population,
+      MOTH_SIZE: Number(game.display_size_px),
+      MOTH_Y_MIN: Number(game.display_y_min_px ?? 0),
+      MOTH_Y_MAX: Number(game.display_y_max_px),
+      HUD_BAR_HEIGHT: Number(game.hud_bar_height_px ?? 36),
+      HUD_CLEARANCE: Number(game.hud_clearance_px ?? 40),
+      BG_TRUE_WIDTH: Number(background.source_width),
+      BG_TRUE_HEIGHT: Number(background.source_height),
+      BACKGROUND_SRC: String(background.src),
+    });
+
+    document.documentElement.style.setProperty(
+      '--gitai-preview-bg',
+      'url("' + CONFIG.BACKGROUND_SRC.replace(/"/g, '%22') + '")',
+    );
+
+    const sx = GAME_WIDTH / CONFIG.BG_TRUE_WIDTH;
+    const sy = GAME_HEIGHT / CONFIG.BG_TRUE_HEIGHT;
+    scaledForbiddenAreas = (environmentConfig.forbidden_areas || []).map((area) => ({
+      x: Number(area.x) * sx,
+      y: Number(area.y) * sy,
+      width: Number(area.width) * sx,
+      height: Number(area.height) * sy,
+    }));
+
+    const label = String(speciesConfig.display_name_ja || '生き物');
+    document.title = appConfig.title || 'ギタイラボ';
+    introLead.innerHTML = `見つけた${label}を<br>タップしてください。`;
+    introSubtle.innerHTML = `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
+
+    compareButton.textContent = 'プレイした世代を見る';
+  }
+
+  async function fetchAppConfig() {
+    const res = await fetch('/api/app_config', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`設定を取得できません (HTTP ${res.status})`);
+    const data = await res.json();
+    applyAppConfig(data);
+  }
+
+  function individualAssetPath(generationId, index) {
+    const template = String(speciesConfig.image.asset_template || '');
+    const path = template
+      .replaceAll('{generation_id}', generationId)
+      .replaceAll('{index_2d}', String(index).padStart(2, '0'))
+      .replaceAll('{index}', String(index));
+    return window.GitaiPagesPreview
+      ? window.GitaiPagesPreview.resolveAsset(generationId, index, path)
+      : path;
+  }
+
+  function generationLabel() {
+    return `GENERATION ${String(state.generationNumber).padStart(5, '0')}`;
+  }
+
+  function isEntertainmentModel() {
+    return String(
+      window.GitaiPagesPreview?.context?.evolutionModelId || ''
+    ) === 'continuous_v1';
+  }
+
+  function mutationEventStorageKey() {
+    const context = window.GitaiPagesPreview?.context || {};
+    return [
+      'gitai-pending-mutation-v1',
+      String(context.environmentId || 'environment'),
+      String(context.evolutionModelId || 'model'),
+      String(context.runId || 'default'),
+    ].join(':');
+  }
+
+  function loadPendingMutationEvent() {
+    if (!isEntertainmentModel()) return null;
+    try {
+      const raw = localStorage.getItem(mutationEventStorageKey());
+      if (!raw) return null;
+      const event = JSON.parse(raw);
+      if (
+        event
+        && event.has_rare_mutation
+        && String(event.generation_id || '') === state.currentGenerationId
+        && Array.isArray(event.mutants)
+      ) {
+        return event;
+      }
+      localStorage.removeItem(mutationEventStorageKey());
+    } catch (_) {}
+    return null;
+  }
+
+  function savePendingMutationEvent(event) {
+    try {
+      if (
+        event
+        && event.has_rare_mutation
+        && Array.isArray(event.mutants)
+        && event.mutants.length
+      ) {
+        localStorage.setItem(
+          mutationEventStorageKey(),
+          JSON.stringify(event),
+        );
+      } else {
+        localStorage.removeItem(mutationEventStorageKey());
+      }
+    } catch (_) {}
+  }
+
+  function clearPendingMutationEvent() {
+    try {
+      localStorage.removeItem(mutationEventStorageKey());
+    } catch (_) {}
+    state.pendingMutationEvent = null;
+  }
+
+  const SPECIMEN_DB_NAME = 'gitai-specimen-box-v1';
+  const SPECIMEN_STORE = 'specimens';
+  let specimenDbPromise = null;
+  let predationAudioContext = null;
+
+  function openSpecimenDb() {
+    if (specimenDbPromise) return specimenDbPromise;
+    specimenDbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(SPECIMEN_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(SPECIMEN_STORE)) {
+          db.createObjectStore(SPECIMEN_STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return specimenDbPromise;
+  }
+
+  function specimenIdentity(generationId, index) {
+    const context = window.GitaiPagesPreview?.context || {};
+    return [
+      String(context.environmentId || 'environment'),
+      String(context.evolutionModelId || 'model'),
+      String(context.runId || 'default'),
+      generationId,
+      String(index).padStart(2, '0'),
+    ].join(':');
+  }
+
+  async function specimenPut(record) {
+    const db = await openSpecimenDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(SPECIMEN_STORE, 'readwrite');
+      tx.objectStore(SPECIMEN_STORE).put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function specimenGet(id) {
+    const db = await openSpecimenDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(SPECIMEN_STORE, 'readonly');
+      const req = tx.objectStore(SPECIMEN_STORE).get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function specimenAll() {
+    const db = await openSpecimenDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(SPECIMEN_STORE, 'readonly');
+      const store = tx.objectStore(SPECIMEN_STORE);
+      const out = [];
+      const req = store.openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) {
+          resolve(out);
+          return;
+        }
+        out.push(cursor.value);
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function loadSpecimenGenome(generationId, index) {
+    // The preview reads only the currently selected run's source genome.
+    // No guessing from pixels, no side effects on evolution.
+    try {
+      const getGenome = window.GitaiPagesPreview?.getStoredGenomeForSpecimen;
+      if (typeof getGenome !== 'function') return null;
+      return await getGenome(generationId, Number(index));
+    } catch (error) {
+      console.warn('標本のGenomeを取得できませんでした', error);
+      return null;
+    }
+  }
+
+  async function saveSpecimen(generationId, index, src) {
+    if (!isEntertainmentModel()) return false;
+    const id = specimenIdentity(generationId, index);
+    const existing = await specimenGet(id);
+    // Only fetch Genome on an explicit save; never scan all generations.
+    const genome = existing?.genome ? null : await loadSpecimenGenome(generationId, index);
+    // Keep the same position-based provisional score used in the generation
+    // gallery. Do not score a different habitat/position on specimen reopen.
+    const rankScore = state.temporaryMothRanks.get(generationId + ':' + index);
+    const hasRankScore = Number.isFinite(rankScore);
+    if (existing) {
+      // Keep the original PNG and all existing metadata. A missing historical
+      // rank is filled only when the played-generation score is available.
+      const changes = {};
+      if (!existing.genome) {
+        if (!genome) throw new Error('標本の情報を取得できませんでした');
+        changes.genome = genome;
+      }
+      if (!Number.isFinite(existing.temporary_rank_score) && hasRankScore) {
+        changes.temporary_rank_score = rankScore;
+      }
+      if (Object.keys(changes).length) await specimenPut({ ...existing, ...changes });
+      return true;
+    }
+    // New specimens ALWAYS store their original genome and PNG together.
+    if (!genome) throw new Error('標本の情報を取得できませんでした');
+
+    const response = await fetch(src, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error('標本画像を保存できませんでした');
+    }
+    const blob = await response.blob();
+    const context = window.GitaiPagesPreview?.context || {};
+    const record = {
+      id,
+      generation_id: generationId,
+      generation_number: Number(String(generationId).slice(3)),
+      individual_index: Number(index),
+      environment_id: String(context.environmentId || ''),
+      evolution_model_id: String(context.evolutionModelId || ''),
+      run_id: String(context.runId || 'default'),
+      saved_at: new Date().toISOString(),
+      image_blob: blob,
+      genome,
+      ...(hasRankScore ? { temporary_rank_score: rankScore } : {}),
+    };
+    await specimenPut(record);
+    // The trophy system accepts only independently calibrated S/SS records.
+    // Until rank calibration is live, this is intentionally a no-op.
+    try { window.GitaiTrophies?.recordSpecimen?.(record); } catch (_) {}
+    return true;
+  }
+
+  function releaseSpecimenObjectUrls() {
+    for (const url of state.specimenObjectUrls) {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    }
+    state.specimenObjectUrls = [];
+  }
+
+  function setSpecimenHabitatView(enabled) {
+    specimenGrid.classList.toggle('is-habitat', Boolean(enabled));
+    specimenBackgroundToggle.setAttribute('aria-pressed', String(Boolean(enabled)));
+    specimenBackgroundToggle.setAttribute('aria-label',
+      enabled ? 'アイボリー背景に切り替える' : '生息環境の背景に切り替える');
+  }
+
+  async function showSpecimenBox() {
+    releaseSpecimenObjectUrls();
+    specimenGrid.innerHTML = '';
+    setSpecimenHabitatView(false);
+    specimenBoxOverlay.classList.add('visible');
+
+    try {
+      const records = (await specimenAll()).sort(
+        (a, b) => String(b.saved_at || '').localeCompare(String(a.saved_at || ''))
+      );
+
+      if (!records.length) {
+        const empty = document.createElement('div');
+        empty.className = 'specimen-empty';
+        empty.textContent = 'まだ標本はありません。世代一覧から気に入った個体を保存できます。';
+        specimenGrid.appendChild(empty);
+        return;
+      }
+
+      for (const record of records) {
+        if (!(record.image_blob instanceof Blob)) continue;
+        const url = URL.createObjectURL(record.image_blob);
+        state.specimenObjectUrls.push(url);
+
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'specimen-card';
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = `第${record.generation_number}世代 個体${record.individual_index}`;
+
+        const mount = document.createElement('span');
+        mount.className = 'specimen-card-mount';
+        mount.appendChild(img);
+
+        // Resolve the saved specimen's environment, not the current run's.
+        // Only allow trusted bundled habitat paths from the shared catalog.
+        const habitat = window.GitaiHabitatAccess?.get?.(
+          String(record.environment_id || '')
+        );
+        if (habitat && habitat.asset) {
+          mount.classList.add('has-habitat');
+          mount.style.setProperty('--specimen-habitat-bg',
+            'url("' + new URL(habitat.asset, document.baseURI).href + '")');
+        }
+
+        const meta = document.createElement('span');
+        meta.className = 'specimen-card-meta';
+        const generationLabel = document.createElement('span');
+        generationLabel.className = 'specimen-card-generation';
+        generationLabel.textContent = '第' + record.generation_number + '世代';
+        const mothLabel = document.createElement('span');
+        mothLabel.className = 'specimen-card-id';
+        mothLabel.textContent =
+          'MOTH ' + String(record.individual_index).padStart(2, '0');
+        meta.append(generationLabel, mothLabel);
+
+        card.setAttribute('aria-label', img.alt + ' を見る');
+        card.append(mount, meta);
+        card.addEventListener('click', () => {
+          showMothShare(
+            String(record.generation_id),
+            Number(record.individual_index),
+            url,
+            record,
+          );
+        });
+        specimenGrid.appendChild(card);
+      }
+    } catch (error) {
+      specimenGrid.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className = 'specimen-empty';
+      empty.textContent = '標本箱を読み込めませんでした。';
+      specimenGrid.appendChild(empty);
+    }
+  }
+
+  function readHitColor(x, y) {
+    try {
+      const p = ctx.getImageData(
+        Math.max(0, Math.min(GAME_WIDTH - 1, Math.round(x))),
+        Math.max(0, Math.min(GAME_HEIGHT - 1, Math.round(y))),
+        1,
+        1,
+      ).data;
+      return `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+    } catch (_) {
+      return 'rgb(184, 247, 255)';
+    }
+  }
+
+  function predationSound(combo) {
+    if (!isEntertainmentModel()) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!predationAudioContext) predationAudioContext = new AudioCtx();
+      if (predationAudioContext.state === 'suspended') {
+        predationAudioContext.resume().catch(() => {});
+      }
+
+      const now = predationAudioContext.currentTime;
+      const osc = predationAudioContext.createOscillator();
+      const gain = predationAudioContext.createGain();
+      const pitch = 250 + Math.min(7, combo - 1) * 34;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(pitch, now);
+      osc.frequency.exponentialRampToValueAtTime(pitch * 1.34, now + 0.055);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.035, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
+      osc.connect(gain);
+      gain.connect(predationAudioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch (_) {}
+  }
+
+  function drawHitEffects(now = performance.now()) {
+    if (!isEntertainmentModel() || !state.hitEffects.length) return;
+    const remaining = [];
+
+    for (const effect of state.hitEffects) {
+      const p = Math.max(0, Math.min(1, (now - effect.startedAt) / 260));
+      if (p >= 1) continue;
+      remaining.push(effect);
+
+      ctx.save();
+      const scale = 1 - p * 0.82;
+      const size = effect.size * Math.max(0.12, scale);
+      ctx.globalAlpha = Math.max(0, 1 - p);
+      ctx.drawImage(
+        effect.image,
+        effect.cx - size / 2,
+        effect.cy - size / 2,
+        size,
+        size,
+      );
+
+      ctx.strokeStyle = effect.color;
+      ctx.globalAlpha = Math.max(0, 0.72 - p * 0.72);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(effect.cx, effect.cy, 7 + p * 26, 0, Math.PI * 2);
+      ctx.stroke();
+
+      for (const particle of effect.particles) {
+        const travel = 6 + p * particle.distance;
+        const px = effect.cx + Math.cos(particle.angle) * travel;
+        const py = effect.cy + Math.sin(particle.angle) * travel;
+        ctx.globalAlpha = Math.max(0, (1 - p) * 0.9);
+        ctx.fillStyle = effect.color;
+        ctx.fillRect(px, py, particle.size, particle.size);
+      }
+
+      if (effect.combo >= 2) {
+        ctx.globalAlpha = Math.max(0, 1 - p);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px "PixelMplus", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(
+          `×${effect.combo}`,
+          effect.cx,
+          effect.cy - 25 - p * 14,
+        );
+      }
+      ctx.restore();
+    }
+
+    state.hitEffects = remaining;
+  }
+
+  function runHitEffectFrame() {
+    state.hitEffectFrameId = null;
+    if (!state.roundActive && !state.hitEffects.length) return;
+    render();
+    if (state.hitEffects.length) {
+      state.hitEffectFrameId = requestAnimationFrame(runHitEffectFrame);
+    }
+  }
+
+  function predationFeedback(moth, tapX, tapY) {
+    if (!isEntertainmentModel()) return;
+    const now = performance.now();
+    state.comboCount =
+      now - state.lastHitAt <= 650
+        ? state.comboCount + 1
+        : 1;
+    state.lastHitAt = now;
+
+    const cx = moth.x + moth.size / 2;
+    const cy = moth.y + moth.size / 2;
+    const color = readHitColor(tapX, tapY);
+    const particles = Array.from({ length: 8 }, (_, i) => ({
+      angle: (Math.PI * 2 * i) / 8 + Math.random() * 0.32,
+      distance: 12 + Math.random() * 22,
+      size: 2 + Math.floor(Math.random() * 3),
+    }));
+
+    state.hitEffects.push({
+      cx,
+      cy,
+      size: moth.size,
+      image: moth.image,
+      color,
+      combo: state.comboCount,
+      particles,
+      startedAt: now,
+    });
+
+    predationSound(state.comboCount);
+    try {
+      if (navigator.vibrate) navigator.vibrate(8);
+    } catch (_) {}
+
+    if (state.hitEffectFrameId === null) {
+      state.hitEffectFrameId = requestAnimationFrame(runHitEffectFrame);
+    }
+  }
+
+  function createPredationSkull() {
+    const badge = document.createElement('span');
+    badge.className = 'predation-skull';
+    badge.setAttribute('role', 'img');
+    badge.setAttribute('aria-label', '捕食された個体');
+    badge.innerHTML = `
+      <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+        <rect x="3" y="1" width="6" height="1" fill="#fff"/>
+        <rect x="2" y="2" width="8" height="1" fill="#fff"/>
+        <rect x="1" y="3" width="10" height="4" fill="#fff"/>
+        <rect x="2" y="7" width="8" height="2" fill="#fff"/>
+        <rect x="3" y="9" width="1" height="2" fill="#fff"/>
+        <rect x="5" y="9" width="2" height="2" fill="#fff"/>
+        <rect x="8" y="9" width="1" height="2" fill="#fff"/>
+        <rect x="3" y="4" width="2" height="2" fill="#111"/>
+        <rect x="7" y="4" width="2" height="2" fill="#111"/>
+        <rect x="5" y="6" width="2" height="1" fill="#111"/>
+      </svg>
+    `;
+    return badge;
+  }
+
+  function mutationTypeLabel(type) {
+    const labels = {
+      special_mutation: '突然変異',
+      base_hue_major: '色相大変異',
+      base_value_major: '明度大変異',
+      pattern_birth: '新しい模様',
+      pattern_hue_major: '模様色大変異',
+    };
+    return labels[type] || '突然変異';
+  }
+
+  function showMutationReveal() {
+    const event = state.pendingMutationEvent;
+    if (!isEntertainmentModel() || !event || !Array.isArray(event.mutants)) {
+      showRankMilestoneOrGallery();
+      return;
+    }
+    state.mutationRevealItems = event.mutants.filter((mutant) => {
+      const index = Number(mutant.index);
+      return Number.isInteger(index) && index >= 1 && index <= CONFIG.TOTAL_MOTHS;
+    });
+    state.mutationRevealIndex = 0;
+    if (!state.mutationRevealItems.length) {
+      clearPendingMutationEvent();
+      showRankMilestoneOrGallery();
+      return;
+    }
+    renderMutationRevealItem();
+    mutationRevealOverlay.classList.add('visible');
+  }
+
+  function renderMutationRevealItem() {
+    const mutant = state.mutationRevealItems[state.mutationRevealIndex];
+    if (!mutant) return;
+    const index = Number(mutant.index);
+    const src = String(state.playedMothSources[index - 1] || '')
+      || cacheBustUrl(individualAssetPath(state.currentGenerationId, index));
+    mutationRevealGrid.replaceChildren();
+    const card = document.createElement('div');
+    card.className = 'mutation-card';
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '突然変異個体 MOTH ' + String(index).padStart(2, '0');
+    const status = document.createElement('span');
+    status.className = 'mutation-card-status';
+    const types = (mutant.event_types || []).map(mutationTypeLabel).join(' / ');
+    status.textContent = 'MOTH ' + String(index).padStart(2, '0') + ' · ' + (types || '突然変異');
+    if (state.eatenIndices.has(index)) card.appendChild(createPredationSkull());
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.textContent = '標本箱に入れる';
+    save.addEventListener('click', async (event) => {
+      event.stopPropagation(); // Saving must not skip this moth.
+      save.disabled = true;
+      try {
+        await saveSpecimen(state.currentGenerationId, index, src);
+        save.textContent = '保存済み';
+      } catch (_) {
+        save.textContent = '保存失敗・再試行';
+        save.disabled = false;
+      }
+    });
+    card.append(img, status, save);
+    mutationRevealGrid.append(card);
+    mutationRevealMessage.textContent = '突然変異 ' + (state.mutationRevealIndex + 1)
+      + ' / ' + state.mutationRevealItems.length;
+    // The same short label is used for every mutant, including the final one.
+    // advanceMutationReveal() handles the destination after the last moth.
+    mutationRevealContinueButton.textContent = '次へ';
+  }
+
+  function advanceMutationReveal() {
+    if (!mutationRevealOverlay.classList.contains('visible')) return;
+    if (state.mutationRevealIndex < state.mutationRevealItems.length - 1) {
+      state.mutationRevealIndex += 1;
+      renderMutationRevealItem();
+      return;
+    }
+    mutationRevealOverlay.classList.remove('visible');
+    state.mutationRevealItems = [];
+    clearPendingMutationEvent();
+    showRankMilestoneOrGallery();
+  }
+
+  function showGenerationGenerating() {
+    state.generationStartedAt = performance.now();
+    generationPanel.classList.remove('rare');
+    generationOrb.hidden = false;
+    generationTitle.className = '';
+    generationTitle.textContent = '次の世代を生成中…';
+    generationMessage.textContent =
+      '生き残った個体から子孫をつくっています。';
+    generationContinueButton.hidden = true;
+    generationOverlay.classList.add('visible');
+  }
+
+  async function showGenerationReady(event) {
+    const elapsed = performance.now() - state.generationStartedAt;
+    if (elapsed < 1200) {
+      await new Promise((resolve) => setTimeout(resolve, 1200 - elapsed));
+    }
+
+    generationOrb.hidden = true;
+    if (event?.has_rare_mutation && event.mutants?.length) {
+      generationPanel.classList.add('rare');
+      generationTitle.className = 'generation-alert';
+      generationTitle.textContent = '突然変異発生！';
+      generationMessage.textContent =
+        '次世代に突然変異が発生しました。正体はプレイ終了後に公開されます。';
+      savePendingMutationEvent(event);
+    } else {
+      generationPanel.classList.remove('rare');
+      generationTitle.className = '';
+      generationTitle.textContent = '次の世代が誕生しました';
+      generationMessage.textContent = '';
+      savePendingMutationEvent(null);
+    }
+    generationContinueButton.hidden = false;
+  }
+
+  function leaderboardKey() {
+    const environmentId = String(
+      environmentConfig?.environment_id || 'environment'
+    );
+    const previewContext = window.GitaiPagesPreview?.context || {};
+    const modelId = String(
+      previewContext.evolutionModelId || 'continuous_v1'
+    );
+    const experimentRunId = String(
+      previewContext.runId || 'default'
+    );
+
+    // Preserve the existing public testers' ranking history on the default
+    // bark/sand Continuous v1 run. New experiments get isolated rankings.
+    if (previewContext.legacyDefaultStorage) {
+      return `gitai-preview-leaderboard-v4-solo-${environmentId}-${CONFIG.ROUND_TIME_MS}ms`;
+    }
+
+    return [
+      'gitai-preview-leaderboard-v5-solo',
+      environmentId,
+      modelId,
+      experimentRunId,
+      `${CONFIG.ROUND_TIME_MS}ms`,
+    ].join('-');
+  }
+
+  function activePlaySeconds() {
+    return (CONFIG.ROUND_LIMIT * CONFIG.ROUND_TIME_MS) / 1000;
+  }
+
+  function scoreRate(eatenCount) {
+    const seconds = activePlaySeconds();
+    return seconds > 0 ? eatenCount / seconds : 0;
+  }
+
+  function ensureRunId() {
+    if (!state.runId) {
+      state.runId = `exhibit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+    return state.runId;
+  }
+
+  function loadLeaderboard() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(leaderboardKey()) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((record) =>
+        record &&
+        typeof record.id === 'string' &&
+        Number.isInteger(Number(record.eaten))
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveLeaderboard(records) {
+    try {
+      localStorage.setItem(leaderboardKey(), JSON.stringify(records));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function recordCurrentScore() {
+    const eaten = state.eatenIndices.size;
+    const id = ensureRunId();
+    let records = loadLeaderboard();
+    let record = records.find((item) => item.id === id);
+
+    if (!record) {
+      record = {
+        id,
+        generation_id: state.currentGenerationId,
+        eaten,
+        rate: scoreRate(eaten),
+        name: '',
+        created_at: Date.now(),
+      };
+      records.push(record);
+      saveLeaderboard(records);
+    }
+
+    const rank = 1 + records.filter(
+      (item) => Number(item.eaten) > eaten
+    ).length;
+
+    state.scoreRecordId = id;
+    state.scoreSummary = {
+      eaten,
+      rate: scoreRate(eaten),
+      rank,
+      total: records.length,
+      eligible: rank <= 20,
+    };
+    return state.scoreSummary;
+  }
+
+  function renderScoreSummary() {
+    const summary = state.scoreSummary || recordCurrentScore();
+    scoreValue.textContent = summary.rate.toFixed(2);
+    rankText.textContent =
+      `全${summary.total.toLocaleString('ja-JP')}プレイ中 `
+      + `${summary.rank.toLocaleString('ja-JP')}位`;
+
+    const records = loadLeaderboard();
+    const current = records.find((item) => item.id === state.scoreRecordId);
+    const existingName = current && typeof current.name === 'string'
+      ? current.name.trim()
+      : '';
+
+    nameEntry.hidden = !summary.eligible;
+    nameSaved.hidden = true;
+    saveNameButton.disabled = false;
+    playerName.disabled = false;
+    playerName.value = existingName;
+
+    if (summary.eligible && existingName) {
+      nameSaved.hidden = false;
+      playerName.disabled = true;
+      saveNameButton.disabled = true;
+    }
+  }
+
+  function saveCurrentName() {
+    if (!state.scoreRecordId || !state.scoreSummary?.eligible) return;
+
+    const name = playerName.value.trim().slice(0, 12);
+    if (!name) {
+      playerName.focus();
+      return;
+    }
+
+    const records = loadLeaderboard();
+    const record = records.find((item) => item.id === state.scoreRecordId);
+    if (!record) return;
+
+    record.name = name;
+    saveLeaderboard(records);
+    playerName.value = name;
+    playerName.disabled = true;
+    saveNameButton.disabled = true;
+    nameSaved.hidden = false;
+  }
+
+  function renderRanking() {
+    const records = loadLeaderboard()
+      .slice()
+      .sort((a, b) =>
+        Number(b.eaten) - Number(a.eaten)
+        || Number(a.created_at || 0) - Number(b.created_at || 0)
+      );
+
+    rankingList.innerHTML = '';
+    if (!records.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ranking-empty';
+      empty.textContent = 'まだ記録がありません。';
+      rankingList.appendChild(empty);
+      return;
+    }
+
+    let consumed = 0;
+    let index = 0;
+
+    while (index < records.length) {
+      const eaten = Number(records[index].eaten);
+      const group = [];
+      while (
+        index < records.length &&
+        Number(records[index].eaten) === eaten
+      ) {
+        group.push(records[index]);
+        index += 1;
+      }
+
+      const rank = consumed + 1;
+      consumed += group.length;
+      if (rank > 20) break;
+
+      const block = document.createElement('div');
+      block.className = 'ranking-group';
+
+      const head = document.createElement('div');
+      head.className = 'ranking-group-head';
+
+      const rankEl = document.createElement('div');
+      rankEl.className = 'ranking-rank';
+      rankEl.textContent = `${rank}位`;
+
+      const scoreEl = document.createElement('div');
+      scoreEl.className = 'ranking-score';
+      scoreEl.textContent = `1秒あたり ${scoreRate(eaten).toFixed(2)}匹`;
+
+      head.append(rankEl, scoreEl);
+      block.appendChild(head);
+
+      const names = group
+        .map((record) => String(record.name || '').trim())
+        .filter(Boolean);
+      const unnamed = group.length - names.length;
+
+      const namesEl = document.createElement('div');
+      namesEl.className = 'ranking-names';
+      const displayNames = [...names];
+      if (unnamed === 1) displayNames.push('NO NAME');
+      else if (unnamed > 1) displayNames.push(`NO NAME ×${unnamed}`);
+      namesEl.textContent = displayNames.join(' / ');
+
+      block.appendChild(namesEl);
+      rankingList.appendChild(block);
+    }
+  }
+
+  function showRanking() {
+    renderRanking();
+    rankingOverlay.classList.add('visible');
+  }
+
+  function cacheBustUrl(path) {
+    const value = String(path);
+    if (value.startsWith('blob:') || value.startsWith('data:')) return value;
+    const separator = value.includes('?') ? '&' : '?';
+    return `${value}${separator}v=${Date.now()}`;
+  }
+
+  async function requestScreenWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+
+    try {
+      if (state.wakeLock && !state.wakeLock.released) return;
+      state.wakeLock = await navigator.wakeLock.request('screen');
+      state.wakeLock.addEventListener('release', () => {
+        state.wakeLock = null;
+      });
+    } catch (_) {
+      // Optional enhancement only. The game remains usable when Safari,
+      // battery policy, or device settings reject the request.
+      state.wakeLock = null;
+    }
+  }
+
+  function showFatal(message) {
+    clearTimers();
+    state.roundActive = false;
+    errorText.textContent = message;
+    errorOverlay.classList.add('visible');
+  }
+
+  function clearTimers() {
+    if (state.countdownIntervalId !== null) {
+      clearInterval(state.countdownIntervalId);
+      state.countdownIntervalId = null;
+    }
+    if (state.roundTimeoutId !== null) {
+      clearTimeout(state.roundTimeoutId);
+      state.roundTimeoutId = null;
+    }
+  }
+
+  // A return to the menu pauses the current 4-second round in memory.
+  // It neither submits nor resets a generation; resume uses the same moths.
+  function scheduleInterRound(delay) {
+    state.interRoundDueAt = performance.now() + delay;
+    state.interRoundTimeoutId = setTimeout(() => {
+      state.interRoundTimeoutId = null;
+      if (state.soloPaused) {
+        state.pausedInterRoundRemainingMs = 0;
+        return;
+      }
+      state.uiTransitionLocked = false;
+      startRound();
+    }, delay);
+  }
+
+  function pauseSolo() {
+    if (!isEntertainmentModel() || state.soloPaused) return;
+    state.soloPaused = true;
+    if (state.roundActive) {
+      state.pausedRoundRemainingMs = Math.max(1,
+        CONFIG.ROUND_TIME_MS - (performance.now() - state.roundStartedAt));
+      clearTimers();
+      if (state.hitEffectFrameId !== null) {
+        cancelAnimationFrame(state.hitEffectFrameId);
+        state.hitEffectFrameId = null;
+      }
+      state.hitEffects = [];
+    }
+    if (state.interRoundTimeoutId !== null) {
+      state.pausedInterRoundRemainingMs = Math.max(0, state.interRoundDueAt - performance.now());
+      clearTimeout(state.interRoundTimeoutId);
+      state.interRoundTimeoutId = null;
+    }
+  }
+
+  function resumeSolo() {
+    if (!state.soloPaused) return;
+    state.soloPaused = false;
+    if (state.roundActive && state.pausedRoundRemainingMs !== null) {
+      const remaining = state.pausedRoundRemainingMs;
+      state.roundStartedAt = performance.now() - (CONFIG.ROUND_TIME_MS - remaining);
+      state.remainingSeconds = Math.ceil(remaining / 1000);
+      state.countdownIntervalId = setInterval(() => {
+        state.remainingSeconds = Math.max(0, state.remainingSeconds - 1);
+        render();
+      }, 1000);
+      state.roundTimeoutId = setTimeout(endRound, remaining);
+    }
+    if (state.pausedInterRoundRemainingMs !== null) {
+      scheduleInterRound(state.pausedInterRoundRemainingMs);
+    }
+    state.pausedRoundRemainingMs = null;
+    state.pausedInterRoundRemainingMs = null;
+    render();
+  }
+
+  window.addEventListener('gitai:solo-pause', pauseSolo);
+  window.addEventListener('gitai:solo-resume', resumeSolo);
+
+  function shuffle(array) {
+    const a = [...array];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function buildRounds() {
+    const order = shuffle(Array.from({ length: CONFIG.TOTAL_MOTHS }, (_, i) => i + 1));
+    state.rounds = [];
+    for (let r = 0; r < CONFIG.ROUND_LIMIT; r++) {
+      state.rounds.push(order.slice(r * CONFIG.MOTHS_PER_ROUND, (r + 1) * CONFIG.MOTHS_PER_ROUND));
+    }
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`画像を読み込めません: ${src}`));
+      img.src = src;
+    });
+  }
+
+  async function fetchCurrentGeneration() {
+    const res = await fetch('/api/current_generation', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`世代情報を取得できません (HTTP ${res.status})`);
+    const data = await res.json();
+    const id = String(data.current_generation_id || '');
+    if (!/^gen\d{5}$/.test(id)) throw new Error('世代IDが不正です');
+    return id;
+  }
+
+  async function preloadAssets() {
+    state.backgroundImage = await loadImage(cacheBustUrl(CONFIG.BACKGROUND_SRC));
+
+    const promises = [];
+    for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i++) {
+      const src = cacheBustUrl(individualAssetPath(state.currentGenerationId, i));
+      promises.push(loadImage(src));
+    }
+
+    state.mothImages = await Promise.all(promises);
+  }
+
+  function isInForbiddenArea(x, y, size) {
+    return scaledForbiddenAreas.some((a) => !(
+      x + size <= a.x ||
+      x >= a.x + a.width ||
+      y + size <= a.y ||
+      y >= a.y + a.height
+    ));
+  }
+
+  function isOverlapping(x, y, size, moths) {
+    return moths.some((m) => !(
+      x + size <= m.x ||
+      x >= m.x + m.size ||
+      y + size <= m.y ||
+      y >= m.y + m.size
+    ));
+  }
+
+  function placeRoundMoths() {
+    const indices = state.rounds[state.currentRoundIndex];
+    if (!indices || indices.length !== CONFIG.MOTHS_PER_ROUND) {
+      throw new Error('ラウンド個体データが不正です');
+    }
+
+    const placed = [];
+    let attempts = 0;
+    const maxAttempts = 10000;
+    const size = CONFIG.MOTH_SIZE;
+    const hudSafeTop =
+      CONFIG.HUD_BAR_HEIGHT + CONFIG.HUD_CLEARANCE;
+    const hudSafeBottom =
+      GAME_HEIGHT - CONFIG.HUD_BAR_HEIGHT - CONFIG.HUD_CLEARANCE;
+
+    const yMin = Math.max(
+      0,
+      CONFIG.MOTH_Y_MIN,
+      hudSafeTop
+    );
+    const yMax = Math.max(
+      yMin,
+      Math.min(
+        CONFIG.MOTH_Y_MAX,
+        hudSafeBottom,
+        GAME_HEIGHT
+      ) - size
+    );
+    const yRange = yMax - yMin;
+
+    while (placed.length < CONFIG.MOTHS_PER_ROUND && attempts < maxAttempts) {
+      const x = Math.random() * (GAME_WIDTH - size);
+      const y = yMin + Math.random() * yRange;
+
+      if (!isInForbiddenArea(x, y, size) && !isOverlapping(x, y, size, placed)) {
+        const index = indices[placed.length];
+        placed.push({
+          index,
+          x, y, size,
+          clicked: false,
+          image: state.mothImages[index - 1],
+        });
+      }
+      attempts++;
+    }
+
+    if (placed.length !== CONFIG.MOTHS_PER_ROUND) {
+      throw new Error(`${CONFIG.MOTHS_PER_ROUND}個体を安全に配置できませんでした`);
+    }
+
+    state.activeMoths = placed;
+  }
+
+  function drawBackground() {
+    if (!state.backgroundImage) {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+      return;
+    }
+    ctx.drawImage(state.backgroundImage, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+  }
+
+  function drawMoths() {
+    for (const moth of state.activeMoths) {
+      if (!moth.clicked) {
+        ctx.drawImage(moth.image, moth.x, moth.y, moth.size, moth.size);
+      }
+    }
+  }
+
+  function drawHud() {
+    ctx.save();
+
+    ctx.fillStyle = 'rgba(0,0,0,0.52)';
+    ctx.fillRect(0, 0, GAME_WIDTH, CONFIG.HUD_BAR_HEIGHT);
+    ctx.fillRect(
+      0,
+      GAME_HEIGHT - CONFIG.HUD_BAR_HEIGHT,
+      GAME_WIDTH,
+      CONFIG.HUD_BAR_HEIGHT
+    );
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '13px "PixelMplus", monospace';
+    ctx.textBaseline = 'middle';
+
+    ctx.textAlign = 'left';
+    const hudMidY = CONFIG.HUD_BAR_HEIGHT / 2;
+    ctx.fillText(generationLabel(), 12, hudMidY);
+
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      `ROUND ${state.currentRoundIndex + 1} / ${CONFIG.ROUND_LIMIT}`,
+      12,
+      GAME_HEIGHT - hudMidY
+    );
+
+    ctx.textAlign = 'right';
+    ctx.fillText(
+      `残り ${state.remainingSeconds} 秒`,
+      GAME_WIDTH - 12,
+      GAME_HEIGHT - hudMidY
+    );
+
+    ctx.restore();
+  }
+
+  function capturePlayedMothSources() {
+    const sources = [];
+    for (const image of state.mothImages) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = 128;
+        c.height = 128;
+        const c2d = c.getContext('2d');
+        c2d.clearRect(0, 0, 128, 128);
+        c2d.drawImage(image, 0, 0, 128, 128);
+        sources.push(c.toDataURL('image/png'));
+      } catch (_) {
+        sources.push('');
+      }
+    }
+    state.playedMothSources = sources;
+  }
+
+  function clearShutterTimers() {
+    for (const id of state.shutterTimerIds) clearTimeout(id);
+    state.shutterTimerIds = [];
+  }
+
+  function playEndOfGenerationShutter(onClosed) {
+    clearShutterTimers();
+
+    const SHUTTER_DOWN_MS = 680;
+    const SHUTTER_HOLD_MS = 1000;
+    const SHUTTER_UP_MS = 680;
+
+    roundShutterGeneration.textContent = generationLabel();
+    roundShutter.classList.remove('closing', 'opening');
+    roundShutter.classList.add('active');
+    roundShutter.setAttribute('aria-hidden', 'false');
+
+    void roundShutter.offsetHeight;
+    requestAnimationFrame(() => roundShutter.classList.add('closing'));
+
+    // Wait for rank assessment behind the closed shutter, without exposing
+    // the old result screen or skipping a mutation/achievement announcement.
+    state.shutterTimerIds.push(setTimeout(async () => {
+      const heldAt = performance.now();
+      try {
+        if (typeof onClosed === 'function') await onClosed();
+      } catch (error) {
+        console.error('世代終了の演出に失敗しました', error);
+        showEvolutionComparison();
+      }
+      const waitMore = Math.max(0, SHUTTER_HOLD_MS - (performance.now() - heldAt));
+      state.shutterTimerIds.push(setTimeout(() => {
+        roundShutter.classList.remove('closing');
+        roundShutter.classList.add('opening');
+        state.shutterTimerIds.push(setTimeout(() => {
+          roundShutter.classList.remove('active', 'opening');
+          roundShutter.setAttribute('aria-hidden', 'true');
+          state.shutterTimerIds = [];
+        }, SHUTTER_UP_MS));
+      }, waitMore));
+    }, SHUTTER_DOWN_MS));
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    drawBackground();
+    if (state.roundActive) drawMoths();
+    drawHitEffects();
+    drawHud();
+  }
+
+  function startRound() {
+    reviewOverlay.classList.remove('visible');
+    soloHomeButton.hidden = !isEntertainmentModel();
+    clearTimers();
+
+    try {
+      placeRoundMoths();
+    } catch (err) {
+      showFatal(err.message || String(err));
+      return;
+    }
+
+    state.remainingSeconds = Math.ceil(CONFIG.ROUND_TIME_MS / 1000);
+    state.roundTapEvents = [];
+    state.hitEffects = [];
+    state.comboCount = 0;
+    state.lastHitAt = 0;
+    state.roundStartedAt = performance.now();
+    state.roundActive = true;
+    render();
+
+    state.countdownIntervalId = setInterval(() => {
+      state.remainingSeconds = Math.max(0, state.remainingSeconds - 1);
+      render();
+    }, 1000);
+
+    state.roundTimeoutId = setTimeout(endRound, CONFIG.ROUND_TIME_MS);
+  }
+
+  function endRound() {
+    if (!state.roundActive) return;
+
+    clearTimers();
+    state.roundActive = false;
+
+    const roundSurvivors = state.activeMoths
+      .filter((m) => !m.clicked)
+      .map((m) => m.index)
+      .sort((a, b) => a - b);
+
+    state.roundRecords.push({
+      round_index: state.currentRoundIndex + 1,
+      configured_duration_ms: CONFIG.ROUND_TIME_MS,
+      individuals: state.activeMoths.map((m) => ({
+        index: m.index,
+        x: Math.round(m.x * 100) / 100,
+        y: Math.round(m.y * 100) / 100,
+        size: m.size,
+        eaten: Boolean(m.clicked),
+      })),
+      tap_events: state.roundTapEvents.map((event) => ({ ...event })),
+    });
+
+    state.allSurvivorIndices.push(...roundSurvivors);
+    render();
+
+    const isFinalRound = state.currentRoundIndex === CONFIG.ROUND_LIMIT - 1;
+    if (isFinalRound) {
+      // Keep an immutable copy of the generation that was actually played.
+      // This prevents the newly generated offspring from being previewed.
+      capturePlayedMothSources();
+
+      if (isEntertainmentModel()) {
+        playEndOfGenerationShutter(async () => {
+          // Compute score-based achievements while the shutter is CLOSED.
+          showResults(); // Keep existing next-generation/submit state intact.
+          const scores = await calculatePlayedGenerationRanks();
+          state.pendingRankMilestone = selectNewRankMilestone(scores);
+          if (state.pendingMutationEvent) {
+            showMutationReveal();
+          } else {
+            showRankMilestoneOrGallery();
+          }
+        });
+      } else {
+        showResults();
+        sendEvolutionData();
+      }
+    } else {
+      state.uiTransitionLocked = true;
+      state.currentRoundIndex += 1;
+
+      scheduleInterRound(CONFIG.INTER_ROUND_DELAY_MS);
+    }
+  }
+
+
+  // Temporary visual ranking: uses the existing Lab-color + luminance +
+  // texture + outline score at each moth's ACTUAL played screen position.
+  // This is not the separately calibrated S/SS trophy system.
+  function temporaryRank(score) {
+    if (!Number.isFinite(score)) return null;
+    if (score >= 90) return 'SS';
+    if (score >= 80) return 'S';
+    if (score >= 68) return 'A';
+    if (score >= 54) return 'B';
+    if (score >= 40) return 'C';
+    return 'D';
+  }
+
+  function createMothRankBadge(score) {
+    const rank = temporaryRank(score);
+    const badge = document.createElement('span');
+    badge.className = 'moth-rank-badge';
+    badge.dataset.rank = rank || 'pending';
+    badge.textContent = rank || '—';
+    if (rank === 'S') {
+      // Text-only silver reflection; the surrounding purple never changes.
+      const letter = document.createElement('span');
+      letter.className = 'moth-rank-silver-letter';
+      letter.textContent = 'S';
+      badge.replaceChildren(letter);
+    }
+    badge.setAttribute('aria-label', rank
+      ? '擬態ランク（暫定）' + rank + ' · ' + Math.round(score) + '点'
+      : '擬態ランク（暫定）計算中');
+    if (Number.isFinite(score)) badge.title = '暫定擬態スコア ' + score.toFixed(1);
+    return badge;
+  }
+
+  function updateRenderedRank(generationId, index, score) {
+    const key = generationId + ':' + index;
+    state.temporaryMothRanks.set(key, score);
+    // Generation one can appear as BOTH the reference specimen and the
+    // just-played 60-moth grid. Keep their badges in sync.
+    const targets = [];
+    if (generationId === 'gen00001' && index === 1) {
+      targets.push(evolutionGen1.querySelector('.moth-preview-button'));
+    }
+    if (generationId === state.currentGenerationId) {
+      targets.push(evolutionLatestGrid.querySelector('[data-moth-index="' + index + '"]'));
+    }
+    for (const button of targets) {
+      const previous = button?.querySelector('.moth-rank-badge');
+      if (previous) previous.replaceWith(createMothRankBadge(score));
+    }
+  }
+
+  async function calculatePlayedGenerationRanks() {
+    if (!isEntertainmentModel() || !state.backgroundImage || !CONFIG) return new Map();
+    const winners = new Map();
+    const noteScore = (index, score) => {
+      const rank = temporaryRank(score);
+      if (!rank) return;
+      const current = winners.get(rank);
+      if (!current || score > current.score) winners.set(rank, {
+        rank, score, index, generationId: state.currentGenerationId,
+        src: String(state.playedMothSources[index - 1] || '')
+          || cacheBustUrl(individualAssetPath(state.currentGenerationId, index))
+      });
+    };
+    const token = ++state.rankCalculationToken;
+    try {
+      const backgroundCanvas = document.createElement('canvas');
+      backgroundCanvas.width = GAME_WIDTH;
+      backgroundCanvas.height = GAME_HEIGHT;
+      const bctx = backgroundCanvas.getContext('2d', { willReadFrequently: true });
+      bctx.drawImage(state.backgroundImage, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+      const bgData = bctx.getImageData(0, 0, GAME_WIDTH, GAME_HEIGHT).data;
+      const mothPositions = new Map();
+      for (const round of state.roundRecords) {
+        for (const m of round.individuals || []) {
+          mothPositions.set(m.index, m);
+        }
+      }
+      // A gen1 reference is shown above the current generation. Its position
+      // is a fixed reference point rather than a reconstructed play location.
+      if (state.currentGenerationId === 'gen00001') {
+        const m = mothPositions.get(1);
+        if (m) {
+          const a = buildMothAnalysis(state.mothImages[0]);
+          const score = analyzeGitaiPlacement(a, bgData, m.x, m.y, m.size).total;
+          updateRenderedRank('gen00001', 1, score);
+        }
+      } else {
+        try {
+          const gen1 = await loadImage(
+            cacheBustUrl(individualAssetPath('gen00001', 1))
+          );
+          if (token !== state.rankCalculationToken) return;
+          const a = buildMothAnalysis(gen1);
+          const x = (GAME_WIDTH - CONFIG.MOTH_SIZE) / 2;
+          const y = (GAME_HEIGHT - CONFIG.MOTH_SIZE) / 2;
+          updateRenderedRank('gen00001', 1,
+            analyzeGitaiPlacement(a, bgData, x, y, CONFIG.MOTH_SIZE).total);
+        } catch (_) {
+          // Old gen1 source may have been deleted; leave its rank unknown.
+        }
+      }
+      for (let index = 1; index <= CONFIG.TOTAL_MOTHS; index++) {
+        if (token !== state.rankCalculationToken) return;
+        const m = mothPositions.get(index);
+        const image = state.mothImages[index - 1];
+        if (m && image) {
+          try {
+            const score = analyzeGitaiPlacement(
+              buildMothAnalysis(image), bgData, m.x, m.y, m.size
+            ).total;
+            updateRenderedRank(state.currentGenerationId, index, score);
+            noteScore(index, score);
+          } catch (error) {
+            console.warn('暫定擬態ランクを計算できませんでした', index, error);
+          }
+        }
+        // Never block Safari's scrolling while computing all 60 moths.
+        if (index % 4 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      if (token === state.rankCalculationToken) state.rankScoredGenerationId = state.currentGenerationId;
+    } catch (error) {
+      console.warn('暫定擬態ランクの計算を省略しました', error);
+      return new Map(); // Never announce a rank on incomplete calculations.
+    }
+    return token === state.rankCalculationToken ? winners : new Map();
+  }
+
+  // Milestones are kept by HABITAT, across solo runs on this device.
+  // D is the starting rank and does not trigger a ceremony.
+  const RANK_ORDER = Object.freeze(['D', 'C', 'B', 'A', 'S', 'SS']);
+  function rankMilestoneStorageKey() {
+    const context = window.GitaiPagesPreview?.context || {};
+    return 'gitai-rank-milestone-v1:' + String(context.environmentId || 'environment')
+      + ':' + String(context.evolutionModelId || 'continuous_v1');
+  }
+
+  function highestPreviouslyReachedRank() {
+    try {
+      const raw = Number(localStorage.getItem(rankMilestoneStorageKey()));
+      return Number.isInteger(raw) && raw >= 0 && raw < RANK_ORDER.length ? raw : 0;
+    } catch (_) { return 0; }
+  }
+
+  function selectNewRankMilestone(winners) {
+    if (!isEntertainmentModel() || !(winners instanceof Map)) return null;
+    const prior = highestPreviouslyReachedRank();
+    let best = null;
+    for (const [rank, candidate] of winners) {
+      const level = RANK_ORDER.indexOf(rank);
+      if (level > prior && (!best || level > best.level)) {
+        best = { ...candidate, level };
+      }
+    }
+    return best;
+  }
+
+  function acknowledgeRankMilestone() {
+    const milestone = state.pendingRankMilestone;
+    if (milestone) {
+      try {
+        const level = Math.max(highestPreviouslyReachedRank(), milestone.level);
+        localStorage.setItem(rankMilestoneStorageKey(), String(level));
+      } catch (error) {
+        console.warn('新ランクの記録を保存できませんでした', error);
+      }
+    }
+    state.pendingRankMilestone = null;
+  }
+
+  function showRankMilestoneOrGallery() {
+    if (!state.pendingRankMilestone) {
+      showEvolutionComparison();
+      return;
+    }
+    const event = state.pendingRankMilestone;
+    rankMilestoneGrade.textContent = event.rank;
+    rankMilestoneGrade.dataset.rank = event.rank;
+    rankMilestoneImage.src = event.src;
+    rankMilestoneDescription.textContent = 'MOTH ' + String(event.index).padStart(2, '0')
+      + ' · 暫定擬態スコア ' + event.score.toFixed(1) + '点';
+    rankMilestoneSaveButton.disabled = false;
+    rankMilestoneSaveButton.textContent = '標本箱に入れる';
+    rankMilestoneContinueButton.textContent = '次へ';
+    rankMilestoneOverlay.classList.add('visible');
+    // Mark saved specimens, but do not change their Genome or score data.
+    specimenGet(specimenIdentity(event.generationId, event.index)).then((record) => {
+      if (record && state.pendingRankMilestone === event) {
+        rankMilestoneSaveButton.disabled = true;
+        rankMilestoneSaveButton.textContent = '保存済み';
+      }
+    }).catch(() => {});
+  }
+
+  function closeRankMilestone() {
+    if (!rankMilestoneOverlay.classList.contains('visible')) return;
+    rankMilestoneOverlay.classList.remove('visible');
+    acknowledgeRankMilestone();
+    showEvolutionComparison();
+  }
+
+  function revealEvolutionTheaterAtBottom() {
+    if (!isEntertainmentModel() || !evolutionOverlay.classList.contains('visible')) return;
+    const atEnd = evolutionScroller.scrollTop + evolutionScroller.clientHeight
+      >= evolutionScroller.scrollHeight - 36;
+    if (atEnd) evolutionTheaterButton.hidden = false;
+  }
+
+  function continueFromEvolutionList() {
+    if (!isEntertainmentModel() || state.submitStatus !== 'ready' || state.uiTransitionLocked) return;
+    evolutionOverlay.classList.remove('visible');
+    continueButton.click();
+  }
+
+  function createEvolutionMothButton(
+    generationId,
+    index,
+    srcOverride = '',
+    eaten = false,
+  ) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'moth-preview-button';
+    button.dataset.mothIndex = String(index);
+
+    const img = document.createElement('img');
+    img.src = srcOverride
+      ? srcOverride
+      : cacheBustUrl(individualAssetPath(generationId, index));
+    img.alt = `第${Number(generationId.slice(3))}世代 個体${index}`;
+
+    const label = document.createElement('span');
+    label.className = 'moth-preview-index';
+    label.textContent = `MOTH ${String(index).padStart(2, '0')}`;
+
+    button.append(img, label);
+    if (isEntertainmentModel()) {
+      const score = state.temporaryMothRanks.get(generationId + ':' + index);
+      button.appendChild(createMothRankBadge(score));
+    }
+    if (eaten) {
+      button.appendChild(createPredationSkull());
+    }
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showMothShare(generationId, index, img.src);
+    });
+    return button;
+  }
+
+  function renderEvolutionComparison(latestId) {
+    evolutionGen1.innerHTML = '';
+    evolutionLatestGrid.innerHTML = '';
+
+    // Gen1 is nearly uniform, so one representative is enough.
+    // Keep it the same thumbnail size as the current-generation grid.
+    evolutionGen1.appendChild(
+      createEvolutionMothButton('gen00001', 1),
+    );
+
+    for (let i = 1; i <= CONFIG.TOTAL_MOTHS; i += 1) {
+      const playedSrc = latestId === state.currentGenerationId
+        ? String(state.playedMothSources[i - 1] || '')
+        : '';
+      evolutionLatestGrid.appendChild(
+        createEvolutionMothButton(
+          latestId,
+          i,
+          playedSrc,
+          state.eatenIndices.has(i),
+        ),
+      );
+    }
+  }
+
+  function showEvolutionComparison() {
+    const latestId = state.currentGenerationId;
+    evolutionTheaterButton.hidden = true;
+    evolutionNextButton.hidden = !isEntertainmentModel();
+    evolutionSpecimenButton.hidden = !isEntertainmentModel();
+    const latestNumber = Number(latestId.slice(3));
+
+    evolutionTitle.textContent = `第${latestNumber}世代の蛾`;
+    latestGenerationTitle.textContent = `第${latestNumber}世代`;
+    renderEvolutionComparison(latestId);
+    evolutionOverlay.classList.add('visible');
+
+    evolutionScroller.scrollTop = 0;
+    requestAnimationFrame(() => {
+      revealEvolutionTheaterAtBottom();
+      if (state.rankScoredGenerationId !== latestId) {
+        void calculatePlayedGenerationRanks();
+      }
+    });
+  }
+
+  // On-demand and background migration of already saved theater frames.
+  // Replay images are cache only; the original generation and moth PNGs stay put.
+  let theaterRenderTicket = 0;
+  let theaterSession = 0;
+  const theaterFrameJobs = new Map();
+
+  async function refreshSavedTheaterFrame(frame) {
+    if (!window.GitaiTheaterScale.needsRebuild(frame)) return true;
+    const key = String(frame.generation_id);
+    if (!theaterFrameJobs.has(key)) {
+      const job = window.GitaiPagesPreview.ensureTheaterSnapshot(key)
+        .finally(() => theaterFrameJobs.delete(key));
+      theaterFrameJobs.set(key, job);
+    }
+    const result = await theaterFrameJobs.get(key);
+    // Rendering and background prefetch may request the same generation.
+    // Once one caller has replaced its blob URL, reuse that replacement.
+    if (!window.GitaiTheaterScale.needsRebuild(frame)) return true;
+    if (
+      !result || result.render_version !== window.GitaiTheaterScale.VERSION
+      || !(result.image_blob instanceof Blob)
+      || !state.theaterFrames.includes(frame)
+    ) return false;
+
+    const oldUrl = frame.object_url;
+    const nextUrl = URL.createObjectURL(result.image_blob);
+    frame.object_url = nextUrl;
+    frame.render_version = result.render_version;
+    state.theaterObjectUrls.push(nextUrl);
+    const ix = state.theaterObjectUrls.indexOf(oldUrl);
+    if (ix !== -1) state.theaterObjectUrls.splice(ix, 1);
+    // The previous blob URL is not used after this cache upgrade.
+    if (oldUrl) URL.revokeObjectURL(oldUrl);
+    return true;
+  }
+
+  async function upgradeSavedTheaterFramesInBackground(session) {
+    // Let the first frame display immediately. Gradually update historical
+    // frames so the replay can run smoothly on its next pass.
+    const frames = state.theaterFrames;
+    for (const frame of frames) {
+      if (session !== theaterSession || frames !== state.theaterFrames) return;
+      if (window.GitaiTheaterScale.needsRebuild(frame)) {
+        try {
+          await refreshSavedTheaterFrame(frame);
+          if (frames[state.theaterFrameIndex] === frame
+              && theaterOverlay.classList.contains('visible')) {
+            renderEvolutionTheaterFrame();
+          }
+        } catch (error) {
+          console.warn('進化シアターの旧画像を更新できませんでした:', error);
+        }
+      }
+      // Do not monopolize the main thread while upgrading many generations.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  function releaseTheaterObjectUrls() {
+    for (const url of state.theaterObjectUrls) {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    }
+    state.theaterObjectUrls = [];
+  }
+
+  function pauseEvolutionTheater() {
+    if (state.theaterTimerId !== null) {
+      clearInterval(state.theaterTimerId);
+      state.theaterTimerId = null;
+    }
+    theaterPlayButton.textContent = '再生';
+  }
+
+  function renderEvolutionTheaterFrame() {
+    const frames = state.theaterFrames;
+    if (!frames.length) {
+      theaterFrameImage.removeAttribute('src');
+      theaterMeta.textContent = '保存された世代がありません。';
+      theaterProgress.textContent = '0 / 0';
+      theaterPrevButton.disabled = true;
+      theaterNextButton.disabled = true;
+      theaterPlayButton.disabled = true;
+      return;
+    }
+
+    theaterPlayButton.disabled = frames.length <= 1;
+    const index = Math.max(
+      0,
+      Math.min(frames.length - 1, state.theaterFrameIndex),
+    );
+    state.theaterFrameIndex = index;
+    const frame = frames[index];
+    const requestId = ++theaterRenderTicket;
+
+    if (window.GitaiTheaterScale.needsRebuild(frame)) {
+      // Never show oversized cached moths for a selected old generation.
+      theaterFrameImage.removeAttribute('src');
+      theaterMeta.textContent = '第' + Number(frame.generation_number)
+        + '世代 · 画像を更新中…';
+      refreshSavedTheaterFrame(frame).then((ready) => {
+        if (requestId !== theaterRenderTicket
+            || state.theaterFrames !== frames
+            || state.theaterFrames[state.theaterFrameIndex] !== frame
+            || !theaterOverlay.classList.contains('visible')) return;
+        // If original moths were deleted, at least retain the old snapshot.
+        theaterFrameImage.src = frame.object_url;
+        theaterMeta.textContent = '第' + Number(frame.generation_number)
+          + '世代 · ' + String(frame.model_label_ja || '');
+        if (!ready) theaterNote.textContent = '一部の世代は元画像がないため旧表示を維持しています。';
+      }).catch((error) => {
+        console.warn('進化シアターの画像を読み直せませんでした:', error);
+        if (requestId === theaterRenderTicket && state.theaterFrames === frames)
+          theaterFrameImage.src = frame.object_url;
+      });
+    } else {
+      theaterFrameImage.src = frame.object_url;
+    }
+    theaterSlider.max = String(Math.max(0, frames.length - 1));
+    theaterSlider.value = String(index);
+    theaterProgress.textContent =
+      (index + 1) + ' / ' + frames.length;
+
+    if (!window.GitaiTheaterScale.needsRebuild(frame)) {
+      theaterMeta.textContent =
+        '第' + Number(frame.generation_number) + '世代'
+        + ' · '
+        + String(frame.model_label_ja || '');
+    }
+
+    theaterPrevButton.disabled = index <= 0;
+    theaterNextButton.disabled = index >= frames.length - 1;
+  }
+
+  function playEvolutionTheater() {
+    if (state.theaterFrames.length <= 1) return;
+
+    if (state.theaterTimerId !== null) {
+      pauseEvolutionTheater();
+      return;
+    }
+
+    if (state.theaterFrameIndex >= state.theaterFrames.length - 1) {
+      state.theaterFrameIndex = 0;
+      renderEvolutionTheaterFrame();
+    }
+
+    theaterPlayButton.textContent = '停止';
+    const interval = Number(theaterSpeed.value || 600);
+    state.theaterTimerId = setInterval(() => {
+      if (
+        state.theaterFrameIndex
+        >= state.theaterFrames.length - 1
+      ) {
+        pauseEvolutionTheater();
+        return;
+      }
+      state.theaterFrameIndex += 1;
+      renderEvolutionTheaterFrame();
+    }, interval);
+  }
+
+  async function showEvolutionTheater() {
+    pauseEvolutionTheater();
+    ++theaterSession;
+    ++theaterRenderTicket;
+    releaseTheaterObjectUrls();
+    theaterButton.disabled = true;
+    const originalText = theaterButton.textContent;
+    theaterButton.textContent = '読み込み中…';
+
+    try {
+      const rawFrames =
+        await window.GitaiPagesPreview.getEvolutionTheaterFrames();
+
+      state.theaterFrames = rawFrames.map((frame) => {
+        const objectUrl = URL.createObjectURL(frame.image_blob);
+        state.theaterObjectUrls.push(objectUrl);
+        return {
+          ...frame,
+          object_url: objectUrl,
+        };
+      });
+      state.theaterFrameIndex = 0;
+
+      if (!state.theaterFrames.length) {
+        theaterNote.textContent =
+          'まだ進化シアター用の世代が保存されていません。';
+      } else {
+        const numbers = state.theaterFrames.map(
+          (frame) => Number(frame.generation_number)
+        );
+        let hasGap = false;
+        for (let i = 1; i < numbers.length; i += 1) {
+          if (numbers[i] !== numbers[i - 1] + 1) {
+            hasGap = true;
+            break;
+          }
+        }
+
+        theaterNote.textContent = hasGap
+          ? 'この機能を追加する前の世代は保存されていないため、保存済み世代だけを再生します。新しいRunでは第1世代から連続して記録されます。'
+          : '保存された第1世代から最新世代までを再生します。';
+      }
+
+      theaterOverlay.classList.add('visible');
+      renderEvolutionTheaterFrame();
+      void upgradeSavedTheaterFramesInBackground(theaterSession);
+    } catch (error) {
+      console.error(error);
+      alert('進化シアターを読み込めませんでした。');
+    } finally {
+      theaterButton.disabled = false;
+      theaterButton.textContent = originalText;
+    }
+  }
+
+  function closeEvolutionTheater() {
+    pauseEvolutionTheater();
+    ++theaterSession;
+    ++theaterRenderTicket;
+    theaterOverlay.classList.remove('visible');
+    theaterFrameImage.removeAttribute('src');
+    state.theaterFrames = [];
+    releaseTheaterObjectUrls();
+  }
+
+  function shareNameStorageKey() {
+    return 'gitai-preview-share-name-v1';
+  }
+
+  const PLAYER_NICKNAME_KEY = 'gitai-player-nickname-v1';
+
+  function getShareDisplayName() {
+    // Use the nickname already entered in the main menu; specimen saving
+    // itself never asks for or changes a player's name.
+    try {
+      const current = localStorage.getItem(PLAYER_NICKNAME_KEY);
+      const fallback = localStorage.getItem(shareNameStorageKey());
+      return String(current !== null ? current : (fallback || '')).trim().slice(0, 16);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function updateShareCardTitle() {
+    const name = getShareDisplayName();
+    shareCardTitle.textContent = name
+      ? `${name}さんのギタイラボ`
+      : 'あなたのギタイラボ';
+  }
+
+  function showMothShare(generationId, index, src, specimenRecord = null) {
+    const generationNumber = Number(generationId.slice(3));
+    state.selectedShare = {
+      generationId,
+      generationNumber,
+      index,
+      src,
+      specimenRecord,
+    };
+
+    updateShareCardTitle();
+    shareMothImage.src = src;
+    shareGeneration.textContent = `第${generationNumber}世代`;
+    shareMothIndex.textContent = `MOTH ${String(index).padStart(2, '0')}`;
+    shareStatus.textContent =
+      'この画面をスクリーンショットしても使えます。';
+
+    specimenSaveButton.hidden = !isEntertainmentModel();
+    specimenSaveButton.disabled = false;
+    specimenSaveButton.classList.remove('saved');
+    specimenSaveButton.textContent = '標本箱に入れる';
+    gitaiScoreButton.hidden = !(
+      isEntertainmentModel()
+      && specimenRecord
+    );
+    gitaiScoreButton.disabled = false;
+    gitaiScoreButton.textContent = '採点する';
+
+    if (isEntertainmentModel()) {
+      const id = specimenRecord?.id || specimenIdentity(generationId, index);
+      specimenGet(id).then((record) => {
+        if (
+          state.selectedShare
+          && state.selectedShare.generationId === generationId
+          && state.selectedShare.index === index
+          && record
+        ) {
+          state.selectedShare.specimenRecord = record;
+          specimenSaveButton.classList.add('saved');
+          specimenSaveButton.textContent = '標本箱に保存済み';
+          gitaiScoreButton.hidden = false;
+        }
+      }).catch(() => {});
+    }
+
+    mothShareOverlay.classList.toggle('from-specimen',
+      Boolean(specimenRecord && specimenBoxOverlay.classList.contains('visible')));
+    mothShareOverlay.classList.add('visible');
+  }
+
+  async function loadEnvironmentForScore(environmentId) {
+    const safeId = String(environmentId || '').trim();
+    if (!/^[a-z0-9_-]+$/i.test(safeId)) {
+      throw new Error('背景IDが不正です');
+    }
+    const res = await fetch(
+      `environments/${safeId}/environment.json`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) {
+      throw new Error('標本の背景設定を読み込めませんでした');
+    }
+    return res.json();
+  }
+
+  function srgbChannelToLinear(value) {
+    const c = value / 255;
+    return c <= 0.04045
+      ? c / 12.92
+      : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+
+  function rgbToLab(r, g, b) {
+    const rl = srgbChannelToLinear(r);
+    const gl = srgbChannelToLinear(g);
+    const bl = srgbChannelToLinear(b);
+    const x = (
+      rl * 0.4124564
+      + gl * 0.3575761
+      + bl * 0.1804375
+    ) / 0.95047;
+    const y = (
+      rl * 0.2126729
+      + gl * 0.7151522
+      + bl * 0.0721750
+    );
+    const z = (
+      rl * 0.0193339
+      + gl * 0.1191920
+      + bl * 0.9503041
+    ) / 1.08883;
+    const f = (t) => t > 0.008856
+      ? Math.cbrt(t)
+      : (7.787 * t + 16 / 116);
+    const fx = f(x);
+    const fy = f(y);
+    const fz = f(z);
+    return [
+      116 * fy - 16,
+      500 * (fx - fy),
+      200 * (fy - fz),
+    ];
+  }
+
+  function labDistance(a, b) {
+    const dl = a[0] - b[0];
+    const da = a[1] - b[1];
+    const db = a[2] - b[2];
+    return Math.sqrt(dl * dl + da * da + db * db);
+  }
+
+  function mean(values) {
+    if (!values.length) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }
+
+  function standardDeviation(values, avg = mean(values)) {
+    if (!values.length) return 0;
+    const variance = values.reduce(
+      (sum, value) => sum + (value - avg) ** 2,
+      0,
+    ) / values.length;
+    return Math.sqrt(variance);
+  }
+
+  function clampScore(value) {
+    return Math.max(0, Math.min(100, value));
+  }
+
+  function scoreSimilarityDifference(diff, tolerance) {
+    return clampScore(
+      100 * (1 - diff / Math.max(0.0001, tolerance))
+    );
+  }
+
+  function buildMothAnalysis(mothImage) {
+    // Analyze the same number of pixels as the on-screen moth (38px today).
+    const SAMPLE = Math.max(1, Math.round(CONFIG.MOTH_SIZE));
+    const mothCanvas = document.createElement('canvas');
+    mothCanvas.width = SAMPLE;
+    mothCanvas.height = SAMPLE;
+    const mc = mothCanvas.getContext(
+      '2d',
+      { willReadFrequently: true },
+    );
+    // Game rendering uses the canvas default (smoothed) downscaling.
+    mc.imageSmoothingEnabled = true;
+    mc.clearRect(0, 0, SAMPLE, SAMPLE);
+    mc.drawImage(mothImage, 0, 0, SAMPLE, SAMPLE);
+    const pixels = mc.getImageData(
+      0,
+      0,
+      SAMPLE,
+      SAMPLE,
+    ).data;
+    return { SAMPLE, pixels };
+  }
+
+  function analyzeGitaiPlacement(
+    mothAnalysis,
+    bgData,
+    x,
+    y,
+    size,
+  ) {
+    const { SAMPLE, pixels: moth } = mothAnalysis;
+    const mothL = new Float32Array(SAMPLE * SAMPLE);
+    const bgL = new Float32Array(SAMPLE * SAMPLE);
+    const alphaMask = new Uint8Array(SAMPLE * SAMPLE);
+    const mothValues = [];
+    const bgValues = [];
+    let colorDiffSum = 0;
+    let valueDiffSum = 0;
+    let count = 0;
+
+    const sampleBgRgb = (sx, sy) => {
+      const px = Math.max(
+        0,
+        Math.min(GAME_WIDTH - 1, Math.round(sx)),
+      );
+      const py = Math.max(
+        0,
+        Math.min(GAME_HEIGHT - 1, Math.round(sy)),
+      );
+      const o = (py * GAME_WIDTH + px) * 4;
+      return [
+        bgData[o],
+        bgData[o + 1],
+        bgData[o + 2],
+      ];
+    };
+
+    for (let sy = 0; sy < SAMPLE; sy += 1) {
+      for (let sx = 0; sx < SAMPLE; sx += 1) {
+        const i = sy * SAMPLE + sx;
+        const mo = i * 4;
+        const alpha = moth[mo + 3] / 255;
+        if (alpha < 0.20) continue;
+
+        alphaMask[i] = 1;
+        const bx = x + (sx + 0.5) * size / SAMPLE;
+        const by = y + (sy + 0.5) * size / SAMPLE;
+        const [br, bg, bb] = sampleBgRgb(bx, by);
+        const mlab = rgbToLab(
+          moth[mo],
+          moth[mo + 1],
+          moth[mo + 2],
+        );
+        const blab = rgbToLab(br, bg, bb);
+
+        mothL[i] = mlab[0];
+        bgL[i] = blab[0];
+        mothValues.push(mlab[0]);
+        bgValues.push(blab[0]);
+        colorDiffSum += labDistance(mlab, blab);
+        valueDiffSum += Math.abs(mlab[0] - blab[0]);
+        count += 1;
+      }
+    }
+
+    if (!count) {
+      return {
+        total: 0,
+        color: 0,
+        value: 0,
+        texture: 0,
+        outline: 0,
+      };
+    }
+
+    const colorScore = scoreSimilarityDifference(
+      colorDiffSum / count,
+      62,
+    );
+    const valueScore = scoreSimilarityDifference(
+      valueDiffSum / count,
+      38,
+    );
+
+    const mothMeanL = mean(mothValues);
+    const bgMeanL = mean(bgValues);
+    const mothStd = standardDeviation(mothValues, mothMeanL);
+    const bgStd = standardDeviation(bgValues, bgMeanL);
+
+    let mothGradient = 0;
+    let bgGradient = 0;
+    let gradientCount = 0;
+    for (let sy = 0; sy < SAMPLE - 1; sy += 1) {
+      for (let sx = 0; sx < SAMPLE - 1; sx += 1) {
+        const i = sy * SAMPLE + sx;
+        if (
+          !alphaMask[i]
+          || !alphaMask[i + 1]
+          || !alphaMask[i + SAMPLE]
+        ) continue;
+
+        mothGradient += (
+          Math.abs(mothL[i + 1] - mothL[i])
+          + Math.abs(mothL[i + SAMPLE] - mothL[i])
+        ) / 2;
+        bgGradient += (
+          Math.abs(bgL[i + 1] - bgL[i])
+          + Math.abs(bgL[i + SAMPLE] - bgL[i])
+        ) / 2;
+        gradientCount += 1;
+      }
+    }
+    mothGradient /= Math.max(1, gradientCount);
+    bgGradient /= Math.max(1, gradientCount);
+
+    const contrastMatch = scoreSimilarityDifference(
+      Math.abs(mothStd - bgStd),
+      24,
+    );
+    const edgeMatch = scoreSimilarityDifference(
+      Math.abs(mothGradient - bgGradient),
+      13,
+    );
+    const textureScore =
+      contrastMatch * 0.55
+      + edgeMatch * 0.45;
+
+    let outlineDiff = 0;
+    let outlineCount = 0;
+    const dirs = [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ];
+
+    for (let sy = 1; sy < SAMPLE - 1; sy += 1) {
+      for (let sx = 1; sx < SAMPLE - 1; sx += 1) {
+        const i = sy * SAMPLE + sx;
+        if (!alphaMask[i]) continue;
+
+        let outsideDir = null;
+        for (const [dx, dy] of dirs) {
+          const ni = (sy + dy) * SAMPLE + (sx + dx);
+          if (!alphaMask[ni]) {
+            outsideDir = [dx, dy];
+            break;
+          }
+        }
+        if (!outsideDir) continue;
+
+        const mo = i * 4;
+        const mlab = rgbToLab(
+          moth[mo],
+          moth[mo + 1],
+          moth[mo + 2],
+        );
+        const outsideX =
+          x
+          + (
+            sx
+            + 0.5
+            + outsideDir[0] * 1.25
+          ) * size / SAMPLE;
+        const outsideY =
+          y
+          + (
+            sy
+            + 0.5
+            + outsideDir[1] * 1.25
+          ) * size / SAMPLE;
+        const [br, bg, bb] = sampleBgRgb(
+          outsideX,
+          outsideY,
+        );
+        outlineDiff += labDistance(
+          mlab,
+          rgbToLab(br, bg, bb),
+        );
+        outlineCount += 1;
+      }
+    }
+
+    const outlineScore = scoreSimilarityDifference(
+      outlineDiff / Math.max(1, outlineCount),
+      66,
+    );
+
+    const total =
+      colorScore * 0.30
+      + valueScore * 0.25
+      + textureScore * 0.25
+      + outlineScore * 0.20;
+
+    return {
+      total: clampScore(total),
+      color: clampScore(colorScore),
+      value: clampScore(valueScore),
+      texture: clampScore(textureScore),
+      outline: clampScore(outlineScore),
+    };
+  }
+
+  function scoreCandidatePositions(size) {
+    const hudSafeTop =
+      CONFIG.HUD_BAR_HEIGHT + CONFIG.HUD_CLEARANCE;
+    const hudSafeBottom =
+      GAME_HEIGHT
+      - CONFIG.HUD_BAR_HEIGHT
+      - CONFIG.HUD_CLEARANCE;
+    const yMin = Math.max(
+      0,
+      CONFIG.MOTH_Y_MIN,
+      hudSafeTop,
+    );
+    const yMax = Math.max(
+      yMin,
+      Math.min(
+        CONFIG.MOTH_Y_MAX,
+        hudSafeBottom,
+        GAME_HEIGHT,
+      ) - size,
+    );
+    const xMax = Math.max(0, GAME_WIDTH - size);
+    const points = [];
+    const GRID_X = 10;
+    const GRID_Y = 10;
+
+    for (let gy = 0; gy < GRID_Y; gy += 1) {
+      for (let gx = 0; gx < GRID_X; gx += 1) {
+        const x = gx * xMax / (GRID_X - 1);
+        const y =
+          yMin
+          + gy * (yMax - yMin) / (GRID_Y - 1);
+        if (!isInForbiddenArea(x, y, size)) {
+          points.push({ x, y });
+        }
+      }
+    }
+    return points;
+  }
+
+  async function calculateGitaiScore(record, mothSrc) {
+    const environment = await loadEnvironmentForScore(
+      record.environment_id,
+    );
+    const backgroundSrc = String(
+      environment?.background?.src || '',
+    );
+    if (!backgroundSrc) {
+      throw new Error('背景画像が設定されていません');
+    }
+
+    const [background, mothImage] = await Promise.all([
+      loadImage(cacheBustUrl(backgroundSrc)),
+      loadShareImage(mothSrc),
+    ]);
+
+    const bgCanvas = document.createElement('canvas');
+    bgCanvas.width = GAME_WIDTH;
+    bgCanvas.height = GAME_HEIGHT;
+    const bgCtx = bgCanvas.getContext(
+      '2d',
+      { willReadFrequently: true },
+    );
+    bgCtx.drawImage(
+      background,
+      0,
+      0,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+    );
+    const bgImageData = bgCtx.getImageData(
+      0,
+      0,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+    ).data;
+
+    const mothAnalysis = buildMothAnalysis(mothImage);
+    const size = CONFIG.MOTH_SIZE;
+    const candidates = scoreCandidatePositions(size);
+    const results = [];
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const point = candidates[i];
+      const metrics = analyzeGitaiPlacement(
+        mothAnalysis,
+        bgImageData,
+        point.x,
+        point.y,
+        size,
+      );
+      results.push({
+        ...point,
+        ...metrics,
+      });
+      if (i % 12 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    if (!results.length) {
+      throw new Error('採点できる配置位置がありません');
+    }
+
+    results.sort((a, b) => b.total - a.total);
+    const top = results.slice(
+      0,
+      Math.min(10, results.length),
+    );
+    const aggregate = {
+      total: mean(top.map((item) => item.total)),
+      color: mean(top.map((item) => item.color)),
+      value: mean(top.map((item) => item.value)),
+      texture: mean(top.map((item) => item.texture)),
+      outline: mean(top.map((item) => item.outline)),
+    };
+
+    return {
+      aggregate,
+      best: results[0],
+      background,
+      mothImage,
+      environment,
+      evaluatedCount: results.length,
+    };
+  }
+
+  function renderGitaiScorePreview(result) {
+    if (
+      gitaiScoreCanvas.width !== GAME_WIDTH
+      || gitaiScoreCanvas.height !== GAME_HEIGHT
+    ) {
+      gitaiScoreCanvas.width = GAME_WIDTH;
+      gitaiScoreCanvas.height = GAME_HEIGHT;
+    }
+    const stage = gitaiScoreCanvas.parentElement;
+    if (stage) {
+      stage.style.aspectRatio = `${GAME_WIDTH} / ${GAME_HEIGHT}`;
+    }
+    const c2d = gitaiScoreCanvas.getContext('2d');
+    c2d.clearRect(
+      0,
+      0,
+      gitaiScoreCanvas.width,
+      gitaiScoreCanvas.height,
+    );
+    c2d.drawImage(
+      result.background,
+      0,
+      0,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+    );
+    c2d.imageSmoothingEnabled = true;
+    c2d.drawImage(
+      result.mothImage,
+      result.best.x,
+      result.best.y,
+      CONFIG.MOTH_SIZE,
+      CONFIG.MOTH_SIZE,
+    );
+  }
+
+  async function showGitaiScore() {
+    const selected = state.selectedShare;
+    const record = selected?.specimenRecord;
+    if (!selected || !record) return;
+
+    gitaiScoreButton.disabled = true;
+    gitaiScoreButton.textContent = '採点中…';
+    gitaiScoreValue.textContent = '--';
+    gitaiColorScore.textContent = '--';
+    gitaiValueScore.textContent = '--';
+    gitaiTextureScore.textContent = '--';
+    gitaiOutlineScore.textContent = '--';
+    gitaiScoreMeta.textContent = '背景内を解析しています…';
+
+    try {
+      const result = await calculateGitaiScore(
+        record,
+        selected.src,
+      );
+      renderGitaiScorePreview(result);
+
+      const rounded = (value) => String(Math.round(value));
+      gitaiScoreValue.textContent = rounded(
+        result.aggregate.total,
+      );
+      gitaiColorScore.textContent = rounded(
+        result.aggregate.color,
+      );
+      gitaiValueScore.textContent = rounded(
+        result.aggregate.value,
+      );
+      gitaiTextureScore.textContent = rounded(
+        result.aggregate.texture,
+      );
+      gitaiOutlineScore.textContent = rounded(
+        result.aggregate.outline,
+      );
+
+      const envLabel = String(
+        result.environment?.display_name_ja
+        || record.environment_id
+        || '背景',
+      );
+      gitaiScoreMeta.textContent =
+        `第${record.generation_number}世代 · MOTH ${String(record.individual_index).padStart(2, '0')} · ${envLabel} · ${result.evaluatedCount}地点評価`;
+
+      mothShareOverlay.classList.remove('visible');
+      gitaiScoreOverlay.classList.add('visible');
+    } catch (error) {
+      console.error(error);
+      shareStatus.textContent = '採点できませんでした。';
+    } finally {
+      gitaiScoreButton.disabled = false;
+      gitaiScoreButton.textContent = '採点する';
+    }
+  }
+
+  function loadShareImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('シェア画像を読み込めませんでした'));
+      img.src = src;
+    });
+  }
+
+  async function buildShareImageBlob() {
+    if (!state.selectedShare) throw new Error('蛾が選択されていません');
+
+    const source = await loadShareImage(state.selectedShare.src);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const c2d = canvas.getContext('2d');
+
+    c2d.fillStyle = '#0a0d0f';
+    c2d.fillRect(0, 0, canvas.width, canvas.height);
+
+    const glow = c2d.createRadialGradient(540, 570, 40, 540, 570, 470);
+    glow.addColorStop(0, 'rgba(184,247,255,0.16)');
+    glow.addColorStop(1, 'rgba(184,247,255,0)');
+    c2d.fillStyle = glow;
+    c2d.fillRect(0, 0, canvas.width, canvas.height);
+
+    const name = getShareDisplayName();
+    const title = name ? `${name}さんのギタイラボ` : 'あなたのギタイラボ';
+
+    c2d.textAlign = 'center';
+    c2d.fillStyle = '#ffffff';
+    c2d.font = 'bold 64px sans-serif';
+    c2d.fillText(title, 540, 110);
+
+    c2d.imageSmoothingEnabled = true;
+    const size = 720;
+    const bg = state.backgroundImage;
+    if (bg && bg.width && bg.height) {
+      const srcSize = Math.min(bg.width, bg.height);
+      const sx = Math.max(0, (bg.width - srcSize) / 2);
+      const sy = Math.max(0, (bg.height - srcSize) / 2);
+      c2d.drawImage(
+        bg,
+        sx,
+        sy,
+        srcSize,
+        srcSize,
+        180,
+        260,
+        size,
+        size,
+      );
+    } else {
+      c2d.fillStyle = '#182019';
+      c2d.fillRect(180, 260, size, size);
+    }
+
+    c2d.imageSmoothingEnabled = false;
+    c2d.drawImage(source, 180, 260, size, size);
+
+    c2d.fillStyle = '#b8f7ff';
+    c2d.font = 'bold 58px sans-serif';
+    c2d.fillText(`第${state.selectedShare.generationNumber}世代`, 540, 1110);
+
+    c2d.fillStyle = 'rgba(255,255,255,0.72)';
+    c2d.font = '36px monospace';
+    c2d.fillText(
+      `MOTH ${String(state.selectedShare.index).padStart(2, '0')}`,
+      540,
+      1170,
+    );
+
+    c2d.fillStyle = 'rgba(255,255,255,0.46)';
+    c2d.font = '30px sans-serif';
+    c2d.fillText('ギタイラボ', 540, 1280);
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('シェア画像を作成できませんでした'));
+      }, 'image/png');
+    });
+  }
+
+  async function shareSelectedMoth() {
+    if (!state.selectedShare) return;
+
+    shareButton.disabled = true;
+    shareButton.textContent = '画像を準備中…';
+    shareStatus.textContent = '';
+
+    try {
+      const blob = await buildShareImageBlob();
+      const file = new File(
+        [blob],
+        `gitailab_gen${state.selectedShare.generationNumber}_moth${String(state.selectedShare.index).padStart(2, '0')}.png`,
+        { type: 'image/png' },
+      );
+
+      if (
+        navigator.share
+        && (!navigator.canShare || navigator.canShare({ files: [file] }))
+      ) {
+        await navigator.share({
+          files: [file],
+          title: shareCardTitle.textContent,
+          text: `ギタイラボ 第${state.selectedShare.generationNumber}世代`,
+        });
+        shareStatus.textContent = 'シェア画面を開きました。';
+      } else {
+        shareStatus.textContent =
+          'この端末では画像共有を直接開けません。このカードをスクリーンショットしてください。';
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        shareStatus.textContent = 'シェアをキャンセルしました。';
+      } else {
+        shareStatus.textContent =
+          '共有できませんでした。このカードをスクリーンショットしてください。';
+      }
+    } finally {
+      shareButton.disabled = false;
+      shareButton.textContent = 'SNSへシェア';
+    }
+  }
+
+  function showResults() {
+    state.uiTransitionLocked = false;
+    soloHomeButton.hidden = true;
+    resultBackToMenu.hidden = !isEntertainmentModel();
+    reviewGeneration.textContent = generationLabel();
+    reviewTitle.textContent = 'この世代の結果';
+    reviewMessage.textContent = '';
+    evolutionStatus.textContent = '';
+    compareButton.hidden = true;
+    specimenBoxButton.hidden = !isEntertainmentModel();
+    theaterButton.hidden = false;
+    authorNewsTeaser.hidden = true;
+
+    if (isEntertainmentModel()) {
+      state.submitStatus = 'ready';
+      compareButton.hidden = false;
+      continueButton.textContent = '次の世代を生成';
+      continueButton.disabled = false;
+      evolutionStatus.textContent =
+        '次へ進む前に、この世代の個体を観察して標本箱へ保存できます。';
+    } else {
+      continueButton.textContent = '次世代を生成中…';
+      continueButton.disabled = true;
+    }
+
+    reviewOverlay.classList.add('visible');
+  }
+
+  async function sendEvolutionData() {
+    state.submitStatus = 'sending';
+
+    const returnEntertainmentToReview = () => {
+      if (!isEntertainmentModel()) return;
+      generationOverlay.classList.remove('visible');
+      reviewOverlay.classList.add('visible');
+    };
+
+    const eaten = Array.from(state.eatenIndices).sort((a, b) => a - b);
+    const runId = ensureRunId();
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        submitTimeoutMs,
+      );
+
+      let res;
+      try {
+        res = await fetch('/api/submit_run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          signal: controller.signal,
+          body: JSON.stringify({
+            run_id: runId,
+            generation_id: state.currentGenerationId,
+            eaten_indices: eaten,
+            round_records: state.roundRecords,
+          }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (
+        res.status === 422 &&
+        data.error === 'insufficient_survivors' &&
+        data.retry_same_generation
+      ) {
+        state.submitStatus = 'retry_generation';
+        returnEntertainmentToReview();
+        authorNewsTeaser.hidden = true;
+        state.nextGenerationId = null;
+
+        reviewTitle.textContent = 'この世代はもう一度';
+        reviewMessage.textContent =
+          '繁殖に必要な個体数が残らなかったため、世代は進みませんでした。';
+        evolutionStatus.textContent =
+          '世代は進みません。同じ60個体で、もう一度5ラウンドを行います。';
+        state.uiTransitionLocked = false;
+        continueButton.textContent = '同じ世代でもう一度';
+        continueButton.disabled = false;
+        compareButton.hidden = false;
+        return;
+      }
+
+      if (
+        res.status === 409 &&
+        data.error === 'generation_mismatch'
+      ) {
+        state.submitStatus = 'stale_generation';
+        returnEntertainmentToReview();
+        authorNewsTeaser.hidden = true;
+        state.nextGenerationId = null;
+
+        reviewTitle.textContent = '世代が更新されています';
+        reviewMessage.textContent =
+          'サーバー側では別の世代へ進んでいます。現在の結果は送信しません。';
+        evolutionStatus.textContent =
+          '最新世代 '
+          + String(data.server_current_generation_id || '')
+          + ' を読み込み直してください。';
+        state.uiTransitionLocked = false;
+        continueButton.textContent = '最新世代を読み込む';
+        continueButton.disabled = false;
+        compareButton.hidden = false;
+        return;
+      }
+
+      if (
+        res.status === 507 &&
+        data.error === 'insufficient_storage'
+      ) {
+        state.submitStatus = 'failed';
+        returnEntertainmentToReview();
+        authorNewsTeaser.hidden = true;
+        state.nextGenerationId = null;
+
+        reviewTitle.textContent = 'スタッフにお知らせください';
+        reviewMessage.textContent =
+          'Macの保存容量が安全基準を下回ったため、世代更新を停止しました。';
+        evolutionStatus.textContent =
+          '空き '
+          + String(data.free_disk_mb ?? '?')
+          + ' MB / 必要 '
+          + String(data.minimum_free_disk_mb ?? '?')
+          + ' MB。現在世代は保持されています。';
+        state.uiTransitionLocked = false;
+        continueButton.textContent = '容量確認後にもう一度';
+        continueButton.disabled = false;
+        compareButton.hidden = false;
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error ? `${data.error} (HTTP ${res.status})` : `HTTP ${res.status}`);
+      }
+
+      state.nextGenerationId = String(data.next_generation_id || '');
+      state.submitStatus = 'success';
+
+      if (isEntertainmentModel()) {
+        state.uiTransitionLocked = false;
+        await showGenerationReady(data.entertainment_event || null);
+        return;
+      }
+
+      authorNewsTeaser.hidden = false;
+      evolutionStatus.textContent =
+        `次の世代 ${state.nextGenerationId} が誕生しました。`;
+      state.uiTransitionLocked = false;
+      continueButton.textContent = '次の人へ';
+      continueButton.disabled = false;
+      compareButton.hidden = false;
+
+    } catch (err) {
+      state.submitStatus = 'failed';
+      returnEntertainmentToReview();
+      authorNewsTeaser.hidden = true;
+      const message = err && err.name === 'AbortError'
+        ? 'サーバー応答がタイムアウトしました'
+        : (err.message || err);
+      evolutionStatus.textContent = `次世代の生成に失敗しました：${message}`;
+      state.uiTransitionLocked = false;
+      continueButton.textContent = 'もう一度送信';
+      continueButton.disabled = false;
+    }
+  }
+
+  function handleTap(clientX, clientY) {
+    if (!state.roundActive || state.soloPaused) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    for (const moth of state.activeMoths) {
+      if (
+        !moth.clicked &&
+        x >= moth.x - 1 && x <= moth.x + moth.size + 1 &&
+        y >= moth.y - 1 && y <= moth.y + moth.size + 1
+      ) {
+        predationFeedback(moth, x, y);
+        moth.clicked = true;
+        state.eatenIndices.add(moth.index);
+        state.roundTapEvents.push({
+          index: moth.index,
+          elapsed_ms: Math.max(
+            0,
+            Math.round(performance.now() - state.roundStartedAt),
+          ),
+        });
+        render();
+        break;
+      }
+    }
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handleTap(e.clientX, e.clientY);
+  });
+
+  // Fallback for browsers that still generate dblclick after fast touch taps.
+  // Does not cancel individual pointerdown events or actual moth captures.
+  canvas.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+  });
+
+  roundShutter.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
+
+  startButton.addEventListener('click', () => {
+    if (!state.bootReady || state.uiTransitionLocked) return;
+    state.uiTransitionLocked = true;
+    startButton.disabled = true;
+    requestScreenWakeLock();
+    startOverlay.classList.remove('visible');
+    soloHomeButton.hidden = !isEntertainmentModel();
+    buildRounds();
+    state.currentRoundIndex = 0;
+    state.eatenIndices = new Set();
+    state.allSurvivorIndices = [];
+    state.roundRecords = [];
+    state.roundTapEvents = [];
+    state.runId = null;
+    state.scoreRecordId = null;
+    state.scoreSummary = null;
+    state.playedMothSources = [];
+    state.temporaryMothRanks.clear();
+    state.rankScoredGenerationId = null;
+    state.pendingRankMilestone = null;
+    ++state.rankCalculationToken;
+    state.submitStatus = 'idle';
+    startRound();
+  });
+
+  continueButton.addEventListener('click', () => {
+    if (state.uiTransitionLocked || continueButton.disabled) return;
+    state.uiTransitionLocked = true;
+
+    if (
+      isEntertainmentModel()
+      && state.submitStatus === 'ready'
+    ) {
+      reviewOverlay.classList.remove('visible');
+      showGenerationGenerating();
+      sendEvolutionData();
+      return;
+    }
+
+    if (state.submitStatus === 'retry_generation') {
+      reviewOverlay.classList.remove('visible');
+      authorNewsTeaser.hidden = true;
+      buildRounds();
+      state.currentRoundIndex = 0;
+      state.eatenIndices = new Set();
+      state.allSurvivorIndices = [];
+      state.roundRecords = [];
+      state.roundTapEvents = [];
+      state.runId = null;
+      state.scoreRecordId = null;
+      state.scoreSummary = null;
+      state.playedMothSources = [];
+      state.nextGenerationId = null;
+      state.submitStatus = 'idle';
+      startRound();
+      return;
+    }
+
+    if (state.submitStatus === 'stale_generation') {
+      const u = new URL(location.href);
+      u.searchParams.set('v', String(Date.now()));
+      if (isEntertainmentModel()) u.searchParams.set('play', '1');
+      location.href = u.toString();
+      return;
+    }
+
+    if (state.submitStatus === 'failed') {
+      continueButton.disabled = true;
+      continueButton.textContent = '再送中…';
+      sendEvolutionData();
+      return;
+    }
+
+    if (state.submitStatus !== 'success') {
+      state.uiTransitionLocked = false;
+      return;
+    }
+
+    const u = new URL(location.href);
+    u.searchParams.set('v', String(Date.now()));
+    if (isEntertainmentModel()) u.searchParams.set('play', '1');
+    location.href = u.toString();
+  });
+
+  rankingButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showRanking();
+  });
+
+  rankingCloseButton.addEventListener('click', () => {
+    rankingOverlay.classList.remove('visible');
+  });
+
+  saveNameButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    saveCurrentName();
+    renderRanking();
+  });
+
+  playerName.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveCurrentName();
+      renderRanking();
+    }
+  });
+
+  evolutionScroller.addEventListener('scroll', revealEvolutionTheaterAtBottom, { passive: true });
+  evolutionSpecimenButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    showSpecimenBox();
+  });
+  evolutionNextButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    continueFromEvolutionList();
+  });
+  evolutionTheaterButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    showEvolutionTheater();
+  });
+
+  compareButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showEvolutionComparison();
+  });
+
+  evolutionCloseButton.addEventListener('click', () => {
+    evolutionOverlay.classList.remove('visible');
+  });
+
+  theaterButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showEvolutionTheater();
+  });
+
+  theaterCloseButton.addEventListener('click', () => {
+    closeEvolutionTheater();
+  });
+
+  theaterPlayButton.addEventListener('click', () => {
+    playEvolutionTheater();
+  });
+
+  theaterPrevButton.addEventListener('click', () => {
+    pauseEvolutionTheater();
+    state.theaterFrameIndex = Math.max(
+      0,
+      state.theaterFrameIndex - 1,
+    );
+    renderEvolutionTheaterFrame();
+  });
+
+  theaterNextButton.addEventListener('click', () => {
+    pauseEvolutionTheater();
+    state.theaterFrameIndex = Math.min(
+      Math.max(0, state.theaterFrames.length - 1),
+      state.theaterFrameIndex + 1,
+    );
+    renderEvolutionTheaterFrame();
+  });
+
+  theaterSlider.addEventListener('input', () => {
+    pauseEvolutionTheater();
+    state.theaterFrameIndex = Number(theaterSlider.value || 0);
+    renderEvolutionTheaterFrame();
+  });
+
+  theaterSpeed.addEventListener('change', () => {
+    if (state.theaterTimerId !== null) {
+      pauseEvolutionTheater();
+      playEvolutionTheater();
+    }
+  });
+
+  shareBackButton.addEventListener('click', () => {
+    mothShareOverlay.classList.remove('visible');
+    mothShareOverlay.classList.remove('from-specimen');
+  });
+
+  gitaiScoreButton.addEventListener('click', () => {
+    showGitaiScore();
+  });
+
+  gitaiScoreCloseButton.addEventListener('click', () => {
+    gitaiScoreOverlay.classList.remove('visible');
+    mothShareOverlay.classList.add('visible');
+  });
+
+  shareButton.addEventListener('click', () => {
+    shareSelectedMoth();
+  });
+
+  specimenSaveButton.addEventListener('click', async () => {
+    if (!state.selectedShare || !isEntertainmentModel()) return;
+    specimenSaveButton.disabled = true;
+    try {
+      await saveSpecimen(
+        state.selectedShare.generationId,
+        state.selectedShare.index,
+        state.selectedShare.src,
+      );
+      specimenSaveButton.classList.add('saved');
+      specimenSaveButton.textContent = '標本箱に保存済み';
+      const id = specimenIdentity(
+        state.selectedShare.generationId,
+        state.selectedShare.index,
+      );
+      const record = await specimenGet(id);
+      if (record && state.selectedShare) {
+        state.selectedShare.specimenRecord = record;
+        gitaiScoreButton.hidden = false;
+      }
+      shareStatus.textContent = '標本箱に保存しました。';
+    } catch (error) {
+      specimenSaveButton.textContent = '保存できませんでした';
+      specimenSaveButton.disabled = false;
+    }
+  });
+
+  specimenBoxButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    showSpecimenBox();
+  });
+
+  specimenBoxCloseButton.addEventListener('click', () => {
+    specimenBoxOverlay.classList.remove('visible');
+    releaseSpecimenObjectUrls();
+  });
+
+  specimenBackgroundToggle.addEventListener('click', () => {
+    setSpecimenHabitatView(!specimenGrid.classList.contains('is-habitat'));
+  });
+
+  mutationRevealContinueButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    advanceMutationReveal();
+  });
+  rankMilestoneSaveButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    const milestone = state.pendingRankMilestone;
+    if (!milestone || rankMilestoneSaveButton.disabled) return;
+    rankMilestoneSaveButton.disabled = true;
+    try {
+      await saveSpecimen(milestone.generationId, milestone.index, milestone.src);
+      rankMilestoneSaveButton.textContent = '保存済み';
+    } catch (error) {
+      rankMilestoneSaveButton.textContent = '保存失敗・再試行';
+      rankMilestoneSaveButton.disabled = false;
+    }
+  });
+  rankMilestoneContinueButton.addEventListener('click', closeRankMilestone);
+
+  generationContinueButton.addEventListener('click', () => {
+    if (state.submitStatus !== 'success') return;
+    const u = new URL(location.href);
+    u.searchParams.set('v', String(Date.now()));
+    if (isEntertainmentModel()) u.searchParams.set('play', '1');
+    location.href = u.toString();
+  });
+
+  window.addEventListener('gitai:request-reset', () => {
+    const resetGenerationId = state.nextGenerationId || state.currentGenerationId;
+    const resetGenerationNumber = Number(resetGenerationId.slice(3));
+    resetConfirmText.textContent =
+      `現在の第${resetGenerationNumber}世代までの進化と、この端末のPreviewランキングが消え、第1世代に戻ります。本当に戻しますか？`;
+    resetConfirmOverlay.classList.add('visible');
+  });
+
+  resetCancelButton.addEventListener('click', () => {
+    resetConfirmOverlay.classList.remove('visible');
+  });
+
+  resetConfirmButton.addEventListener('click', async () => {
+    resetConfirmButton.disabled = true;
+    resetConfirmButton.textContent = 'リセット中…';
+    try {
+      await window.GitaiPagesPreview.resetAll();
+    } catch (err) {
+      resetConfirmButton.disabled = false;
+      resetConfirmButton.textContent = '第1世代に戻す';
+      resetConfirmText.textContent =
+        'リセットに失敗しました。もう一度お試しください。';
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.bootReady) {
+      requestScreenWakeLock();
+    }
+  });
+
+  reloadButton.addEventListener('click', () => {
+    location.reload();
+  });
+
+  async function boot() {
+    try {
+      await fetchAppConfig();
+      state.currentGenerationId = await fetchCurrentGeneration();
+      state.generationNumber = Number(state.currentGenerationId.slice(3));
+      startGeneration.textContent = generationLabel();
+
+      await preloadAssets();
+      state.pendingMutationEvent = loadPendingMutationEvent();
+      specimenBoxButton.hidden = !isEntertainmentModel();
+      specimenSaveButton.hidden = !isEntertainmentModel();
+      render();
+
+      state.bootReady = true;
+      state.uiTransitionLocked = false;
+      startButton.disabled = false;
+      startButton.textContent = 'はじめる';
+      window.dispatchEvent(new Event('gitai:solo-assets-ready'));
+      requestScreenWakeLock();
+
+    } catch (err) {
+      showFatal(
+        '初期化に失敗しました。\n' +
+        (err && err.message ? err.message : String(err)) +
+        '\n\nPagesプレビューのデータを確認してください。'
+      );
+    }
+  }
+
+  boot();
+})();
+</script>
+<script src="js/trophy_rules.js?v=20261016-bgcollection1" defer></script>
+<script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
+<script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
+<script src="js/solo_tutorial.js?v=20261018-hide1" defer></script>
+<script src="js/entertainment_portal.js?v=20261018-tutorial3" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/battle_portal.js?v=20261018-specimens1" defer></script>
+<script src="js/hide_seek_portal.js?v=20261018-specimens1" defer></script>
+
+<!--
+  フォント：PixelMplus12-Regular（M+ FONT LICENSE）
+  作者：M+ FONTS Project / 改変者 itouhiro
+-->
+</body>
+</html>

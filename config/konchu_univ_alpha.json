@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "config_id": "konchu_univ_alpha_2026",
+  "title": "ギタイラボ — 昆虫大学 α",
+  "mode": "solo_preview",
+  "game": {
+    "rounds_per_generation": 5,
+    "individuals_per_round": 12,
+    "round_time_ms": 4000,
+    "display_size_px": 38,
+    "display_y_max_px": 564,
+    "inter_round_delay_ms": 250,
+    "display_y_min_px": 76,
+    "hud_bar_height_px": 36,
+    "hud_clearance_px": 40
+  },
+  "species_config": "species/moth/species.json",
+  "environment_config": "environments/bark_001/environment.json",
+  "evolution_config": "data/evolution_models/continuous_v1/config.json",
+  "network": {
+    "submit_timeout_ms": 30000
+  },
+  "operations": {
+    "milestone_interval_generations": 25,
+    "minimum_free_disk_mb": 2048,
+    "low_disk_warning_mb": 5120
+  },
+  "evolution_profile": "solo",
+  "evolution_model_id": "continuous_v1",
+  "founder_set_id": "standard_white_001"
+}

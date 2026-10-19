@@ -1,0 +1,203 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate preview contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          required = [
+              "index.html",
+              "js/pages_preview.js",
+              "js/gen1_01.js",
+              "js/gen1_02.js",
+              "js/gen1_03.js",
+              "js/gen1_04.js",
+              "js/gen1_05.js",
+              "js/gen1_06.js",
+              "js/mask_data.js",
+              "config/konchu_univ_alpha.json",
+              "species/moth/species.json",
+              "environments/bark_001/environment.json",
+              "environments/sand_001/environment.json",
+              "img/backgrounds/bg_desert_preview.svg",
+              "environments/kusagi_001/environment.json",
+              "environments/leaf_002/environment.json",
+              "img/backgrounds/bg_leaf02.png",
+              "environments/leaf_003/environment.json",
+              "img/backgrounds/bg_leaf03.png",
+              "environments/bush_001/environment.json",
+              "img/backgrounds/bg_bush01.png",
+              "environments/bush_002/environment.json",
+              "img/backgrounds/bg_bush02.png",
+              "environments/grass_001/environment.json",
+              "img/backgrounds/bg_grass01.png",
+              "environments/bark_photo_001/environment.json",
+              "img/backgrounds/bg_bark01.png",
+              "environments/dryleaf_001/environment.json",
+              "img/backgrounds/bg_dryleaf01.png",
+              "environments/sand_photo_001/environment.json",
+              "img/backgrounds/bg_sand01.png",
+              "environments/stone_001/environment.json",
+              "img/backgrounds/bg_stone01.png",
+              "environments/shell_001/environment.json",
+              "img/backgrounds/bg_shell01.png",
+              "environments/wood_001/environment.json",
+              "img/backgrounds/bg_wood01.png",
+              "environments/wood_002/environment.json",
+              "img/backgrounds/bg_wood02.png",
+              "data/evo_config/evo_config_v2.json",
+              "data/evolution_models/continuous_v1/config.json",
+              "data/evolution_models/morph_v1/config.json",
+              "img/backgrounds/bg_preview.svg",
+              "manifest.webmanifest",
+          ]
+
+          missing = [p for p in required if not Path(p).is_file()]
+          if missing:
+              raise SystemExit(f"Missing preview files: {missing}")
+
+          user_envs = [
+              ("kusagi_001", "bg_leaf01.png"),
+              ("leaf_002", "bg_leaf02.png"),
+              ("leaf_003", "bg_leaf03.png"),
+              ("bush_001", "bg_bush01.png"),
+              ("bush_002", "bg_bush02.png"),
+              ("grass_001", "bg_grass01.png"),
+              ("bark_photo_001", "bg_bark01.png"),
+              ("dryleaf_001", "bg_dryleaf01.png"),
+              ("sand_photo_001", "bg_sand01.png"),
+              ("stone_001", "bg_stone01.png"),
+              ("shell_001", "bg_shell01.png"),
+              ("wood_001", "bg_wood01.png"),
+              ("wood_002", "bg_wood02.png"),
+          ]
+          assert len(set(name for _,name in user_envs)) == 13
+          assert len(set(env for env,_ in user_envs)) == 13
+          for env, name in user_envs:
+              conf = json.loads(
+                  Path(f"environments/{env}/environment.json").read_text("utf-8")
+              )
+              if conf["environment_id"] != env:
+                  raise SystemExit(f"Environment id mismatch: {env}")
+              if conf["background"]["src"] != f"img/backgrounds/{name}":
+                  raise SystemExit(f"Background path mismatch: {env}")
+              if not conf.get("display_name_ja") or not conf.get("display_name_en"):
+                  raise SystemExit(f"Missing locale name: {env}")
+              if (conf["background"]["source_width"],
+                  conf["background"]["source_height"]) != (720,1280):
+                  raise SystemExit(f"Wrong image coordinates: {env}")
+              data = Path(f"img/backgrounds/{name}").read_bytes()
+              if not data[:8] == bytes([137,80,78,71,13,10,26,10]):
+                  raise SystemExit(f"Invalid PNG: {name}")
+              if (int.from_bytes(data[16:20],"big"),
+                  int.from_bytes(data[20:24],"big")) != (720,1280):
+                  raise SystemExit(f"Wrong PNG size: {name}")
+
+          forbidden = [
+              Path("data/runs"),
+              Path("data/state"),
+              Path("data/generations"),
+              Path("exports"),
+              Path("admin.html"),
+          ]
+          leaked = [str(p) for p in forbidden if p.exists()]
+          if leaked:
+              raise SystemExit(f"Private/runtime content leaked: {leaked}")
+
+          config = json.loads(
+              Path("config/konchu_univ_alpha.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          if int(config["game"]["round_time_ms"]) != 4000:
+              raise SystemExit("Preview must use 4-second rounds")
+          if config.get("mode") != "solo_preview":
+              raise SystemExit("Public Preview must stay SOLO-only")
+          if config.get("evolution_profile") != "solo":
+              raise SystemExit("Public Preview must use SOLO evolution profile")
+          if config.get("evolution_model_id") != "continuous_v1":
+              raise SystemExit("Public Preview default model must be continuous_v1")
+          if config.get("evolution_config") != "data/evolution_models/continuous_v1/config.json":
+              raise SystemExit("Public Preview must use Continuous Model v1 config")
+          if config.get("founder_set_id") != "standard_white_001":
+              raise SystemExit("Public Preview must use the standard founder set")
+          if int(config["game"]["display_y_min_px"]) != 76:
+              raise SystemExit("Top HUD-safe placement zone must start at y=76")
+          if int(config["game"]["display_y_max_px"]) != 564:
+              raise SystemExit("Bottom HUD-safe placement zone must end at y=564")
+          if int(config["game"]["hud_bar_height_px"]) != 36:
+              raise SystemExit("HUD bar height must be 36px")
+          if int(config["game"]["hud_clearance_px"]) != 40:
+              raise SystemExit("Moth clearance from HUD must be 40px")
+          if (
+              int(config["game"]["display_y_min_px"])
+              < int(config["game"]["hud_bar_height_px"])
+                + int(config["game"]["hud_clearance_px"])
+          ):
+              raise SystemExit("Top placement range overlaps HUD-safe zone")
+          if int(config["game"]["inter_round_delay_ms"]) != 250:
+              raise SystemExit("Preview must use 250ms inter-round delay")
+
+          html = Path("index.html").read_text(encoding="utf-8")
+          if "作者からのお知らせ" not in html:
+              raise SystemExit("Author-news teaser is missing")
+          if "ADVERTISEMENT" in html:
+              raise SystemExit("Direct ad label must not appear")
+          if "『光と闇の生き物図鑑』" in html:
+              raise SystemExit("Book title must not appear in game UI")
+          if "次のラウンドへ" in html:
+              raise SystemExit("Inter-round button must not appear")
+          if "CONFIG.HUD_BAR_HEIGHT + CONFIG.HUD_CLEARANCE" not in html:
+              raise SystemExit("HUD-safe placement logic is missing")
+          if "const centerX = x + size / 2;" in html:
+              raise SystemExit("Forbidden areas must reject full sprite overlap")
+          PY
+
+      - name: Check preview JavaScript syntax
+        run: |
+          node --check js/theater_scale.js
+          node --check js/pages_preview.js
+          node --check js/habitat_access.js
+          node --check js/trophy_rules.js
+          node --check js/portal_trophies.js
+          node --check js/entertainment_portal.js
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Assemble runtime-only Pages artifact
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp index.html manifest.webmanifest .nojekyll _site/
+          cp -R config css data environments img js species _site/
+          test -f _site/index.html
+          test -f _site/js/pages_preview.js
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

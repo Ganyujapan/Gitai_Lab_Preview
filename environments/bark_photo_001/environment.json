@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "environment_id": "bark_photo_001",
+  "display_name_ja": "樹皮",
+  "display_name_en": "Bark",
+  "background": {
+    "src": "img/backgrounds/bg_bark01.png",
+    "source_width": 720,
+    "source_height": 1280
+  },
+  "forbidden_areas": []
+}
