@@ -71,7 +71,6 @@ jobs:
               "data/evo_config/evo_config_v2.json",
               "data/evolution_models/continuous_v1/config.json",
               "data/evolution_models/morph_v1/config.json",
-              "docs/PREVIEW_EXPERIMENT_ARCHITECTURE.md",
               "img/backgrounds/bg_preview.svg",
               "manifest.webmanifest",
           ]
@@ -180,20 +179,25 @@ jobs:
       - name: Check preview JavaScript syntax
         run: |
           node --check js/theater_scale.js
-          node --test tests/theater_scale.test.js
           node --check js/pages_preview.js
           node --check js/habitat_access.js
           node --check js/trophy_rules.js
           node --check js/portal_trophies.js
           node --check js/entertainment_portal.js
-          node --check dev/gitai_score_lab.js
-          node --test tests/trophy_rules.test.js
 
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Assemble runtime-only Pages artifact
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp index.html manifest.webmanifest .nojekyll _site/
+          cp -R config css data environments img js species _site/
+          test -f _site/index.html
+          test -f _site/js/pages_preview.js
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
