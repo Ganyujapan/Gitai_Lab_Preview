@@ -4126,9 +4126,13 @@
   }
 
   async function evolveGeneration(generationId, eatenIndices) {
-    const eatenCount = Array.isArray(eatenIndices)
-      ? eatenIndices.length
-      : 0;
+    // A single survivor cannot reproduce without selecting the same moth
+    // as both parents. Treat 0 or 1 survivors as an invalid generation.
+    // Refuse BEFORE saving snapshots or writing offspring.
+    if (!Array.isArray(eatenIndices)) return null;
+    const eatenCount = new Set(eatenIndices).size;
+    if (TOTAL - eatenCount < 2) return null;
+
     await ensureTheaterSnapshot(generationId, {
       eatenCount,
       survivorCount: TOTAL - eatenCount,
