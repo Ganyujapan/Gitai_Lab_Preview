@@ -171,7 +171,7 @@ jobs:
               raise SystemExit("Book title must not appear in game UI")
           # Instructional copy may mention the next round; only the old
           # inter-round control itself is forbidden.
-          if re.search(r"<button\\b[^>]*>\\s*次のラウンドへ\\s*</button>", html):
+          if re.search(r"<button\b[^>]*>\s*次のラウンドへ\s*</button>", html):
               raise SystemExit("Inter-round button must not appear")
           if "CONFIG.HUD_BAR_HEIGHT + CONFIG.HUD_CLEARANCE" not in html:
               raise SystemExit("HUD-safe placement logic is missing")
