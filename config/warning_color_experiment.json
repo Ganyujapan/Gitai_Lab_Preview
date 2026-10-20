@@ -29,7 +29,7 @@
   },
   "fog_event_v2": {
     "roll_per": "generation",
-    "fog_probability": 0.125,
+    "fog_probability": 0.25,
     "dense_given_fog_probability": 0.25,
     "opacity_fog": 0.32,
     "opacity_dense_fog": 0.7,
