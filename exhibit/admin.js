@@ -304,4 +304,69 @@
       say('復元失敗（既存データは保持）：' + (error?.message || String(error)));
     }
   });
+}
+  // Software updates are checked only by an unlocked administrator on the
+  // landing screen. The new worker stays WAITING until explicitly applied.
+  const updateStatus = document.getElementById('exhibitUpdateStatus');
+  const updateApply = document.getElementById('exhibitUpdateApply');
+  let pendingWorker = null;
+  const setUpdate = text => { updateStatus.textContent = text; };
+  document.getElementById('exhibitUpdateCheck').addEventListener('click', async () => {
+    if (!unlocked) return;
+    updateApply.hidden = true;
+    pendingWorker = null;
+    setUpdate('GitHub Pagesの最新版を確認しています…');
+    try {
+      if (!('serviceWorker' in navigator)) throw Error('Service Worker非対応です。');
+      const reg = await navigator.serviceWorker.getRegistration('./');
+      if (!reg?.active) throw Error('オフラインアプリが未インストールです。');
+      const cached = await fetch('./version.json').then(response => response.json());
+      const network = await fetch('./version.json?online=1&t=' + Date.now(),
+        {cache: 'no-store'}).then(response => {
+        if (!response.ok) throw Error('HTTP ' + response.status);
+        return response.json();
+      });
+      if (network.build === cached.build) {
+        setUpdate('最新版です（' + String(cached.build).slice(0, 12) + '）。');
+        return;
+      }
+      setUpdate('新しいバージョンを発見しました。全ファイルをダウンロード中…');
+      await reg.update();
+      // Installation includes a complete precache. Installing failures do
+      // not displace the current active worker.
+      for (let i = 0; i < 100 && !reg.waiting; i++) {
+        if (reg.installing?.state === 'redundant') break;
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+      if (!reg.waiting) throw Error('更新を完了できませんでした。旧版は維持されています。');
+      pendingWorker = reg.waiting;
+      setUpdate('ダウンロード完了。アプリを使用していない今なら適用できます。');
+      updateApply.hidden = false;
+    } catch (error) {
+      setUpdate('更新失敗：' + (error.message || String(error)) +
+        '。現在のバージョンと保存データはそのままです。');
+    }
+  });
+  updateApply.addEventListener('click', async () => {
+    if (!unlocked || !pendingWorker || updateApply.hidden) return;
+    if (!confirm('今すぐ更新を適用し、展示トップを再読み込みしますか？')) return;
+    updateApply.disabled = true;
+    setUpdate('最新版を適用中…');
+    try {
+      const newControl = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(Error('切替確認がタイムアウトしました。')), 20000);
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          clearTimeout(timer); resolve();
+        }, {once: true});
+      });
+      pendingWorker.postMessage({type: 'APPLY_EXHIBIT_UPDATE'});
+      await newControl;
+      setUpdate('更新の適用が完了しました。再起動します。');
+      location.reload();
+    } catch (error) {
+      setUpdate('適用結果を確認できません：' + (error.message || error));
+      updateApply.disabled = false;
+    }
+  });
+
 })();
