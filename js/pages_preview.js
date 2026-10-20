@@ -58,12 +58,18 @@
   // shares or overwrites its evolution state with the fog experiment.
   // Accept either opt-in marker so a link that drops one query parameter
   // cannot silently fall back to the old warning_color_v6 saved run.
+  const WARNING_FOG_V2 = WARNING_EXPERIMENT
+    && PREVIEW_QUERY.get('run') === 'warning_color_fog_v2';
   const WARNING_FOG = WARNING_EXPERIMENT && (
     PREVIEW_QUERY.get('fog') === '1'
     || PREVIEW_QUERY.get('run') === 'warning_color_fog_v1'
+    || WARNING_FOG_V2
   );
+  // v2 is a separate experiment: preserve all v1 and v6 IndexedDB records.
+  // Old fog=1-only bookmarks continue launching the original fog v1.
   const PREVIEW_RUN_ID = WARNING_EXPERIMENT
-    ? (WARNING_FOG ? 'warning_color_fog_v1' : 'warning_color_v6')
+    ? (WARNING_FOG_V2 ? 'warning_color_fog_v2'
+      : (WARNING_FOG ? 'warning_color_fog_v1' : 'warning_color_v6'))
     : safeNamespaceId(
       PREVIEW_QUERY.get('run'),
       'default',
@@ -658,7 +664,7 @@
       'NOTE: Each record describes selection in generation G and the offspring generated as G+1.',
       'NOTE: For mutation lines, next=... is the fate of that child when G+1 was actually played.',
       'H sectors: A=achromatic,R=red,Y=yellow/orange,G=green,C=cyan,B=blue,M=magenta/purple.',
-      ...(['warning_color_v6', 'warning_color_fog_v1'].includes(payload.run?.run_id) ? [
+      ...(['warning_color_v6', 'warning_color_fog_v1', 'warning_color_fog_v2'].includes(payload.run?.run_id) ? [
         'VISUAL: 0..100 rendered sRGB image resemblance; NOT proof of Batesian mimicry or predator learning.',
         'VISUAL: visual_similarity_next describes offspring in G+1; older measurements may be unavailable.',
         'current_visual_similarity='
@@ -696,7 +702,8 @@
         lines.push('visual_similarity_next='
           + compactVisualSimilarity(record.visual_similarity_next));
       }
-      if (payload.run?.run_id === 'warning_color_fog_v1' && Array.isArray(record.weather_events)) {
+      if (['warning_color_fog_v1', 'warning_color_fog_v2'].includes(payload.run?.run_id)
+          && Array.isArray(record.weather_events)) {
         lines.push('weather=' + record.weather_events.map(event =>
           'r' + event.round_index + ':' + event.fog_event
         ).join(','));
@@ -4572,7 +4579,8 @@
     const nextId = await evolveGeneration(generationId, eaten);
     // Read-only diagnostic enrichment after evolution. Weather does not
     // participate in parent selection, breeding, or mutation RNG draws.
-    if (runId === 'warning_color_fog_v1' && nextId && Array.isArray(payload.round_records)) {
+    if (['warning_color_fog_v1', 'warning_color_fog_v2'].includes(PREVIEW_RUN_ID)
+        && nextId && Array.isArray(payload.round_records)) {
       try {
         const weather = payload.round_records.map(round => ({
           round_index: Number(round.round_index),
