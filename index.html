@@ -2315,7 +2315,8 @@
         CONFIG.FOG_EVENT.roll_per !== 'generation'
         || ![CONFIG.FOG_EVENT.blur_fog_px,
               CONFIG.FOG_EVENT.blur_dense_fog_px,
-              CONFIG.FOG_EVENT.drift_fps].every(value =>
+              CONFIG.FOG_EVENT.drift_fps,
+              CONFIG.FOG_EVENT.dense_density_multiplier].every(value =>
                 Number.isFinite(Number(value)) && Number(value) > 0)
       ))
     )) throw new Error('霧イベントの設定が不正です');
@@ -3538,7 +3539,11 @@
     if (FOG_V2) {
       // A soft, low-opacity veil is combined with three local cloud banks.
       // Their broad gradients move slowly but use NO random draws.
-      ctx.fillStyle = 'rgba(230, 240, 237, ' + (opacity * .54) + ')';
+      // Doubling fog optical depth squares transmitted light, rather than
+      // attempting impossible alpha > 1. Only v2 dense fog is intensified.
+      const density = heavy ? CONFIG.FOG_EVENT.dense_density_multiplier : 1;
+      const fogAlpha = alpha => 1 - Math.pow(1 - alpha, density);
+      ctx.fillStyle = 'rgba(230, 240, 237, ' + fogAlpha(opacity * .54) + ')';
       ctx.fillRect(0, top, GAME_WIDTH, height);
       const time = performance.now() / 1000;
       for (let i = 0; i < 3; i += 1) {
@@ -3550,8 +3555,8 @@
         const radius = 155 + i * 41;
         const cloud = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
         const alpha = heavy ? .34 : .25;
-        cloud.addColorStop(0, 'rgba(245,249,247,' + alpha + ')');
-        cloud.addColorStop(.42, 'rgba(234,243,240,' + (alpha * .67) + ')');
+        cloud.addColorStop(0, 'rgba(245,249,247,' + fogAlpha(alpha) + ')');
+        cloud.addColorStop(.42, 'rgba(234,243,240,' + fogAlpha(alpha * .67) + ')');
         cloud.addColorStop(1, 'rgba(226,237,233,0)');
         ctx.fillStyle = cloud;
         ctx.fillRect(0, top, GAME_WIDTH, height);

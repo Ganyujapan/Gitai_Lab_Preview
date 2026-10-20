@@ -33,6 +33,7 @@
     "dense_given_fog_probability": 0.25,
     "opacity_fog": 0.32,
     "opacity_dense_fog": 0.7,
+    "dense_density_multiplier": 2,
     "blur_fog_px": 2.5,
     "blur_dense_fog_px": 4,
     "drift_fps": 15,
