@@ -22,6 +22,10 @@
 <button type="button" id="exhibitBackupExport">JSONバックアップを書き出す</button>
 <button type="button" id="exhibitBackupRestore">JSONから復元する</button>
 <input type="file" id="exhibitBackupFile" accept=".json,application/json">
+<hr>
+<button type="button" id="exhibitUpdateCheck">最新版を確認（インターネット接続時）</button>
+<p id="exhibitUpdateStatus" role="status" aria-live="polite"></p>
+<button type="button" id="exhibitUpdateApply" hidden>ダウンロード済みの更新を適用</button>
 <p id="exhibitAdminMessage" role="status" aria-live="polite"></p>
 <button type="button" id="exhibitAdminClose">管理画面を閉じる・ロックする</button>
 </section>
