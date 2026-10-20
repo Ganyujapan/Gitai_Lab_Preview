@@ -57,7 +57,7 @@ def main() -> None:
     )
     # The LAN-only battle/hide-seek prototypes are not accessible in the kiosk.
     for name in ("index.html", "landing.js", "landing.css", "manifest.webmanifest",
-                 "game.js", "game.css"):
+                 "game.js", "game.css", "admin.js", "admin.css"):
         shutil.copy2(root / name, exhibit / name)
     worker = (root / "sw.template.js").read_text(encoding="utf-8")
     (exhibit / "sw.js").write_text(
