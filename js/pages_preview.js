@@ -17,8 +17,12 @@
     && PREVIEW_QUERY.get('experiment') === 'warning_color'
   );
   const WARNING = window.GitaiWarningColor;
+  const WARNING_SIMILARITY = window.GitaiWarningSimilarity;
   if (WARNING_EXPERIMENT && !WARNING) {
     throw new Error('警戒色の進化実験モジュールがありません');
+  }
+  if (WARNING_EXPERIMENT && !WARNING_SIMILARITY) {
+    throw new Error('警戒色の画像解析モジュールがありません');
   }
   const HABITAT_ACCESS = window.GitaiHabitatAccess || {
     testMode: false, defaultEnvironment: 'kusagi_001',
@@ -243,6 +247,31 @@
   }
 
 
+  // Analyze the currently playable generation on demand. Historical moth
+  // images are normally deleted, but this generation still has its genomes.
+  // This reads them without selection, mutation, or a new RNG draw.
+  async function currentWarningVisualSimilarity() {
+    if (!WARNING_EXPERIMENT) return null;
+    const key = 'visual_similarity_snapshot:' + currentGenerationId;
+    const stored = await idbGet(META_STORE, key);
+    if (stored?.metric === 'rendered_srgb_weighted_rmse_16grid_v1') {
+      return stored;
+    }
+    await ensureConfig();
+    await ensureMask();
+    await ensureTemplateAlpha();
+    const samples = new Map();
+    for (let i = 1; i <= TOTAL; i += 1) {
+      const genome = await idbGet(META_STORE, genomeKey(currentGenerationId, i));
+      if (!genome) return null;
+      samples.set(i, WARNING_SIMILARITY.sampleImageData(renderGenome(genome)));
+      if (i % 8 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    const result = WARNING_SIMILARITY.analyzeGeneration(samples, currentGenerationId);
+    await idbPut(META_STORE, key, result);
+    return result;
+  }
+
   async function collectDiagnosticPayload() {
     await ensureConfig();
     const entries = await idbEntriesByPrefix(META_STORE, 'diagnostic:');
@@ -253,6 +282,22 @@
         generationNumber(a.generation_id)
         - generationNumber(b.generation_id)
       ));
+
+    let currentVisualSimilarity = null;
+    if (WARNING_EXPERIMENT) {
+      const recorded = generations.find(record =>
+        record.next_generation_id === currentGenerationId
+        && record.visual_similarity_next
+      );
+      currentVisualSimilarity = recorded?.visual_similarity_next || null;
+      if (!currentVisualSimilarity) {
+        try {
+          currentVisualSimilarity = await currentWarningVisualSimilarity();
+        } catch (error) {
+          console.warn('警戒色の画像類似度を計測できませんでした:', error);
+        }
+      }
+    }
 
     return {
       schema: 'gitailab-preview-diagnostic-v1',
@@ -296,6 +341,7 @@
         population_size: TOTAL,
       },
       current_generation_id: currentGenerationId,
+      current_visual_similarity: currentVisualSimilarity,
       recorded_generation_count: generations.length,
       note: generations.length
         ? 'Diagnostic recording starts from the first generation evolved after this feature was installed.'
@@ -560,6 +606,25 @@
       + selected;
   }
 
+  function compactVisualSimilarity(data) {
+    if (!data || !Number.isFinite(data.mean_harmless_nearest_poison))
+      return 'unavailable';
+    const top = (data.closest_pairs || []).slice(0, 3)
+      .map(p => 'h'
+        + String(p.harmless_index).padStart(2, '0')
+        + '>p' + String(p.poison_index).padStart(2, '0')
+        + ':' + compactNumber(p.similarity, 2)
+      ).join(',');
+    return [
+      'gen=' + String(data.generation_id || '-'),
+      'nearest_poison_mean=' + compactNumber(data.mean_harmless_nearest_poison, 2),
+      'nearest_harmless_mean=' + compactNumber(data.mean_harmless_nearest_harmless, 2),
+      'poison_within_mean=' + compactNumber(data.mean_poison_nearest_poison, 2),
+      'cross_minus_within=' + compactNumber(data.inter_minus_harmless_nearest, 2),
+      'closest_pairs=' + (top || '-'),
+    ].join(' ');
+  }
+
   function buildChatGPTDiagnosticTextFromPayload(payload) {
     const generations = payload.generations || [];
     const recordById = new Map(
@@ -585,6 +650,12 @@
       'NOTE: Each record describes selection in generation G and the offspring generated as G+1.',
       'NOTE: For mutation lines, next=... is the fate of that child when G+1 was actually played.',
       'H sectors: A=achromatic,R=red,Y=yellow/orange,G=green,C=cyan,B=blue,M=magenta/purple.',
+      ...(payload.run?.run_id === 'warning_color_v6' ? [
+        'VISUAL: 0..100 rendered sRGB image resemblance; NOT proof of Batesian mimicry or predator learning.',
+        'VISUAL: visual_similarity_next describes offspring in G+1; older measurements may be unavailable.',
+        'current_visual_similarity='
+          + compactVisualSimilarity(payload.current_visual_similarity),
+      ] : []),
       '',
     ];
 
@@ -613,6 +684,10 @@
       lines.push(
         'mutation_counts=' + compactMutationCounts(record.offspring)
       );
+      if (record.visual_similarity_next) {
+        lines.push('visual_similarity_next='
+          + compactVisualSimilarity(record.visual_similarity_next));
+      }
 
       if (isMorph && morphRegistry) {
         const composition = new Map();
@@ -4140,6 +4215,7 @@
     const blobs = new Map();
     const genomes = new Map();
     const offspringDiagnostics = [];
+    let visualSamples = WARNING_EXPERIMENT ? new Map() : null;
     const genetics = evolutionConfig.trait_genetics || {};
     const specialMutationGenerationP = clamp01(
       Number(genetics.special_mutation_generation_p || 0)
@@ -4181,6 +4257,16 @@
         );
       }
       const child = renderGenome(genome);
+      if (visualSamples) {
+        try {
+          visualSamples.set(
+            item.childIndex, WARNING_SIMILARITY.sampleImageData(child),
+          );
+        } catch (error) {
+          visualSamples = null; // Analytics must never block reproduction.
+          console.warn('警戒色の画像サンプリングに失敗しました:', error);
+        }
+      }
       genomes.set(item.childIndex, genome);
       blobs.set(item.childIndex, await imageDataToBlob(child));
       offspringDiagnostics.push(result.diagnostic);
@@ -4193,6 +4279,17 @@
     for (const [index, blob] of blobs.entries()) {
       await idbPut(IMAGE_STORE, imageKey(nextId, index), blob);
       await idbPut(META_STORE, genomeKey(nextId, index), genomes.get(index));
+    }
+
+    let visualSimilarityNext = null;
+    if (visualSamples) {
+      try {
+        visualSimilarityNext = WARNING_SIMILARITY.analyzeGeneration(
+          visualSamples, nextId,
+        );
+      } catch (error) {
+        console.warn('警戒色の画像類似度を記録できませんでした:', error);
+      }
     }
 
     const eatenSet = new Set(eatenIndices);
@@ -4228,6 +4325,9 @@
       offspring: offspringDiagnostics.sort(
         (a, b) => a.child_index - b.child_index
       ),
+      ...(visualSimilarityNext
+        ? { visual_similarity_next: visualSimilarityNext }
+        : {}),
       summary: {
         special_mutation_count: offspringDiagnostics.filter(
           (child) => child.mutations.some(
