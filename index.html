@@ -1681,7 +1681,7 @@
     <section id="warningToxicDeath" hidden role="alertdialog" aria-modal="true"
       aria-labelledby="warningToxicDeathTitle">
       <h2 id="warningToxicDeathTitle">中毒死しました。</h2>
-      <p>この世代は無効です。進化記録はそのまま保存されます。<br>再開するとライフ5から挑戦できます。</p>
+      <p>この世代は無効です。進化記録はそのまま保存されます。<br>再開するとライフ3から挑戦できます。</p>
       <button id="warningDeathReturn" type="button">トップへ戻る</button>
     </section>
     <section id="warningFogAnnouncement" hidden role="dialog" aria-modal="true"
@@ -2026,10 +2026,10 @@
 <script src="js/gen1_06.js"></script>
 <script src="js/mask_data.js"></script>
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
-<script src="js/warning_color.js?v=20261020-life1"></script>
+<script src="js/warning_color.js?v=20261020-life3-random20"></script>
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261020-life1"></script>
+<script src="js/pages_preview.js?v=20261020-life3-random20"></script>
 <script>
 (() => {
   'use strict';
@@ -2191,8 +2191,8 @@
     toxinPaused: false,
     toxinRemainingMs: null,
     toxinTimeoutId: null,
-    warningLifeThirds: 15,
-    warningLifeAtGenerationStartThirds: 15,
+    warningLifeThirds: WARNING.LIFE_INITIAL_THIRDS,
+    warningLifeAtGenerationStartThirds: WARNING.LIFE_INITIAL_THIRDS,
     warningDeathReturnTimer: null,
     mothImages: [],
     rounds: [],

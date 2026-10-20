@@ -2113,6 +2113,21 @@
     return h >>> 0;
   }
 
+  // Unique per fresh warning-color experiment; preserved in IndexedDB so an
+  // interrupted 20-generation headstart can be rebuilt identically.
+  function makeWarningNeutralRunSeed() {
+    const values = new Uint32Array(4);
+    if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+      globalThis.crypto.getRandomValues(values);
+    } else {
+      // Fallback for non-secure preview contexts. GitHub Pages uses crypto.
+      for (let i = 0; i < values.length; i += 1) {
+        values[i] = Math.floor(Math.random() * 0x100000000);
+      }
+    }
+    return Array.from(values, value => value.toString(16).padStart(8, '0')).join('');
+  }
+
   function makeSeededRng(seedValue) {
     let state = hashString32(seedValue) || 0x6d2b79f5;
     return () => {
@@ -3880,6 +3895,15 @@
       }
     }
 
+    // Generate a new random stream for each reset, but never on reload.
+    // Write the seed BEFORE simulating so a partial run repeats exactly.
+    const seedKey = 'warning_neutral_run_seed_v1';
+    let runSeed = await idbGet(META_STORE, seedKey);
+    if (typeof runSeed !== 'string' || !/^[0-9a-f]{32}$/.test(runSeed)) {
+      runSeed = makeWarningNeutralRunSeed();
+      await idbPut(META_STORE, seedKey, runSeed);
+    }
+
     let population = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
       const genome = makePureWhiteFounderGenome(
@@ -3896,10 +3920,10 @@
     for (let generation = 1; generation <= neutralGenerations; generation += 1) {
       const sourceId = `gen${String(generation).padStart(5, '0')}`;
       const nextId = nextGenerationId(sourceId);
-      // Preserve the earlier independent-lineage experiment's seeded stream.
-      // This restores the earlier 20-generation setup with a new capture limit.
+      // Both lineages remain independent, while each fresh experiment
+      // receives a different sequence of inheritance and mutation rolls.
       const rng = makeSeededRng(
-        `warning_color_v2:neutral:${evolutionConfig.config_id}:${generation}`,
+        `warning_color_v2:neutral:${evolutionConfig.config_id}:${runSeed}:${generation}`,
       );
       const plans = [];
       for (const kind of [WARNING.POISON, WARNING.HARMLESS]) {
