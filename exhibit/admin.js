@@ -65,6 +65,14 @@
   async function openDb(name) {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(name, 2);
+      request.onupgradeneeded = () => {
+        // Never create a version-2 DB without the game engine's stores.
+        // An admin backup attempt before the first play must be harmless.
+        const db = request.result;
+        for (const store of STORES) {
+          if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
+        }
+      };
       request.onerror = () => reject(request.error);
       request.onblocked = () => reject(new Error('データベースが使用中です。ゲーム画面を閉じてください。'));
       request.onsuccess = () => {
