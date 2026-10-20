@@ -1,0 +1,9 @@
+#exhibitAdminOpen{background:transparent;color:#9bada3;border:0;text-decoration:underline;font-size:12px;padding:8px;margin:12px auto;display:block}
+#exhibitAdminPanel{background:#1a2a22;color:#f1fcf0;border:2px solid #7ca387;border-radius:12px;padding:20px;margin:12px 0;font:14px/1.7 system-ui}
+#exhibitAdminPanel[hidden]{display:none!important}
+#exhibitAdminPanel h2{font-size:19px;margin:0 0 12px}
+#exhibitAdminPanel button,#exhibitAdminPanel select{font:inherit;padding:10px;border:1px solid #a4cbb0;border-radius:7px;margin:5px 0;background:#294d38;color:white}
+#exhibitAdminPanel button{display:block;width:100%}
+#exhibitAdminPanel select{width:100%}
+#exhibitAdminMessage{font-size:13px;word-break:break-word;color:#e8dca7}
+#exhibitBackupFile{display:none}
