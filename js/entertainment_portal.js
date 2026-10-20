@@ -854,6 +854,11 @@
     if (soloHomeButton) soloHomeButton.hidden = true;
     showMenu();
   }
+  window.addEventListener('gitai:warning-death-return', () => {
+    showMenu();
+    setMode('intro');
+    enter.focus({ preventScroll: true });
+  });
   if (backToMenu) backToMenu.addEventListener('click', returnToMenuWithoutReset);
   if (resultBackToMenu) resultBackToMenu.addEventListener('click', returnToMenuWithoutReset);
   if (soloHomeButton) soloHomeButton.addEventListener('click', returnToMenuWithoutReset);
