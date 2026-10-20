@@ -3407,9 +3407,9 @@
       for (let i = 0; i < 3; i += 1) {
         const phase = i * 2.31;
         const cx = GAME_WIDTH * (0.2 + i * .3)
-          + Math.sin(time * .44 + phase) * 76;
+          + Math.sin(time * 2.2 + phase) * 76;
         const cy = top + height * (.27 + i * .23)
-          + Math.cos(time * .34 + phase) * 91;
+          + Math.cos(time * 1.7 + phase) * 91;
         const radius = 155 + i * 41;
         const cloud = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
         const alpha = heavy ? .34 : .25;
