@@ -2028,8 +2028,8 @@
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
 <script src="js/warning_color.js?v=20261020-life4-random20"></script>
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
-<script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261020-life4-random20"></script>
+<script src="js/theater_scale.js?v=20261020-warning-split1"></script>
+<script src="js/pages_preview.js?v=20261020-life4-random20-theater1"></script>
 <script>
 (() => {
   'use strict';
@@ -4350,7 +4350,9 @@
         theaterFrameImage.src = frame.object_url;
         theaterMeta.textContent = '第' + Number(frame.generation_number)
           + '世代 · ' + String(frame.model_label_ja || '');
-        if (!ready) theaterNote.textContent = '一部の世代は元画像がないため旧表示を維持しています。';
+        if (!ready) theaterNote.textContent = WARNING_MODE
+          ? '一部の過去世代は元画像がないため旧配置のままです。今後の世代は左右に分かれます。'
+          : '一部の世代は元画像がないため旧表示を維持しています。';
       }).catch((error) => {
         console.warn('進化シアターの画像を読み直せませんでした:', error);
         if (requestId === theaterRenderTicket && state.theaterFrames === frames)
