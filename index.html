@@ -1920,9 +1920,9 @@
 <script src="js/gen1_06.js"></script>
 <script src="js/mask_data.js"></script>
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
-<script src="js/warning_color.js?v=20261019-warning1"></script>
+<script src="js/warning_color.js?v=20261020-paired1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261020-independent20-five"></script>
+<script src="js/pages_preview.js?v=20261020-paired1"></script>
 <script>
 (() => {
   'use strict';
@@ -2719,7 +2719,12 @@
     const status = document.createElement('span');
     status.className = 'mutation-card-status';
     const types = (mutant.event_types || []).map(mutationTypeLabel).join(' / ');
-    status.textContent = 'MOTH ' + String(index).padStart(2, '0') + ' · ' + (types || '突然変異');
+    const lineageLabel = WARNING_MODE
+      ? (WARNING.lineage(index) === WARNING.POISON ? '毒蛾' : '無毒蛾')
+      : '';
+    status.textContent = 'MOTH ' + String(index).padStart(2, '0')
+      + (lineageLabel ? ' · ' + lineageLabel : '')
+      + ' · ' + (types || '突然変異');
     if (state.eatenIndices.has(index)) card.appendChild(createPredationSkull());
     const save = document.createElement('button');
     save.type = 'button';

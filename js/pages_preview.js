@@ -4144,11 +4144,19 @@
     const specialMutationGenerationP = clamp01(
       Number(genetics.special_mutation_generation_p || 0)
     );
-    const specialMutationChildIndex = (
-      Math.random() < specialMutationGenerationP
-    )
-      ? 1 + Math.floor(Math.random() * TOTAL)
-      : null;
+    // One generation-level lottery at the existing probability.
+    // Warning-color wins produce one mutant in EACH lineage; ordinary
+    // camouflage keeps its original single-mutant behavior.
+    const specialMutationChildIndices = WARNING_EXPERIMENT
+      ? WARNING.synchronizedSpecialMutationIndices(
+        specialMutationGenerationP,
+      )
+      : (
+        Math.random() < specialMutationGenerationP
+          ? [1 + Math.floor(Math.random() * TOTAL)]
+          : []
+      );
+    const specialMutationChildSet = new Set(specialMutationChildIndices);
 
     for (const item of plan) {
       const result = makeChildGenome(
@@ -4164,10 +4172,7 @@
         genome.lineage = WARNING.lineage(item.childIndex);
         result.diagnostic.lineage = genome.lineage;
       }
-      if (
-        specialMutationChildIndex !== null
-        && item.childIndex === specialMutationChildIndex
-      ) {
+      if (specialMutationChildSet.has(item.childIndex)) {
         const childSeed = generationNumber(nextId) * 1000 + item.childIndex;
         applyEntertainmentSpecialMutation(
           genome,
