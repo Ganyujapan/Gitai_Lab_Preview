@@ -2,7 +2,7 @@
 <html lang="ja"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#090d0c">
-<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="landing.css">
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="landing.css"><link rel="stylesheet" href="admin.css">
 <title>ギタイラボ | 昆虫大学 2026</title></head><body>
 <main>
 <header><p class="eyebrow">KONCHU UNIVERSITY 2026 / OFFLINE EXHIBITION</p><h1>ギタイラボ</h1><p>キミの選択が、蛾の進化を変える。</p></header>
@@ -14,4 +14,15 @@
 </div>
 <p class="instructions">同じiPadで進化を引き継ぎます。1人5世代を目安に、次の人へ交代してください。待っている人がいなければ続けてプレイできます。</p>
 <section class="status" aria-live="polite"><p id="offlineStatus">オフライン準備を確認中…</p><p id="buildVersion"></p><p id="storageStatus"></p></section>
-</main><script src="landing.js" defer></script></body></html>
+<button id="exhibitAdminOpen" type="button">管理者用</button>
+<section id="exhibitAdminPanel" hidden aria-label="管理者専用設定">
+<h2>展示管理</h2><p>バックアップはモードごとにJSONで保存します。復元時は同じモードを選択してください。</p>
+<label for="exhibitBackupMode">対象モード</label>
+<select id="exhibitBackupMode"><option value="cryptic">隠れるギタイ</option><option value="warning">目立つギタイ</option></select>
+<button type="button" id="exhibitBackupExport">JSONバックアップを書き出す</button>
+<button type="button" id="exhibitBackupRestore">JSONから復元する</button>
+<input type="file" id="exhibitBackupFile" accept=".json,application/json">
+<p id="exhibitAdminMessage" role="status" aria-live="polite"></p>
+<button type="button" id="exhibitAdminClose">管理画面を閉じる・ロックする</button>
+</section>
+</main><script src="landing.js" defer></script><script src="admin.js" defer></script></body></html>
