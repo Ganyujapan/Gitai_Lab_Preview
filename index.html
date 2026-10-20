@@ -1566,6 +1566,42 @@
       pointer-events: auto;
     }
     #warningPoisonOverlay[hidden] { display: none; }
+    #warningToxicDeath {
+      position: absolute;
+      z-index: 100;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 24px;
+      box-sizing: border-box;
+      background: rgba(6, 6, 9, .97);
+      color: #fff;
+      text-align: center;
+      font-family: 'PixelMplus', monospace;
+    }
+    #warningToxicDeath[hidden] { display: none; }
+    #warningToxicDeath h2 { font-size: clamp(23px, 6vw, 32px); margin: 0; color: #ff9ba7; }
+    #warningToxicDeath p { margin: 0; font-size: 14px; line-height: 1.8; }
+    #warningToxicDeath button {
+      font: inherit;
+      border: 1px solid #e6adb4;
+      background: #3a1b25;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0);
+      white-space: nowrap; border: 0;
+    }
+
 
     /* Weather is announced before the first moth is exposed: no timer runs
        behind this panel and the message must be dismissed deliberately. */
@@ -1639,6 +1675,13 @@
     </div>
 
     <div id="warningPoisonOverlay" hidden role="status" aria-live="assertive" aria-label="毒蛾を捕食しました">毒</div>
+    <span id="warningLifeAccessible" class="visually-hidden" role="status" aria-live="polite"></span>
+    <section id="warningToxicDeath" hidden role="alertdialog" aria-modal="true"
+      aria-labelledby="warningToxicDeathTitle">
+      <h2 id="warningToxicDeathTitle">中毒死しました。</h2>
+      <p>この世代は無効です。進化記録はそのまま保存されます。<br>再開するとライフ5から挑戦できます。</p>
+      <button id="warningDeathReturn" type="button">トップへ戻る</button>
+    </section>
     <section id="warningFogAnnouncement" hidden role="dialog" aria-modal="true"
       aria-labelledby="warningFogAnnouncementTitle">
       <div class="fog-announcement-kicker">WEATHER EVENT / GENERATION</div>
@@ -1981,10 +2024,10 @@
 <script src="js/gen1_06.js"></script>
 <script src="js/mask_data.js"></script>
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
-<script src="js/warning_color.js?v=20261020-fog1"></script>
+<script src="js/warning_color.js?v=20261020-life1"></script>
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261020-fog-audit1"></script>
+<script src="js/pages_preview.js?v=20261020-life1"></script>
 <script>
 (() => {
   'use strict';
@@ -2010,7 +2053,13 @@
     || new URLSearchParams(location.search).get('run') === 'warning_color_fog_v1'
     || FOG_V2
   );
+  // Life is an opt-in gameplay layer for the current fog-v2 experiment only.
+  // Older v6/v1 research runs retain their original rules.
+  const WARNING_LIFE = WARNING_MODE && FOG_V2;
   const warningPoisonOverlay = document.getElementById('warningPoisonOverlay');
+  const warningToxicDeath = document.getElementById('warningToxicDeath');
+  const warningDeathReturn = document.getElementById('warningDeathReturn');
+  const warningLifeAccessible = document.getElementById('warningLifeAccessible');
   const warningFogAnnouncement = document.getElementById('warningFogAnnouncement');
   const warningFogAnnouncementTitle = document.getElementById('warningFogAnnouncementTitle');
   const warningFogStart = document.getElementById('warningFogStart');
@@ -2140,6 +2189,9 @@
     toxinPaused: false,
     toxinRemainingMs: null,
     toxinTimeoutId: null,
+    warningLifeThirds: 15,
+    warningLifeAtGenerationStartThirds: 15,
+    warningDeathReturnTimer: null,
     mothImages: [],
     rounds: [],
     currentRoundIndex: 0,
@@ -3148,7 +3200,89 @@
     errorOverlay.classList.add('visible');
   }
 
+
+  // Namespace life independently from progress, but bind it to the SAME run.
+  function warningLifeStorageKey() {
+    const context = window.GitaiPagesPreview?.context || {};
+    return 'gitai-warning-life-v1:' + String(context.storageNamespace || 'warning');
+  }
+  function saveWarningLife(generationId, thirds) {
+    if (!WARNING_LIFE) return;
+    try {
+      localStorage.setItem(warningLifeStorageKey(), JSON.stringify({
+        generation_id: generationId,
+        thirds: Math.max(0, Math.min(WARNING.LIFE_MAX_THIRDS, thirds)),
+      }));
+    } catch (error) {
+      console.warn('ライフの保存に失敗しました', error);
+    }
+  }
+  function loadWarningLife(generationId) {
+    if (!WARNING_LIFE) return WARNING.LIFE_INITIAL_THIRDS;
+    try {
+      const saved = JSON.parse(localStorage.getItem(warningLifeStorageKey()) || 'null');
+      if (saved?.generation_id === generationId
+          && Number.isInteger(saved.thirds)
+          && saved.thirds >= 1 && saved.thirds <= WARNING.LIFE_MAX_THIRDS) {
+        return saved.thirds;
+      }
+    } catch (_) {}
+    return WARNING.LIFE_INITIAL_THIRDS;
+  }
+  function resetWarningAttempt() {
+    state.currentRoundIndex = 0;
+    state.activeMoths = [];
+    state.rounds = [];
+    state.eatenIndices = new Set();
+    state.allSurvivorIndices = [];
+    state.roundRecords = [];
+    state.roundTapEvents = [];
+    state.runId = null;
+    state.scoreRecordId = null;
+    state.scoreSummary = null;
+    state.nextGenerationId = null;
+    state.submitStatus = 'idle';
+    state.uiTransitionLocked = false;
+  }
+  function returnFromToxicDeath() {
+    if (warningToxicDeath.hidden) return;
+    clearTimeout(state.warningDeathReturnTimer);
+    state.warningDeathReturnTimer = null;
+    warningToxicDeath.hidden = true;
+    state.warningLifeThirds = WARNING.LIFE_INITIAL_THIRDS;
+    state.warningLifeAtGenerationStartThirds = WARNING.LIFE_INITIAL_THIRDS;
+    resetWarningAttempt();
+    render();
+    window.dispatchEvent(new Event('gitai:warning-death-return'));
+  }
+  function showWarningToxicDeath() {
+    if (!WARNING_LIFE) return;
+    state.roundActive = false;
+    state.toxinPaused = false;
+    state.soloPaused = false;
+    clearTimers();
+    stopFogAnimation();
+    clearTimeout(state.toxinTimeoutId);
+    state.toxinTimeoutId = null;
+    if (state.interRoundTimeoutId !== null) clearTimeout(state.interRoundTimeoutId);
+    state.interRoundTimeoutId = null;
+    state.hitEffects = [];
+    warningPoisonOverlay.hidden = true;
+    warningFogAnnouncement.hidden = true;
+    // The aborted generation is never submitted. Previous generations remain.
+    saveWarningLife(state.currentGenerationId, WARNING.LIFE_INITIAL_THIRDS);
+    soloHomeButton.hidden = true;
+    startOverlay.classList.add('visible');
+    startButton.disabled = false;
+    state.uiTransitionLocked = false;
+    warningToxicDeath.hidden = false;
+    warningDeathReturn.focus({ preventScroll: true });
+    state.warningDeathReturnTimer = setTimeout(returnFromToxicDeath, 2800);
+  }
+  warningDeathReturn.addEventListener('click', returnFromToxicDeath);
+
   function clearTimers() {
+
     if (state.countdownIntervalId !== null) {
       clearInterval(state.countdownIntervalId);
       state.countdownIntervalId = null;
@@ -3460,6 +3594,39 @@
   }
 
   function drawHud() {
+    // Pixel hearts share the same crisp, grid-based visual vocabulary as the
+    // predation skull. An 8×7 sprite at 2× scale fits ten in the HUD.
+    function drawWarningHearts() {
+      const sprite = ['01100110', '11111111', '11111111', '11111111',
+        '01111110', '00111100', '00011000'];
+      const startX = GAME_WIDTH - 8 - (10 * 17);
+      const topY = Math.max(0, Math.floor((CONFIG.HUD_BAR_HEIGHT - 14) / 2));
+      for (let heart = 0; heart < 10; heart += 1) {
+        const filledThirds = Math.max(0, Math.min(3, state.warningLifeThirds - heart * 3));
+        const filledColumns = filledThirds * 8 / 3;
+        for (let py = 0; py < sprite.length; py += 1) {
+          for (let px = 0; px < 8; px += 1) {
+            if (sprite[py][px] !== '1') continue;
+            const outline = py === 0 || py === sprite.length - 1
+              || px === 0 || px === 7
+              || sprite[py - 1]?.[px] !== '1'
+              || sprite[py + 1]?.[px] !== '1'
+              || sprite[py][px - 1] !== '1'
+              || sprite[py][px + 1] !== '1';
+            ctx.fillStyle = outline ? '#c88891'
+              : (px + 0.5 <= filledColumns ? '#ff5268' : '#44343a');
+            ctx.fillRect(startX + heart * 17 + px * 2,
+              topY + py * 2, 2, 2);
+          }
+        }
+      }
+      const text = 'ライフ ' + Math.floor(state.warningLifeThirds / 3)
+        + (state.warningLifeThirds % 3
+          ? 'と' + state.warningLifeThirds % 3 + '/3' : '') + ' / 10';
+      if (warningLifeAccessible.textContent !== text) {
+        warningLifeAccessible.textContent = text;
+      }
+    }
     ctx.save();
 
     ctx.fillStyle = 'rgba(0,0,0,0.52)';
@@ -3478,6 +3645,10 @@
     ctx.textAlign = 'left';
     const hudMidY = CONFIG.HUD_BAR_HEIGHT / 2;
     ctx.fillText(generationLabel(), 12, hudMidY);
+    if (WARNING_LIFE) {
+      drawWarningHearts();
+      ctx.fillStyle = '#fff'; // Restore the lower HUD labels after pixel fills.
+    }
 
     ctx.textAlign = 'left';
     ctx.fillText(
@@ -5094,6 +5265,9 @@
         data.retry_same_generation
       ) {
         state.submitStatus = 'retry_generation';
+        if (WARNING_LIFE) {
+          state.warningLifeThirds = state.warningLifeAtGenerationStartThirds;
+        }
         returnEntertainmentToReview();
         authorNewsTeaser.hidden = true;
         state.nextGenerationId = null;
@@ -5167,6 +5341,11 @@
 
       state.nextGenerationId = String(data.next_generation_id || '');
       state.submitStatus = 'success';
+      // Commit life ONLY after offspring have been saved successfully.
+      // Death or invalid rounds never carry an uncommitted life gain forward.
+      if (WARNING_LIFE && /^gen\d{5}$/.test(state.nextGenerationId)) {
+        saveWarningLife(state.nextGenerationId, state.warningLifeThirds);
+      }
 
       if (isEntertainmentModel()) {
         state.uiTransitionLocked = false;
@@ -5241,14 +5420,24 @@
             Math.round(performance.now() - state.roundStartedAt),
           ),
         });
-        render();
+
         if (WARNING_MODE) {
-          if (WARNING.lineage(moth.index) === WARNING.POISON) {
+          const capturedKind = WARNING.lineage(moth.index);
+          if (WARNING_LIFE) {
+            state.warningLifeThirds = WARNING.adjustLife(
+              state.warningLifeThirds, capturedKind);
+          }
+          render();
+          if (WARNING_LIFE && state.warningLifeThirds === 0) {
+            showWarningToxicDeath();
+          } else if (capturedKind === WARNING.POISON) {
             showPoisonPenalty();
           } else if (state.activeMoths.filter(m => m.clicked).length
               >= CONFIG.CAPTURES_TO_FINISH_ROUND) {
             endRound();
           }
+        } else {
+          render();
         }
         break;
       }
@@ -5313,6 +5502,9 @@
     if (state.submitStatus === 'retry_generation') {
       reviewOverlay.classList.remove('visible');
       authorNewsTeaser.hidden = true;
+      if (WARNING_LIFE) {
+        state.warningLifeThirds = state.warningLifeAtGenerationStartThirds;
+      }
       buildRounds();
       state.currentRoundIndex = 0;
       state.eatenIndices = new Set();
@@ -5577,6 +5769,13 @@
       await fetchAppConfig();
       state.currentGenerationId = await fetchCurrentGeneration();
       state.generationNumber = Number(state.currentGenerationId.slice(3));
+      if (WARNING_LIFE) {
+        state.warningLifeThirds = loadWarningLife(state.currentGenerationId);
+        state.warningLifeAtGenerationStartThirds = state.warningLifeThirds;
+        introSubtle.textContent =
+          '毒蛾を食べるとライフ-1。無毒蛾3匹で+1回復します。'
+          + ' ライフは世代をまたいで引き継がれます。';
+      }
       startGeneration.textContent = generationLabel();
 
       await preloadAssets();
@@ -5608,7 +5807,7 @@
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261020-leafcards2" defer></script>
 <script src="js/solo_tutorial.js?v=20261020-independent20-five" defer></script>
-<script src="js/entertainment_portal.js?v=20261020-leafcards2" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/entertainment_portal.js?v=20261020-life1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 <script src="js/battle_portal.js?v=20261018-specimens1" defer></script>
 <script src="js/hide_seek_portal.js?v=20261018-specimens1" defer></script>
 
