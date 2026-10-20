@@ -1,5 +1,5 @@
 /* A locked-down public exhibition interface, not an admin security boundary. */
-[data-action="reset"],[data-action="environment"],[data-action="model"],
+ #pagesPreviewBadge, [data-action="reset"],[data-action="environment"],[data-action="model"],
 [data-action="diagnostic"],[data-action="chatgpt-log"],
 #resetConfirmOverlay,#backToMenu,#resultBackToMenu,
 #soloHomeButton,#entertainmentPortal,#portalIntro,#portalMenu,
