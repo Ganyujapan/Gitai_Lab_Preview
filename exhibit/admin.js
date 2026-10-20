@@ -253,10 +253,17 @@
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(tx.error);
-        for (const store of STORES) {
-          const objectStore = tx.objectStore(store);
-          objectStore.clear();
-          for (const {key, value} of prepared[store]) objectStore.put(value, key);
+        try {
+          for (const store of STORES) {
+            const objectStore = tx.objectStore(store);
+            objectStore.clear();
+            for (const {key, value} of prepared[store]) objectStore.put(value, key);
+          }
+        } catch (error) {
+          // Synchronous put errors must not leave queued clear() operations
+          // free to commit without the replacement records.
+          tx.abort();
+          reject(error);
         }
       });
     } finally { db.close(); }
