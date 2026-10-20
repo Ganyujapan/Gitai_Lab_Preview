@@ -311,7 +311,6 @@
       say('復元失敗（既存データは保持）：' + (error?.message || String(error)));
     }
   });
-}
   // Software updates are checked only by an unlocked administrator on the
   // landing screen. The new worker stays WAITING until explicitly applied.
   const updateStatus = document.getElementById('exhibitUpdateStatus');
