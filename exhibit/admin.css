@@ -7,3 +7,5 @@
 #exhibitAdminPanel select{width:100%}
 #exhibitAdminMessage{font-size:13px;word-break:break-word;color:#e8dca7}
 #exhibitBackupFile{display:none}
+
+#exhibitAdminPanel [hidden]{display:none!important}
