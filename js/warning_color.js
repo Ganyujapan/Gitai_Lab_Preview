@@ -72,10 +72,19 @@
     ];
   }
 
+  // Weather and mutation are separate random events. Fog is sampled once
+  // per warning-experiment round, before display. An ordinary fog roll
+  // is followed by a dense-fog roll only when the first one succeeds.
+  function chooseFogEvent(fogProbability, denseGivenFogProbability, rng = Math.random) {
+    const clamp = value => Math.max(0, Math.min(1, Number(value) || 0));
+    if (rng() >= clamp(fogProbability)) return 'none';
+    return rng() < clamp(denseGivenFogProbability) ? 'dense_fog' : 'fog';
+  }
+
   const api = Object.freeze({
     POISON, HARMLESS, PER_LINEAGE, TOTAL,
     lineage, indices, makeRounds, survivorCounts, viable, chooseBackground,
-    synchronizedSpecialMutationIndices,
+    synchronizedSpecialMutationIndices, chooseFogEvent,
   });
   root.GitaiWarningColor = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
