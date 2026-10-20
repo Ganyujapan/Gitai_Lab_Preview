@@ -14,8 +14,9 @@
       "src": "img/backgrounds/bg_leaf01.png"
     }
   ],
-  "neutral_generations": 30,
-  "first_playable_generation": 31,
+  "first_playable_generation": 33,
   "capture_target_per_round": 6,
-  "round_time_limit_enabled": false
+  "round_time_limit_enabled": false,
+  "shared_neutral_generations": 30,
+  "post_split_neutral_generations": 2
 }
