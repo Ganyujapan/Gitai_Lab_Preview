@@ -41,7 +41,7 @@ def main() -> None:
         db_declaration, "  const BASE_DB_NAME = EVOLUTION_MODEL_ID", 1
     ).replace(
         version_declaration,
-        "  const DB_NAME = 'gitai-exhibit-2026-' + BASE_DB_NAME;\\n"
+        "  const DB_NAME = 'gitai-exhibit-2026-' + BASE_DB_NAME;\n"
         "  const DB_VERSION = 2;", 1
     )
     engine.write_text(engine_js, encoding="utf-8")
