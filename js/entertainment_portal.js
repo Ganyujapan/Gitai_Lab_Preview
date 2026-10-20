@@ -802,7 +802,7 @@
     url.searchParams.set('model', 'continuous_v1');
     url.searchParams.set('env', 'kusagi_001');
     url.searchParams.set('experiment', 'warning_color');
-    url.searchParams.set('run', 'warning_color_v5');
+    url.searchParams.set('run', 'warning_color_v6');
     url.searchParams.delete('play');
     url.searchParams.set('portal', 'auto-play-warning');
     window.location.assign(url.toString());
