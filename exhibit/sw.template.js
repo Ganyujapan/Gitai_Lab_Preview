@@ -40,7 +40,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin ||
       !url.href.startsWith(BASE)) return;
-  if (url.pathname.endsWith('/sw.js')) return;
+  if (url.pathname.endsWith('/sw.js') ||
+      (url.pathname.endsWith('/version.json') && url.searchParams.has('online'))) return;
   event.respondWith((async () => {
     const cache = await caches.open(ACTIVE_CACHE);
     const cached = await cache.match(request, { ignoreSearch: true });
@@ -48,4 +49,11 @@ self.addEventListener('fetch', (event) => {
     // Do not cache arbitrary live responses; they are not part of a verified build.
     return fetch(request);
   })());
+});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'APPLY_EXHIBIT_UPDATE') {
+    // Called only from the administrator landing screen after full pre-cache.
+    self.skipWaiting();
+  }
 });
