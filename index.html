@@ -17,7 +17,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261019-warning1">
+  <link rel="stylesheet" href="css/entertainment_portal.css?v=20261020-experimentcards1">
   <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
   <link rel="stylesheet" href="css/portal_minimal.css?v=20261017-minimal1">
   <link rel="stylesheet" href="css/solo_tutorial.css?v=20261018-tutorial3">
@@ -1890,18 +1890,53 @@
         </div>
         <div class="portal-menu-footer">INVISILAB / EVERY LIFE HAS A STORY</div>
         <section id="portalEvolutionModes" class="portal-experiment-choice" role="dialog"
-          aria-label="進化モードを選ぶ" aria-modal="true" hidden>
-          <div class="portal-experiment-eyebrow">SOLO / EVOLUTION EXPERIMENT</div>
-          <h2>進化実験を選ぶ</h2>
-          <button id="portalCrypticMode" class="portal-experiment-button" type="button">
-            <strong>隠蔽擬態 — 進化実験</strong>
-            <small>背景に隠れる蛾を進化させる</small>
-          </button>
-          <button id="portalWarningMode" class="portal-experiment-button" type="button">
-            <strong>警戒色 — 進化実験</strong>
-            <small>毒蛾と無毒蛾、それぞれの進化を観察する</small>
-          </button>
-          <button id="portalEvolutionBack" class="portal-experiment-back" type="button">← 戻る</button>
+          aria-labelledby="portalEvolutionTitle" aria-modal="true" hidden>
+          <div class="portal-experiment-content">
+            <div class="portal-experiment-eyebrow">INVISILAB / SELECT YOUR EXPERIMENT</div>
+            <h2 id="portalEvolutionTitle">進化実験を選ぶ</h2>
+            <p class="portal-experiment-intro">背景に隠れる？ 毒蛾に似る？<br>進化のゆくえを観察しよう。</p>
+            <div class="portal-experiment-list">
+              <button id="portalCrypticMode" class="portal-experiment-button" type="button">
+                <span class="portal-experiment-info">
+                  <span class="portal-experiment-number">01 / CAMOUFLAGE</span>
+                  <strong>隠れるギタイ</strong>
+                  <span class="portal-experiment-subtitle">隠蔽擬態</span>
+                  <small>背景に隠れる蛾を進化させる</small>
+                  <span class="portal-experiment-cta" aria-hidden="true">PLAY <span>↗</span></span>
+                </span>
+                <span class="portal-experiment-preview" aria-hidden="true">
+                  <span class="portal-experiment-scene portal-experiment-scene-cryptic">
+                    <span class="portal-experiment-preview-top">GEN 00021</span>
+                    <span class="portal-experiment-moth portal-experiment-moth-cryptic-one"></span>
+                    <span class="portal-experiment-moth portal-experiment-moth-cryptic-two"></span>
+                    <span class="portal-experiment-moth portal-experiment-moth-cryptic-three"></span>
+                    <span class="portal-experiment-preview-bottom">ROUND 1/5 · 4s</span>
+                  </span>
+                  <span class="portal-experiment-preview-note">画面イメージ</span>
+                </span>
+              </button>
+              <button id="portalWarningMode" class="portal-experiment-button" type="button">
+                <span class="portal-experiment-info">
+                  <span class="portal-experiment-number">02 / WARNING COLOR</span>
+                  <strong>目立つギタイ</strong>
+                  <span class="portal-experiment-subtitle">警告色の進化とベイツ型擬態</span>
+                  <small>毒蛾と無毒蛾、それぞれの進化を観察する</small>
+                  <span class="portal-experiment-cta" aria-hidden="true">PLAY <span>↗</span></span>
+                </span>
+                <span class="portal-experiment-preview" aria-hidden="true">
+                  <span class="portal-experiment-scene portal-experiment-scene-warning">
+                    <span class="portal-experiment-preview-top">GEN 00021</span>
+                    <span class="portal-experiment-moth portal-experiment-moth-toxic-one"></span>
+                    <span class="portal-experiment-moth portal-experiment-moth-toxic-two"></span>
+                    <span class="portal-experiment-moth portal-experiment-moth-harmless"></span>
+                    <span class="portal-experiment-preview-bottom">ROUND 1/5 · 捕食 0/5</span>
+                  </span>
+                  <span class="portal-experiment-preview-note">画面イメージ</span>
+                </span>
+              </button>
+            </div>
+            <button id="portalEvolutionBack" class="portal-experiment-back" type="button">← 戻る</button>
+          </div>
         </section>
         <div id="portalDialog" class="portal-dialog" role="dialog" aria-modal="true" aria-labelledby="portalDialogTitle" hidden>
           <h3 id="portalDialogTitle" class="portal-dialog-title">準備中</h3>
