@@ -54,8 +54,11 @@
         ? 'bark'
         : PREVIEW_ENV_ID
     );
+  // Fog play uses an isolated IndexedDB run. The successful v6 run never
+  // shares or overwrites its evolution state with the fog experiment.
+  const WARNING_FOG = WARNING_EXPERIMENT && PREVIEW_QUERY.get('fog') === '1';
   const PREVIEW_RUN_ID = WARNING_EXPERIMENT
-    ? 'warning_color_v6'
+    ? (WARNING_FOG ? 'warning_color_fog_v1' : 'warning_color_v6')
     : safeNamespaceId(
       PREVIEW_QUERY.get('run'),
       'default',
@@ -650,7 +653,7 @@
       'NOTE: Each record describes selection in generation G and the offspring generated as G+1.',
       'NOTE: For mutation lines, next=... is the fate of that child when G+1 was actually played.',
       'H sectors: A=achromatic,R=red,Y=yellow/orange,G=green,C=cyan,B=blue,M=magenta/purple.',
-      ...(payload.run?.run_id === 'warning_color_v6' ? [
+      ...(['warning_color_v6', 'warning_color_fog_v1'].includes(payload.run?.run_id) ? [
         'VISUAL: 0..100 rendered sRGB image resemblance; NOT proof of Batesian mimicry or predator learning.',
         'VISUAL: visual_similarity_next describes offspring in G+1; older measurements may be unavailable.',
         'current_visual_similarity='
@@ -687,6 +690,11 @@
       if (record.visual_similarity_next) {
         lines.push('visual_similarity_next='
           + compactVisualSimilarity(record.visual_similarity_next));
+      }
+      if (payload.run?.run_id === 'warning_color_fog_v1' && Array.isArray(record.weather_events)) {
+        lines.push('weather=' + record.weather_events.map(event =>
+          'r' + event.round_index + ':' + event.fog_event
+        ).join(','));
       }
 
       if (isMorph && morphRegistry) {
@@ -4549,6 +4557,29 @@
     }
 
     const nextId = await evolveGeneration(generationId, eaten);
+    // Read-only diagnostic enrichment after evolution. Weather does not
+    // participate in parent selection, breeding, or mutation RNG draws.
+    if (runId === 'warning_color_fog_v1' && nextId && Array.isArray(payload.round_records)) {
+      try {
+        const weather = payload.round_records.map(round => ({
+          round_index: Number(round.round_index),
+          fog_event: String(round.fog_event || 'none'),
+          background_id: String(round.background_id || ''),
+        })).filter(event => Number.isInteger(event.round_index)
+          && event.round_index >= 1 && event.round_index <= 5
+          && ['none', 'fog', 'dense_fog'].includes(event.fog_event));
+        if (weather.length === 5
+            && new Set(weather.map(event => event.round_index)).size === 5) {
+          const record = await idbGet(META_STORE, diagnosticKey(generationId));
+          if (record) {
+            record.weather_events = weather.sort((a, b) => a.round_index - b.round_index);
+            await idbPut(META_STORE, diagnosticKey(generationId), record);
+          }
+        }
+      } catch (error) {
+        console.warn('霧イベントの診断記録に失敗しました', error);
+      }
+    }
     const entertainmentEvent = nextId
       ? await entertainmentMutationEvent(generationId, nextId)
       : null;
