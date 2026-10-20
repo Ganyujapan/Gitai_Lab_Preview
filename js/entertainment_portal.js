@@ -805,7 +805,7 @@
     url.searchParams.set('experiment', 'warning_color');
     // A fresh fog experiment has its own Run; existing warning_color_v6
     // generations remain available through the legacy URL when needed.
-    url.searchParams.set('run', 'warning_color_fog_v1');
+    url.searchParams.set('run', 'warning_color_fog_v2');
     url.searchParams.set('fog', '1');
     url.searchParams.delete('play');
     url.searchParams.set('portal', 'auto-play-warning');

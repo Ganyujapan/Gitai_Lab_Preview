@@ -1567,6 +1567,49 @@
     }
     #warningPoisonOverlay[hidden] { display: none; }
 
+    /* Weather is announced before the first moth is exposed: no timer runs
+       behind this panel and the message must be dismissed deliberately. */
+    #warningFogAnnouncement {
+      position: absolute;
+      inset: 0;
+      z-index: 85;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 18px;
+      padding: 24px;
+      text-align: center;
+      background: rgba(8, 18, 19, .95);
+      color: #f0f3ec;
+      font-family: 'PixelMplus', monospace;
+    }
+    #warningFogAnnouncement[hidden] { display: none; }
+    #warningFogAnnouncement .fog-announcement-kicker {
+      font: 700 12px/1.6 ui-monospace, monospace;
+      letter-spacing: .2em;
+      color: #a4c4bd;
+    }
+    #warningFogAnnouncement h2 {
+      font-size: clamp(31px, 8.5vw, 46px);
+      line-height: 1.35;
+      color: #f5f8ed;
+      text-shadow: 0 0 18px rgba(216, 242, 235, .4);
+      margin: 0;
+    }
+    #warningFogAnnouncement p { font-size: 14px; line-height: 1.85; margin: 0; }
+    #warningFogStart {
+      min-width: 190px;
+      min-height: 54px;
+      border: 1px solid #a2bdb2;
+      border-radius: 10px;
+      color: #f6fbf5;
+      background: #233832;
+      font: 700 17px/1.4 'PixelMplus', monospace;
+      cursor: pointer;
+    }
+    #warningFogStart:focus-visible { outline: 3px solid #fff0aa; outline-offset: 3px; }
+
     #errorText {
       color: #ffb2b2;
       white-space: pre-wrap;
@@ -1596,6 +1639,13 @@
     </div>
 
     <div id="warningPoisonOverlay" hidden role="status" aria-live="assertive" aria-label="毒蛾を捕食しました">毒</div>
+    <section id="warningFogAnnouncement" hidden role="dialog" aria-modal="true"
+      aria-labelledby="warningFogAnnouncementTitle">
+      <div class="fog-announcement-kicker">WEATHER EVENT / GENERATION</div>
+      <h2 id="warningFogAnnouncementTitle">霧発生！</h2>
+      <p>この世代の5ラウンドは霧が続きます。</p>
+      <button id="warningFogStart" type="button">プレイ開始 →</button>
+    </section>
 
     <section id="startOverlay" class="overlay visible">
       <div class="panel">
@@ -1958,7 +2008,7 @@
 <script src="js/warning_color.js?v=20261020-fog1"></script>
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261020-fog-saturation1"></script>
+<script src="js/pages_preview.js?v=20261020-fog-v2"></script>
 <script>
 (() => {
   'use strict';
@@ -1977,11 +2027,17 @@
   );
   const WARNING = window.GitaiWarningColor;
   // Opt-in only: the original warning_color_v6 play and DB are untouched.
+  const FOG_V2 = WARNING_MODE
+    && new URLSearchParams(location.search).get('run') === 'warning_color_fog_v2';
   const FOG_MODE = WARNING_MODE && (
     new URLSearchParams(location.search).get('fog') === '1'
     || new URLSearchParams(location.search).get('run') === 'warning_color_fog_v1'
+    || FOG_V2
   );
   const warningPoisonOverlay = document.getElementById('warningPoisonOverlay');
+  const warningFogAnnouncement = document.getElementById('warningFogAnnouncement');
+  const warningFogAnnouncementTitle = document.getElementById('warningFogAnnouncementTitle');
+  const warningFogStart = document.getElementById('warningFogStart');
   const roundShutter = document.getElementById('roundShutter');
   const roundShutterGeneration = document.getElementById('roundShutterGeneration');
   const soloHomeButton = document.getElementById('soloHomeButton');
@@ -2101,6 +2157,9 @@
     warningBackgrounds: new Map(),
     warningCurrentBackground: null,
     warningFogEvent: 'none',
+    fogGenerationId: null,
+    fogAnimationFrame: null,
+    fogLastFrameAt: 0,
     toxinPaused: false,
     toxinRemainingMs: null,
     toxinTimeoutId: null,
@@ -2193,7 +2252,10 @@
       BG_TRUE_HEIGHT: Number(background.source_height),
       BACKGROUND_SRC: String(background.src),
       WARNING_POOL: WARNING_MODE ? appConfig.warning_color?.background_pool : null,
-      FOG_EVENT: FOG_MODE ? appConfig.warning_color?.fog_event : null,
+      FOG_EVENT: FOG_MODE
+        ? (FOG_V2 ? appConfig.warning_color?.fog_event_v2
+          : appConfig.warning_color?.fog_event)
+        : null,
       POISON_PAUSE_MS: WARNING_MODE
         ? Number(appConfig.warning_color?.poison_pause_ms || 1000) : 0,
       CAPTURES_TO_FINISH_ROUND: WARNING_MODE
@@ -2218,6 +2280,13 @@
             CONFIG.FOG_EVENT.opacity_fog,
             CONFIG.FOG_EVENT.opacity_dense_fog].every(value =>
               Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1)
+      || (FOG_V2 && (
+        CONFIG.FOG_EVENT.roll_per !== 'generation'
+        || ![CONFIG.FOG_EVENT.blur_fog_px,
+              CONFIG.FOG_EVENT.blur_dense_fog_px,
+              CONFIG.FOG_EVENT.drift_fps].every(value =>
+                Number.isFinite(Number(value)) && Number(value) > 0)
+      ))
     )) throw new Error('霧イベントの設定が不正です');
 
     document.documentElement.style.setProperty(
@@ -3095,6 +3164,7 @@
   }
 
   function showFatal(message) {
+    stopFogAnimation();
     clearTimers();
     state.roundActive = false;
     errorText.textContent = message;
@@ -3130,6 +3200,7 @@
   function pauseSolo() {
     if (!isEntertainmentModel() || state.soloPaused) return;
     state.soloPaused = true;
+    stopFogAnimation();
     if (state.toxinPaused) {
       // When leaving during the poison overlay, keep all captures intact.
       clearTimeout(state.toxinTimeoutId);
@@ -3184,6 +3255,7 @@
     state.pausedRoundRemainingMs = null;
     state.pausedInterRoundRemainingMs = null;
     render();
+    startFogAnimation();
   }
 
   window.addEventListener('gitai:solo-pause', pauseSolo);
@@ -3336,8 +3408,8 @@
     }
   }
 
-  // Cosmetic weather affects both lineages identically, and never modifies
-  // genome rendering, positions, hitboxes, selection or mutation parameters.
+  // Purely optical weather: blurred background + both moth lineages equally.
+  // v1's original static overlay is unchanged for historical comparison.
   function drawFog() {
     if (!FOG_MODE || !state.roundActive || state.warningFogEvent === 'none') return;
     const heavy = state.warningFogEvent === 'dense_fog';
@@ -3349,17 +3421,65 @@
     ctx.beginPath();
     ctx.rect(0, top, GAME_WIDTH, height);
     ctx.clip();
-    ctx.fillStyle = 'rgba(230, 240, 237, ' + opacity + ')';
-    ctx.fillRect(0, top, GAME_WIDTH, height);
-    // Slight static density variation makes the effect read as mist. No RNG
-    // is used in draw(); rapidly repeated renders never reroll weather.
-    const gradient = ctx.createLinearGradient(0, top, GAME_WIDTH, GAME_HEIGHT);
-    gradient.addColorStop(0, 'rgba(245, 248, 246, 0)');
-    gradient.addColorStop(0.45, 'rgba(245, 248, 246, ' + (heavy ? 0.14 : 0.075) + ')');
-    gradient.addColorStop(1, 'rgba(245, 248, 246, 0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, top, GAME_WIDTH, height);
+
+    if (FOG_V2) {
+      // A soft, low-opacity veil is combined with three local cloud banks.
+      // Their broad gradients move slowly but use NO random draws.
+      ctx.fillStyle = 'rgba(230, 240, 237, ' + (opacity * .54) + ')';
+      ctx.fillRect(0, top, GAME_WIDTH, height);
+      const time = performance.now() / 1000;
+      for (let i = 0; i < 3; i += 1) {
+        const phase = i * 2.31;
+        const cx = GAME_WIDTH * (0.2 + i * .3)
+          + Math.sin(time * .11 + phase) * 76;
+        const cy = top + height * (.27 + i * .23)
+          + Math.cos(time * .085 + phase) * 91;
+        const radius = 155 + i * 41;
+        const cloud = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
+        const alpha = heavy ? .34 : .25;
+        cloud.addColorStop(0, 'rgba(245,249,247,' + alpha + ')');
+        cloud.addColorStop(.42, 'rgba(234,243,240,' + (alpha * .67) + ')');
+        cloud.addColorStop(1, 'rgba(226,237,233,0)');
+        ctx.fillStyle = cloud;
+        ctx.fillRect(0, top, GAME_WIDTH, height);
+      }
+    } else {
+      // Keep the original per-round static fog visuals byte-for-byte.
+      ctx.fillStyle = 'rgba(230, 240, 237, ' + opacity + ')';
+      ctx.fillRect(0, top, GAME_WIDTH, height);
+      const gradient = ctx.createLinearGradient(0, top, GAME_WIDTH, GAME_HEIGHT);
+      gradient.addColorStop(0, 'rgba(245, 248, 246, 0)');
+      gradient.addColorStop(0.45, 'rgba(245, 248, 246, ' + (heavy ? 0.14 : 0.075) + ')');
+      gradient.addColorStop(1, 'rgba(245, 248, 246, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, top, GAME_WIDTH, height);
+    }
     ctx.restore();
+  }
+
+  function stopFogAnimation() {
+    if (state.fogAnimationFrame !== null) {
+      cancelAnimationFrame(state.fogAnimationFrame);
+      state.fogAnimationFrame = null;
+    }
+  }
+
+  function startFogAnimation() {
+    stopFogAnimation();
+    if (!FOG_V2 || state.warningFogEvent === 'none' || !state.roundActive
+        || state.soloPaused || document.hidden) return;
+    const frameDuration = 1000 / CONFIG.FOG_EVENT.drift_fps;
+    function frame(time) {
+      state.fogAnimationFrame = null;
+      if (!state.roundActive || state.soloPaused || document.hidden) return;
+      if (time - state.fogLastFrameAt >= frameDuration) {
+        state.fogLastFrameAt = time;
+        render();
+      }
+      state.fogAnimationFrame = requestAnimationFrame(frame);
+    }
+    state.fogLastFrameAt = performance.now();
+    state.fogAnimationFrame = requestAnimationFrame(frame);
   }
 
   function drawHud() {
@@ -3473,8 +3593,18 @@
 
   function render() {
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    const blurScene = FOG_V2 && state.roundActive
+      && state.warningFogEvent !== 'none' && 'filter' in ctx;
+    if (blurScene) {
+      // Blur the ORIGINAL background and moth images, never the HUD or hitboxes.
+      ctx.save();
+      ctx.filter = 'blur(' + (state.warningFogEvent === 'dense_fog'
+        ? CONFIG.FOG_EVENT.blur_dense_fog_px
+        : CONFIG.FOG_EVENT.blur_fog_px) + 'px)';
+    }
     drawBackground();
     if (state.roundActive) drawMoths();
+    if (blurScene) ctx.restore();
     drawFog();
     drawHitEffects();
     drawHud();
@@ -3491,6 +3621,30 @@
     return Math.random();
   }
 
+  function announceGenerationFog() {
+    if (!FOG_V2) return false;
+    // Retrying the SAME generation must keep the original fog outcome.
+    if (state.fogGenerationId === state.currentGenerationId) return false;
+    state.fogGenerationId = state.currentGenerationId;
+    state.warningFogEvent = WARNING.chooseFogEvent(
+      CONFIG.FOG_EVENT.fog_probability,
+      CONFIG.FOG_EVENT.dense_given_fog_probability,
+      independentFogRandom
+    );
+    if (state.warningFogEvent === 'none') return false;
+    warningFogAnnouncementTitle.textContent =
+      state.warningFogEvent === 'dense_fog' ? '濃霧発生！' : '霧発生！';
+    warningFogAnnouncement.hidden = false;
+    warningFogStart.focus({ preventScroll: true });
+    return true;
+  }
+
+  warningFogStart.addEventListener('click', () => {
+    if (warningFogAnnouncement.hidden || state.roundActive) return;
+    warningFogAnnouncement.hidden = true;
+    startRound();
+  });
+
   function startRound() {
     reviewOverlay.classList.remove('visible');
     soloHomeButton.hidden = !isEntertainmentModel();
@@ -3506,16 +3660,18 @@
       );
     }
 
-    // Fog and sudden mutations are independent: weather rolls once per
-    // round, while synchronized special mutations retain their 20% per-
-    // generation roll in the evolution engine. Both may occur together.
-    state.warningFogEvent = FOG_MODE
-      ? WARNING.chooseFogEvent(
-          CONFIG.FOG_EVENT.fog_probability,
-          CONFIG.FOG_EVENT.dense_given_fog_probability,
-          independentFogRandom
-        )
-      : 'none';
+    // v1 retains its original per-round draw; v2 samples ONCE at generation
+    // start and keeps the chosen intensity for all five rounds and retries.
+    // Weather sampling remains independent from special mutations.
+    if (!FOG_V2) {
+      state.warningFogEvent = FOG_MODE
+        ? WARNING.chooseFogEvent(
+            CONFIG.FOG_EVENT.fog_probability,
+            CONFIG.FOG_EVENT.dense_given_fog_probability,
+            independentFogRandom
+          )
+        : 'none';
+    }
 
     try {
       placeRoundMoths();
@@ -3533,6 +3689,7 @@
     state.roundStartedAt = performance.now();
     state.roundActive = true;
     render();
+    startFogAnimation();
 
     // Warning-color mode has no countdown. Capturing six moths ends it.
     if (!WARNING_MODE) {
@@ -3551,6 +3708,7 @@
 
     clearTimers();
     state.roundActive = false;
+    stopFogAnimation();
 
     const roundSurvivors = state.activeMoths
       .filter((m) => !m.clicked)
@@ -5045,6 +5203,7 @@
   function showPoisonPenalty() {
     if (!WARNING_MODE || !state.roundActive || state.toxinPaused) return;
     state.toxinPaused = true;
+    stopFogAnimation();
     warningPoisonOverlay.hidden = false;
     state.toxinTimeoutId = setTimeout(() => {
       state.toxinTimeoutId = null;
@@ -5058,6 +5217,7 @@
         endRound();
       } else {
         render();
+        startFogAnimation();
       }
     }, CONFIG.POISON_PAUSE_MS);
   }
@@ -5137,7 +5297,7 @@
     state.pendingRankMilestone = null;
     ++state.rankCalculationToken;
     state.submitStatus = 'idle';
-    startRound();
+    if (!announceGenerationFog()) startRound();
   });
 
   continueButton.addEventListener('click', () => {
@@ -5406,6 +5566,9 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && state.bootReady) {
       requestScreenWakeLock();
+      startFogAnimation();
+    } else {
+      stopFogAnimation();
     }
   });
 
@@ -5449,7 +5612,7 @@
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
 <script src="js/solo_tutorial.js?v=20261020-independent20-five" defer></script>
-<script src="js/entertainment_portal.js?v=20261020-fog-entry1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/entertainment_portal.js?v=20261020-fog-v2" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 <script src="js/battle_portal.js?v=20261018-specimens1" defer></script>
 <script src="js/hide_seek_portal.js?v=20261018-specimens1" defer></script>
 
