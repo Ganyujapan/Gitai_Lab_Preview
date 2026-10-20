@@ -7,6 +7,18 @@
   const TOTAL = 60;
   const POISON = 'poison';
   const HARMLESS = 'harmless';
+  // Life is kept in integer thirds to avoid floating-point drift.
+  const LIFE_MAX_THIRDS = 30;
+  const LIFE_INITIAL_THIRDS = 15;
+  function adjustLife(thirds, kind) {
+    const current = Number.isInteger(thirds)
+      ? Math.max(0, Math.min(LIFE_MAX_THIRDS, thirds))
+      : LIFE_INITIAL_THIRDS;
+    if (kind === POISON) return Math.max(0, current - 3);
+    if (kind === HARMLESS) return Math.min(LIFE_MAX_THIRDS, current + 1);
+    throw new RangeError('Unknown captured moth lineage');
+  }
+
 
   function lineage(index) {
     if (!Number.isInteger(index) || index < 1 || index > TOTAL) {
@@ -83,6 +95,7 @@
 
   const api = Object.freeze({
     POISON, HARMLESS, PER_LINEAGE, TOTAL,
+    LIFE_MAX_THIRDS, LIFE_INITIAL_THIRDS, adjustLife,
     lineage, indices, makeRounds, survivorCounts, viable, chooseBackground,
     synchronizedSpecialMutationIndices, chooseFogEvent,
   });
