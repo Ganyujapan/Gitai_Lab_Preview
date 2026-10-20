@@ -788,6 +788,28 @@
     if (menuContent) menuContent.inert = false;
     solo.focus({ preventScroll: true });
   }
+  let experimentExamplesLoaded = false;
+  let experimentExamplesPending = null;
+  function populateExperimentCardMoths() {
+    if (experimentExamplesLoaded || experimentExamplesPending) return;
+    const renderer = window.GitaiPortalRandomMoth;
+    if (!renderer?.initialize || !renderer?.experimentExamples) return;
+    experimentExamplesPending = renderer.initialize().then(() => {
+      const samples = renderer.experimentExamples();
+      if (!samples || !experimentModes) return;
+      for (const img of experimentModes.querySelectorAll('img[data-experiment-moth]')) {
+        const sample = samples[img.dataset.experimentMoth];
+        if (sample) img.src = sample;
+      }
+      experimentExamplesLoaded = true;
+    }).catch(error => {
+      // The visual samples are optional and never block either game mode.
+      console.warn('Could not draw experiment card moths:', error);
+    }).finally(() => {
+      experimentExamplesPending = null;
+    });
+  }
+
   function openEvolutionModePicker() {
     if (!ensureNickname()) return;
     if (!experimentModes) {
@@ -795,6 +817,7 @@
       return;
     }
     experimentModes.hidden = false;
+    populateExperimentCardMoths();
     if (menuContent) menuContent.inert = true;
     crypticMode?.focus({ preventScroll: true });
   }
