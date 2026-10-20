@@ -1923,7 +1923,7 @@
 <script src="js/warning_color.js?v=20261020-fog1"></script>
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261020-fog1"></script>
+<script src="js/pages_preview.js?v=20261020-fog-saturation1"></script>
 <script>
 (() => {
   'use strict';
@@ -1942,7 +1942,10 @@
   );
   const WARNING = window.GitaiWarningColor;
   // Opt-in only: the original warning_color_v6 play and DB are untouched.
-  const FOG_MODE = WARNING_MODE && new URLSearchParams(location.search).get('fog') === '1';
+  const FOG_MODE = WARNING_MODE && (
+    new URLSearchParams(location.search).get('fog') === '1'
+    || new URLSearchParams(location.search).get('run') === 'warning_color_fog_v1'
+  );
   const warningPoisonOverlay = document.getElementById('warningPoisonOverlay');
   const roundShutter = document.getElementById('roundShutter');
   const roundShutterGeneration = document.getElementById('roundShutterGeneration');
@@ -3351,10 +3354,11 @@
       GAME_HEIGHT - hudMidY
     );
 
-    if (FOG_MODE && state.warningFogEvent !== 'none') {
+    if (FOG_MODE) {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#eefaff';
-      ctx.fillText(state.warningFogEvent === 'dense_fog' ? '濃霧' : '霧',
+      ctx.fillText(state.warningFogEvent === 'dense_fog' ? '濃霧'
+        : state.warningFogEvent === 'fog' ? '霧' : '霧実験',
         GAME_WIDTH / 2, GAME_HEIGHT - hudMidY);
       ctx.fillStyle = '#fff';
     }
