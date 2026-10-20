@@ -65,6 +65,7 @@ jobs:
           test ! -e _site/tests
           python3 exhibit/build.py _site "${GITHUB_SHA}"
           node --check _site/exhibit/game.js
+          node --check _site/exhibit/admin.js
           node --check _site/exhibit/landing.js
           node --check _site/exhibit/js/pages_preview.js
           node --check _site/exhibit/js/entertainment_portal.js
@@ -78,6 +79,8 @@ jobs:
           assert all((site / x).is_file() for x in assets)
           game = (site / "game.html").read_text()
           assert "fonts.googleapis.com" not in game
+          assert "admin.js" in assets and "admin.css" in assets
+          assert "landing.js" in assets and "game.js" in assets
           engine = (site / "js/pages_preview.js").read_text()
           assert "gitai-exhibit-2026-" in engine
           assert "const BASE_DB_NAME =" in engine
