@@ -1260,6 +1260,8 @@
     releaseObjectUrls();
     await clearDb();
     try {
+      // Resetting this isolated evolution run also resets its life counter.
+      localStorage.removeItem('gitai-warning-life-v1:' + DB_NAME);
       for (let i = localStorage.length - 1; i >= 0; i -= 1) {
         const key = localStorage.key(i);
         if (!key) continue;
