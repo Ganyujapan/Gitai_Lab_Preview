@@ -645,6 +645,58 @@
     }
   }
 
+  // Static examples for the evolution-mode menu. The shapes and markings are
+  // drawn through the SAME 128px genome renderer/mask as playable moths.
+  // They are illustrative, not saved to the game or selected for breeding.
+  function makeExperimentExampleGenome(kind) {
+    const activeIds = kind === 'warning'
+      ? new Set(['twin_spots', 'transverse_band', 'outer_edge'])
+      : kind === 'cryptic'
+        ? new Set(['cloud_mottle', 'longitudinal_streaks'])
+        : new Set();
+    const seed = kind === 'white' ? 101 : kind === 'cryptic' ? 402 : 803;
+    const modules = {};
+    for (const locus of genetics.pattern_loci || []) {
+      const params = defaultModuleParams(locus.id, seed);
+      const active = activeIds.has(locus.id);
+      modules[locus.id] = {
+        ...params,
+        alleles: active ? [1, 1] : [0, 0],
+        ...(active ? {
+          valueEffect: kind === 'warning' ? -0.78 : -0.24,
+          pigmentHue: kind === 'warning' ? 7 : 123,
+          pigmentSaturation: kind === 'warning' ? 0.5 : 0.32,
+        } : {}),
+      };
+    }
+    return {
+      schema_version: 1,
+      baseHue: kind === 'warning' ? 8 : kind === 'cryptic' ? 128 : 0,
+      baseSaturation: kind === 'warning' ? 0.85 : kind === 'cryptic' ? 0.42 : 0,
+      baseValue: kind === 'warning' ? 0.93 : kind === 'cryptic' ? 0.48 : 1,
+      patternContrast: kind === 'warning' ? 0.96 : 0.65,
+      textureStrength: kind === 'white' ? 0 : 0.08,
+      textureSeed: seed,
+      modules,
+    };
+  }
+
+  function experimentExamples() {
+    if (!initialized) return null;
+    // Keep the title animation's imageCanvas untouched when menu opens.
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = SIZE;
+    previewCanvas.height = SIZE;
+    const previewCtx = previewCanvas.getContext('2d');
+    if (!previewCtx) return null;
+    const images = {};
+    for (const kind of ['white', 'cryptic', 'warning']) {
+      previewCtx.putImageData(renderGenome(makeExperimentExampleGenome(kind)), 0, 0);
+      images[kind] = previewCanvas.toDataURL('image/png');
+    }
+    return images;
+  }
+
   function next() {
     if (!initialized) return null;
     // One full random draw: *no* survival selection, mutation from the last
@@ -655,7 +707,7 @@
   }
 
   window.GitaiPortalRandomMoth = Object.freeze({
-    initialize, next,
+    initialize, next, experimentExamples,
     get ready() { return initialized; }
   });
 })();
