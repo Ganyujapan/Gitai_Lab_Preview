@@ -17,5 +17,14 @@
   "first_playable_generation": 21,
   "capture_target_per_round": 5,
   "round_time_limit_enabled": false,
-  "independent_neutral_generations": 20
+  "independent_neutral_generations": 20,
+  "fog_event": {
+    "enabled_with_query": "fog=1",
+    "roll_per": "round",
+    "fog_probability": 0.2,
+    "dense_given_fog_probability": 0.25,
+    "opacity_fog": 0.32,
+    "opacity_dense_fog": 0.7,
+    "experimental_values": true
+  }
 }
