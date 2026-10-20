@@ -757,6 +757,7 @@
     url.searchParams.set('model', 'continuous_v1');
     url.searchParams.set('env', environmentId);
     url.searchParams.delete('experiment');
+    url.searchParams.delete('fog');
     if (params.get('experiment') === 'warning_color') {
       url.searchParams.delete('run');
     }
@@ -802,7 +803,10 @@
     url.searchParams.set('model', 'continuous_v1');
     url.searchParams.set('env', 'kusagi_001');
     url.searchParams.set('experiment', 'warning_color');
-    url.searchParams.set('run', 'warning_color_v6');
+    // A fresh fog experiment has its own Run; existing warning_color_v6
+    // generations remain available through the legacy URL when needed.
+    url.searchParams.set('run', 'warning_color_fog_v1');
+    url.searchParams.set('fog', '1');
     url.searchParams.delete('play');
     url.searchParams.set('portal', 'auto-play-warning');
     window.location.assign(url.toString());
