@@ -51,7 +51,7 @@
         : PREVIEW_ENV_ID
     );
   const PREVIEW_RUN_ID = WARNING_EXPERIMENT
-    ? 'warning_color_v3'
+    ? 'warning_color_v4'
     : safeNamespaceId(
       PREVIEW_QUERY.get('run'),
       'default',
@@ -1243,8 +1243,8 @@
         || !Array.isArray(warningConfig.background_pool)
         || !warningConfig.background_pool.length
         || !Number.isInteger(warningConfig.neutral_generations)
-        || warningConfig.neutral_generations !== 20
-        || warningConfig.first_playable_generation !== 21
+        || warningConfig.neutral_generations !== 30
+        || warningConfig.first_playable_generation !== 31
       ) {
         throw new Error('警戒色の実験設定が不正です');
       }
@@ -1299,7 +1299,7 @@
     ) {
       await ensureFounderGeneration();
       if (WARNING_EXPERIMENT) {
-        // Start a new experiment at generation 21 after twenty generations
+        // Start a new experiment at generation 31 after thirty generations
         // of neutral reproduction (no moth was eaten).
         await ensureWarningNeutralHeadstart();
       }
@@ -3737,7 +3737,7 @@
   }
 
   // Neutral 10-generation prelude, confined to the warning-color experiment.
-  // Gen1 remains white; only gen21 is shown to the first player. All parents
+  // Gen1 remains white; only gen31 is shown to the first player. All parents
   // are chosen from the living members of the same lineage, with NO predation.
   // Intermediate genomes live in memory rather than writing 600 PNGs to IDB.
   async function ensureWarningNeutralHeadstart() {
@@ -3748,7 +3748,7 @@
 
     const neutralGenerations = appConfig.warning_color.neutral_generations;
     const firstPlayableId = `gen${String(neutralGenerations + 1).padStart(5, '0')}`;
-    const markerKey = 'warning_neutral_headstart_v3';
+    const markerKey = 'warning_neutral_headstart_v4';
     const markerValue = `neutral:${neutralGenerations}:${evolutionConfig.config_id}`;
     const savedMarker = await idbGet(META_STORE, markerKey);
     if (savedMarker === markerValue) {
@@ -3827,7 +3827,7 @@
       await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    // Save only the first playable generation (gen21). Existing gen1 white
+    // Save only the first playable generation (gen31). Existing gen1 white
     // founders are still available for the comparison screen.
     for (let i = 1; i <= TOTAL; i += 1) {
       const genome = population.get(i);
