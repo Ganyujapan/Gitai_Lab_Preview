@@ -56,7 +56,12 @@
     );
   // Fog play uses an isolated IndexedDB run. The successful v6 run never
   // shares or overwrites its evolution state with the fog experiment.
-  const WARNING_FOG = WARNING_EXPERIMENT && PREVIEW_QUERY.get('fog') === '1';
+  // Accept either opt-in marker so a link that drops one query parameter
+  // cannot silently fall back to the old warning_color_v6 saved run.
+  const WARNING_FOG = WARNING_EXPERIMENT && (
+    PREVIEW_QUERY.get('fog') === '1'
+    || PREVIEW_QUERY.get('run') === 'warning_color_fog_v1'
+  );
   const PREVIEW_RUN_ID = WARNING_EXPERIMENT
     ? (WARNING_FOG ? 'warning_color_fog_v1' : 'warning_color_v6')
     : safeNamespaceId(
@@ -2044,6 +2049,23 @@
     return Math.max(minValue, Math.min(maxValue, Number(value)));
   }
 
+  // Shared for cryptic and warning-color continuous_v1 lineages.
+  // At high saturation shrink the SAME positive/negative mutation width.
+  // Limiting a child to its inherited saturation made positive changes
+  // impossible while negative changes stayed possible (unwanted fading).
+  function mutateSymmetricSaturation(value, normalStep, threshold, rng) {
+    const current = clamp01(value);
+    const step = Math.max(0, Number(normalStep) || 0);
+    const highSaturation = current > clamp01(threshold);
+    const reducedStep = highSaturation ? step * 0.5 : step;
+    // For high saturation maintain perfectly equal attainable range even
+    // near sRGB's physical 0/1 limits. Below threshold, keep old clamping.
+    const width = highSaturation
+      ? Math.min(reducedStep, current, 1 - current)
+      : reducedStep;
+    return clamp01(current + (rng() * 2 - 1) * width);
+  }
+
   function generationNumber(generationId) {
     const match = String(generationId || '').match(/(\d+)$/);
     return match ? Number(match[1]) : 1;
@@ -2703,27 +2725,18 @@
       0,
       1,
     );
-    const inheritedSaturationCap = Math.max(
-      saturationCap,
-      clamp01(baseSaturation),
-    );
-    baseSaturation = clamp(
-      baseSaturation,
-      0,
-      inheritedSaturationCap,
-    );
+    baseSaturation = clamp01(baseSaturation);
 
     if (
       rng()
       < Number(genetics.base_saturation_mutation_p || 0)
     ) {
       const before = baseSaturation;
-      baseSaturation = clamp(
-        baseSaturation
-        + (rng() * 2 - 1)
-        * Number(genetics.base_saturation_mutation_step || 0),
-        0,
-        inheritedSaturationCap,
+      baseSaturation = mutateSymmetricSaturation(
+        baseSaturation,
+        Number(genetics.base_saturation_mutation_step || 0),
+        saturationCap,
+        rng,
       );
       diagnostic.mutations.push({
         type: 'base_saturation',
