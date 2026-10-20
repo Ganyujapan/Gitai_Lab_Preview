@@ -116,7 +116,9 @@
   const THEATER_FRAME_HEIGHT = 1000;
   const THEATER_COLUMNS = 6;
   const THEATER_ROWS = 10;
-  const THEATER_FRAME_VERSION = window.GitaiTheaterScale?.VERSION || 2;
+  const THEATER_FRAME_VERSION = WARNING_EXPERIMENT
+    ? (window.GitaiTheaterScale?.WARNING_VERSION || 3)
+    : (window.GitaiTheaterScale?.VERSION || 2);
   const TOTAL = 60;
   const SIZE = 128;
   const HALF = SIZE / 2;
@@ -1111,7 +1113,20 @@
       68,
     );
 
-    const gridTop = headerHeight + 8;
+    // Both warning-color lineages appear at once, separated vertically
+    // into left/right halves of the same 6-column × 10-row contact sheet.
+    // The extra header strip sits inside the image, never adds scrolling.
+    if (WARNING_EXPERIMENT) {
+      ctx.fillStyle = 'rgba(0,0,0,0.70)';
+      ctx.fillRect(0, headerHeight, canvas.width, 30);
+      ctx.font = 'bold 19px "PixelMplus", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffe7b5';
+      ctx.fillText('毒蛾（30匹）', canvas.width / 4, headerHeight + 15);
+      ctx.fillStyle = '#b8f7ff';
+      ctx.fillText('無毒蛾（30匹）', canvas.width * 3 / 4, headerHeight + 15);
+    }
+    const gridTop = headerHeight + (WARNING_EXPERIMENT ? 32 : 8);
     const gridHeight = canvas.height - gridTop - 8;
     const cellWidth = canvas.width / THEATER_COLUMNS;
     const cellHeight = gridHeight / THEATER_ROWS;
@@ -1128,8 +1143,9 @@
     });
 
     for (let i = 0; i < blobs.length; i += 1) {
-      const col = i % THEATER_COLUMNS;
-      const row = Math.floor(i / THEATER_COLUMNS);
+      const { col, row } = window.GitaiTheaterScale.cellPosition(
+        i, WARNING_EXPERIMENT,
+      );
       const cellX = col * cellWidth;
       const cellY = gridTop + row * cellHeight;
       const x = Math.round(
@@ -1158,6 +1174,15 @@
       );
     }
 
+    if (WARNING_EXPERIMENT) {
+      // Strong separator remains above the grid borders and moths.
+      const dividerX = Math.round(canvas.width / 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.86)';
+      ctx.fillRect(dividerX - 3, headerHeight, 6, canvas.height - headerHeight);
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.fillRect(dividerX - 1, headerHeight, 2, canvas.height - headerHeight);
+    }
+
     try {
       return await canvasToBlob(canvas, 'image/webp', 0.78);
     } catch (_) {
@@ -1175,7 +1200,7 @@
 
     let renderVersion = Number(existing?.render_version || 1);
     if (!(imageBlob instanceof Blob) || renderVersion !== THEATER_FRAME_VERSION) {
-      // Migrate cached pictures from the old 73px theater sprite rendering.
+      // Rebuild cached contact sheets after a moth-scale or warning-lineage layout update.
       // The sixty original moth PNGs, generation IDs and evolution log stay
       // untouched. If a historical PNG is missing, retain its old preview.
       const rebuilt = await renderTheaterFrameBlob(generationId);
