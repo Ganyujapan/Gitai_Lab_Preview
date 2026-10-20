@@ -707,6 +707,19 @@
         lines.push('weather=' + record.weather_events.map(event =>
           'r' + event.round_index + ':' + event.fog_event
         ).join(','));
+        if (payload.run?.run_id === 'warning_color_fog_v2' && record.weather_roll) {
+          const roll = record.weather_roll;
+          if (roll.status === 'recorded') {
+            lines.push('weather_roll=p:' + roll.fog_probability
+              + ',r:' + roll.fog_random_value
+              + ',dense_p:' + roll.dense_given_fog_probability
+              + ',dense_r:' + (roll.dense_random_value ?? '-')
+              + ',result:' + roll.result
+              + ',draws:' + roll.draws);
+          } else {
+            lines.push('weather_roll=missing');
+          }
+        }
       }
 
       if (isMorph && morphRegistry) {
@@ -4594,6 +4607,34 @@
           const record = await idbGet(META_STORE, diagnosticKey(generationId));
           if (record) {
             record.weather_events = weather.sort((a, b) => a.round_index - b.round_index);
+            if (PREVIEW_RUN_ID === 'warning_color_fog_v2') {
+              const first = payload.round_records.find(r => Number(r.round_index) === 1);
+              const raw = first?.fog_roll;
+              const validProbability = value =>
+                Number.isFinite(value) && value >= 0 && value <= 1;
+              const fogValue = raw?.fog_random_value;
+              const denseValue = raw?.dense_random_value;
+              const validRoll = raw?.generation_id === generationId
+                && validProbability(raw.fog_probability)
+                && validProbability(raw.dense_given_fog_probability)
+                && validProbability(fogValue)
+                && (denseValue === null || validProbability(denseValue))
+                && raw.result === weather[0].fog_event
+                && Number(raw.draws) === (denseValue === null ? 1 : 2);
+              // Missing means draw information was not provided (e.g. a
+              // cached older game script). Do not silently imply an RNG miss.
+              record.weather_roll = validRoll
+                ? {
+                    status: 'recorded',
+                    fog_probability: raw.fog_probability,
+                    dense_given_fog_probability: raw.dense_given_fog_probability,
+                    fog_random_value: fogValue,
+                    dense_random_value: denseValue,
+                    result: raw.result,
+                    draws: raw.draws,
+                  }
+                : { status: 'missing' };
+            }
             await idbPut(META_STORE, diagnosticKey(generationId), record);
           }
         }
