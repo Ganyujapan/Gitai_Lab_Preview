@@ -29,6 +29,23 @@ def main() -> None:
     page = page.replace("</body>", '<script src="game.js"></script>\n</body>', 1)
     (exhibit / "game.html").write_text(page, encoding="utf-8")
 
+    # Namespace the complete IndexedDB database without modifying the shared
+    # evolution engine. Critical for the warning run, whose run_id is fixed.
+    engine = exhibit / "js" / "pages_preview.js"
+    engine_js = engine.read_text(encoding="utf-8")
+    db_declaration = "  const DB_NAME = EVOLUTION_MODEL_ID"
+    version_declaration = "  const DB_VERSION = 2;"
+    assert engine_js.count(db_declaration) == 1
+    assert engine_js.count(version_declaration) == 1
+    engine_js = engine_js.replace(
+        db_declaration, "  const BASE_DB_NAME = EVOLUTION_MODEL_ID", 1
+    ).replace(
+        version_declaration,
+        "  const DB_NAME = 'gitai-exhibit-2026-' + BASE_DB_NAME;\\n"
+        "  const DB_VERSION = 2;", 1
+    )
+    engine.write_text(engine_js, encoding="utf-8")
+
     # Remove the only dynamically injected third-party font fetch in the game.
     # Installed system fonts provide an offline fallback.
     portal_js = exhibit / "js" / "entertainment_portal.js"
