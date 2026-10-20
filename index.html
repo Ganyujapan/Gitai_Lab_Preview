@@ -1922,7 +1922,7 @@
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
 <script src="js/warning_color.js?v=20261019-warning1"></script>
 <script src="js/theater_scale.js?v=20261016-ratio1"></script>
-<script src="js/pages_preview.js?v=20261020-neutral31"></script>
+<script src="js/pages_preview.js?v=20261020-shared33"></script>
 <script>
 (() => {
   'use strict';
@@ -3728,7 +3728,9 @@
     label.className = 'moth-preview-index';
     label.textContent = `MOTH ${String(index).padStart(2, '0')}`
       + (WARNING_MODE
-        ? (WARNING.lineage(index) === WARNING.POISON ? ' · 毒蛾' : ' · 無毒蛾')
+        ? (generationId === 'gen00001'
+          ? ' · 共通祖先'
+          : (WARNING.lineage(index) === WARNING.POISON ? ' · 毒蛾' : ' · 無毒蛾'))
         : '');
 
     button.append(img, label);
@@ -5332,8 +5334,8 @@
 <script src="js/trophy_rules.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_trophies.js?v=20261016-bgcollection1" defer></script>
 <script src="js/portal_random_moth.js?v=20261015-randommoth1" defer></script>
-<script src="js/solo_tutorial.js?v=20261020-neutral31" defer></script>
-<script src="js/entertainment_portal.js?v=20261020-neutral31" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/solo_tutorial.js?v=20261020-shared33" defer></script>
+<script src="js/entertainment_portal.js?v=20261020-shared33" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
 <script src="js/battle_portal.js?v=20261018-specimens1" defer></script>
 <script src="js/hide_seek_portal.js?v=20261018-specimens1" defer></script>
 

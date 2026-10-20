@@ -51,7 +51,7 @@
         : PREVIEW_ENV_ID
     );
   const PREVIEW_RUN_ID = WARNING_EXPERIMENT
-    ? 'warning_color_v4'
+    ? 'warning_color_v5'
     : safeNamespaceId(
       PREVIEW_QUERY.get('run'),
       'default',
@@ -1242,9 +1242,11 @@
         || warningConfig.rounds_per_generation !== 5
         || !Array.isArray(warningConfig.background_pool)
         || !warningConfig.background_pool.length
-        || !Number.isInteger(warningConfig.neutral_generations)
-        || warningConfig.neutral_generations !== 30
-        || warningConfig.first_playable_generation !== 31
+        || !Number.isInteger(warningConfig.shared_neutral_generations)
+        || warningConfig.shared_neutral_generations !== 30
+        || !Number.isInteger(warningConfig.post_split_neutral_generations)
+        || warningConfig.post_split_neutral_generations !== 2
+        || warningConfig.first_playable_generation !== 33
       ) {
         throw new Error('警戒色の実験設定が不正です');
       }
@@ -1299,8 +1301,8 @@
     ) {
       await ensureFounderGeneration();
       if (WARNING_EXPERIMENT) {
-        // Start a new experiment at generation 31 after thirty generations
-        // of neutral reproduction (no moth was eaten).
+        // 30 neutral generations of a shared 60-moth gene pool, then
+        // two neutral generations after splitting into poison/harmless.
         await ensureWarningNeutralHeadstart();
       }
     }
@@ -1452,7 +1454,7 @@
     if (survivors.length < 2) return null;
 
     if (evolutionConfig.parent_selection === 'all_survivors') {
-      return shuffle(survivors);
+      return shuffle(survivors, rng);
     }
 
     const poolSize = Number(evolutionConfig.parent_pool_size || 12);
@@ -3664,23 +3666,17 @@
 
     const founderA = makePureWhiteFounderGenome(1);
     const founderB = makePureWhiteFounderGenome(2);
-    // In this experiment all gen1 moths are white; rendering each lineage
-    // once avoids 58 identical PNG renders on the first iPhone launch.
-    const whiteBlobs = WARNING_EXPERIMENT
-      ? [
-        await imageDataToBlob(renderGenome(founderA)),
-        await imageDataToBlob(renderGenome(founderB)),
-      ]
+    // All warning-experiment founders belong to one common, white gene pool.
+    // A shared image saves 59 redundant renders on mobile devices.
+    const commonWhiteBlob = WARNING_EXPERIMENT
+      ? await imageDataToBlob(renderGenome(founderA))
       : null;
 
     for (let i = 1; i <= TOTAL; i += 1) {
       let genome;
 
       if (WARNING_EXPERIMENT) {
-        // Both independent lineages begin entirely white, before mutation.
-        genome = makePureWhiteFounderGenome(
-          WARNING.lineage(i) === WARNING.POISON ? 1 : 2
-        );
+        genome = makePureWhiteFounderGenome(1);
       } else if (
         String(evolutionConfig?.inheritance || '')
           .startsWith('discrete_morph_')
@@ -3710,9 +3706,9 @@
         genome = result.genome;
       }
 
-      if (WARNING_EXPERIMENT) genome.lineage = WARNING.lineage(i);
+      if (WARNING_EXPERIMENT) genome.lineage = null;
       const blob = WARNING_EXPERIMENT
-        ? whiteBlobs[WARNING.lineage(i) === WARNING.POISON ? 0 : 1]
+        ? commonWhiteBlob
         : await imageDataToBlob(renderGenome(genome));
 
       await idbPut(IMAGE_STORE, imageKey('gen00001', i), blob);
@@ -3736,20 +3732,23 @@
     return true;
   }
 
-  // Neutral 10-generation prelude, confined to the warning-color experiment.
-  // Gen1 remains white; only gen31 is shown to the first player. All parents
-  // are chosen from the living members of the same lineage, with NO predation.
-  // Intermediate genomes live in memory rather than writing 600 PNGs to IDB.
+  // Warning-color experiment: one common gene pool for 30 neutral generations.
+  // Then assign 30 unrelated-to-toxicity individuals to each lineage at
+  // random, and evolve both isolated populations for two more generations.
+  // No predation happens before the first user-played generation (gen33).
   async function ensureWarningNeutralHeadstart() {
     if (!WARNING_EXPERIMENT) return false;
     await ensureConfig();
     await ensureMask();
     await ensureTemplateAlpha();
 
-    const neutralGenerations = appConfig.warning_color.neutral_generations;
-    const firstPlayableId = `gen${String(neutralGenerations + 1).padStart(5, '0')}`;
-    const markerKey = 'warning_neutral_headstart_v4';
-    const markerValue = `neutral:${neutralGenerations}:${evolutionConfig.config_id}`;
+    const sharedGenerations = appConfig.warning_color.shared_neutral_generations;
+    const splitGenerations = appConfig.warning_color.post_split_neutral_generations;
+    const totalGenerations = sharedGenerations + splitGenerations;
+    const firstPlayableId = `gen${String(totalGenerations + 1).padStart(5, '0')}`;
+    const markerKey = 'warning_shared_ancestor_v5';
+    const splitMapKey = 'warning_split_sources_v5';
+    const markerValue = `shared:${sharedGenerations}:split:${splitGenerations}:${evolutionConfig.config_id}`;
     const savedMarker = await idbGet(META_STORE, markerKey);
     if (savedMarker === markerValue) {
       const storedId = await idbGet(META_STORE, 'current_generation_id');
@@ -3763,13 +3762,11 @@
       }
     }
 
-    // Start both lineages independently from pure-white founders.
+    // One shared ancestor: no poison/harmless identity exists yet.
     let population = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
-      const genome = makePureWhiteFounderGenome(
-        WARNING.lineage(i) === WARNING.POISON ? 1 : 2,
-      );
-      genome.lineage = WARNING.lineage(i);
+      const genome = makePureWhiteFounderGenome(1);
+      genome.lineage = null;
       population.set(i, genome);
     }
 
@@ -3777,30 +3774,58 @@
     const specialP = clamp01(
       Number(genetics.special_mutation_generation_p || 0),
     );
-    for (let generation = 1; generation <= neutralGenerations; generation += 1) {
+    let splitSourceIndices = null;
+
+    for (let generation = 1; generation <= totalGenerations; generation += 1) {
+      if (generation === sharedGenerations + 1) {
+        // At the end of gen31, randomly split the existing 60 genomes.
+        // This avoids classifying the already evolved patterns into two
+        // recognizable groups. All original genomes are used exactly once.
+        const splitRng = makeSeededRng(
+          `warning_color_v5:split:${evolutionConfig.config_id}:${sharedGenerations}`,
+        );
+        splitSourceIndices = shuffle(
+          Array.from({ length: TOTAL }, (_, i) => i + 1),
+          splitRng,
+        );
+        const assigned = new Map();
+        for (let i = 1; i <= TOTAL; i += 1) {
+          assigned.set(i, {
+            ...population.get(splitSourceIndices[i - 1]),
+            lineage: WARNING.lineage(i),
+          });
+        }
+        population = assigned;
+      }
+
       const sourceId = `gen${String(generation).padStart(5, '0')}`;
       const nextId = nextGenerationId(sourceId);
       const rng = makeSeededRng(
-        // Preserve v2's seeded random sequence. The first ten neutral
-        // generations are comparable; this experiment continues to 20.
-        `warning_color_v2:neutral:${evolutionConfig.config_id}:${generation}`,
+        `warning_color_v5:neutral:${evolutionConfig.config_id}:${generation}`,
       );
-      const nextPopulation = new Map();
-      const nextPlans = [];
+      const childIndices = Array.from({ length: TOTAL }, (_, i) => i + 1);
+      const plans = [];
 
-      for (const kind of [WARNING.POISON, WARNING.HARMLESS]) {
-        const childIndices = WARNING.indices(kind);
+      if (generation <= sharedGenerations) {
+        // Full 60-moth mating pool, with no lineage restrictions.
         const parents = selectParents([], childIndices, rng);
-        if (!parents) throw new Error('中立進化の親選抜に失敗しました');
-        nextPlans.push(...buildPairingPlan(parents, childIndices, rng));
+        if (!parents) throw new Error('共通祖先の親選抜に失敗しました');
+        plans.push(...buildPairingPlan(parents, childIndices, rng));
+      } else {
+        // No crossing between lineages after the split.
+        for (const kind of [WARNING.POISON, WARNING.HARMLESS]) {
+          const eligible = WARNING.indices(kind);
+          const parents = selectParents([], eligible, rng);
+          if (!parents) throw new Error('分岐後の親選抜に失敗しました');
+          plans.push(...buildPairingPlan(parents, eligible, rng));
+        }
       }
 
-      // Mirror the existing entertainment evolution engine, including its
-      // rare large mutation (one possible offspring each generation).
       const mutatedChildIndex = rng() < specialP
         ? 1 + Math.floor(rng() * TOTAL)
         : null;
-      for (const item of nextPlans) {
+      const nextPopulation = new Map();
+      for (const item of plans) {
         const result = makeChildGenome(
           population.get(item.parentA),
           population.get(item.parentB),
@@ -3811,7 +3836,8 @@
           rng,
         );
         const genome = result.genome;
-        genome.lineage = WARNING.lineage(item.childIndex);
+        genome.lineage = generation <= sharedGenerations
+          ? null : WARNING.lineage(item.childIndex);
         if (item.childIndex === mutatedChildIndex) {
           applyEntertainmentSpecialMutation(
             genome,
@@ -3823,12 +3849,13 @@
         nextPopulation.set(item.childIndex, genome);
       }
       population = nextPopulation;
-      // Keep Safari responsive while processing the ten invisible generations.
+      // Yield between generations to keep Safari's UI responsive.
       await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    // Save only the first playable generation (gen31). Existing gen1 white
-    // founders are still available for the comparison screen.
+    // Store only the first playable generation (gen33). The common white
+    // gen1 remains available for comparison; intermediate genomes are not
+    // persisted. Do not advance the current generation if writing fails.
     for (let i = 1; i <= TOTAL; i += 1) {
       const genome = population.get(i);
       const blob = await imageDataToBlob(renderGenome(genome));
@@ -3839,8 +3866,7 @@
       }
     }
 
-    // Commit the startup marker and generation ID last, after all 60
-    // complete images and genomes exist. If interrupted, retry from white.
+    await idbPut(META_STORE, splitMapKey, splitSourceIndices);
     await idbPut(META_STORE, markerKey, markerValue);
     await idbPut(META_STORE, 'current_generation_id', firstPlayableId);
     currentGenerationId = firstPlayableId;
