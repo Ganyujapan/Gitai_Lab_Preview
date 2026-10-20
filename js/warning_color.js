@@ -9,7 +9,7 @@
   const HARMLESS = 'harmless';
   // Life is kept in integer thirds to avoid floating-point drift.
   const LIFE_MAX_THIRDS = 30;
-  const LIFE_INITIAL_THIRDS = 12;
+  const LIFE_INITIAL_THIRDS = 15;
   function adjustLife(thirds, kind) {
     const current = Number.isInteger(thirds)
       ? Math.max(0, Math.min(LIFE_MAX_THIRDS, thirds))
