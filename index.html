@@ -870,6 +870,8 @@
     }
 
     #soloHomeButton {
+      /* Keep the element for legacy route handlers but never cover the 10-heart HUD. */
+      display: none !important;
       position: absolute;
       top: max(8px, env(safe-area-inset-top));
       right: 10px;
