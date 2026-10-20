@@ -201,6 +201,12 @@ jobs:
           test -f _site/index.html
           test -f _site/warning_fog.html
           test -f _site/js/pages_preview.js
+          python3 exhibit/build.py _site "${GITHUB_SHA}"
+          node --check _site/exhibit/game.js
+          node --check _site/exhibit/landing.js
+          node --check _site/exhibit/sw.js
+          test -f _site/exhibit/game.html
+          test -f _site/exhibit/precache.json
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site

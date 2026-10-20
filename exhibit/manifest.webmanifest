@@ -1,0 +1,11 @@
+{
+  "id": "./",
+  "name": "ギタイラボ 昆虫大学2026 展示版",
+  "short_name": "ギタイラボ展示",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090d0c",
+  "theme_color": "#090d0c"
+}

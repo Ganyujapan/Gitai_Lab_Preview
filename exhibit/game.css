@@ -1,0 +1,11 @@
+/* A locked-down public exhibition interface, not an admin security boundary. */
+[data-action="reset"],[data-action="environment"],[data-action="model"],
+[data-action="diagnostic"],[data-action="chatgpt-log"],
+#resetConfirmOverlay,#backToMenu,#resultBackToMenu,
+#soloHomeButton,#entertainmentPortal,#portalIntro,#portalMenu,
+#authorNewsTeaser,#battlePortal,#hidePicker{display:none!important}
+#exhibitHandover{position:fixed;z-index:30000;right:12px;bottom:max(12px,env(safe-area-inset-bottom));width:auto;max-width:calc(100vw - 24px);padding:12px 15px;border:2px solid #b4efc2;border-radius:8px;color:#f4fff3;background:#123e29;font:700 14px/1.4 system-ui,-apple-system,sans-serif;box-shadow:0 3px 13px #0009;touch-action:manipulation}
+#exhibitHandover[hidden]{display:none!important}
+#exhibitHandover:focus-visible{outline:3px solid white}
+#exhibitHandoverNotice{position:fixed;z-index:30000;bottom:70px;left:10px;right:10px;text-align:center;background:#153a2e;color:#fff4b2;border:1px solid #b8bd8d;padding:9px;border-radius:7px;font:700 13px system-ui;pointer-events:none}
+#exhibitHandoverNotice[hidden]{display:none!important}
