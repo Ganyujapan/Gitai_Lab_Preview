@@ -59,9 +59,23 @@
     return pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
   }
 
+  // Draw one Bernoulli trial per generation. When it succeeds, select one
+  // offspring independently from each lineage; the two mutations then draw
+  // their own color, brightness, texture and pattern parameters.
+  function synchronizedSpecialMutationIndices(probability, rng = Math.random) {
+    const p = Math.max(0, Math.min(1, Number(probability) || 0));
+    if (rng() >= p) return [];
+    return [
+      1 + Math.min(PER_LINEAGE - 1, Math.floor(rng() * PER_LINEAGE)),
+      PER_LINEAGE + 1
+        + Math.min(PER_LINEAGE - 1, Math.floor(rng() * PER_LINEAGE)),
+    ];
+  }
+
   const api = Object.freeze({
     POISON, HARMLESS, PER_LINEAGE, TOTAL,
     lineage, indices, makeRounds, survivorCounts, viable, chooseBackground,
+    synchronizedSpecialMutationIndices,
   });
   root.GitaiWarningColor = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
