@@ -31,6 +31,7 @@ jobs:
 
           required = [
               "index.html",
+              "warning_fog.html",
               "js/pages_preview.js",
               "js/gen1_01.js",
               "js/gen1_02.js",
@@ -195,9 +196,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp index.html manifest.webmanifest .nojekyll _site/
+          cp index.html warning_fog.html manifest.webmanifest .nojekyll _site/
           cp -R config css data environments img js species _site/
           test -f _site/index.html
+          test -f _site/warning_fog.html
           test -f _site/js/pages_preview.js
       - uses: actions/upload-pages-artifact@v4
         with:
