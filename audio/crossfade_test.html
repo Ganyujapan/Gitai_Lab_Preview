@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ギタイラボ｜環境音クロスフェード試験</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}
+body{background:#090e0d;color:#f0f5f2;max-width:580px;margin:0 auto;padding:25px 17px 60px;line-height:1.75}
+h1{font-size:23px;line-height:1.5}p{color:#c4cec8;font-size:15px}
+button{display:block;width:100%;background:#264940;color:white;border:1px solid #85a89b;border-radius:8px;margin:12px 0;padding:13px 10px;font-size:16px;font-weight:600}
+button:active{background:#376c5b}
+section{border:1px solid #485e56;border-radius:8px;margin-top:18px;padding:14px}
+small{display:block;color:#a7b8ae;font-size:13px}
+output,pre{display:block;background:#17231d;border-radius:6px;padding:10px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+strong{color:#a8e8cc}.warn{color:#e7c58d}
+</style>
+</head>
+<body>
+<h1>ギタイラボ：無音なしBGMループ実験</h1>
+<p>このページだけで<strong>通常の音声プレイヤー2本</strong>を交互に重ねます。iPhoneで音量をプログラム操作せずに済むよう、録音の先頭と末尾にそれぞれ4秒のフェードを入れた試験用Oggを使っています。</p>
+<section>
+<button id="fast" type="button">つなぎ目の手前から再生（約10秒で確認）</button>
+<button id="normal" type="button">最初から連続再生（通常速度）</button>
+<button id="stop" type="button">停止する</button>
+<small>このテストでのみ使用する録音です。ギタイラボ本編のBGMとゲームデータは変更していません。</small>
+</section>
+<section>
+<strong>再生状態</strong>
+<output id="status">準備中…</output>
+<pre id="events">開始ボタンを押してください。</pre>
+<small>画面の「重複再生に成功」は、両方のプレイヤーが再生状態になったという意味です。耳で滑らかにつながったかどうかも確認してください。</small>
+</section>
+<p class="warn">もし音が2倍に大きくなる、途中で切れる、2本目が再生されない等があれば、正式採用前に調整します。iOSの再生制限を回避するためにWeb Audioへ戻すことはしません。</p>
+<script>
+(() => {
+  'use strict';
+  const url='gitailab_rainforest_overlap_test_48k.ogg';
+  const OVERLAP=4.0;
+  const el = id => document.getElementById(id);
+  const info=el('status');
+  const events=el('events');
+  let counter=0;
+  const log=(s)=>{
+    events.textContent = '[' + (++counter) + '] ' + s + '\n' + events.textContent;
+    events.textContent=events.textContent.slice(0,2500);
+  };
+  function audioSession(){
+    try { if (navigator.audioSession) navigator.audioSession.type='playback'; } catch (_) {}
+  }
+  const players=[0,1].map(i=>{
+    const a=document.createElement('audio');
+    a.src=url;
+    a.loop=false;
+    a.preload='auto';
+    a.playsInline=true;
+    a.volume=1;
+    a.addEventListener('error',()=>log((i+1)+'番 音源エラー '+(a.error?.code ?? '?')));
+    a.addEventListener('playing',()=>log((i+1)+'番 再生開始'));
+    a.addEventListener('waiting',()=>log((i+1)+'番 データ待機中'));
+    a.addEventListener('ended',()=>{
+      log((i+1)+'番 終了');
+      if(running && active!==i){try{a.currentTime=0;}catch(_){}}
+      else if(running){log('次の再生に引き継げませんでした');running=false;}
+    });
+    a.addEventListener('loadedmetadata',status);
+    a.addEventListener('timeupdate',tick);
+    return a;
+  });
+  let running=false,active=0,pending=false,loops=0,overlaps=0,checkTimer=null;
+  function status(){
+    const a=players[active];
+    const length=Number.isFinite(a.duration)?a.duration:0;
+    info.textContent=
+      '方式：2つのHTML audioを約4秒重複再生\n'
+      +'現在のプレイヤー：'+(active+1)+'番\n'
+      +'位置：'+a.currentTime.toFixed(1)+' / '+(length?length.toFixed(1):'読込中')+' 秒\n'
+      +'予定のつなぎ目：終了4秒前\n'
+      +'切替回数：'+loops+'回\n'
+      +'重複を確認：'+overlaps+'回\n'
+      +'状態：'+(running?'試験中':'停止');
+  }
+  function stop(){
+    running=false;pending=false;
+    if(checkTimer){clearInterval(checkTimer);checkTimer=null;}
+    for(const a of players){a.pause();a.loop=false;try{a.currentTime=0;}catch(_){}}
+    status();
+  }
+  function start(nearEnd){
+    stop();audioSession();
+    active=0;loops=0;overlaps=0;pending=false;running=true;
+    const a=players[0];
+    if(nearEnd){
+      if(Number.isFinite(a.duration) && a.duration>12){
+        try{a.currentTime=Math.max(0,a.duration-10);}catch(err){log('早送りできません: '+err.message);}
+      }else log('まだ音源の読み込み前なので、通常位置から開始します');
+    }
+    // MUST be called directly in this user gesture (iOS browser).
+    try{
+      const promise=a.play();
+      promise?.catch(err=>{log('最初の再生に失敗: '+err.name);stop();});
+    }catch(err){log('再生できません: '+err.message);stop();}
+    checkTimer=setInterval(tick,80);
+    status();
+  }
+  function tick(){
+    if(!running || pending || document.hidden)return;
+    const old=players[active];
+    const d=old.duration;
+    if(!Number.isFinite(d)||d<=OVERLAP+1){status();return;}
+    if(old.currentTime < d-OVERLAP){status();return;}
+    pending=true;
+    const nextIndex=1-active, next=players[nextIndex];
+    log('切替開始 '+(active+1)+' → '+(nextIndex+1)+'：'
+      +old.currentTime.toFixed(2)+'秒');
+    try{next.currentTime=0;}catch(_){}
+    // Critical test: native play() of second player WITHOUT another tap.
+    try{
+      const result=next.play();
+      Promise.resolve(result).then(()=>{
+        if(!running)return;
+        const simultaneouslyPlaying=old.paused===false && next.paused===false
+          && old.ended===false && next.ended===false;
+        if(simultaneouslyPlaying){
+          overlaps++;
+          log('2プレイヤーが同時再生状態になりました');
+        }else{
+          log('注意：2プレイヤーの重複状態を確認できません（iPhone制限の可能性）');
+        }
+        active=nextIndex;
+        loops++;
+        pending=false;
+        status();
+      }).catch(err=>{
+        log('2番目の再生が拒否されました: '+err.name);
+        // Keep the existing audio audible, even if crossfade is unsupported.
+        old.loop=true;
+        running=false;pending=false;
+        if(checkTimer){clearInterval(checkTimer);checkTimer=null;}
+        status();
+      });
+    }catch(err){
+      log('2番目の再生エラー: '+err.message);
+      old.loop=true;running=false;pending=false;
+      if(checkTimer){clearInterval(checkTimer);checkTimer=null;}
+      status();
+    }
+  }
+  el('fast').addEventListener('click',()=>start(true));
+  el('normal').addEventListener('click',()=>start(false));
+  el('stop').addEventListener('click',stop);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){log('画面非表示：テストを停止');stop();}});
+  window.addEventListener('pagehide',stop);
+  status();
+})();
+</script>
+</body>
+</html>
