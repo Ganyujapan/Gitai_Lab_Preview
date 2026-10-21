@@ -2029,7 +2029,7 @@
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261020-warning-split1"></script>
 <script src="js/pages_preview.js?v=20261020-life5-random20-theater1"></script>
-<script src="js/ambient_audio.js?v=20261021-rainforest-audible2"></script>
+<script src="js/ambient_audio.js?v=20261021-ios-playback1"></script>
 <script>
 (() => {
   'use strict';
@@ -2677,10 +2677,17 @@
   function predationSound(combo) {
     if (!isEntertainmentModel()) return;
     try {
+      // iOS Safari can silently mute Web Audio when the phone is in Silent
+      // mode unless its session category is explicit media "playback".
+      // Activate on this actual canvas pointerdown, regardless of BGM state.
+      window.GitaiAmbientAudio?.activatePlaybackSession?.();
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      if (!predationAudioContext) predationAudioContext = new AudioCtx();
-      if (predationAudioContext.state === 'suspended') {
+      if (!predationAudioContext || predationAudioContext.state === 'closed') {
+        predationAudioContext = new AudioCtx();
+      }
+      if (predationAudioContext.state === 'suspended'
+          || predationAudioContext.state === 'interrupted') {
         predationAudioContext.resume().catch(() => {});
       }
 
