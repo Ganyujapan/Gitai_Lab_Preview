@@ -31,6 +31,8 @@ jobs:
 
           required = [
               "index.html",
+              "audio/gitailab_rainforest_soft_48k.ogg",
+              "js/ambient_audio.js",
               "warning_fog.html",
               "js/pages_preview.js",
               "js/gen1_01.js",
@@ -182,6 +184,7 @@ jobs:
 
       - name: Check preview JavaScript syntax
         run: |
+          node --check js/ambient_audio.js
           node --check js/theater_scale.js
           node --check js/pages_preview.js
           node --check js/habitat_access.js
@@ -197,14 +200,24 @@ jobs:
           set -euo pipefail
           mkdir -p _site
           cp index.html warning_fog.html manifest.webmanifest .nojekyll _site/
-          cp -R config css data environments img js species _site/
+          cp -R audio config css data environments img js species _site/
           test -f _site/index.html
           test -f _site/warning_fog.html
           test -f _site/js/pages_preview.js
+          test -f _site/audio/gitailab_rainforest_soft_48k.ogg
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          audio = Path("_site/audio/gitailab_rainforest_soft_48k.ogg").read_bytes()
+          assert len(audio) == 287645, "Ogg audio size mismatch"
+          assert audio.startswith(b"OggS"), "Invalid Ogg container"
+          assert hashlib.sha256(audio).hexdigest() == "7f9621d9b0e3cde76330ece9d5b24866efe2ad5f061ec6dc2af4e328a92323c3", "Wrong Ogg file"
+          PY
           python3 exhibit/build.py _site "${GITHUB_SHA}"
           node --check _site/exhibit/game.js
           node --check _site/exhibit/landing.js
           node --check _site/exhibit/sw.js
+          test -f _site/exhibit/audio/gitailab_rainforest_soft_48k.ogg
           test -f _site/exhibit/game.html
           test -f _site/exhibit/precache.json
       - uses: actions/upload-pages-artifact@v4
