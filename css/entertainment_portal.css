@@ -769,9 +769,13 @@ html.pixel-portal-pending #entertainmentPortal[hidden] { display: block !importa
 
 /* 2026-10-21: title is pure black. The moth and rainbow circular ripples
  * are painted on the canvas; remove all other orbital/plant decoration. */
-#entertainmentPortal.portal-line-mode,
-#entertainmentPortal.portal-line-mode .portal-intro {
+/* The canvas is a sibling BEHIND .portal-intro. Keep the portal black,
+ * but the covering intro screen transparent so moth and ripples remain visible. */
+#entertainmentPortal.portal-line-mode {
   background: #000;
+}
+#entertainmentPortal.portal-line-mode .portal-intro {
+  background: transparent;
 }
 #entertainmentPortal.portal-line-mode .portal-noise,
 #entertainmentPortal.portal-line-mode .portal-frame {
