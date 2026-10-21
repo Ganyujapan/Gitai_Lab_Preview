@@ -744,3 +744,25 @@ html.pixel-portal-pending #entertainmentPortal[hidden] { display: block !importa
 @media (prefers-reduced-motion: reduce) {
   #entertainmentPortal .portal-experiment-button { transition: none; }
 }
+
+/* Universal ambient-audio switch: floating above portal and game overlays.
+ * Small touch target in the bottom-right safe area, outside playable moths. */
+#ambientAudioToggle {
+  position: fixed;
+  z-index: 110;
+  right: max(11px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  min-height: 34px;
+  padding: 4px 9px;
+  border: 1px solid rgba(226,233,201,.6);
+  border-radius: 4px;
+  background: rgba(16,30,28,.84);
+  color: #e1eacf;
+  font: 11px/1.45 'DotGothic16', 'PixelMplus', monospace;
+  letter-spacing: .015em;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#ambientAudioToggle[aria-pressed="false"] { opacity: .72; }
+#ambientAudioToggle:focus-visible { outline: 2px solid #fff6b4; outline-offset: 2px; }
