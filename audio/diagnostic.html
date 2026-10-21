@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ギタイラボ 音声診断</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}
+body{background:#090b0b;color:#f4f4ef;margin:0 auto;padding:24px 16px 55px;max-width:520px;line-height:1.65}
+h1{font-size:23px}h2{font-size:17px;margin:0 0 6px}
+p{font-size:14px;color:#c6d0c9}section{border:1px solid #566358;padding:16px;margin:15px 0;border-radius:10px}
+button{appearance:none;border:1px solid #c8d6ce;color:white;background:#233c35;padding:14px;width:100%;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer}
+button:active{background:#335b4e}
+small{display:block;color:#aebcb2;margin-top:8px}
+audio{width:100%;margin-top:8px}
+output,pre{display:block;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#151e1a;border-radius:7px;font-size:12px}
+strong{color:#fef1b9}
+</style>
+</head>
+<body>
+<h1>ギタイラボ 音声診断</h1>
+<p>ゲーム本体には影響しない独立したテストページです。<strong>各ボタンを押し、実際に音が聞こえたかどうか</strong>を確認してください。「再生中」は音が聞こえた証拠ではありません。</p>
+<section>
+<h2>① 通常の音声再生（テスト音）</h2>
+<p>短い「ピー」という電子音。<strong>Web Audioを使わず</strong>、標準の音声プレイヤーで鳴らします。</p>
+<button id="wavTest" type="button">テスト音を再生する</button>
+<small id="wavState">まだ実行していません</small>
+</section>
+<section>
+<h2>② 熱帯雨林のOgg（実際のBGM）</h2>
+<p>採用済みの録音ファイルを、Web Audioに通さず直接再生します。<strong>元の録音は非常に小音量</strong>なので、①より聞こえにくいことがあります。</p>
+<button id="oggTest" type="button">熱帯雨林の音を再生する</button>
+<small id="oggState">まだ実行していません</small>
+<audio id="ogg" controls playsinline preload="metadata" src="gitailab_rainforest_soft_48k.ogg"></audio>
+</section>
+<section>
+<h2>③ Web Audio（捕食効果音の方式）</h2>
+<p>ブラウザが音を合成する方式です。①が聞こえて③が聞こえない場合は、この方式での出力に問題がある可能性があります。</p>
+<button id="webTest" type="button">Web Audioのテスト音を鳴らす</button>
+<small id="webState">まだ実行していません</small>
+</section>
+<section>
+<h2>端末の再生情報</h2>
+<output id="info"></output>
+<small>個人情報の送信や保存は行いません。このページは音の聞こえ方とブラウザの再生状態を調べるためだけのものです。</small>
+</section>
+<script>
+(() => {
+'use strict';
+const id = (n) => document.getElementById(n);
+function playbackSession() {
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+  } catch (_) {}
+}
+function info() {
+  const player = id('ogg');
+  id('info').textContent =
+    '音声セッション: ' + (navigator.audioSession?.type ?? '取得不可') +
+    '\nOgg対応: ' + (player.canPlayType('audio/ogg; codecs="opus"') || '不明／非対応') +
+    '\nOggの状態: ' + player.readyState + ' / ' +
+      (player.error ? 'error ' + player.error.code : 'errorなし') +
+    '\nOggの再生秒数: ' + player.currentTime.toFixed(1) +
+    '\nページ表示状態: ' + (document.hidden ? '非表示' : '表示中');
+}
+const stamp = (element, s) => { element.textContent = s; info(); };
+const wav = new Audio();
+wav.playsInline = true;
+let wavUrl;
+function makeTone() {
+  const rate = 22050, frames = Math.floor(rate * .55);
+  const bytes = new ArrayBuffer(44 + frames * 2);
+  const v = new DataView(bytes);
+  function word(offset, text) {
+    for(let i=0;i<text.length;i++) v.setUint8(offset+i,text.charCodeAt(i));
+  }
+  word(0,'RIFF');v.setUint32(4,36+frames*2,true);word(8,'WAVE');
+  word(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);
+  v.setUint16(22,1,true);v.setUint32(24,rate,true);
+  v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);
+  word(36,'data');v.setUint32(40,frames*2,true);
+  for(let i=0;i<frames;i++){
+    const envelope = Math.min(1,i/400,(frames-i-1)/400);
+    const sample = Math.sin(2*Math.PI*660*i/rate)*Math.max(0,envelope)*.42;
+    v.setInt16(44+2*i,Math.round(sample*32767),true);
+  }
+  return new Blob([bytes],{type:'audio/wav'});
+}
+id('wavTest').addEventListener('click',() => {
+  playbackSession();
+  if(!wavUrl) {
+    wavUrl = URL.createObjectURL(makeTone());
+    wav.src = wavUrl;
+  }
+  wav.currentTime=0;
+  stamp(id('wavState'),'再生を開始しました（耳での確認が必要）');
+  const result=wav.play();
+  result?.catch(e=>stamp(id('wavState'),'失敗: '+e.name+': '+e.message));
+});
+wav.addEventListener('error',()=>stamp(id('wavState'),'再生エラー: '+wav.error?.code));
+wav.addEventListener('ended',()=>stamp(id('wavState'),'再生終了（耳で聞こえましたか？）'));
+const ogg=id('ogg');
+id('oggTest').addEventListener('click',()=>{
+  playbackSession();
+  stamp(id('oggState'),'再生を開始しました（耳での確認が必要）');
+  const result=ogg.play();
+  result?.catch(e=>stamp(id('oggState'),'失敗: '+e.name+': '+e.message));
+});
+ogg.addEventListener('playing',()=>stamp(id('oggState'),'再生処理中（音が聞こえるとは限りません）'));
+ogg.addEventListener('error',()=>stamp(id('oggState'),'Ogg読み込み失敗: '+ogg.error?.code));
+ogg.addEventListener('timeupdate',info);
+id('webTest').addEventListener('click',()=>{
+  playbackSession();
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if(!AudioContext) throw new Error('Web Audio APIがありません');
+    const ctx=new AudioContext();
+    const osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.type='sine';osc.frequency.value=880;
+    const time=ctx.currentTime;
+    gain.gain.setValueAtTime(.0001,time);
+    gain.gain.exponentialRampToValueAtTime(.28,time+.035);
+    gain.gain.exponentialRampToValueAtTime(.0001,time+.45);
+    osc.connect(gain);gain.connect(ctx.destination);
+    ctx.resume().then(()=>stamp(id('webState'),'Web Audio '+ctx.state+'（耳での確認が必要）'))
+      .catch(e=>stamp(id('webState'),'再開に失敗: '+e.message));
+    osc.start(time);osc.stop(time+.48);
+    osc.onended=()=>{ stamp(id('webState'),'再生終了／'+ctx.state+'（耳で聞こえましたか？）');ctx.close().catch(()=>{});};
+  }catch(e){stamp(id('webState'),'実行失敗: '+e.message)}
+});
+info();
+})();
+</script>
+</body>
+</html>
