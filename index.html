@@ -2055,9 +2055,18 @@
     || new URLSearchParams(location.search).get('run') === 'warning_color_fog_v1'
     || FOG_V2
   );
-  // Life is an opt-in gameplay layer for the current fog-v2 experiment only.
-  // Older v6/v1 research runs retain their original rules.
-  const WARNING_LIFE = WARNING_MODE && FOG_V2;
+  // TEMPORARY gameplay experiment: warning-fog-v2 lives are OFF by default.
+  // Re-enable immediately by setting this single switch to true, or preview
+  // the original five-life rules on a single URL with &life=1.
+  // &life=0 always disables lives, even if the default is later restored.
+  // No saved life, evolution, or genome records are deleted or overwritten.
+  // The original warning_color_v6/v1 runs still use their original rules.
+  const WARNING_LIFE_DEFAULT_ENABLED = false;
+  const warningLifeOverride = new URLSearchParams(location.search).get('life');
+  const WARNING_LIFE = WARNING_MODE && FOG_V2 && (
+    warningLifeOverride === '1'
+    || (warningLifeOverride !== '0' && WARNING_LIFE_DEFAULT_ENABLED)
+  );
   const warningPoisonOverlay = document.getElementById('warningPoisonOverlay');
   const warningToxicDeath = document.getElementById('warningToxicDeath');
   const warningDeathReturn = document.getElementById('warningDeathReturn');
