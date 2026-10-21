@@ -37,7 +37,21 @@
   let running = false;
   let loopTimer = null;
   let playbackEpoch = 0;
+  let secondElementPrimed = false;
   const currentAudio = () => players[active];
+
+  function primeSecondPlayerInGesture() {
+    // iOS WebKit's native media permission is per element, not per page.
+    // load() on the standby element must be called inside a real user gesture
+    // so the later crossfade play() is permitted without another tap.
+    if (secondElementPrimed) return;
+    try {
+      players[1 - active].load();
+      secondElementPrimed = true;
+    } catch (error) {
+      console.warn('Could not preload standby ambience:', error);
+    }
+  }
 
   function stopLoopTimer() {
     if (loopTimer !== null) { clearInterval(loopTimer); loopTimer = null; }
@@ -71,14 +85,14 @@
         old.loop = true;
         running = false;
         stopLoopTimer();
-        console.warn('Ambient overlap failed:', error);
+        console.warn('Ambient overlap failed:', error?.name || error);
       });
     } catch (error) {
       switching = false;
       old.loop = true;
       running = false;
       stopLoopTimer();
-      console.warn('Ambient overlap failed:', error);
+      console.warn('Ambient overlap failed:', error?.name || error);
     }
   }
   function startLoopTimer() {
@@ -128,6 +142,7 @@
     if (!enabled || errorReason || document.hidden || pending) return;
     if (running && currentAudio().paused === false && !currentAudio().ended) return;
     activatePlaybackSession();
+    primeSecondPlayerInGesture();
     playState = 'loading';
     pending = true;
     render();
@@ -206,6 +221,7 @@
   toggle.addEventListener('click', event => {
     event.stopPropagation();
     if (errorReason) return;
+    if (enabled) primeSecondPlayerInGesture();
     if (enabled && (playState !== 'playing' || currentAudio().paused === true)) {
       pending = false;
       playFromUserGesture();
@@ -221,6 +237,7 @@
   function unlock(event) {
     if (event?.target === toggle) return;
     activatePlaybackSession();
+    if (enabled && !errorReason && !document.hidden) primeSecondPlayerInGesture();
     if (enabled && !pending
         && (playState !== 'playing' || currentAudio().paused === true || currentAudio().ended)) {
       playFromUserGesture();
