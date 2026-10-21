@@ -16,7 +16,7 @@ def main() -> None:
 
     # All runtime files are physically inside the exhibit scope. The service
     # worker must not control/cache normal public-preview paths.
-    for folder in ("config", "css", "data", "environments", "img", "js", "species"):
+    for folder in ("audio", "config", "css", "data", "environments", "img", "js", "species"):
         shutil.copytree(site / folder, exhibit / folder, dirs_exist_ok=True)
 
     page = (site / "index.html").read_text(encoding="utf-8")
@@ -75,7 +75,8 @@ def main() -> None:
     )
     for needed in ("index.html", "game.html", "game.js", "manifest.webmanifest",
                    "config/konchu_univ_alpha.json", "js/pages_preview.js",
-                   "js/warning_color.js", "img/backgrounds/bg_leaf01.png"):
+                   "js/warning_color.js", "img/backgrounds/bg_leaf01.png",
+                   "audio/gitailab_rainforest_soft_48k.ogg"):
         assert needed in runtime_files, needed
     print("Exhibition PWA:", len(runtime_files), "offline files; build", build)
 
