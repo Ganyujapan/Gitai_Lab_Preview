@@ -251,6 +251,7 @@
     if (errorReason) return;
     if (enabled) primeSecondPlayerInGesture();
     if (enabled && (playState !== 'playing' || currentAudio().paused === true)) {
+      primeSecondPlayerInGesture();
       pending = false;
       playFromUserGesture();
       return;
