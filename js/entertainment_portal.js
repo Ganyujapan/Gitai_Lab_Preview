@@ -690,7 +690,9 @@
     url.searchParams.set('run', 'warning_color_fog_v2');
     url.searchParams.set('fog', '1');
     url.searchParams.delete('play');
-    url.searchParams.set('portal', 'auto-play-warning');
+    // Prepare the warning experiment BEFORE showing the tutorial. A full-page
+    // navigation destroys native audio; never do that in Skip's onDone().
+    url.searchParams.set('portal', 'warning-tutorial');
     window.location.assign(url.toString());
   }
   solo.addEventListener('click', openEvolutionModePicker);
@@ -700,9 +702,7 @@
   });
   warningMode?.addEventListener('click', () => {
     closeEvolutionModePicker();
-    if (window.GitaiSoloTutorial?.open) {
-      window.GitaiSoloTutorial.open({ mode: 'warning', onDone: beginWarningExperiment });
-    } else beginWarningExperiment();
+    beginWarningExperiment();
   });
   evolutionBack?.addEventListener('click', closeEvolutionModePicker);
   shared.addEventListener('click', () => showDialog('shared'));
@@ -746,6 +746,19 @@
     raf = 0;
     if (backToMenu) backToMenu.hidden = false;
     if (soloHomeButton) soloHomeButton.hidden = Boolean(reviewOverlay?.classList.contains('visible'));
+  }
+  if (!directSolo && portalTarget === 'warning-tutorial') {
+    if (params.get('experiment') === 'warning_color' && readNickname()) {
+      // The tutorial and game now live in the SAME document. Skipping it
+      // starts SOLO without destroying the audio element or resetting data.
+      if (window.GitaiSoloTutorial?.open) {
+        window.GitaiSoloTutorial.open({ mode: 'warning', onDone: startSolo });
+      } else {
+        startSolo();
+      }
+    } else {
+      showMenu();
+    }
   }
   if (!directSolo && portalTarget === 'auto-play-warning') {
     if (params.get('experiment') === 'warning_color' && readNickname()) {
