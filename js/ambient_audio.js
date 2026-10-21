@@ -38,18 +38,44 @@
   let loopTimer = null;
   let playbackEpoch = 0;
   let secondElementPrimed = false;
+  let secondElementPriming = false;
   const currentAudio = () => players[active];
 
   function primeSecondPlayerInGesture() {
-    // iOS WebKit's native media permission is per element, not per page.
-    // load() on the standby element must be called inside a real user gesture
-    // so the later crossfade play() is permitted without another tap.
-    if (secondElementPrimed) return;
+    // iOS WebKit grants future native play() to an HTMLMediaElement after
+    // its own play() is called in a *real* tap. Merely loading it may not
+    // grant that permission. A muted play() grants it without audible sound.
+    if (!enabled || errorReason || document.hidden ||
+        secondElementPrimed || secondElementPriming) return;
+    const standby = players[1 - active];
+    if (!standby.paused) return;
+    secondElementPriming = true;
+    standby.muted = true;
     try {
-      players[1 - active].load();
-      secondElementPrimed = true;
+      // Important: call play() synchronously inside touchend/click/pointerup.
+      // Do NOT await or call load() afterward; both can lose the permission.
+      Promise.resolve(standby.play()).then(() => {
+        if (!secondElementPriming) return;
+        if (standby === currentAudio()) {
+          secondElementPriming = false;
+          standby.muted = false;
+          return;
+        }
+        standby.pause();
+        try { standby.currentTime = 0; } catch (_) {}
+        standby.muted = false;
+        secondElementPrimed = true;
+        secondElementPriming = false;
+      }).catch(error => {
+        if (!secondElementPriming) return;
+        secondElementPriming = false;
+        standby.muted = false;
+        console.warn('Standby audio unlock failed:', error?.name || error);
+      });
     } catch (error) {
-      console.warn('Could not preload standby ambience:', error);
+      secondElementPriming = false;
+      standby.muted = false;
+      console.warn('Standby audio unlock failed:', error?.name || error);
     }
   }
 
@@ -57,7 +83,7 @@
     if (loopTimer !== null) { clearInterval(loopTimer); loopTimer = null; }
   }
   function tickLoop() {
-    if (!running || switching || !enabled || errorReason || document.hidden) return;
+    if (!running || switching || secondElementPriming || !enabled || errorReason || document.hidden) return;
     const oldIndex = active;
     const old = players[oldIndex];
     const duration = old.duration;
@@ -142,7 +168,6 @@
     if (!enabled || errorReason || document.hidden || pending) return;
     if (running && currentAudio().paused === false && !currentAudio().ended) return;
     activatePlaybackSession();
-    primeSecondPlayerInGesture();
     playState = 'loading';
     pending = true;
     render();
@@ -179,11 +204,13 @@
     pending = false;
     running = false;
     switching = false;
+    secondElementPriming = false;
     playbackEpoch += 1;
     stopLoopTimer();
     for (const player of players) {
       player.pause();
       player.loop = false;
+      player.muted = false;
       try { player.currentTime = 0; } catch (_) {}
     }
     active = 0;
@@ -193,6 +220,7 @@
 
   players.forEach((player, index) => {
     player.addEventListener('playing', () => {
+      if (secondElementPriming && index !== active) return;
       if (!enabled || !running) { player.pause(); return; }
       if (index !== active && !switching) return;
       pending = false;
@@ -229,13 +257,16 @@
     }
     enabled = !enabled;
     try { localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off'); } catch (_) {}
-    if (enabled) playFromUserGesture();
+    if (enabled) { primeSecondPlayerInGesture(); playFromUserGesture(); }
     else stop();
     render();
   });
 
   function unlock(event) {
     if (event?.target === toggle) return;
+    // Touch pointerdown is not a media user activation on iOS. Use the
+    // later pointerup/click instead, or a mouse's pointerdown.
+    if (event?.type === 'pointerdown' && event.pointerType !== 'mouse') return;
     activatePlaybackSession();
     if (enabled && !errorReason && !document.hidden) primeSecondPlayerInGesture();
     if (enabled && !pending
@@ -246,7 +277,9 @@
   // Handle the click AFTER Skip's handler opens the habitat picker, so an
   // interruption from that UI transition is detectable before this retry.
   document.addEventListener('pointerdown', unlock, { capture: true });
-  document.addEventListener('click', unlock);
+  document.addEventListener('pointerup', unlock, { capture: true });
+  document.addEventListener('touchend', unlock, { capture: true });
+  document.addEventListener('click', unlock, { capture: true });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       interruptedByVisibility = enabled && !errorReason
