@@ -20,6 +20,21 @@
   audio.preload = 'none';
   audio.playsInline = true;
   audio.setAttribute('aria-hidden', 'true');
+  // iOS WebKit defaults Web Audio to the ambient session, which is muted
+  // when the phone's Ring/Silent switch is on. Explicitly use media playback
+  // before creating/resuming ANY sound, including the game's capture SE.
+  // Supported by iOS Safari 17+; non-supporting WebViews remain usable.
+  function activatePlaybackSession() {
+    try {
+      const session = root.navigator?.audioSession;
+      if (session && session.type !== 'playback') session.type = 'playback';
+      return session?.type === 'playback';
+    } catch (_) {
+      return false;
+    }
+  }
+  activatePlaybackSession();
+
   let context = null;
   let gainNode = null;
   let attemptedByGesture = false;
@@ -75,10 +90,11 @@
   function playFromUserGesture() {
     if (!enabled || errorReason || document.hidden) return;
     attemptedByGesture = true;
+    activatePlaybackSession();
     ensureAudioGraph();
     playState = 'loading';
     render();
-    if (context && context.state === 'suspended') {
+    if (context && (context.state === 'suspended' || context.state === 'interrupted')) {
       context.resume().catch(() => {
         // A genuine additional gesture may unlock Web Audio in WebKit.
         if (enabled) {
@@ -150,6 +166,9 @@
   // The first gesture unlocks on Safari and Android. Further taps permit
   // recovery after iOS WebView interruption, but not duplicate active audio.
   function unlock(event) {
+    // Even when ambience is muted, capture SE must still leave the ringer-
+    // muted 'ambient' session. The game uses the same playback setting.
+    activatePlaybackSession();
     if (event?.target === toggle || !enabled || errorReason) return;
     if (playState === 'playing' && (!context || context.state === 'running')) return;
     playFromUserGesture();
@@ -169,5 +188,6 @@
     isEnabled: () => enabled,
     isAvailable: () => !errorReason,
     isPlaying: () => playState === 'playing',
+    activatePlaybackSession,
   });
 })(window);
