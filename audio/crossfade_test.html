@@ -18,7 +18,7 @@ strong{color:#a8e8cc}.warn{color:#e7c58d}
 </head>
 <body>
 <h1>ギタイラボ：無音なしBGMループ実験</h1>
-<p>このページだけで<strong>通常の音声プレイヤー2本</strong>を交互に重ねます。iPhoneで音量をプログラム操作せずに済むよう、録音の先頭と末尾にそれぞれ4秒のフェードを入れた試験用Oggを使っています。</p>
+<p>このページだけで<strong>通常の音声プレイヤー2本</strong>を交互に重ねます。2本とも開始タップ時に再生許可を準備する改良版です。iPhoneで音量をプログラム操作せずに済むよう、録音の先頭と末尾にそれぞれ4秒のフェードを入れた試験用Oggを使っています。</p>
 <section>
 <button id="fast" type="button">つなぎ目の手前から再生（約10秒で確認）</button>
 <button id="normal" type="button">最初から連続再生（通常速度）</button>
@@ -88,6 +88,12 @@ strong{color:#a8e8cc}.warn{color:#e7c58d}
   }
   function start(nearEnd){
     stop();audioSession();
+    // The previous test did not grant the standby HTMLMediaElement its own
+    // user activation, so iOS rejected its later play() with NotAllowedError.
+    // WebKit requires the initial load/play of EACH media element to occur
+    // during a real user gesture. load() does this without audible overlap.
+    try { players[1].load(); log('2番の音源も開始タップ内で読み込み・再生許可を準備'); }
+    catch (error) { log('2番の音源準備に失敗: '+error.name); }
     active=0;loops=0;overlaps=0;pending=false;running=true;
     const a=players[0];
     if(nearEnd){
