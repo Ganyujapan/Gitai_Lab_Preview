@@ -830,3 +830,33 @@ html body #ambientAudioToggle {
   text-align: center !important;
   z-index: 120 !important;
 }
+
+/* Final GITAI LAB tagline (two lines above START). Keep it visible on
+ * smaller screens and leave touch interaction to the START button. */
+#entertainmentPortal.portal-line-mode .portal-intro-footer .portal-tagline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto 14px;
+  color: #f4f2eb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-size: clamp(12px, 3.2vw, 15px);
+  font-weight: 600;
+  line-height: 1.55;
+  letter-spacing: .035em;
+  text-align: center;
+  pointer-events: none;
+}
+#entertainmentPortal.portal-line-mode .portal-intro-footer .portal-tagline span {
+  display: block;
+  white-space: nowrap;
+}
+@media (max-height: 570px) {
+  #entertainmentPortal.portal-line-mode .portal-intro-footer .portal-tagline {
+    display: flex;
+    gap: 0;
+    margin-bottom: 7px;
+    font-size: 11px;
+  }
+}
