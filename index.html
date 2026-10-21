@@ -2029,7 +2029,7 @@
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261020-warning-split1"></script>
 <script src="js/pages_preview.js?v=20261020-life5-random20-theater1"></script>
-<script src="js/ambient_audio.js?v=20261021-rainforest-audible2"></script>
+<script src="js/ambient_audio.js?v=20261021-native-audio1"></script>
 <script>
 (() => {
   'use strict';
@@ -2432,7 +2432,6 @@
   const SPECIMEN_DB_NAME = 'gitai-specimen-box-v1';
   const SPECIMEN_STORE = 'specimens';
   let specimenDbPromise = null;
-  let predationAudioContext = null;
 
   function openSpecimenDb() {
     if (specimenDbPromise) return specimenDbPromise;
@@ -2674,31 +2673,73 @@
     }
   }
 
+  // Short generated WAV played by HTMLAudioElement — the same sound path
+  // that succeeded in the standalone iPhone audio diagnostic. No WebAudio
+  // oscillator and no dependency on the rainforest BGM's mute preference.
+  const predationToneUrls = new Map();
+  const predationVoices = Array.from({ length: 4 }, () => {
+    const player = document.createElement('audio');
+    player.preload = 'auto';
+    player.playsInline = true;
+    player.volume = 1;
+    return player;
+  });
+  let predationVoiceIndex = 0;
+
+  function predationWavUrl(combo) {
+    const pitchIndex = Math.max(0, Math.min(7, Math.round(combo) - 1));
+    if (predationToneUrls.has(pitchIndex)) return predationToneUrls.get(pitchIndex);
+    const sampleRate = 22050;
+    const duration = 0.145;
+    const frameCount = Math.round(sampleRate * duration);
+    const bytes = new ArrayBuffer(44 + frameCount * 2);
+    const view = new DataView(bytes);
+    const put = (pos, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(pos + i, str.charCodeAt(i));
+    };
+    put(0, 'RIFF'); view.setUint32(4, 36 + frameCount * 2, true);
+    put(8, 'WAVE'); put(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    put(36, 'data'); view.setUint32(40, frameCount * 2, true);
+    const pitch = 250 + pitchIndex * 34;
+    let phase = 0;
+    for (let i = 0; i < frameCount; i++) {
+      const t = i / sampleRate;
+      const frequency = pitch * (1 + 0.34 * t / duration);
+      phase += 2 * Math.PI * frequency / sampleRate;
+      const envelope = Math.max(0,
+        Math.min(1, t / 0.009, (duration - t) / 0.07));
+      const sample = Math.sin(phase) * envelope * 0.32;
+      view.setInt16(44 + 2 * i, Math.round(sample * 32767), true);
+    }
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+    predationToneUrls.set(pitchIndex, url);
+    return url;
+  }
+
   function predationSound(combo) {
     if (!isEntertainmentModel()) return;
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      if (!predationAudioContext) predationAudioContext = new AudioCtx();
-      if (predationAudioContext.state === 'suspended') {
-        predationAudioContext.resume().catch(() => {});
+      window.GitaiAmbientAudio?.activatePlaybackSession?.();
+      // Native media playback works even when a WebAudio context is muted
+      // or interrupted by iOS, and even when environmental sound is OFF.
+      const player = predationVoices[predationVoiceIndex];
+      predationVoiceIndex = (predationVoiceIndex + 1) % predationVoices.length;
+      player.pause();
+      player.src = predationWavUrl(combo);
+      // Safari can reject currentTime writes before a new blob has metadata.
+      // Never skip play() when seeking is not yet allowed.
+      try { player.currentTime = 0; } catch (_) {}
+      const attempt = player.play(); // synchronous with game canvas pointerdown
+      if (attempt && typeof attempt.catch === 'function') {
+        attempt.catch(() => {}); // never interrupt the predation/game flow
       }
-
-      const now = predationAudioContext.currentTime;
-      const osc = predationAudioContext.createOscillator();
-      const gain = predationAudioContext.createGain();
-      const pitch = 250 + Math.min(7, combo - 1) * 34;
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(pitch, now);
-      osc.frequency.exponentialRampToValueAtTime(pitch * 1.34, now + 0.055);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.035, now + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
-      osc.connect(gain);
-      gain.connect(predationAudioContext.destination);
-      osc.start(now);
-      osc.stop(now + 0.09);
-    } catch (_) {}
+    } catch (_) {
+      // An audio error must never affect selection or generation progress.
+    }
   }
 
   function drawHitEffects(now = performance.now()) {
