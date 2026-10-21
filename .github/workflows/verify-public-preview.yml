@@ -49,7 +49,7 @@ jobs:
           # A black covering layer hid both the moth and all ripple strokes.
           css = Path("css/entertainment_portal.css").read_text(encoding="utf-8")
           import re
-          if not re.search(r"#entertainmentPortal\\.portal-line-mode \\.portal-intro\\s*\\{\\s*background:\\s*transparent", css):
+          if not re.search(r"#entertainmentPortal\.portal-line-mode \.portal-intro\s*\{\s*background:\s*transparent", css):
               raise SystemExit("Title's overlay must stay transparent above the moth canvas")
           print("Public preview source scope and required assets: OK")
           PY
