@@ -95,8 +95,8 @@
     sessionStorage.removeItem(ROUTE_RESUME_KEY);
     resumeAfterRoute = savedAt > 0 && Date.now() - savedAt < 20000;
   } catch (_) {}
-  let errorReason = typeof audio.canPlayType === 'function'
-    && audio.canPlayType(SOURCE_TYPE) === '' ? 'unsupported' : null;
+  let errorReason = typeof currentAudio().canPlayType === 'function'
+    && currentAudio().canPlayType(SOURCE_TYPE) === '' ? 'unsupported' : null;
 
   function activatePlaybackSession() {
     try {
