@@ -112,7 +112,6 @@
   let mode = 'intro';
   let active = true;
   let raf = 0;
-  let lastDraw = 0;
   let pointerX = 0;
   let pointerY = 0;
   const tapBursts = [];
@@ -327,13 +326,16 @@
         c.beginPath();
         c.arc(burst.x, burst.y, radius, 0, Math.PI * 2);
         c.strokeStyle = `hsl(${hue} 100% ${ring === 0 ? 71 : 65}%)`;
-        c.lineWidth = ring === 0 ? 2.4 : 1.5;
+        // Blurred Canvas shadows were very expensive on iOS's 720x1280
+        // backing buffer. Two lightweight strokes approximate the glow
+        // without a per-wave shadow-blur compositing pass.
+        c.globalAlpha = opacity * (1 - ring * 0.24) * 0.20;
+        c.lineWidth = ring === 0 ? 6 : 4;
+        c.stroke();
         c.globalAlpha = opacity * (1 - ring * 0.24);
-        c.shadowColor = c.strokeStyle;
-        c.shadowBlur = ring === 0 ? 7 : 4;
+        c.lineWidth = ring === 0 ? 2 : 1.4;
         c.stroke();
       }
-      c.shadowBlur = 0;
       c.globalAlpha = 1;
     }
 
@@ -406,21 +408,25 @@
 
   function frame(timestamp) {
     raf = 0;
-    // The menu uses a solid black surface, so do not redraw hidden pixel scenery.
+    // Render on *every* vsync while water ripples exist: no 30ms throttle.
+    // The display clock's timestamp preserves smooth wave velocity even when
+    // an individual frame is delayed on a busy phone.
     if (!active || document.hidden || portal.hidden || mode !== 'intro') return;
-    if (timestamp - lastDraw >= 30) {
-      renderScene(timestamp);
-      lastDraw = timestamp;
+    renderScene(timestamp);
+    // No continuous idle redrawing. Stationary moth stays visible as a static
+    // canvas image after the last ripple fades, saving iPad battery/heat.
+    if (!reducedMotion.matches && tapBursts.length) {
+      raf = window.requestAnimationFrame(frame);
     }
-    if (!reducedMotion.matches) raf = window.requestAnimationFrame(frame);
   }
   function restartAnimation() {
-    window.cancelAnimationFrame(raf);
+    if (raf) window.cancelAnimationFrame(raf);
     raf = 0;
-    lastDraw = 0;
     if (!active || document.hidden || portal.hidden || mode !== 'intro') return;
-    if (reducedMotion.matches) renderScene(now());
-    else raf = window.requestAnimationFrame(frame);
+    renderScene(now());
+    if (!reducedMotion.matches && tapBursts.length) {
+      raf = window.requestAnimationFrame(frame);
+    }
   }
 
   function hideDialog() {
@@ -528,9 +534,10 @@
     try {
       const canvas = generator.next();
       if (canvas) titleMothCanvas = canvas;
-        if (active && mode === 'intro') {
-        if (reducedMotion.matches) renderScene(now());
-        else if (!raf) restartAnimation();
+      // The next active ripple frame will draw this specimen; if the page
+      // is idle, refresh just once without restarting a permanent RAF loop.
+      if (canvas && active && mode === 'intro' && !raf) {
+        renderScene(now());
       }
     } catch (error) {
       console.warn('Top-page random moth could not be drawn:', error);
@@ -567,7 +574,7 @@
     const y = Math.max(10, Math.min(lineHeight - 10,
       (event.clientY - box.top) * lineHeight / box.height));
     tapBursts.push({ x, y, time: now(), hueOffset: Math.random() * 360 });
-    if (tapBursts.length > 8) tapBursts.shift();
+    if (tapBursts.length > 5) tapBursts.shift();
     if (reducedMotion.matches) renderScene(now());
     else if (!raf) restartAnimation();
   });
