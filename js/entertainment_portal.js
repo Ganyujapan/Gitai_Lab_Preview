@@ -299,14 +299,25 @@
   // All intro decoration is procedural: true black background, a stationary
   // generated moth, and rainbow-coloured circular water ripples at tap points.
   // It never changes moth position or draws scene ornaments or a specimen disc.
+  // The supplied 720×1280 jungle image repeats each source pixel in an 8×8
+  // block. This losslessly reduced 90×160 PNG recreates it pixel-for-pixel
+  // when drawn nearest-neighbor over the 360×640 logical title canvas.
+  let titleBackgroundImage = null;
   const TITLE_MOTH_X = 180;
   const TITLE_MOTH_Y = 350;
   const RIPPLE_MS = 1750;
   function renderLineArtwork(timestamp) {
     const c = ctx;
     c.setTransform(2, 0, 0, 2, 0, 0);
-    c.fillStyle = '#000';
-    c.fillRect(0, 0, lineWidth, lineHeight);
+    if (titleBackgroundImage && titleBackgroundImage.complete
+        && titleBackgroundImage.naturalWidth > 0) {
+      c.imageSmoothingEnabled = false;
+      c.drawImage(titleBackgroundImage, 0, 0, lineWidth, lineHeight);
+    } else {
+      // Black is a fallback only while the jungle asset loads.
+      c.fillStyle = '#000';
+      c.fillRect(0, 0, lineWidth, lineHeight);
+    }
 
     // Water-drop ripples: multiple concentric, continuous, gently glowing
     // circular waves. The hue travels through the entire rainbow over time.
@@ -428,6 +439,16 @@
       raf = window.requestAnimationFrame(frame);
     }
   }
+
+  // Only the intro canvas background is replaced. Menu and game artwork,
+  // moth position, gestures, ripple timing, and sounds remain unchanged.
+  titleBackgroundImage = new Image();
+  titleBackgroundImage.onload = () => {
+    if (active && mode === 'intro' && !portal.hidden) renderScene(now());
+  };
+  titleBackgroundImage.src = new URL(
+    'img/backgrounds/bg_jungle_title_90x160.png', document.baseURI
+  ).href;
 
   function hideDialog() {
     dialog.hidden = true;
