@@ -1,5 +1,5 @@
-/* Original rainforest Ogg/Opus: play it as native HTML media, exactly like
- * the standalone diagnostic page that succeeded on the user's iPhone.
+/* Rainforest Ogg/Opus with pre-rendered overlapping fades, played on two
+ * alternating native HTML media elements as in crossfade_test.html.
  * Do not pipe an HTMLMediaElement into Web Audio: on some iOS/WebViews its
  * 'playing' event fires while the graph produces no audible output.
  * Capture SE remains independent of this audio and of the ON/OFF preference. */
@@ -13,19 +13,78 @@
   // Preserve only the user's intent to keep ambience playing, never a
   // stale audio object or the evolution state.
   const ROUTE_RESUME_KEY = 'gitai-ambient-route-resume-v1';
-  const SOURCE_PATH = 'audio/gitailab_rainforest_soft_48k.ogg';
+  const SOURCE_PATH = 'audio/gitailab_rainforest_overlap_test_48k.ogg';
+  const OVERLAP_SECONDS = 4.0;
   const SOURCE_TYPE = 'audio/ogg; codecs="opus"';
 
   let enabled = true;
   try { enabled = localStorage.getItem(STORAGE_KEY) !== 'off'; } catch (_) {}
 
-  const audio = document.createElement('audio');
-  audio.src = new URL(SOURCE_PATH, document.baseURI).href;
-  audio.loop = true;
-  audio.preload = 'metadata';
-  audio.playsInline = true;
-  audio.volume = 1; // Direct media playback; do NOT route through AudioContext.
-  audio.setAttribute('aria-hidden', 'true');
+  // Match audio/crossfade_test.html: two native players, with the 4-second
+  // fades already embedded in the Ogg. Avoid Web Audio and volume automation.
+  const players = [0, 1].map(() => {
+    const element = document.createElement('audio');
+    element.src = new URL(SOURCE_PATH, document.baseURI).href;
+    element.loop = false;
+    element.preload = 'auto';
+    element.playsInline = true;
+    element.volume = 1;
+    element.setAttribute('aria-hidden', 'true');
+    return element;
+  });
+  let active = 0;
+  let switching = false;
+  let running = false;
+  let loopTimer = null;
+  let playbackEpoch = 0;
+  const currentAudio = () => players[active];
+
+  function stopLoopTimer() {
+    if (loopTimer !== null) { clearInterval(loopTimer); loopTimer = null; }
+  }
+  function tickLoop() {
+    if (!running || switching || !enabled || errorReason || document.hidden) return;
+    const oldIndex = active;
+    const old = players[oldIndex];
+    const duration = old.duration;
+    if (!Number.isFinite(duration) || duration <= OVERLAP_SECONDS + 1 ||
+        old.paused || old.currentTime < duration - OVERLAP_SECONDS) return;
+    switching = true;
+    const epoch = playbackEpoch;
+    const nextIndex = 1 - oldIndex;
+    const next = players[nextIndex];
+    try { next.currentTime = 0; } catch (_) {}
+    try {
+      Promise.resolve(next.play()).then(() => {
+        if (!running || epoch !== playbackEpoch || !enabled) {
+          next.pause();
+          return;
+        }
+        active = nextIndex;
+        switching = false;
+        playState = 'playing';
+        render();
+      }).catch(error => {
+        if (epoch !== playbackEpoch) return;
+        switching = false;
+        // Preserve continuous sound if iOS blocks a second native player.
+        old.loop = true;
+        running = false;
+        stopLoopTimer();
+        console.warn('Ambient overlap failed:', error);
+      });
+    } catch (error) {
+      switching = false;
+      old.loop = true;
+      running = false;
+      stopLoopTimer();
+      console.warn('Ambient overlap failed:', error);
+    }
+  }
+  function startLoopTimer() {
+    if (loopTimer !== null) return;
+    loopTimer = setInterval(tickLoop, 80);
+  }
 
   let playState = 'idle';
   let pending = false;
@@ -67,20 +126,24 @@
     // Do not trust cached playState: iOS may pause native media when a
     // tutorial/dialog changes or when a page is backgrounded.
     if (!enabled || errorReason || document.hidden || pending) return;
-    if (playState === 'playing' && audio.paused === false && !audio.ended) return;
+    if (running && currentAudio().paused === false && !currentAudio().ended) return;
     activatePlaybackSession();
     playState = 'loading';
     pending = true;
     render();
     try {
       // Crucially synchronous with the pointer/click, as in the audio test.
-      const attempt = audio.play();
+      running = true;
+      startLoopTimer();
+      const attempt = currentAudio().play();
       if (attempt && typeof attempt.then === 'function') {
         attempt.then(() => {
           pending = false;
         }).catch(error => {
           pending = false;
           if (!enabled) return;
+          running = false;
+          stopLoopTimer();
           if (error?.name === 'NotSupportedError') errorReason = 'unsupported';
           else if (error?.name !== 'AbortError') playState = 'blocked';
           render();
@@ -90,6 +153,8 @@
       }
     } catch (_) {
       pending = false;
+      running = false;
+      stopLoopTimer();
       playState = 'blocked';
       render();
     }
@@ -97,39 +162,51 @@
 
   function stop() {
     pending = false;
-    audio.pause();
+    running = false;
+    switching = false;
+    playbackEpoch += 1;
+    stopLoopTimer();
+    for (const player of players) {
+      player.pause();
+      player.loop = false;
+      try { player.currentTime = 0; } catch (_) {}
+    }
+    active = 0;
     playState = 'idle';
     render();
   }
 
-  audio.addEventListener('playing', () => {
-    pending = false;
-    if (!enabled) { audio.pause(); return; }
-    // Playback status cannot prove a user's output route is audible.
-    playState = 'playing';
-    render();
-  });
-  audio.addEventListener('waiting', () => {
-    if (enabled) { playState = 'loading'; render(); }
-  });
-  audio.addEventListener('pause', () => {
-    // WebKit can interrupt media without our stop() being called. Reset the
-    // UI state, so a tutorial Skip / following click can actually resume it.
-    pending = false;
-    if (playState !== 'idle') {
-      playState = 'idle';
+  players.forEach((player, index) => {
+    player.addEventListener('playing', () => {
+      if (!enabled || !running) { player.pause(); return; }
+      if (index !== active && !switching) return;
+      pending = false;
+      playState = 'playing';
       render();
-    }
-  });
-  audio.addEventListener('error', () => {
-    errorReason = 'unavailable';
-    stop();
+    });
+    player.addEventListener('waiting', () => {
+      if (enabled && index === active) { playState = 'loading'; render(); }
+    });
+    player.addEventListener('pause', () => {
+      if (index !== active || switching || !running) return;
+      pending = false;
+      if (playState !== 'idle') { playState = 'idle'; render(); }
+    });
+    player.addEventListener('ended', () => {
+      if (running && index !== active) {
+        try { player.currentTime = 0; } catch (_) {}
+      }
+    });
+    player.addEventListener('error', () => {
+      errorReason = 'unavailable';
+      stop();
+    });
   });
 
   toggle.addEventListener('click', event => {
     event.stopPropagation();
     if (errorReason) return;
-    if (enabled && (playState !== 'playing' || audio.paused === true)) {
+    if (enabled && (playState !== 'playing' || currentAudio().paused === true)) {
       pending = false;
       playFromUserGesture();
       return;
@@ -145,7 +222,7 @@
     if (event?.target === toggle) return;
     activatePlaybackSession();
     if (enabled && !pending
-        && (playState !== 'playing' || audio.paused === true || audio.ended)) {
+        && (playState !== 'playing' || currentAudio().paused === true || currentAudio().ended)) {
       playFromUserGesture();
     }
   }
@@ -156,7 +233,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       interruptedByVisibility = enabled && !errorReason
-        && (playState === 'playing' || pending || audio.paused === false);
+        && (playState === 'playing' || pending || players.some(a => !a.paused));
       stop();
     } else if (interruptedByVisibility) {
       interruptedByVisibility = false;
@@ -170,7 +247,7 @@
     try {
       if (enabled && !errorReason &&
           (playState === 'playing' || pending || interruptedByVisibility
-           || audio.paused === false)) {
+           || players.some(a => !a.paused))) {
         sessionStorage.setItem(ROUTE_RESUME_KEY, String(Date.now()));
       } else {
         sessionStorage.removeItem(ROUTE_RESUME_KEY);
