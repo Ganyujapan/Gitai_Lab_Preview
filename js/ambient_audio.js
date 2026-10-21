@@ -8,6 +8,11 @@
   const toggle = document.getElementById('ambientAudioToggle');
   if (!toggle) return;
   const STORAGE_KEY = 'gitai-ambient-audio-enabled-v1';
+  // The warning-color tutorial ends with a same-origin navigation to a
+  // different game configuration. A new page gets a new media element.
+  // Preserve only the user's intent to keep ambience playing, never a
+  // stale audio object or the evolution state.
+  const ROUTE_RESUME_KEY = 'gitai-ambient-route-resume-v1';
   const SOURCE_PATH = 'audio/gitailab_rainforest_soft_48k.ogg';
   const SOURCE_TYPE = 'audio/ogg; codecs="opus"';
 
@@ -24,6 +29,13 @@
 
   let playState = 'idle';
   let pending = false;
+  let interruptedByVisibility = false;
+  let resumeAfterRoute = false;
+  try {
+    const savedAt = Number(sessionStorage.getItem(ROUTE_RESUME_KEY) || 0);
+    sessionStorage.removeItem(ROUTE_RESUME_KEY);
+    resumeAfterRoute = savedAt > 0 && Date.now() - savedAt < 20000;
+  } catch (_) {}
   let errorReason = typeof audio.canPlayType === 'function'
     && audio.canPlayType(SOURCE_TYPE) === '' ? 'unsupported' : null;
 
@@ -52,7 +64,10 @@
   }
 
   function playFromUserGesture() {
-    if (!enabled || errorReason || document.hidden || pending || playState === 'playing') return;
+    // Do not trust cached playState: iOS may pause native media when a
+    // tutorial/dialog changes or when a page is backgrounded.
+    if (!enabled || errorReason || document.hidden || pending) return;
+    if (playState === 'playing' && audio.paused === false && !audio.ended) return;
     activatePlaybackSession();
     playState = 'loading';
     pending = true;
@@ -97,6 +112,15 @@
   audio.addEventListener('waiting', () => {
     if (enabled) { playState = 'loading'; render(); }
   });
+  audio.addEventListener('pause', () => {
+    // WebKit can interrupt media without our stop() being called. Reset the
+    // UI state, so a tutorial Skip / following click can actually resume it.
+    pending = false;
+    if (playState !== 'idle') {
+      playState = 'idle';
+      render();
+    }
+  });
   audio.addEventListener('error', () => {
     errorReason = 'unavailable';
     stop();
@@ -105,7 +129,7 @@
   toggle.addEventListener('click', event => {
     event.stopPropagation();
     if (errorReason) return;
-    if (enabled && playState !== 'playing') {
+    if (enabled && (playState !== 'playing' || audio.paused === true)) {
       pending = false;
       playFromUserGesture();
       return;
@@ -120,16 +144,52 @@
   function unlock(event) {
     if (event?.target === toggle) return;
     activatePlaybackSession();
-    if (enabled && !pending && playState !== 'playing') playFromUserGesture();
+    if (enabled && !pending
+        && (playState !== 'playing' || audio.paused === true || audio.ended)) {
+      playFromUserGesture();
+    }
   }
-  // The initial click comes from a real human gesture. No autoplay on load.
+  // Handle the click AFTER Skip's handler opens the habitat picker, so an
+  // interruption from that UI transition is detectable before this retry.
   document.addEventListener('pointerdown', unlock, { capture: true });
-  document.addEventListener('click', unlock, { capture: true });
+  document.addEventListener('click', unlock);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stop();
+    if (document.hidden) {
+      interruptedByVisibility = enabled && !errorReason
+        && (playState === 'playing' || pending || audio.paused === false);
+      stop();
+    } else if (interruptedByVisibility) {
+      interruptedByVisibility = false;
+      // Best effort on foreground; Safari may require the next real tap.
+      playFromUserGesture();
+    }
   });
-  root.addEventListener('pagehide', stop);
+  root.addEventListener('pagehide', () => {
+    // HTML audio cannot physically survive a full document navigation.
+    // Request a best-effort resume in the next same-origin page load.
+    try {
+      if (enabled && !errorReason &&
+          (playState === 'playing' || pending || interruptedByVisibility
+           || audio.paused === false)) {
+        sessionStorage.setItem(ROUTE_RESUME_KEY, String(Date.now()));
+      } else {
+        sessionStorage.removeItem(ROUTE_RESUME_KEY);
+      }
+    } catch (_) {}
+    stop();
+  });
+  root.addEventListener('pageshow', () => {
+    if (interruptedByVisibility && !document.hidden) {
+      interruptedByVisibility = false;
+      playFromUserGesture();
+    }
+  });
   render();
+  if (resumeAfterRoute && enabled && !errorReason) {
+    // A new document may reject unprompted play() under iOS restrictions.
+    // Never bypass those rules: catch NotAllowedError and retry on a tap.
+    playFromUserGesture();
+  }
 
   root.GitaiAmbientAudio = Object.freeze({
     isEnabled: () => enabled,
