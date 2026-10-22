@@ -78,6 +78,7 @@ jobs:
           node --check _site/exhibit/js/pages_preview.js
           node --check _site/exhibit/js/entertainment_portal.js
           node --check _site/exhibit/sw.js
+          node exhibit/verify_mutation_profile.cjs _site
           test -f _site/exhibit/audio/gitailab_rainforest_soft_48k.ogg
           python3 - <<'PY'
           from pathlib import Path
