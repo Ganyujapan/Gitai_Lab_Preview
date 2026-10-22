@@ -112,6 +112,8 @@
   const recordsButton = actions.querySelector('#gitaiOpenRecords');
   const startButton = actions.querySelector('#gitaiResultStartNew');
   const gallerySaveButton = document.getElementById('evolutionSaveExperimentButton');
+  const galleryResetButton = document.getElementById('evolutionResetExperimentButton');
+  const gallerySaveAndResetButton = document.getElementById('evolutionSaveAndResetExperimentButton');
 
   const dialog = document.createElement('section');
   dialog.id = 'gitaiExperimentDialog';
@@ -142,6 +144,8 @@
     gallerySaveButton.disabled = saved;
     gallerySaveButton.classList.toggle('is-saved', saved);
     gallerySaveButton.textContent = saved ? '✓ 実験保存済み' : '実験を保存';
+    if (galleryResetButton) galleryResetButton.hidden = false;
+    if (gallerySaveAndResetButton) gallerySaveAndResetButton.hidden = false;
   }
   function updateCounter() {
     recordsButton.textContent = '実験記録（' + readRegistry().length + '/10）';
@@ -257,50 +261,95 @@
 
   function freshUrl() {
     const config = configFromPage();
-    config.slot = newId();
+    // A reset always starts in a NEW storage namespace, even when the existing
+    // experiment is saved or its slot name coincides with a prior record.
+    const occupied = new Set([
+      config.slot,
+      ...readRegistry().map(record => record.config.slot)
+    ].filter(Boolean));
+    do { config.slot = newId(); } while (occupied.has(config.slot));
     return urlFor(config);
   }
   async function discardUnregisteredAndStart() {
-    // Saved records must NEVER be deleted by "start new".
+    // Resolve the target before touching any data. For a registered Run, keep
+    // its IndexedDB and registry entry intact; only unregistered Runs are discarded.
+    const nextUrl = freshUrl();
     if (!currentRecord()) await engine.discardCurrentRun();
-    location.assign(freshUrl());
+    location.assign(nextUrl);
+  }
+  async function saveAndStart(title) {
+    const nextUrl = freshUrl();
+    // Verify the full saved generation, persist the registry, and re-read it
+    // BEFORE navigating. A failed save must never initialize a new Run.
+    const record = await registerCurrent(title);
+    const state = await engine.getSaveState();
+    if (!currentRecord() || await storedGeneration(record.dbName) !== state.generationId)
+      throw Error('保存した実験の世代情報を確認できませんでした。初期化は行っていません。');
+    location.assign(nextUrl);
+  }
+  function appendSaveAndStartAction() {
+    const saved = currentRecord();
+    if (saved) {
+      entries.appendChild(makeButton('保存記録を残して新しい実験へ', () => saveAndStart(), 'gitai-primary'));
+      return;
+    }
+    const count = readRegistry().length;
+    if (count >= LIMIT) {
+      const p = document.createElement('p');
+      p.textContent = '10件保存済みです。保存枠が満杯のため、保存して初期化はできません。実験記録から不要な実験を削除してください。';
+      entries.appendChild(p);
+      entries.appendChild(makeButton('実験記録を見る', showRecords));
+      return;
+    }
+    const label = document.createElement('label');
+    label.textContent = '保存する実験の名前';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 40;
+    input.value = defaultTitle(count + 1);
+    label.appendChild(input);
+    entries.appendChild(label);
+    entries.appendChild(makeButton('保存して新しい実験を開始', () => saveAndStart(input.value), 'gitai-primary'));
+  }
+  function appendResetAction() {
+    const saved = currentRecord();
+    entries.appendChild(makeButton('実験を初期化する', async () => {
+      const confirmText = saved
+        ? '現在の実験「' + saved.name + '」は保存記録に残します。\\n同じモード・背景で新しい実験を始めますか？'
+        : '現在の未登録実験の進化データを消去して、同じモード・背景で新しい実験を始めますか？\\n消去した進化は元に戻せません。';
+      if (!window.confirm(confirmText)) return;
+      await discardUnregisteredAndStart();
+    }, 'gitai-danger'));
+  }
+  function showResetCurrent() {
+    const saved = currentRecord();
+    heading.textContent = '実験を初期化';
+    summary.textContent = saved
+      ? '現在の実験「' + saved.name + '」は保存済みです。保存記録と進化データを保持し、同じモード・背景で新しい実験を始めます。'
+      : '現在の未登録実験を初期化します。進化データは削除され、元に戻せません。保存済みの別の実験や標本箱は消えません。';
+    entries.replaceChildren();
+    appendResetAction();
+    openModal();
+  }
+  function showSaveAndStart() {
+    const saved = currentRecord();
+    heading.textContent = '保存して実験を初期化';
+    summary.textContent = saved
+      ? '現在の実験「' + saved.name + '」を保存したまま、新しい実験を同じモード・背景で始めます。重複登録はしません。'
+      : '現在の進化を実験記録に登録し、保存を確認してから同じモード・背景で新しい実験を始めます。保存に失敗した場合、初期化は行いません。';
+    entries.replaceChildren();
+    appendSaveAndStartAction();
+    openModal();
   }
   function showStartNew() {
-    const alreadySaved = currentRecord();
-    const count = readRegistry().length;
+    const saved = currentRecord();
     heading.textContent = '最初から実験';
-    summary.textContent = alreadySaved
-      ? '現在の実験は記録済みです。これまでの進化は残したまま、新しい実験を始めます。'
-      : 'プレイ中の実験は自動保存されています。ここで記録に残すか、消去して最初から始めるか選んでください。';
+    summary.textContent = saved
+      ? '現在の実験は保存済みです。記録を残したまま新しい実験を始められます。'
+      : 'プレイ中の実験は自動保存されています。記録に登録して残すか、未登録の進化データを消去するか選んでください。';
     entries.replaceChildren();
-    if (!alreadySaved && count < LIMIT) {
-      const label = document.createElement('label');
-      label.textContent = '保存する実験の名前';
-      const input = document.createElement('input');
-      input.maxLength = 40;
-      input.value = defaultTitle(count + 1);
-      label.appendChild(input);
-      entries.appendChild(label);
-      entries.appendChild(makeButton('この実験を保存して最初から', async () => {
-        await registerCurrent(input.value);
-        location.assign(freshUrl());
-      }, 'gitai-primary'));
-    }
-    if (!alreadySaved && count >= LIMIT) {
-      const p = document.createElement('p');
-      p.textContent = '10件保存済みです。保存するには、先に実験記録から1件削除してください。';
-      entries.appendChild(p);
-    }
-    if (alreadySaved) {
-      entries.appendChild(makeButton('記録を残して新しい実験へ', async () => {
-        location.assign(freshUrl());
-      }, 'gitai-primary'));
-    } else {
-      entries.appendChild(makeButton('保存せず最初から実験', async () => {
-        if (!window.confirm('現在の未登録実験を消去して、新しい実験を始めますか？\n消去した進化は元に戻せません。')) return;
-        await discardUnregisteredAndStart();
-      }, 'gitai-danger'));
-    }
+    appendSaveAndStartAction();
+    appendResetAction();
     openModal();
   }
 
@@ -371,6 +420,8 @@
   recordsButton.addEventListener('click', () => { void showRecords(); });
   startButton.addEventListener('click', showStartNew);
   gallerySaveButton?.addEventListener('click', showSaveCurrent);
+  galleryResetButton?.addEventListener('click', showResetCurrent);
+  gallerySaveAndResetButton?.addEventListener('click', showSaveAndStart);
   close.addEventListener('click', closeModal);
   dialog.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !busy) { e.preventDefault(); closeModal(); }
