@@ -33,16 +33,14 @@ def main() -> None:
     # evolution engine. Critical for the warning run, whose run_id is fixed.
     engine = exhibit / "js" / "pages_preview.js"
     engine_js = engine.read_text(encoding="utf-8")
-    db_declaration = "  const DB_NAME = EVOLUTION_MODEL_ID"
+    db_declaration = "  const DB_NAME = SLOT_ID ? BASE_DB_NAME + '-slot-' + SLOT_ID : BASE_DB_NAME;"
     version_declaration = "  const DB_VERSION = 2;"
     assert engine_js.count(db_declaration) == 1
     assert engine_js.count(version_declaration) == 1
     engine_js = engine_js.replace(
-        db_declaration, "  const BASE_DB_NAME = EVOLUTION_MODEL_ID", 1
-    ).replace(
-        version_declaration,
-        "  const DB_NAME = 'gitai-exhibit-2026-' + BASE_DB_NAME;\n"
-        "  const DB_VERSION = 2;", 1
+        db_declaration,
+        "  const DB_NAME = 'gitai-exhibit-2026-' + "
+        "(SLOT_ID ? BASE_DB_NAME + '-slot-' + SLOT_ID : BASE_DB_NAME);", 1
     )
     engine.write_text(engine_js, encoding="utf-8")
 
