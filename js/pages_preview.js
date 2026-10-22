@@ -75,6 +75,11 @@
       'default',
     );
 
+  // The behavioral Run ID is unchanged (especially warning fog variants).
+  // The optional slot ID isolates the actual storage for parallel experiments.
+  const SLOT_ID = safeNamespaceId(PREVIEW_QUERY.get('slot'), '');
+  const RUN_INSTANCE_ID = SLOT_ID ? PREVIEW_RUN_ID + '__' + SLOT_ID : PREVIEW_RUN_ID;
+
   const LEGACY_DEFAULT_STORAGE = (
     EVOLUTION_MODEL_ID === 'continuous_v1'
     && PREVIEW_RUN_ID === 'default'
@@ -86,7 +91,7 @@
 
   // Keep existing testers' bark/sand data alive. New model/run combinations
   // use the fully namespaced v3 store.
-  const DB_NAME = EVOLUTION_MODEL_ID === 'morph_v1'
+  const BASE_DB_NAME = EVOLUTION_MODEL_ID === 'morph_v1'
     ? [
       'gitai-pages-preview-v4',
       PREVIEW_ENV_ID,
@@ -107,6 +112,8 @@
           PREVIEW_RUN_ID,
         ].join('-')
     );
+
+  const DB_NAME = SLOT_ID ? BASE_DB_NAME + '-slot-' + SLOT_ID : BASE_DB_NAME;
 
   const DB_VERSION = 2;
   const IMAGE_STORE = 'images';
@@ -1277,8 +1284,53 @@
       const req = indexedDB.deleteDatabase(DB_NAME);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
-      req.onblocked = () => resolve();
+      req.onblocked = () => reject(new Error('別のタブで実験データが使用中です。タブを閉じてもう一度試してください。'));
     });
+  }
+
+  async function getSaveState() {
+    const generationId = await idbGet(META_STORE, 'current_generation_id');
+    if (!/^gen\d{5}$/.test(String(generationId))) {
+      throw new Error('現在の世代をまだ保存できません。ゲームの読み込み完了後に操作してください。');
+    }
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([IMAGE_STORE, META_STORE], 'readonly');
+      const images = tx.objectStore(IMAGE_STORE);
+      const meta = tx.objectStore(META_STORE);
+      let imageCount = 0;
+      let genomeCount = 0;
+      for (let i = 1; i <= TOTAL; i += 1) {
+        const image = images.get(imageKey(generationId, i));
+        image.onsuccess = () => {
+          if (image.result instanceof Blob) imageCount += 1;
+        };
+        const genome = meta.get(genomeKey(generationId, i));
+        genome.onsuccess = () => {
+          if (genome.result && typeof genome.result === 'object') genomeCount += 1;
+        };
+      }
+      tx.oncomplete = () => {
+        if (imageCount === TOTAL && genomeCount === TOTAL) {
+          resolve({ generationId, population: TOTAL, imageCount, genomeCount });
+        } else {
+          reject(new Error('保存対象の蛾データが揃っていません（画像' + imageCount
+            + '・遺伝情報' + genomeCount + '/60）。既存の実験は変更していません。'));
+        }
+      };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('世代情報の確認を中断しました。'));
+    });
+  }
+
+  async function discardCurrentRun() {
+    // Used only for a non-registered active experiment after explicit user
+    // confirmation. Never delete a different run's IndexedDB database.
+    releaseObjectUrls();
+    await clearDb();
+    try {
+      localStorage.removeItem('gitai-warning-life-v1:' + DB_NAME);
+    } catch (_) {}
   }
 
   async function resetAllPreviewData() {
@@ -4757,8 +4809,7 @@
         : 'モデル: 教育型へ')
       + '</button>'
       + '<button type="button" data-action="diagnostic">診断ログ</button>'
-      + '<button type="button" data-action="chatgpt-log">ChatGPT用ログ</button>'
-      + '<button type="button" data-action="reset">テストをリセット</button>';
+      + '<button type="button" data-action="chatgpt-log">ChatGPT用ログ</button>';
 
     Object.assign(badge.style, {
       position: 'fixed',
@@ -4862,13 +4913,6 @@
       }
     });
 
-    const resetButton = badge.querySelector('[data-action="reset"]');
-    resetButton.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.dispatchEvent(new CustomEvent('gitai:request-reset'));
-    });
-
     document.body.appendChild(badge);
   }
 
@@ -4882,11 +4926,14 @@
     prepareChatGPTDiagnosticCopy,
     getEvolutionTheaterFrames,
     ensureTheaterSnapshot,
+    getSaveState,
+    discardCurrentRun,
     getStoredGenomeForSpecimen,
     context: Object.freeze({
       environmentId: PREVIEW_ENV_ID,
       evolutionModelId: EVOLUTION_MODEL_ID,
-      runId: PREVIEW_RUN_ID,
+      runId: RUN_INSTANCE_ID,
+      slotId: SLOT_ID,
       storageNamespace: DB_NAME,
       legacyDefaultStorage: LEGACY_DEFAULT_STORAGE,
     }),
