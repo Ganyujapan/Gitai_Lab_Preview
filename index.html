@@ -18,6 +18,7 @@
     })();
   </script>
   <link rel="stylesheet" href="css/entertainment_portal.css?v=20261021-tagline1">
+  <link rel="stylesheet" href="css/experiment_saves.css?v=20261022-save-slots1">
   <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
   <link rel="stylesheet" href="css/portal_minimal.css?v=20261017-minimal1">
   <link rel="stylesheet" href="css/solo_tutorial.css?v=20261018-tutorial3">
@@ -2028,7 +2029,7 @@
 <script src="js/warning_color.js?v=20261020-life5-random20"></script>
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261020-warning-split1"></script>
-<script src="js/pages_preview.js?v=20261020-life5-random20-theater1"></script>
+<script src="js/pages_preview.js?v=20261022-save-slots1"></script>
 <script src="js/ambient_audio.js?v=20261022-muted-unlock2"></script>
 <script>
 (() => {
@@ -5786,6 +5787,10 @@
   });
 
   window.addEventListener('gitai:request-reset', () => {
+    if (isEntertainmentModel() && window.GitaiExperimentSaves?.openStart) {
+      window.GitaiExperimentSaves.openStart();
+      return;
+    }
     const resetGenerationId = state.nextGenerationId || state.currentGenerationId;
     const resetGenerationNumber = Number(resetGenerationId.slice(3));
     resetConfirmText.textContent =
@@ -5867,6 +5872,7 @@
 <script src="js/portal_random_moth.js?v=20261020-leafcards2" defer></script>
 <script src="js/solo_tutorial.js?v=20261020-independent20-five" defer></script>
 <script src="js/entertainment_portal.js?v=20261022-before-tutorial1" defer onerror="document.documentElement.classList.remove('pixel-portal-pending')"></script>
+<script src="js/experiment_saves.js?v=20261022-save-slots1" defer></script>
 <script src="js/battle_portal.js?v=20261018-specimens1" defer></script>
 <script src="js/hide_seek_portal.js?v=20261018-specimens1" defer></script>
 
