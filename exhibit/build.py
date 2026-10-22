@@ -44,6 +44,80 @@ def main() -> None:
         "  const DB_NAME = 'gitai-exhibit-2026-' + BASE_DB_NAME;\n"
         "  const DB_VERSION = 2;", 1
     )
+    # The exhibition is deliberately slower than the normal public game.
+    # This is an event-only generated engine patch, not a change to the
+    # source evolution model or its mutation magnitudes.
+    child_marker = "  function makeChildGenome(\n"
+    assert engine_js.count(child_marker) == 1
+    helper = """  // Exhibition only: reduce mutation OCCURRENCE, not magnitude.
+  // Applies to live gameplay, not the warning experiment's neutral headstart.
+  const EXHIBIT_MUTATION_RATE_FACTOR = 0.5;
+  function exhibitionMutationGenetics(source) {
+    const slowed = { ...source };
+    for (const [key, value] of Object.entries(source)) {
+      if ((key.endsWith('_p') || key === 'pattern_birth_p_per_child')
+          && typeof value === 'number' && value >= 0 && value <= 1) {
+        slowed[key] = value * EXHIBIT_MUTATION_RATE_FACTOR;
+      }
+    }
+    return slowed;
+  }
+
+"""
+    engine_js = engine_js.replace(child_marker, helper + child_marker, 1)
+
+    # An optional explicit genotype config lets the 20 neutral generations
+    # retain the unchanged baseline rates (and original seeded RNG stream).
+    child_before = """    rng = Math.random,
+  ) {
+    const genetics = evolutionConfig.trait_genetics || {};
+    const colorParentIsA = rng() < 0.5;"""
+    child_after = """    rng = Math.random,
+    geneticsOverride = null,
+  ) {
+    const genetics = geneticsOverride
+      || exhibitionMutationGenetics(evolutionConfig.trait_genetics || {});
+    const colorParentIsA = rng() < 0.5;"""
+    assert engine_js.count(child_before) == 1
+    engine_js = engine_js.replace(child_before, child_after, 1)
+
+    neutral_before = """          item.parentB,
+          rng,
+        );
+        const genome = result.genome;"""
+    neutral_after = """          item.parentB,
+          rng,
+          genetics,
+        );
+        const genome = result.genome;"""
+    assert engine_js.count(neutral_before) == 1
+    engine_js = engine_js.replace(neutral_before, neutral_after, 1)
+
+    live_before = """    const genetics = evolutionConfig.trait_genetics || {};
+    const specialMutationGenerationP = clamp01("""
+    live_after = """    const genetics = exhibitionMutationGenetics(
+      evolutionConfig.trait_genetics || {}
+    );
+    const specialMutationGenerationP = clamp01("""
+    assert engine_js.count(live_before) == 1
+    engine_js = engine_js.replace(live_before, live_after, 1)
+
+    # Surface the effective probability factor in the saved generation log.
+    generation_marker = "  async function evolveGenerationByGenome("
+    assert engine_js.count(generation_marker) == 1
+    before_live, live = engine_js.split(generation_marker, 1)
+    diagnostic_before = """      evolution_config_id:
+        evolutionConfig?.config_id || null,
+      eaten_indices:"""
+    diagnostic_after = """      evolution_config_id:
+        evolutionConfig?.config_id || null,
+      exhibit_mutation_rate_factor: EXHIBIT_MUTATION_RATE_FACTOR,
+      eaten_indices:"""
+    assert live.count(diagnostic_before) == 1
+    engine_js = before_live + generation_marker + live.replace(
+        diagnostic_before, diagnostic_after, 1
+    )
+
     engine.write_text(engine_js, encoding="utf-8")
 
     # Remove the only dynamically injected third-party font fetch in the game.
