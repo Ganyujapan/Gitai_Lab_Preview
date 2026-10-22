@@ -149,12 +149,14 @@
   }
   function openModal() {
     message.textContent = '';
+    close.textContent = 'キャンセル・戻る';
     dialog.hidden = false;
     close.focus({preventScroll: true});
   }
   function closeModal() {
     if (busy) return;
     dialog.hidden = true;
+    close.textContent = 'キャンセル・戻る';
     entries.replaceChildren();
     updateCounter();
   }
@@ -244,9 +246,10 @@
         + '」として保存しました。これからも世代更新ごとに自動保存されます。'
         + 'この画面に戻って続きをプレイできます。';
       entries.replaceChildren();
-      entries.appendChild(makeButton('閉じてプレイを続ける', async () => {
-        closeModal();
-      }, 'gitai-primary'));
+      message.textContent = '実験を保存しました。';
+      // This is the normal close button, not an action wrapped by perform():
+      // the latter runs with busy=true and cannot call closeModal() directly.
+      close.textContent = '閉じてプレイを続ける';
       close.focus({preventScroll: true});
     }, 'gitai-primary'));
     openModal();
