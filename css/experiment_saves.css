@@ -33,6 +33,26 @@
   outline: 2px solid #b8f7ff;
   outline-offset: 2px;
 }
+/* The gallery keeps these actions visible above its scrollable 60-moth grid.
+   Reuse the normal (non-pixel) font of the existing specimen/next buttons. */
+#evolutionOverlay .evolution-quick-actions #evolutionSaveExperimentButton {
+  grid-column: 1 / -1;
+  min-height: 46px;
+  border-color: rgba(174, 203, 166, .8);
+  background: #294339;
+  color: #f0f4ef;
+  font: 700 clamp(13px, 3.1vw, 15px)/1.4 system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+}
+#evolutionOverlay .evolution-quick-actions #evolutionSaveExperimentButton.is-saved {
+  background: #192b26;
+  color: #bbd9c6;
+  border-color: rgba(174, 203, 166, .45);
+}
+#evolutionOverlay .evolution-quick-actions #evolutionSaveExperimentButton:focus-visible {
+  outline: 2px solid #b8f7ff;
+  outline-offset: 2px;
+}
+
 #gitaiExperimentDialog[hidden] { display: none !important; }
 #gitaiExperimentDialog {
   position: fixed;
