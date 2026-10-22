@@ -98,23 +98,19 @@
     } finally { db.close(); }
   }
 
-  // Add real, reachable controls to the production menu, not the debug badge.
-  const menuModes = portal.querySelector('.portal-modes');
-  if (!menuModes) return;
+  // Experiment controls belong ONLY to the completed-generation result panel.
+  // The title / mode-selection menu remains dedicated to choosing play modes.
+  const theaterButton = document.getElementById('theaterButton');
+  const reviewOverlay = document.getElementById('reviewOverlay');
+  if (!theaterButton || !reviewOverlay) return;
   const actions = document.createElement('div');
-  actions.className = 'gitai-experiment-menu-actions';
+  actions.className = 'gitai-experiment-result-actions';
   actions.innerHTML =
     '<button type="button" id="gitaiOpenRecords">実験記録（0/10）</button>' +
-    '<button type="button" id="gitaiStartNew">最初から実験</button>';
-  menuModes.insertAdjacentElement('afterend', actions);
+    '<button type="button" id="gitaiResultStartNew">最初から実験</button>';
+  theaterButton.insertAdjacentElement('afterend', actions);
   const recordsButton = actions.querySelector('#gitaiOpenRecords');
-  const startButton = actions.querySelector('#gitaiStartNew');
-  const resultReturn = document.getElementById('resultBackToMenu');
-  const resultNew = document.createElement('button');
-  resultNew.id = 'gitaiResultStartNew';
-  resultNew.type = 'button';
-  resultNew.textContent = '最初から実験';
-  if (resultReturn) resultReturn.insertAdjacentElement('afterend', resultNew);
+  const startButton = actions.querySelector('#gitaiResultStartNew');
 
   const dialog = document.createElement('section');
   dialog.id = 'gitaiExperimentDialog';
@@ -317,7 +313,6 @@
   }
   recordsButton.addEventListener('click', () => { void showRecords(); });
   startButton.addEventListener('click', showStartNew);
-  resultNew.addEventListener('click', showStartNew);
   close.addEventListener('click', closeModal);
   dialog.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !busy) { e.preventDefault(); closeModal(); }
