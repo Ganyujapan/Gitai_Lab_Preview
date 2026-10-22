@@ -106,11 +106,9 @@ def main() -> None:
     generation_marker = "  async function evolveGenerationByGenome("
     assert engine_js.count(generation_marker) == 1
     before_live, live = engine_js.split(generation_marker, 1)
-    diagnostic_before = """      evolution_config_id:
-        evolutionConfig?.config_id || null,
+    diagnostic_before = """      evolution_config_id: evolutionConfig?.config_id || null,
       eaten_indices:"""
-    diagnostic_after = """      evolution_config_id:
-        evolutionConfig?.config_id || null,
+    diagnostic_after = """      evolution_config_id: evolutionConfig?.config_id || null,
       exhibit_mutation_rate_factor: EXHIBIT_MUTATION_RATE_FACTOR,
       eaten_indices:"""
     assert live.count(diagnostic_before) == 1
