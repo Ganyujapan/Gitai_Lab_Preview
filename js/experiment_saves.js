@@ -111,6 +111,7 @@
   theaterButton.insertAdjacentElement('afterend', actions);
   const recordsButton = actions.querySelector('#gitaiOpenRecords');
   const startButton = actions.querySelector('#gitaiResultStartNew');
+  const gallerySaveButton = document.getElementById('evolutionSaveExperimentButton');
 
   const dialog = document.createElement('section');
   dialog.id = 'gitaiExperimentDialog';
@@ -134,8 +135,17 @@
   const close = dialog.querySelector('#gitaiExperimentClose');
   let busy = false;
 
+  function updateGallerySaveButton() {
+    if (!gallerySaveButton) return;
+    const saved = Boolean(currentRecord());
+    gallerySaveButton.hidden = false;
+    gallerySaveButton.disabled = saved;
+    gallerySaveButton.classList.toggle('is-saved', saved);
+    gallerySaveButton.textContent = saved ? '✓ 実験保存済み' : '実験を保存';
+  }
   function updateCounter() {
     recordsButton.textContent = '実験記録（' + readRegistry().length + '/10）';
+    updateGallerySaveButton();
   }
   function openModal() {
     message.textContent = '';
@@ -198,6 +208,50 @@
     updateCounter();
     return record;
   }
+  function showSaveCurrent() {
+    heading.textContent = '実験を保存';
+    entries.replaceChildren();
+    const saved = currentRecord();
+    if (saved) {
+      summary.textContent = 'この実験は「' + saved.name
+        + '」として登録済みです。次の世代も自動保存されます。';
+      entries.appendChild(makeButton('実験記録を見る', showRecords));
+      openModal();
+      return;
+    }
+    const count = readRegistry().length;
+    if (count >= LIMIT) {
+      summary.textContent = '保存できる実験は10件までです。'
+        + '保存するには実験記録から不要な実験を削除してください。';
+      entries.appendChild(makeButton('実験記録を見る', showRecords));
+      openModal();
+      return;
+    }
+    summary.textContent = 'この進化を記録に残します。以後も世代が進むたびに自動保存されます。'
+      + '保存後も、今の画面からそのままプレイできます。';
+    const label = document.createElement('label');
+    label.textContent = '実験の名前';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 40;
+    input.value = defaultTitle(count + 1);
+    label.appendChild(input);
+    entries.appendChild(label);
+    entries.appendChild(makeButton('この実験を保存', async () => {
+      const record = await registerCurrent(input.value);
+      heading.textContent = '保存しました';
+      summary.textContent = '「' + record.name
+        + '」として保存しました。これからも世代更新ごとに自動保存されます。'
+        + 'この画面に戻って続きをプレイできます。';
+      entries.replaceChildren();
+      entries.appendChild(makeButton('閉じてプレイを続ける', async () => {
+        closeModal();
+      }, 'gitai-primary'));
+      close.focus({preventScroll: true});
+    }, 'gitai-primary'));
+    openModal();
+  }
+
   function freshUrl() {
     const config = configFromPage();
     config.slot = newId();
@@ -313,6 +367,7 @@
   }
   recordsButton.addEventListener('click', () => { void showRecords(); });
   startButton.addEventListener('click', showStartNew);
+  gallerySaveButton?.addEventListener('click', showSaveCurrent);
   close.addEventListener('click', closeModal);
   dialog.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !busy) { e.preventDefault(); closeModal(); }
