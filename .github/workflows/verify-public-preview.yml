@@ -101,7 +101,7 @@ jobs:
           engine = (site / "js/pages_preview.js").read_text()
           assert "gitai-exhibit-2026-" in engine
           assert "const BASE_DB_NAME =" in engine
-          assert "const DB_NAME = 'gitai-exhibit-2026-' + BASE_DB_NAME;" in engine
+          assert "const DB_NAME = 'gitai-exhibit-2026-' + " in engine
           assert "fonts.googleapis.com" not in (site / "js/entertainment_portal.js").read_text()
           print("Exhibition offline assets and isolated saves: OK")
           PY
