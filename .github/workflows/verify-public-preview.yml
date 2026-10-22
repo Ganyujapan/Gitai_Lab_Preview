@@ -56,6 +56,8 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js; do node --check "$file"; done
+      - name: Test safe experiment reset and save flows
+        run: node .github/scripts/verify-experiment-reset.cjs
       - name: Build and validate Pages artifact
         run: |
           set -euo pipefail

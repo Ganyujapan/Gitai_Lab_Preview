@@ -48,9 +48,39 @@
   color: #bbd9c6;
   border-color: rgba(174, 203, 166, .45);
 }
-#evolutionOverlay .evolution-quick-actions #evolutionSaveExperimentButton:focus-visible {
+#evolutionOverlay .evolution-quick-actions #evolutionSaveExperimentButton:focus-visible,
+#evolutionOverlay .evolution-quick-actions #evolutionResetExperimentButton:focus-visible,
+#evolutionOverlay .evolution-quick-actions #evolutionSaveAndResetExperimentButton:focus-visible {
   outline: 2px solid #b8f7ff;
   outline-offset: 2px;
+}
+/* Third row: touch-sized, normal Japanese UI font, with compact wrapping
+   for the longer save-and-reset label on narrow iPhones. */
+#evolutionOverlay .evolution-quick-actions #evolutionResetExperimentButton,
+#evolutionOverlay .evolution-quick-actions #evolutionSaveAndResetExperimentButton {
+  min-width: 0;
+  min-height: 48px;
+  padding: 9px 4px;
+  line-height: 1.4;
+  font: 700 clamp(11px, 3vw, 14px)/1.4 system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+  overflow-wrap: anywhere;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+#evolutionOverlay .evolution-quick-actions #evolutionResetExperimentButton {
+  background: #3d2929;
+  border-color: rgba(199, 137, 126, .8);
+}
+#evolutionOverlay .evolution-quick-actions #evolutionSaveAndResetExperimentButton {
+  background: #294339;
+  border-color: rgba(174, 203, 166, .8);
+}
+@media (max-width: 360px) {
+  #evolutionOverlay .evolution-quick-actions #evolutionResetExperimentButton,
+  #evolutionOverlay .evolution-quick-actions #evolutionSaveAndResetExperimentButton {
+    font-size: 11px;
+    padding-inline: 3px;
+  }
 }
 
 #gitaiExperimentDialog[hidden] { display: none !important; }
