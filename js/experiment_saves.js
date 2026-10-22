@@ -41,9 +41,16 @@
     return {
       env: context.environmentId,
       model: context.evolutionModelId,
-      run: params.get('run') || (warning ? 'warning_color_fog_v2' : 'default'),
+      run: warning
+        ? (params.get('run') === 'warning_color_fog_v2'
+          ? 'warning_color_fog_v2'
+          : (params.get('fog') === '1' || params.get('run') === 'warning_color_fog_v1')
+            ? 'warning_color_fog_v1' : 'warning_color_v6')
+        : (params.get('run') || 'default'),
       experiment: warning ? 'warning_color' : '',
-      fog: warning ? (params.get('fog') || '1') : '',
+      fog: warning && (params.get('fog') === '1'
+        || params.get('run') === 'warning_color_fog_v1'
+        || params.get('run') === 'warning_color_fog_v2') ? '1' : '',
       slot: params.get('slot') || ''
     };
   }
