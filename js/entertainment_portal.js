@@ -617,6 +617,8 @@
     url.searchParams.set('env', environmentId);
     url.searchParams.delete('experiment');
     url.searchParams.delete('fog');
+    // An environment switch must not carry an unrelated save-slot namespace.
+    url.searchParams.delete('slot');
     if (params.get('experiment') === 'warning_color') {
       url.searchParams.delete('run');
     }
@@ -689,6 +691,8 @@
     // generations remain available through the legacy URL when needed.
     url.searchParams.set('run', 'warning_color_fog_v2');
     url.searchParams.set('fog', '1');
+    // Entering a different mode never inherits the previous mode's save slot.
+    url.searchParams.delete('slot');
     url.searchParams.delete('play');
     // Prepare the warning experiment BEFORE showing the tutorial. A full-page
     // navigation destroys native audio; never do that in Skip's onDone().
