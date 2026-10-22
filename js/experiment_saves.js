@@ -270,11 +270,13 @@
     do { config.slot = newId(); } while (occupied.has(config.slot));
     return urlFor(config);
   }
-  async function discardUnregisteredAndStart() {
+  async function discardUnregisteredAndStart(preserveCurrent = false) {
     // Resolve the target before touching any data. For a registered Run, keep
     // its IndexedDB and registry entry intact; only unregistered Runs are discarded.
+    // The preserve flag also protects a Run saved when the confirmation opened,
+    // even if another tab changes the registry before the user accepts.
     const nextUrl = freshUrl();
-    if (!currentRecord()) await engine.discardCurrentRun();
+    if (!preserveCurrent && !currentRecord()) await engine.discardCurrentRun();
     location.assign(nextUrl);
   }
   async function saveAndStart(title) {
@@ -318,7 +320,7 @@
         ? '現在の実験「' + saved.name + '」は保存記録に残します。\\n同じモード・背景で新しい実験を始めますか？'
         : '現在の未登録実験の進化データを消去して、同じモード・背景で新しい実験を始めますか？\\n消去した進化は元に戻せません。';
       if (!window.confirm(confirmText)) return;
-      await discardUnregisteredAndStart();
+      await discardUnregisteredAndStart(Boolean(saved));
     }, 'gitai-danger'));
   }
   function showResetCurrent() {
