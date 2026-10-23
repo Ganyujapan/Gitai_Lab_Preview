@@ -1682,7 +1682,7 @@
     <section id="warningToxicDeath" hidden role="alertdialog" aria-modal="true"
       aria-labelledby="warningToxicDeathTitle">
       <h2 id="warningToxicDeathTitle">中毒死しました。</h2>
-      <p>この世代は無効です。進化記録はそのまま保存されます。<br>再開するとライフ5から挑戦できます。</p>
+      <p>この世代は無効です。進化記録はそのまま保存されます。<br>再開するとライフ10から挑戦できます。</p>
       <button id="warningDeathReturn" type="button">トップへ戻る</button>
     </section>
     <section id="warningFogAnnouncement" hidden role="dialog" aria-modal="true"
@@ -2029,7 +2029,7 @@
 <script src="js/gen1_06.js"></script>
 <script src="js/mask_data.js"></script>
 <script src="js/habitat_access.js?v=20261016-bgcollection1"></script>
-<script src="js/warning_color.js?v=20261020-life5-random20"></script>
+<script src="js/warning_color.js?v=20261023-life10-restore1"></script>
 <script src="js/warning_similarity.js?v=20261020-visual1"></script>
 <script src="js/theater_scale.js?v=20261020-warning-split1"></script>
 <script src="js/pages_preview.js?v=20261022-save-slots1"></script>
@@ -2059,13 +2059,11 @@
     || new URLSearchParams(location.search).get('run') === 'warning_color_fog_v1'
     || FOG_V2
   );
-  // TEMPORARY gameplay experiment: warning-fog-v2 lives are OFF by default.
-  // Re-enable immediately by setting this single switch to true, or preview
-  // the original five-life rules on a single URL with &life=1.
-  // &life=0 always disables lives, even if the default is later restored.
-  // No saved life, evolution, or genome records are deleted or overwritten.
-  // The original warning_color_v6/v1 runs still use their original rules.
-  const WARNING_LIFE_DEFAULT_ENABLED = false;
+  // Restore ten-life gameplay in the currently playable warning/fog-v2 run.
+  // The legacy warning_color_v6/v1 experiments keep their previous rules.
+  // URL &life=0 remains an explicit opt-out for diagnostics.
+  // Existing evolution/record/genome data are never deleted or reset here.
+  const WARNING_LIFE_DEFAULT_ENABLED = true;
   const warningLifeOverride = new URLSearchParams(location.search).get('life');
   const WARNING_LIFE = WARNING_MODE && FOG_V2 && (
     warningLifeOverride === '1'
@@ -5840,7 +5838,7 @@
         state.warningLifeThirds = loadWarningLife(state.currentGenerationId);
         state.warningLifeAtGenerationStartThirds = state.warningLifeThirds;
         introSubtle.textContent =
-          '毒蛾を食べるとライフ-1。無毒蛾3匹で+1回復します。'
+          '初期ライフ10。毒蛾を食べると-1、無毒蛾3匹で+1回復します。'
           + ' ライフは世代をまたいで引き継がれます。';
       }
       startGeneration.textContent = generationLabel();
