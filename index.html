@@ -5408,7 +5408,7 @@
       ) {
         // Fire sound in the successful pointerdown event, before any visuals,
         // generation state changes, or renders. Fatal poison uses ONLY death.
-        if (isEntertainmentModel()) {
+        if (typeof isEntertainmentModel === 'function' && isEntertainmentModel()) {
           const sfxKind = WARNING_MODE ? WARNING.lineage(moth.index) : null;
           const fatalPoison = WARNING_LIFE && sfxKind === WARNING.POISON
             && WARNING.adjustLife(state.warningLifeThirds, sfxKind) === 0;
