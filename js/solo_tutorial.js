@@ -160,7 +160,9 @@
   ctx.fillStyle='rgba(7,13,15,.90)';ctx.fillRect(x,y,w,30);
   ctx.strokeStyle='#a1bbae';ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,w-1,29);
   ctx.textAlign='center';ctx.fillStyle='#f0f7e9';
-  ctx.font='bold 13px system-ui,sans-serif';ctx.fillText(text,x+w/2,y+20);
+  // Enlarge short captions, but keep longer Japanese phrases within chips.
+  const labelSize=Math.max(13,Math.min(19,Math.floor((w-18)/[...text].length)));
+  ctx.font='bold '+labelSize+'px system-ui,sans-serif';ctx.fillText(text,x+w/2,y+21);
  }
  function arrow(x1,y1,x2,y2){
   ctx.save();ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
@@ -188,9 +190,9 @@
   ctx.fillStyle='rgba(6,12,14,.90)';
   ctx.fillRect(0,0,360,55);ctx.fillRect(0,590,360,50);
   ctx.fillStyle='#e9f1ed';ctx.textAlign='left';
-  ctx.font='bold 14px monospace';ctx.fillText('GEN '+String(gen).padStart(5,'0'),11,29);
+  ctx.font='bold 16px monospace';ctx.fillText('GEN '+String(gen).padStart(5,'0'),9,29);
   for(let i=0;i<10;i++)heart(153+i*20,18,i<remaining);
-  ctx.textAlign='center';ctx.font='bold 12px system-ui,sans-serif';
+  ctx.textAlign='center';ctx.font='bold 15px system-ui,sans-serif';
   ctx.fillText('GITAI LAB  /  目立つギタイ',180,620);
  }
  function warningMoths(){
@@ -213,7 +215,7 @@
   }
   chip('毒蛾と無毒蛾は交配しない',565,312,24);
   ctx.textAlign='center';ctx.fillStyle='#b8cabb';
-  ctx.font='11px system-ui,sans-serif';ctx.fillText('実際のゲーム素材による説明イメージ',180,622);
+  ctx.font='13px system-ui,sans-serif';ctx.fillText('実際のゲーム素材による説明イメージ',180,622);
  }
  function warningFuture(){
   ctx.fillStyle='#08100e';ctx.fillRect(0,0,360,640);
@@ -229,7 +231,7 @@
   }
   chip('どう進化するかは、あなた次第！',556,326,17);
   ctx.textAlign='center';ctx.fillStyle='#b5c8bc';
-  ctx.font='11px system-ui,sans-serif';ctx.fillText('模様は進化結果ではなく説明イメージ',180,619);
+  ctx.font='13px system-ui,sans-serif';ctx.fillText('模様は進化結果ではなく説明イメージ',180,619);
  }
  function warningExhibit(){
   ctx.fillStyle='#091411';ctx.fillRect(0,0,360,640);
@@ -237,7 +239,7 @@
   ctx.font='bold 13px monospace';ctx.fillText('KONCHU UNIVERSITY 2026',180,64);
   ctx.fillStyle='#fff9ed';ctx.font='bold 31px system-ui,sans-serif';
   ctx.fillText('ギタイラボ',180,130);
-  ctx.font='15px system-ui,sans-serif';ctx.fillText('みんなで進化を育てよう！',180,172);
+  ctx.font='17px system-ui,sans-serif';ctx.fillText('みんなで進化を育てよう！',180,172);
   for(let i=0;i<2;i++){
    const y=209+i*146;
    ctx.fillStyle='#1c352e';ctx.fillRect(24,y,312,121);
@@ -248,7 +250,7 @@
    ctx.fillText(i?'警告色の進化とベイツ型擬態':'隠蔽擬態',180,y+85);
   }
   chip('1人5世代を目安に交代',522);
-  ctx.fillStyle='#c5dacd';ctx.font='13px system-ui,sans-serif';
+  ctx.fillStyle='#c5dacd';ctx.font='16px system-ui,sans-serif';
   ctx.fillText('前の人から、次の人へ。',180,585);
   ctx.font='11px monospace';ctx.fillText('KONCHU UNIVERSITY / GITAI LAB',180,619);
  }
