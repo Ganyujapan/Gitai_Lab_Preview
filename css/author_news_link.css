@@ -34,25 +34,27 @@
 #entertainmentPortal .portal-menu .portal-modes > .portal-mode {
   flex: 0 0 auto;
 }
+/* Quiet editorial link, not a sixth game-mode button.
+   Keep a comfortable hit area without a visible panel or outline. */
 #entertainmentPortal .portal-menu .portal-author-news {
   flex: 0 0 auto;
   width: 100%;
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px solid #35413c;
+  margin-top: 9px;
+  padding-top: 3px;
 }
 #entertainmentPortal .portal-menu #portalAuthorNews {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 55px;
-  padding: 10px 13px;
-  color: #e2e6e1;
-  background: #111617;
-  border: 1px solid #485751;
-  border-radius: 10px;
+  min-height: 46px;
+  padding: 7px 10px;
+  color: #8f9d95;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   text-align: center;
-  font: 600 clamp(12px, 3.25vw, 14px)/1.6 system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  font: 500 clamp(11px, 3vw, 13px)/1.65 system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  letter-spacing: .015em;
   text-decoration: none;
   overflow-wrap: anywhere;
   touch-action: manipulation;
@@ -62,7 +64,14 @@
   outline-offset: 3px;
 }
 #entertainmentPortal .portal-menu #portalAuthorNews:active {
-  background: #222d2a;
+  color: #c7d2ca;
+}
+@media (hover: hover) {
+  #entertainmentPortal .portal-menu #portalAuthorNews:hover {
+    color: #c7d2ca;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
 }
 #entertainmentPortal .portal-menu .portal-menu-footer {
   flex: 0 0 auto;
@@ -84,7 +93,7 @@
   #entertainmentPortal .portal-menu .portal-menu-description { margin: 2px 0 7px; }
   #entertainmentPortal .portal-menu .portal-menu-description::after { margin-top: 7px; }
   #entertainmentPortal .portal-menu .portal-nickname { margin-bottom: 6px; }
-  #entertainmentPortal .portal-menu .portal-author-news { margin-top: 5px; padding-top: 6px; }
-  #entertainmentPortal .portal-menu #portalAuthorNews { min-height: 49px; padding: 7px 9px; }
+  #entertainmentPortal .portal-menu .portal-author-news { margin-top: 5px; padding-top: 0; }
+  #entertainmentPortal .portal-menu #portalAuthorNews { min-height: 44px; padding: 6px 8px; }
   #entertainmentPortal .portal-menu .portal-menu-footer { padding-top: 5px; }
 }
