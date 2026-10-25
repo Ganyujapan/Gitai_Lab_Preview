@@ -13,8 +13,12 @@ const lines = manuscript.split(/\r?\n/).filter(Boolean);
 let last = -1;
 for (const line of lines) {
   // Markdown source hyperlink is intentionally rendered as an HTML anchor.
-  const visible = line.startsWith('[『光と闇の生き物図鑑』について詳しく見る](')
-    ? '『光と闇の生き物図鑑』について詳しく見る' : htmlEncode(line);
+  // Only the two standalone headings intentionally omit their outer 「」.
+  const heading = line === '「なぜギタイラボを作ろうと思ったのか。作者からのおしらせ。」'
+    || line === '「進化に目的はない。」';
+  const visible = heading ? htmlEncode(line.slice(1, -1))
+    : line.startsWith('[『光と闇の生き物図鑑』について詳しく見る](')
+      ? '『光と闇の生き物図鑑』について詳しく見る' : htmlEncode(line);
   const at = article.indexOf(visible, last + 1);
   assert.ok(at > last, 'Missing or altered text, or changed order: ' + line);
   last = at;
@@ -22,10 +26,25 @@ for (const line of lines) {
 assert.match(article,/https:\/\/www\.kadokawa\.co\.jp\/product\/322507000205\//);
 assert.match(article,/https:\/\/x\.com\/gitailab/);
 assert.match(article,/https:\/\/x\.com\/ganyujapan/);
-assert.match(article,/<h2 class="author-statement">「進化に目的はない。」<\/h2>/);
-assert.match(article,/author-placeholder-landscape/);
-assert.match(article,/author-placeholder-cover/);
-assert.equal((article.match(/<span class="author-placeholder author-placeholder-icon"/g)||[]).length,2);
+assert.match(article,/<h1 class="author-title">なぜギタイラボを作ろうと思ったのか。作者からのおしらせ。<\/h1>/);
+assert.match(article,/<h2 class="author-statement">進化に目的はない。<\/h2>/);
+assert.doesNotMatch(articleCss,/border-left:\s*3px solid/);
+assert.match(articleCss,/aspect-ratio:\s*665\s*\/\s*900/);
+const crypto = require('node:crypto');
+// Assert that all four source images are included byte-for-byte as supplied.
+for (const [file, sha] of [
+  ['img/author/akebi_konoha.jpg', '4b82dd5d44bf4846ddade62ca94a7716c984d385'],
+  ['img/author/book_hikari_to_yami.jpg', 'f4449a8d4504b16bf140fa582a850529bf894b55'],
+  ['img/author/x_gitailab.png', '4c6c6802b569e92318acbe2682a566530ea97f25'],
+  ['img/author/x_ganyujapan.png', '49a0141a2004b527a5e03d2bce323c48d074365e']
+]) {
+  const data = fs.readFileSync(file);
+  const gitBlobSha = crypto.createHash('sha1').update('blob ' + data.length + '\0')
+    .update(data).digest('hex');
+  assert.equal(gitBlobSha, sha, 'Original uploaded image bytes changed: ' + file);
+  assert.ok(article.includes('src="' + file + '"'), 'Missing image in article: ' + file);
+}
+assert.equal((article.match(/class="author-x-icon"/g)||[]).length, 2);
 assert.match(article,/href="\.\/\?portal=menu"/);
 const menu = game.match(/<div id="portalMenu"[\s\S]*?<div class="portal-menu-footer">/);
 assert.ok(menu, 'Mode-selection menu missing');

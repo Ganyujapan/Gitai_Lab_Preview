@@ -83,8 +83,8 @@ a:focus-visible { outline: 2px solid #e9f4ea; outline-offset: 3px; }
 }
 .author-statement {
   margin: 58px 0 28px;
-  padding: 21px 0 21px 21px;
-  border-left: 3px solid #aebdb2;
+  padding: 21px 0;
+  border: 0;
   font-size: clamp(23px, 5.8vw, 32px);
   line-height: 1.5;
   font-weight: 800;
@@ -111,36 +111,22 @@ a:focus-visible { outline: 2px solid #e9f4ea; outline-offset: 3px; }
   font-weight: 700;
 }
 .author-figure { margin: 15px auto 35px; }
-.author-placeholder {
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: #303537;
-  border: 1px solid #747b7b;
-  border-radius: 5px;
-  color: #e4e6e6;
-  text-align: center;
-  font-weight: 650;
-  letter-spacing: .07em;
-}
-.author-placeholder-media {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  color: inherit;
-  font: inherit;
-  object-fit: cover;
-}
-.author-placeholder-landscape {
+/* Use intrinsic dimensions: no crop, no stretching and no CLS on Safari. */
+.author-image-landscape {
+  display: block;
   width: min(100%, 640px);
+  height: auto;
   aspect-ratio: 16 / 9;
   margin: 0 auto;
+  object-fit: contain;
 }
-.author-placeholder-cover {
+.author-image-cover {
+  display: block;
   width: min(100%, 240px);
-  aspect-ratio: 2 / 3;
+  height: auto;
+  aspect-ratio: 665 / 900;
   margin: 26px auto 11px;
+  object-fit: contain;
 }
 .author-book { margin: 0 auto 32px; }
 .author-outbound {
@@ -169,11 +155,11 @@ a:focus-visible { outline: 2px solid #e9f4ea; outline-offset: 3px; }
   font-size: 14px;
 }
 .author-x-link > span:last-child { flex: 1; min-width: 0; white-space: pre-wrap; }
-.author-placeholder-icon {
+.author-x-icon {
+  display: block;
   flex: 0 0 40px;
   width: 40px;
   height: 40px;
-  font: 750 17px/1 ui-monospace, monospace;
   object-fit: cover;
   border-radius: 4px;
 }
