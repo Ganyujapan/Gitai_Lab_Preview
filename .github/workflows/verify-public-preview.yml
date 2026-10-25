@@ -55,6 +55,8 @@ jobs:
           PY
       - name: Verify author-news copy and fixed menu footer
         run: node .github/scripts/verify-author-news.cjs
+      - name: Verify warning tutorial copy and annotated screenshot-style frames
+        run: node .github/scripts/verify-tutorial.cjs
       - name: Check recorded SFX content and playback logic
         run: node .github/scripts/verify-sfx.cjs
       - name: Check JavaScript syntax
