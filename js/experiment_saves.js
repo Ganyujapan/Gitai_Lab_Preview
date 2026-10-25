@@ -115,6 +115,41 @@
   const galleryResetButton = document.getElementById('evolutionResetExperimentButton');
   const gallerySaveAndResetButton = document.getElementById('evolutionSaveAndResetExperimentButton');
 
+  // A browser reload in the middle of a generation returns to the same
+  // "はじめる" overlay. Give the player access to the existing safe
+  // save/reset flows BEFORE playing another round, without exposing controls
+  // on the mode picker, education model, or exhibition kiosk.
+  const introStartButton = document.getElementById('startButton');
+  const introOverlay = document.getElementById('startOverlay');
+  let introSaveAndResetButton = null;
+  let introResetButton = null;
+  if (introOverlay && introStartButton) {
+    const introActions = document.createElement('div');
+    introActions.className = 'gitai-experiment-start-actions';
+    introActions.setAttribute('role', 'group');
+    introActions.setAttribute('aria-label', '実験の保存と初期化');
+    introSaveAndResetButton = document.createElement('button');
+    introSaveAndResetButton.id = 'gitaiIntroSaveAndReset';
+    introSaveAndResetButton.type = 'button';
+    introSaveAndResetButton.textContent = '保存して初期化';
+    introResetButton = document.createElement('button');
+    introResetButton.id = 'gitaiIntroResetWithoutSave';
+    introResetButton.type = 'button';
+    introResetButton.textContent = '保存せずに初期化';
+    introActions.appendChild(introSaveAndResetButton);
+    introActions.appendChild(introResetButton);
+    introStartButton.insertAdjacentElement('afterend', introActions);
+    const syncIntroReady = () => {
+      const ready = !introStartButton.disabled;
+      introSaveAndResetButton.disabled = !ready;
+      introResetButton.disabled = !ready;
+    };
+    // The engine enables its start button only after loading generation data.
+    // Handle both the regular ready event and the case it already fired.
+    window.addEventListener('gitai:solo-assets-ready', syncIntroReady);
+    syncIntroReady();
+  }
+
   const dialog = document.createElement('section');
   dialog.id = 'gitaiExperimentDialog';
   dialog.hidden = true;
@@ -424,6 +459,8 @@
   gallerySaveButton?.addEventListener('click', showSaveCurrent);
   galleryResetButton?.addEventListener('click', showResetCurrent);
   gallerySaveAndResetButton?.addEventListener('click', showSaveAndStart);
+  introSaveAndResetButton?.addEventListener('click', showSaveAndStart);
+  introResetButton?.addEventListener('click', showResetCurrent);
   close.addEventListener('click', closeModal);
   dialog.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !busy) { e.preventDefault(); closeModal(); }
