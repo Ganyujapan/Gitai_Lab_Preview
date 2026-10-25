@@ -59,6 +59,8 @@ jobs:
         run: node .github/scripts/verify-tutorial.cjs
       - name: Check recorded SFX content and playback logic
         run: node .github/scripts/verify-sfx.cjs
+      - name: Verify public battle and hide-and-seek removal
+        run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js; do node --check "$file"; done
@@ -83,6 +85,7 @@ jobs:
           test ! -e _site/docs
           test ! -e _site/tests
           python3 exhibit/build.py _site "${GITHUB_SHA}"
+          node .github/scripts/verify-battle-seal.cjs _site
           node --check _site/exhibit/game.js
           node --check _site/exhibit/admin.js
           node --check _site/exhibit/landing.js
