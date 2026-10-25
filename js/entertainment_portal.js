@@ -694,10 +694,27 @@
     // Entering a different mode never inherits the previous mode's save slot.
     url.searchParams.delete('slot');
     url.searchParams.delete('play');
-    // Prepare the warning experiment BEFORE showing the tutorial. A full-page
-    // navigation destroys native audio; never do that in Skip's onDone().
-    url.searchParams.set('portal', 'warning-tutorial');
-    window.location.assign(url.toString());
+    // IMPORTANT iOS Safari: tapping the mode card must not navigate:
+    // reloading destroys the already-playing native rainforest audio.
+    // The warning tutorial uses the same fixed Leaf 1 art on either route
+    // and can play fully in this document without touching experiment data.
+    const launchWarningGame = () => {
+      // The game engine reads model/run/env only at document initialization,
+      // so the sole necessary navigation happens AFTER the tutorial.
+      // The destination uses the existing auto-start route, not a repeated
+      // tutorial. Ambient audio resumes on the next real user gesture if iOS
+      // rejects cross-document autoplay.
+      url.searchParams.set('portal', 'auto-play-warning');
+      window.location.assign(url.toString());
+    };
+    if (window.GitaiSoloTutorial?.open) {
+      window.GitaiSoloTutorial.open({
+        mode: 'warning',
+        onDone: launchWarningGame
+      });
+    } else {
+      launchWarningGame();
+    }
   }
   solo.addEventListener('click', openEvolutionModePicker);
   crypticMode?.addEventListener('click', () => {

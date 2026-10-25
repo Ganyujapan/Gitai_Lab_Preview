@@ -37,6 +37,7 @@ for (const [rel, hash] of Object.entries(blobs)) {
     : bytes.toString('ascii',4,8) === 'ftyp', 'Audio format broken: ' + file);
 }
 const index = fs.readFileSync('index.html','utf8');
+const portal = fs.readFileSync('js/entertainment_portal.js','utf8');
 const code = fs.readFileSync('js/game_sfx.js','utf8');
 const manifest = JSON.parse(fs.readFileSync('audio/sfx/manifest.json','utf8'));
 assert.equal(manifest.formats.length,2);
@@ -123,3 +124,44 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
   assert.doesNotThrow(()=>d.api.play('death'),'Audio errors must never stop gameplay');
   console.log('SFX verified: 20 files, 10 variants, AAC fallback, voice cap, death suppression, nonblocking sound.');
 })().catch(err=>{console.error(err);process.exitCode=1;});
+
+// Warning mode entry must never reload on card tap: preserve playing native
+// ambient HTMLAudioElements through the whole four-page tutorial.
+{
+  const startMarker = '  function beginWarningExperiment() {';
+  const endMarker = "  solo.addEventListener('click', openEvolutionModePicker);";
+  const begin = portal.indexOf(startMarker);
+  const end = portal.indexOf(endMarker, begin);
+  assert.ok(begin >= 0 && end > begin, 'Missing warning-mode selection handler');
+  const source = portal.slice(begin, end);
+  assert.match(source, /GitaiSoloTutorial\?\.open/);
+  assert.match(source, /mode:\s*'warning'/);
+  const navigations = [];
+  const tutorials = [];
+  const windowMock = {
+    location: {
+      href: 'https://ganyujapan.github.io/Gitai_Lab_Preview/?model=continuous_v1&env=leaf_002&slot=test&run=other',
+      assign: url => navigations.push(url)
+    },
+    GitaiSoloTutorial: {open: opts => tutorials.push(opts)}
+  };
+  const beginWarning = new Function('window', source + '; return beginWarningExperiment;')(windowMock);
+  beginWarning();
+  assert.equal(navigations.length, 0, 'Tapping warning card must not navigate or cut BGM');
+  assert.equal(tutorials.length, 1);
+  assert.equal(tutorials[0].mode, 'warning');
+  tutorials[0].onDone();
+  assert.equal(navigations.length, 1, 'Finishing tutorial must navigate exactly once');
+  const dest = new URL(navigations[0]);
+  assert.equal(dest.searchParams.get('experiment'), 'warning_color');
+  assert.equal(dest.searchParams.get('env'), 'kusagi_001');
+  assert.equal(dest.searchParams.get('run'), 'warning_color_fog_v2');
+  assert.equal(dest.searchParams.get('fog'), '1');
+  assert.equal(dest.searchParams.get('portal'), 'auto-play-warning');
+  assert.equal(dest.searchParams.has('slot'), false);
+  assert.equal(dest.searchParams.has('play'), false);
+  assert.equal(dest.searchParams.get('model'), 'continuous_v1');
+  windowMock.GitaiSoloTutorial = null;
+  beginWarning();
+  assert.equal(navigations.length, 2, 'Tutorial-unavailable fallback still opens game');
+}
