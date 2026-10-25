@@ -16,6 +16,8 @@ assert.deepEqual(
     'evolutionSaveAndResetExperimentButton']
 );
 assert.match(css, /#evolutionResetExperimentButton[\s\S]*?min-height:\s*48px/);
+assert.match(css, /#startOverlay \.gitai-experiment-start-actions/);
+assert.match(html, /id="startOverlay"[\s\S]*?id="startButton"/);
 
 class Element {
   constructor(tag, id = '') {
@@ -78,10 +80,12 @@ const KEY = 'gitai-experiment-records-v1';
 function build({ warning = false, saved = false, others = 0, failSave = false } = {}) {
   const elements = {};
   for (const id of ['entertainmentPortal', 'theaterButton', 'reviewOverlay',
+    'startOverlay', 'startButton',
     'evolutionSaveExperimentButton', 'evolutionResetExperimentButton',
     'evolutionSaveAndResetExperimentButton']) {
     elements[id] = new Element('button', id);
   }
+  elements.startButton.disabled = true; // generation data is still loading
   const document = {
     getElementById: id => elements[id] || null,
     createElement: tag => new Element(tag),
@@ -171,7 +175,14 @@ function build({ warning = false, saved = false, others = 0, failSave = false } 
     search: '?' + params.toString(),
     assign: url => navigated.push(new URL(url))
   };
-  const window = {GitaiPagesPreview: engine, confirm: () => true};
+  const windowListeners = {};
+  const window = {
+    GitaiPagesPreview: engine,
+    confirm: () => true,
+    addEventListener(type, fn) {
+      (windowListeners[type] ||= []).push(fn);
+    }
+  };
   vm.runInNewContext(source, {
     window, document, location, localStorage, indexedDB, crypto,
     URL, URLSearchParams, Uint8Array, Set, Date, Error
@@ -182,6 +193,15 @@ function build({ warning = false, saved = false, others = 0, failSave = false } 
     status: dialog.querySelector('#gitaiExperimentMessage'),
     navigated, deleted, databases,
     getRecords: () => JSON.parse(localStorage.getItem(KEY)).records,
+    introButtons: () => elements.startButton.after?.children || [],
+    ready: () => {
+      elements.startButton.disabled = false;
+      for (const fn of windowListeners['gitai:solo-assets-ready'] || []) fn();
+    },
+    introClick: async index => {
+      elements.startButton.after.children[index].click();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    },
     click: async id => {
       elements[id].click();
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -248,6 +268,51 @@ function checkNewRun(s) {
     checkNewRun(f);
     assert.equal(f.getRecords().length, 10, 'saved current must not be duplicated');
     assert.ok(f.databases.has('db-current'));
+
+    // Start-overlay controls also work immediately after refreshing in the
+    // middle of a generation: no round, submit, or result overlay is required.
+    const introUnsaved = build({warning, others: 1});
+    assert.deepEqual(introUnsaved.introButtons().map(x=>x.textContent),
+      ['保存して初期化', '保存せずに初期化']);
+    assert.ok(introUnsaved.introButtons().every(x=>x.disabled),
+      'start reset buttons must stay disabled until generation data is ready');
+    introUnsaved.ready();
+    assert.ok(introUnsaved.introButtons().every(x=>!x.disabled));
+    await introUnsaved.introClick(1);
+    assert.equal(introUnsaved.entries.children.length,1,'discard confirmation appears without playing');
+    await introUnsaved.submit(0);
+    checkNewRun(introUnsaved);
+    assert.deepEqual(introUnsaved.deleted,['db-current']);
+    assert.ok(introUnsaved.databases.has('db-other-0'));
+
+    const introSaved = build({warning, saved: true, others: 9});
+    introSaved.ready();
+    await introSaved.introClick(1);
+    await introSaved.submit(0);
+    checkNewRun(introSaved);
+    assert.deepEqual(introSaved.deleted,[],'registered save must be preserved');
+    assert.equal(introSaved.getRecords().length,10);
+
+    const introSave = build({warning, others: 1});
+    introSave.ready();
+    await introSave.introClick(0);
+    await introSave.submit(1);
+    checkNewRun(introSave);
+    assert.deepEqual(introSave.deleted,[]);
+    assert.equal(introSave.getRecords().length,2);
+
+    const introSaveFail = build({warning, others: 1, failSave: true});
+    introSaveFail.ready();
+    await introSaveFail.introClick(0);
+    await introSaveFail.submit(1);
+    assert.equal(introSaveFail.navigated.length,0,'failed save cannot reset from start overlay');
+    assert.ok(introSaveFail.databases.has('db-current'));
+
+    const introFull = build({warning, others: 10});
+    introFull.ready();
+    await introFull.introClick(0);
+    assert.equal(introFull.entries.children.length,2);
+    assert.equal(introFull.navigated.length,0);
 
     const g = build({warning, others: 1});
     await g.click('evolutionSaveExperimentButton');
