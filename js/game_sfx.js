@@ -38,6 +38,41 @@
   const native = new Map();
   const live = [];
   const liveNative = [];
+  // On iPadOS WebKit the AudioContext can become "interrupted", or claim
+  // "running" while its clock stops. Detect the frozen clock and switch
+  // further taps to native media rather than silently playing into it.
+  let preferNative = false;
+  let previousClockMs = 0;
+  let previousClockSec = 0;
+  let pendingTouchSound = null;
+  const touchDevice = Number(w.navigator?.maxTouchPoints || 0) > 0;
+  function contextHealthy() {
+    const ctx = getContext();
+    if (!ctx || ctx.state !== 'running' || preferNative) return false;
+    if (typeof ctx.currentTime === 'number' && Number.isFinite(ctx.currentTime)) {
+      const now = Date.now();
+      if (previousClockMs && now - previousClockMs > 150
+          && ctx.currentTime - previousClockSec < 0.015 && !document.hidden) {
+        preferNative = true;
+        return false;
+      }
+      previousClockMs = now;
+      previousClockSec = ctx.currentTime;
+    }
+    return true;
+  }
+  function nativeOnNextGesture(kind, number) {
+    if (touchDevice) pendingTouchSound = { kind, number };
+    else playNative(kind, number);
+  }
+  function flushTouchSound() {
+    // iOS user activation comes with pointerup/touchend, not pointerdown.
+    // Retry interrupted WebAudio for future taps; play this tap natively.
+    activate();
+    const pending = pendingTouchSound;
+    pendingTouchSound = null;
+    if (pending) playNative(pending.kind, pending.number);
+  }
 
   function key(kind, number) { return kind + '_' + number; }
   function getContext() {
@@ -129,7 +164,7 @@
 
   function playBuffer(kind, buffer) {
     const ctx = getContext();
-    if (!ctx || ctx.state !== 'running' || !master || !buffer) return false;
+    if (!contextHealthy() || !master || !buffer) return false;
     try {
       if (live.length >= MAX_VOICES) {
         const oldest = live.shift();
@@ -185,14 +220,15 @@
       activate();
       const number = variantIndex(GROUPS[kind]) + 1;
       if (!playBuffer(kind, decoded.get(key(kind, number)))) {
-        playNative(kind, number);
+        nativeOnNextGesture(kind, number);
       }
     } catch (_) { /* Keep predation and progression independent of audio. */ }
   }
 
   document.addEventListener('pointerdown', activate, { capture: true, passive: true });
-  document.addEventListener('touchend', activate, { capture: true, passive: true });
-  document.addEventListener('click', activate, { capture: true });
+  document.addEventListener('pointerup', flushTouchSound, { capture: true, passive: true });
+  document.addEventListener('touchend', flushTouchSound, { capture: true, passive: true });
+  document.addEventListener('click', flushTouchSound, { capture: true });
   w.GitaiGameSfx = Object.freeze({ prepare, activate, play, volumes: VOLUME });
   // Start decoding before game-start and cache the files for future taps.
   prepare();
