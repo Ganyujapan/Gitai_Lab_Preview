@@ -18,14 +18,14 @@
     root + format + '/' + kind + '_' + String(number).padStart(2, '0')
       + (format === 'opus' ? '.ogg' : '.m4a');
 
-  // Crypto RNG does not advance the evolution model's Math.random() stream.
+  // Crypto RNG does not advance the evolution model's pseudorandom stream.
   function variantIndex(n) {
     try {
       const values = new Uint32Array(1);
       w.crypto.getRandomValues(values);
       return values[0] % n;
     } catch (_) {
-      // Only for old insecure WebViews without crypto. Never Math.random().
+      // Only for old insecure WebViews without crypto. Never touch the simulation generator.
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       return seed % n;
     }
