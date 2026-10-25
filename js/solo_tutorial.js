@@ -40,6 +40,26 @@
  ].join('');
  stage.appendChild(root);
  const preview=root.querySelector('#soloTutorialCanvas');
+ const viewport=root.querySelector('.tutorial-viewport');
+ const canvasWrap=root.querySelector('.tutorial-canvas-wrap');
+ // iPad Safari may flex the canvas's intrinsic 360x640 height independently
+ // of its width when the slide's Japanese text reflows. Size both axes from
+ // the available viewport every time the slide or viewport changes.
+ function sizePreview(){
+  if(!opened||!viewport||!canvasWrap?.style)return;
+  const style=window.getComputedStyle?.(viewport);
+  const px=v=>Number.parseFloat(v)||0;
+  const w=(Number(viewport.clientWidth)||0)-px(style?.paddingLeft)-px(style?.paddingRight);
+  const h=(Number(viewport.clientHeight)||0)-px(style?.paddingTop)-px(style?.paddingBottom);
+  if(w<1||h<1)return;
+  const width=Math.max(1,Math.min(w,h*9/16));
+  canvasWrap.style.width=width+'px';
+  canvasWrap.style.height=(width*16/9)+'px';
+ }
+ if(typeof window.ResizeObserver==='function'){
+  new window.ResizeObserver(sizePreview).observe(viewport);
+ }
+ window.addEventListener?.('resize',sizePreview);
  const ctx=preview.getContext('2d',{alpha:false});
  const heading=root.querySelector('#soloTutorialHeading');
  const description=root.querySelector('#soloTutorialText');
@@ -169,6 +189,7 @@
   description.textContent=activeSlides[page].description;
   next.textContent=page===3?'はじめる':'次へ';
   [...progress.children].forEach((dot,i)=>dot.classList.toggle('active',i===page));
+  sizePreview();
   draw();
  }
  function finish(){
