@@ -130,6 +130,11 @@
   let pending = false;
   let interruptedByVisibility = false;
   let resumeAfterRoute = false;
+  const iosMediaGestureRequired = (() => {
+    const nav = root.navigator || {};
+    return /iPad|iPhone|iPod/.test(nav.userAgent || '')
+      || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1);
+  })();
   try {
     const savedAt = Number(sessionStorage.getItem(ROUTE_RESUME_KEY) || 0);
     sessionStorage.removeItem(ROUTE_RESUME_KEY);
@@ -314,9 +319,15 @@
   });
   render();
   if (resumeAfterRoute && enabled && !errorReason) {
-    // A new document may reject unprompted play() under iOS restrictions.
-    // Never bypass those rules: catch NotAllowedError and retry on a tap.
-    playFromUserGesture();
+    // Document navigation destroys both native players. iOS requires a
+    // genuine activation *in the new document*, not an autoplay attempt
+    // inherited from the reset/tutorial tap on the preceding page.
+    if (iosMediaGestureRequired) {
+      playState = 'blocked';
+      render(); // ♪ 再生を試す until the next trusted tap.
+    } else {
+      playFromUserGesture();
+    }
   }
 
   root.GitaiAmbientAudio = Object.freeze({

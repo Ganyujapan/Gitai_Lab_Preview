@@ -39,6 +39,9 @@ for (const [rel, hash] of Object.entries(blobs)) {
 const index = fs.readFileSync('index.html','utf8');
 const portal = fs.readFileSync('js/entertainment_portal.js','utf8');
 const code = fs.readFileSync('js/game_sfx.js','utf8');
+const tutorial = fs.readFileSync('js/solo_tutorial.js','utf8');
+const tutorialCss = fs.readFileSync('css/solo_tutorial.css','utf8');
+const ambient = fs.readFileSync('js/ambient_audio.js','utf8');
 const manifest = JSON.parse(fs.readFileSync('audio/sfx/manifest.json','utf8'));
 assert.equal(manifest.formats.length,2);
 assert.deepEqual(manifest.volumes, {capture:0.1935,poison:0.1835,death:0.64});
@@ -51,12 +54,20 @@ assert.match(code,/getRandomValues/);
 assert.doesNotMatch(code,/Math\.random\(/);
 assert.match(code,/source\.start\(0\)/);
 assert.match(code,/cache: 'force-cache'/);
+assert.match(code,/previousClockMs/);
+assert.match(code,/ctx\.currentTime - previousClockSec < 0\.015/);
+assert.match(code,/document\.addEventListener\('pointerup', flushTouchSound/);
+assert.match(code,/const format = touchDevice \? 'aac' : formats\[0\]/);
+assert.match(tutorialCss,/#soloTutorialOverlay \.tutorial-viewport\{[^}]*width:100%/);
+assert.match(tutorial,/canvasWrap\.style\.width=width\+'px'/);
+assert.match(tutorial,/canvasWrap\.style\.height=\(width\*16\/9\)\+'px'/);
+assert.match(ambient,/iosMediaGestureRequired/);
 const files=Object.keys(blobs);
 assert.equal(files.filter(x=>x.startsWith('opus/')).length,10);
 assert.equal(files.filter(x=>x.startsWith('aac/')).length,10);
 
 // In-process WebAudio fake tests that don't depend on browsers, network or soundcard.
-async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=false }={}) {
+async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=false, touch=false }={}) {
   let random=0;
   const starts=[],nativePlays=[],stops=[],fetches=[],listeners=[];
   const soundBuffers=[];
@@ -88,6 +99,7 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
         return Promise.resolve();}};
   }
   const window = {
+    navigator: { maxTouchPoints: touch ? 5 : 0 },
     AudioContext: webaudio ? TestContext : null,
     crypto:{getRandomValues(arr){arr[0]=random++;return arr;}},
     fetch:async (path)=>{fetches.push(path);return {ok:true,arrayBuffer:async()=>({path})};}
@@ -120,6 +132,13 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
   const c=await mock({webaudio:false,ogg:false});
   c.api.play('capture');
   assert.ok(c.nativePlays[0].includes('/aac/capture_'),'iOS native AAC fallback');
+  // Safari touch needs a real pointerup/touchend for native AAC media.
+  const ipad=await mock({webaudio:false,ogg:true,touch:true});
+  ipad.api.play('poison');
+  assert.equal(ipad.nativePlays.length,0,'No premature native play on touch pointerdown');
+  ipad.listeners.find(e=>e[0]==='pointerup')[1]();
+  assert.equal(ipad.nativePlays.length,1);
+  assert.ok(ipad.nativePlays[0].includes('/aac/poison_'));
   const d=await mock({webaudio:false,ogg:false,failNative:true});
   assert.doesNotThrow(()=>d.api.play('death'),'Audio errors must never stop gameplay');
   console.log('SFX verified: 20 files, 10 variants, AAC fallback, voice cap, death suppression, nonblocking sound.');
