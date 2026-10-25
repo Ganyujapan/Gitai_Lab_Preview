@@ -39,7 +39,7 @@ for (const [file, sha] of [
   ['img/author/x_ganyujapan.png', '49a0141a2004b527a5e03d2bce323c48d074365e']
 ]) {
   const data = fs.readFileSync(file);
-  const gitBlobSha = crypto.createHash('sha1').update('blob ' + data.length + '\\0')
+  const gitBlobSha = crypto.createHash('sha1').update('blob ' + data.length + '\0')
     .update(data).digest('hex');
   assert.equal(gitBlobSha, sha, 'Original uploaded image bytes changed: ' + file);
   assert.ok(article.includes('src="' + file + '"'), 'Missing image in article: ' + file);
