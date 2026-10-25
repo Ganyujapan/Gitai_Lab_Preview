@@ -1,0 +1,30 @@
+{
+  "version": "gitailab-recorded-sfx-v2-onset",
+  "source": "gitailab_sfx_full.zip (approved softened-highs version ②)",
+  "formats": [
+    "Ogg Opus",
+    "AAC .m4a"
+  ],
+  "clip_processing": "Decode original Opus, trim onset, 2ms fade-in, re-encode to Opus 64 kbps/AAC 96 kbps, mono 48kHz. No EQ.",
+  "clip_trim_ms": {
+    "capture_01": 35,
+    "capture_02": 30,
+    "capture_03": 30,
+    "capture_04": 30,
+    "poison_01": 35,
+    "poison_02": 40,
+    "poison_03": 15,
+    "poison_04": 35,
+    "death_01": 60,
+    "death_02": 70
+  },
+  "processing_note": "These are adjusted derivatives; original archive is not modified.",
+  "volumes": {
+    "capture": 0.58,
+    "poison": 0.55,
+    "death": 0.64
+  },
+  "max_concurrent_voices": 8,
+  "death_rule": "Fatal poison capture plays death in place of poison, stopping any lingering poison SFX.",
+  "actual_device_validation": "Not performed; verify on physical iPhone and exhibition iPad."
+}

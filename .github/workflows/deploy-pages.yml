@@ -184,6 +184,8 @@ jobs:
 
       - name: Verify author-news copy and fixed menu footer
         run: node .github/scripts/verify-author-news.cjs
+      - name: Check recorded SFX content and playback logic
+        run: node .github/scripts/verify-sfx.cjs
       - name: Check preview JavaScript syntax
         run: |
           node --check js/ambient_audio.js

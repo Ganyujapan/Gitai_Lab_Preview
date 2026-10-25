@@ -148,6 +148,13 @@ def main() -> None:
                    "js/warning_color.js", "img/backgrounds/bg_leaf01.png",
                    "audio/gitailab_rainforest_overlap_test_48k.ogg"):
         assert needed in runtime_files, needed
+    # Keep BOTH codecs of all ten recorded effects in the offline scope.
+    for kind, count in (("capture", 4), ("poison", 4), ("death", 2)):
+        for i in range(1, count + 1):
+            for fmt, ext in (("opus", "ogg"), ("aac", "m4a")):
+                clip = f"audio/sfx/{fmt}/{kind}_{i:02d}.{ext}"
+                assert clip in runtime_files, clip
+    assert "js/game_sfx.js" in runtime_files
     print("Exhibition PWA:", len(runtime_files), "offline files; build", build)
 
 if __name__ == "__main__":
