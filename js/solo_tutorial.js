@@ -1,5 +1,5 @@
-/* Four-step SOLO tutorial, with actual background and moths loaded by
-   GitaiPagesPreview. Demo canvas is isolated from live game state. */
+/* Mode-specific tutorial with original game background and moth renderer.
+   Explanatory HUD and arrows never access saved population or game state. */
 (() => {
  'use strict';
  const stage=document.getElementById('stage');
@@ -80,7 +80,7 @@
   }
  }
 
- // All four slides use Leaf 1 (kusagi_001), BEFORE any habitat is selected.
+ // All illustrated slides use Leaf 1 BEFORE any habitat is selected.
  // Each moth uses the same renderGenome() pipeline that powers the game:
  // GitaiPortalRandomMoth is a read-only copy of the production renderer.
  // Never read the active game's environment or its stored population.
@@ -350,6 +350,7 @@
   open({onDone:finishHandler,mode='solo'}={}){
    if(opened)return;
    opened=true;page=0;activeMode=mode;
+   root.classList.toggle('is-warning',mode==='warning');
    activeSlides=mode==='hide'?hideSlides:mode==='warning'?(isExhibit?exhibitWarningSlides:warningSlides):slides;
    buildProgress();
    onDone=finishHandler;priorFocus=document.activeElement;
