@@ -55,7 +55,7 @@ assert.doesNotMatch(code,/Math\.random\(/);
 assert.match(code,/source\.start\(0\)/);
 assert.match(code,/cache: 'force-cache'/);
 assert.match(code,/previousClockMs/);
-assert.match(code,/if \(iosDevice\) \{/);
+assert.match(code,/if \(iosDevice && !lowLatencyIOS\) \{/);
 assert.match(code,/if \(\(iosDevice && !lowLatencyIOS\) \|\| context \|\| !AudioContextCtor\)/);
 assert.match(code,/ctx\.currentTime - previousClockSec < 0\.015/);
 assert.match(code,/document\.addEventListener\('pointerup', flushTouchSound/);
