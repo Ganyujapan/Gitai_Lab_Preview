@@ -25,7 +25,7 @@ assert.match(article,/https:\/\/x\.com\/ganyujapan/);
 assert.match(article,/<h2 class="author-statement">「進化に目的はない。」<\/h2>/);
 assert.match(article,/author-placeholder-landscape/);
 assert.match(article,/author-placeholder-cover/);
-assert.equal((article.match(/author-placeholder-icon"/g)||[]).length,2);
+assert.equal((article.match(/<span class="author-placeholder author-placeholder-icon"/g)||[]).length,2);
 assert.match(article,/href="\.\/\?portal=menu"/);
 const menu = game.match(/<div id="portalMenu"[\s\S]*?<div class="portal-menu-footer">/);
 assert.ok(menu, 'Mode-selection menu missing');
