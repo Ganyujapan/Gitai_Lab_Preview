@@ -7,7 +7,7 @@
   const w = window;
   const GROUPS = Object.freeze({ capture: 4, poison: 4, death: 2 });
   // Relative gains, separate from the native rainforest BGM's volume/mute.
-  const VOLUME = Object.freeze({ capture: 0.387, poison: 0.367, death: 0.64 });
+  const VOLUME = Object.freeze({ capture: 0.1935, poison: 0.1835, death: 0.64 });
   const MAX_VOICES = 8;
   const root = 'audio/sfx/';
   const AudioContextCtor = w.AudioContext || w.webkitAudioContext;
