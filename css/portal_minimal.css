@@ -1,7 +1,7 @@
 /* InvisiLab / minimal black UI.
-   Visual-only restyle of MODE SELECT, HABITAT COLLECTION, and its battle picker.
+   Visual-only restyle of MODE SELECT, HABITAT COLLECTION, and its mode-specific cards.
    The intro motion-study, SOLO canvas/overlays, and saved evolution are untouched.
-   Reference: battle server's black "Matching..." waiting screen. */
+   Reference: the portal's restrained dark interface. */
 
 /* No low-resolution scenery, scanline noise, or gameboy frame in the menus.
    Keep the vector animation on the separate intro screen as designed. */
@@ -352,61 +352,6 @@
 #entertainmentPortal .portal-menu .portal-environment-total {
   color: #a7b9af;
   font: 600 11px/1.5 ui-monospace, Menlo, monospace;
-}
-
-/* The battle specimen picker is dynamically inserted by battle_portal.js.
-   This extra .portal-menu selector beats its old pixel-style inline stylesheet. */
-#entertainmentPortal .portal-menu #battlePicker {
-  border: 1px solid #42554b;
-  border-radius: 12px;
-  background: #080a0b;
-  color: #f0f3ee;
-  box-shadow: 0 0 0 200vmax rgba(0,0,0,.84);
-  font-family: system-ui, -apple-system, sans-serif;
-  padding: 17px 15px;
-}
-#entertainmentPortal .portal-menu #battlePicker h2 {
-  color: #f0f3ee;
-  font-size: 23px;
-  font-weight: 750;
-}
-#entertainmentPortal .portal-menu #battleBack {
-  border: 1px solid #506158;
-  border-radius: 8px;
-  color: #dce7de;
-  background: #151e1d;
-}
-#entertainmentPortal .portal-menu #battlePicker .battle-picker-caption {
-  color: #9aaba1;
-  font-size: 12px;
-}
-#entertainmentPortal .portal-menu #battlePicker .battle-backgrounds button,
-#entertainmentPortal .portal-menu #battlePicker .battle-specimens button {
-  background: #111718;
-  color: #eef2ed;
-  border: 1px solid #37473f;
-  border-radius: 8px;
-}
-#entertainmentPortal .portal-menu #battlePicker .battle-backgrounds button[aria-pressed="true"],
-#entertainmentPortal .portal-menu #battlePicker .battle-specimens button[aria-pressed="true"] {
-  background: #20312c;
-  border-color: #a8c6b4;
-}
-#entertainmentPortal .portal-menu #battlePicker #battleStartMatch {
-  background: #293d3e;
-  border: 1px solid #a2c2b5;
-  border-radius: 9px;
-  color: #f0f4ef;
-  font-size: 15px;
-}
-#entertainmentPortal .portal-menu #battlePicker .battle-picker-status {
-  color: #c1cfc5;
-}
-#entertainmentPortal .portal-menu #battlePicker .battle-picker-note {
-  color: #84948a;
-}
-#entertainmentPortal .portal-menu #battlePicker img {
-  border-radius: 5px;
 }
 
 /* Compact devices: maintain readable touch targets and a scrollable menu. */
