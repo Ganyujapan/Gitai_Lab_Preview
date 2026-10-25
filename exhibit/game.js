@@ -2,6 +2,19 @@
 (() => {
   'use strict';
   const home = new URL('./', location.href);
+  // Only the first exhibition entry displays the seven-page warning tutorial.
+  // Remove its route flag without navigation, so page reloads at generation
+  // boundaries never replay the tutorial and never reset exhibit evolution.
+  const route = new URL(location.href);
+  const showWarningTutorial = route.searchParams.get('tutorial') === '1'
+    && route.searchParams.get('experiment') === 'warning_color';
+  if (showWarningTutorial) {
+    route.searchParams.delete('tutorial');
+    history.replaceState(history.state, '', route.toString());
+    document.addEventListener('DOMContentLoaded', () => {
+      window.GitaiSoloTutorial?.open({ mode: 'warning' });
+    }, { once: true });
+  }
   const startLabel = document.getElementById('startGeneration');
   const reviewLabel = document.getElementById('reviewGeneration');
   const startOverlay = document.getElementById('startOverlay');
