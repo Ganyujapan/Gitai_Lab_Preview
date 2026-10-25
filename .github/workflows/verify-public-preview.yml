@@ -53,6 +53,8 @@ jobs:
               raise SystemExit("Title's overlay must stay transparent above the moth canvas")
           print("Public preview source scope and required assets: OK")
           PY
+      - name: Verify author-news copy and fixed menu footer
+        run: node .github/scripts/verify-author-news.cjs
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js; do node --check "$file"; done
@@ -62,9 +64,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp index.html warning_fog.html manifest.webmanifest .nojekyll _site/
+          cp index.html author_news.html warning_fog.html manifest.webmanifest .nojekyll _site/
           cp -R audio config css data environments img js species _site/
           test -f _site/index.html
+          test -f _site/author_news.html
+          test -f _site/css/author_news.css
+          test -f _site/css/author_news_link.css
           test -f _site/warning_fog.html
           test -f _site/js/pages_preview.js
           test -f _site/audio/gitailab_rainforest_soft_48k.ogg
