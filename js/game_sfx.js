@@ -45,6 +45,12 @@
   let previousClockMs = 0;
   let previousClockSec = 0;
   let pendingTouchSound = null;
+  let pendingFastSound = null;
+  // A new document gets a NEW AudioContext. In iOS, auto-start's synthetic
+  // click after a generation reload does not grant playback activation.
+  // Arm the fast audio graph from a *trusted* pointerup/touchend before
+  // claiming that subsequent pointerdown buffer starts are audible.
+  let fastUnlocked = false;
   const touchDevice = Number(w.navigator?.maxTouchPoints || 0) > 0;
   // Mixed native media + Web Audio can silence subsequent taps on iPadOS.
   // Keep both BGM and recorded SFX on native HTMLMediaElements on iOS.
@@ -75,9 +81,53 @@
     if (touchDevice) pendingTouchSound = { kind, number };
     else playNative(kind, number);
   }
-  function flushTouchSound() {
-    // iOS user activation comes with pointerup/touchend, not pointerdown.
-    // Retry interrupted WebAudio for future taps; play this tap natively.
+  function flushTouchSound(event) {
+    // Never treat an auto-start script's synthetic click as an iOS audio
+    // gesture. The pointerup of a real tap can unlock a fresh AudioContext.
+    if (lowLatencyIOS && event?.isTrusted !== false) {
+      const sound = pendingFastSound;
+      pendingFastSound = null;
+      const ctx = getContext();
+      if (!ctx) {
+        if (sound) playNative(sound.kind, sound.number);
+        return;
+      }
+      const recover = () => {
+        if (ctx !== context || document.hidden) return;
+        if (ctx.state !== 'running') {
+          if (sound) playNative(sound.kind, sound.number);
+          return;
+        }
+        fastUnlocked = true;
+        // A temporary iOS interruption is not a permanent native-only mode.
+        preferNative = false;
+        previousClockMs = 0;
+        previousClockSec = 0;
+        if (sound && !playBuffer(sound.kind, decoded.get(key(sound.kind, sound.number)))) {
+          playNative(sound.kind, sound.number);
+        }
+      };
+      // Call resume synchronously WITH user activation, including when Safari
+      // claims "running" before the first audible user-gesture activation.
+      if (!fastUnlocked || preferNative || ctx.state !== 'running') {
+        try {
+          const attempt = ctx.resume();
+          if (attempt && typeof attempt.then === 'function') {
+            attempt.then(recover).catch(() => {
+              fastUnlocked = false;
+              if (sound) playNative(sound.kind, sound.number);
+            });
+          } else recover();
+        } catch (_) {
+          fastUnlocked = false;
+          if (sound) playNative(sound.kind, sound.number);
+        }
+      } else if (sound && !playBuffer(sound.kind, decoded.get(key(sound.kind, sound.number)))) {
+        playNative(sound.kind, sound.number);
+      }
+      return;
+    }
+    // Original native AAC fallback and non-iOS behavior remain unchanged.
     activate();
     const pending = pendingTouchSound;
     pendingTouchSound = null;
@@ -92,7 +142,10 @@
       // An iPad WebKit interruption can persist despite calling resume().
       // Don't feed a dead context; future sounds go through native AAC.
       context.addEventListener?.('statechange', () => {
-        if (context?.state === 'interrupted') preferNative = true;
+        if (context?.state === 'interrupted' || context?.state === 'suspended') {
+          preferNative = true;
+          if (lowLatencyIOS) fastUnlocked = false;
+        }
       });
       master = context.createDynamicsCompressor();
       master.threshold.value = -12;
@@ -241,9 +294,21 @@
         nativeOnNextGesture(kind, number);
         return;
       }
+      if (lowLatencyIOS && !fastUnlocked) {
+        // First tap of a freshly navigated generation: do not start a buffer
+        // into a context that Safari has not unlocked. Resume on pointerup,
+        // then play THIS SAME tap once the graph reports running.
+        pendingFastSound = { kind, number };
+        return;
+      }
       activate();
       if (!playBuffer(kind, decoded.get(key(kind, number)))) {
-        nativeOnNextGesture(kind, number);
+        if (lowLatencyIOS) {
+          fastUnlocked = false;
+          pendingFastSound = { kind, number };
+        } else {
+          nativeOnNextGesture(kind, number);
+        }
       }
     } catch (_) { /* Keep predation and progression independent of audio. */ }
   }
