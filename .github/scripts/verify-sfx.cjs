@@ -43,7 +43,7 @@ assert.equal(manifest.formats.length,2);
 assert.match(index,/<script src="js\/game_sfx\.js\?v=[^"]+"><\/script>/);
 assert.doesNotMatch(index,/predationWavUrl|predationToneUrls|predationSound\(/);
 assert.match(index,/window\.GitaiGameSfx\?\.play\(/);
-assert.match(index,/WARNING\.adjustLife\(state\.warningLifeThirds, capturedKind\) === 0/);
+assert.match(index,/WARNING\.adjustLife\(state\.warningLifeThirds, sfxKind\) === 0/);
 assert.match(code,/getRandomValues/);
 assert.doesNotMatch(code,/Math\.random\(/);
 assert.match(code,/source\.start\(0\)/);
