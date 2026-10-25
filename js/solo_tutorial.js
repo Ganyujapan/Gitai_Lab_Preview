@@ -23,12 +23,6 @@
   {heading:'昆虫大学版へようこそ！',description:'来場者のみなさんで、蛾の進化を引き継いでいきます。\nどんな模様に進化するか、お楽しみに！'}
  ]);
  const isExhibit=window.location?.pathname?.includes('/exhibit/') === true;
- const hideSlides=Object.freeze([
-  {heading:'蛾を3匹選ぶ',description:'標本箱から、かくれんぼに使う蛾を3匹選びます。'},
-  {heading:'好きな場所に隠す',description:'葉1・葉2・樹皮に蛾を自由に配置します。\n同じ背景に3匹隠してもかまいません。'},
-  {heading:'相手の蛾を探す',description:'相手が隠した蛾を探します。\n各背景3秒ずつ、合計9秒です。'},
-  {heading:'ギタイ度で勝負',description:'蛾を見つけると＋10点。\n空振りすると−1点。'}
- ]);
  let activeSlides=slides;
  const root=document.createElement('section');
  root.id='soloTutorialOverlay';root.hidden=true;
@@ -353,7 +347,7 @@
    if(opened)return;
    opened=true;page=0;activeMode=mode;
    root.classList.toggle('is-warning',mode==='warning');
-   activeSlides=mode==='hide'?hideSlides:mode==='warning'?(isExhibit?exhibitWarningSlides:warningSlides):slides;
+   activeSlides=mode==='warning'?(isExhibit?exhibitWarningSlides:warningSlides):slides;
    buildProgress();
    onDone=finishHandler;priorFocus=document.activeElement;
    root.hidden=false;render();next.focus({preventScroll:true});

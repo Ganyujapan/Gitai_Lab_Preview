@@ -125,7 +125,7 @@ def main() -> None:
             "data:text/css,"
         ), encoding="utf-8"
     )
-    # The LAN-only battle/hide-seek prototypes are not accessible in the kiosk.
+    # The exhibition bundles only the currently supported public simulator.
     for name in ("index.html", "landing.js", "landing.css", "manifest.webmanifest",
                  "game.js", "game.css", "admin.js", "admin.css"):
         shutil.copy2(root / name, exhibit / name)

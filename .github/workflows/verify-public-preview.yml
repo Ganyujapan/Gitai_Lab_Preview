@@ -23,7 +23,7 @@ jobs:
               "index.html", "warning_fog.html", "manifest.webmanifest", ".nojekyll",
               "audio/gitailab_rainforest_soft_48k.ogg", "js/ambient_audio.js",
               "js/pages_preview.js", "js/entertainment_portal.js",
-              "js/hide_seek_portal.js", "js/solo_tutorial.js",
+              "js/solo_tutorial.js",
               "config/konchu_univ_alpha.json",
               "data/evolution_models/continuous_v1/config.json",
               "data/evolution_models/morph_v1/config.json",
@@ -59,6 +59,8 @@ jobs:
         run: node .github/scripts/verify-tutorial.cjs
       - name: Check recorded SFX content and playback logic
         run: node .github/scripts/verify-sfx.cjs
+      - name: Verify public battle and hide-and-seek removal
+        run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js; do node --check "$file"; done
@@ -83,6 +85,7 @@ jobs:
           test ! -e _site/docs
           test ! -e _site/tests
           python3 exhibit/build.py _site "${GITHUB_SHA}"
+          node .github/scripts/verify-battle-seal.cjs _site
           node --check _site/exhibit/game.js
           node --check _site/exhibit/admin.js
           node --check _site/exhibit/landing.js
