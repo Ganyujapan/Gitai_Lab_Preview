@@ -69,12 +69,14 @@ assert.equal(files.filter(x=>x.startsWith('opus/')).length,10);
 assert.equal(files.filter(x=>x.startsWith('aac/')).length,10);
 
 // In-process WebAudio fake tests that don't depend on browsers, network or soundcard.
-async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=false, touch=false, ios=false, fastIOS=false }={}) {
+async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=false, touch=false, ios=false, fastIOS=false, initialAudioState='running' }={}) {
   let random=0;
   const starts=[],nativePlays=[],stops=[],fetches=[],listeners=[];
   const soundBuffers=[];
+  let mockContext=null;
   class TestContext {
-    constructor() { this.state='running'; this.destination={}; }
+    constructor() { this.state=initialAudioState; this.destination={}; this.events={}; this.resumeCalls=0; mockContext=this; }
+    addEventListener(name,callback) {this.events[name]=callback;}
     createDynamicsCompressor() { return {threshold:{},knee:{},ratio:{},attack:{},release:{},connect(){}}; }
     createGain() { return {gain:{},connect(){},disconnect(){}}; }
     createBufferSource() {
@@ -88,7 +90,7 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
       if(failDecodeOgg && bytes.path.includes('/opus/')) return Promise.reject(Error('Ogg unsupported'));
       return Promise.resolve({path:bytes.path});
     }
-    resume() {this.state='running';return Promise.resolve();}
+    resume() {this.resumeCalls++;this.state='running';return Promise.resolve();}
   }
   function element() {
     return {volume:1,paused:true,src:'',preload:'',playsInline:false,
@@ -110,7 +112,7 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
   const document={createElement:()=>element(),addEventListener:(type,cb)=>listeners.push([type,cb])};
   vm.runInNewContext(code,{window,document,Date,Promise,Uint32Array,Map,Object,Math,Array,Set}, {filename:'game_sfx.js'});
   await window.GitaiGameSfx.prepare();
-  return {api:window.GitaiGameSfx,starts,nativePlays,stops,fetches,listeners,soundBuffers};
+  return {api:window.GitaiGameSfx,starts,nativePlays,stops,fetches,listeners,soundBuffers,context:mockContext};
 }
 (async()=>{
   const a=await mock();
@@ -158,13 +160,44 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
   assert.equal(fast.fetches.length,10,'Fast iOS buffers predecoded before a tap');
   assert.ok(fast.fetches.every(x=>x.includes('/aac/')),'Use Safari AAC for predecoded buffers');
   fast.api.play('poison');
+  assert.equal(fast.starts.length,0,'iOS waits for real gesture before arming newly loaded AudioContext');
+  fast.listeners.find(e=>e[0]==='click')[1]({isTrusted:false});
+  assert.equal(fast.starts.length,0,'Synthetic auto-start must not unlock audio');
+  fast.listeners.find(e=>e[0]==='pointerup')[1]({isTrusted:true});
+  await Promise.resolve();
+  assert.equal(fast.starts.length,1,'First real pointerup unlocks audio and plays the captured sound');
   fast.api.play('capture');
   fast.api.play('death');
-  assert.equal(fast.starts.length,3,'Fast iOS plays poison, capture and death on pointerdown');
+  assert.equal(fast.starts.length,3,'Subsequent fast iOS sounds start immediately on pointerdown');
   assert.equal(fast.nativePlays.length,0,'No HTML audio playback latency when Web Audio is healthy');
   assert.ok(fast.starts[0].includes('/aac/poison_'));
   assert.ok(fast.starts[1].includes('/aac/capture_'));
   assert.ok(fast.starts[2].includes('/aac/death_'));
+  // Second-generation page navigation constructs a fresh, suspended context.
+  // Its first capture must recover on trusted pointerup, and the remaining
+  // captures must fire with the original low-latency pointerdown route.
+  const gen2=await mock({webaudio:true,ogg:true,touch:true,ios:true,fastIOS:true,initialAudioState:'suspended'});
+  assert.equal(gen2.starts.length,0);
+  gen2.api.play('capture');
+  assert.equal(gen2.starts.length,0,'New document cannot yet play into suspended audio context');
+  gen2.listeners.find(e=>e[0]==='pointerup')[1]({isTrusted:true});
+  await Promise.resolve();
+  assert.equal(gen2.context.state,'running');
+  assert.equal(gen2.starts.length,1,'First hit of next generation must not disappear');
+  assert.ok(gen2.starts[0].includes('/aac/capture_'));
+  gen2.api.play('poison');
+  assert.equal(gen2.starts.length,2,'Next hit starts in pointerdown after recovery');
+  assert.equal(gen2.nativePlays.length,0,'Recovery should stay on fast Web Audio, not slow AAC');
+  // Safari can interrupt the context while an overlay is visible.
+  gen2.context.state='interrupted';
+  gen2.context.events.statechange();
+  gen2.api.play('death');
+  assert.equal(gen2.starts.length,2);
+  gen2.listeners.find(e=>e[0]==='pointerup')[1]({isTrusted:true});
+  await Promise.resolve();
+  assert.equal(gen2.starts.length,3,'Audio resumes after interruption without permanent mute');
+  gen2.api.play('capture');
+  assert.equal(gen2.starts.length,4,'Subsequent effects retain the low-latency path');
   const fallback=await mock({webaudio:false,ogg:true,touch:true,ios:true,fastIOS:true});
   fallback.api.play('capture');
   assert.equal(fallback.nativePlays.length,0,'Fallback waits for iOS pointerup gesture');
