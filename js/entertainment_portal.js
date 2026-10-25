@@ -1,6 +1,6 @@
 /* InvisiLab / entertainment-only title + menu.
  * Intro: solid black canvas, fixed generated moth and iridescent water ripples.
- * Menu: minimalist black, matching the battle matchmaking scene.
+ * Menu: minimalist black, matching the rest of the game.
  * The existing game engine, saved progression, and educational model are untouched.
  */
 (() => {
