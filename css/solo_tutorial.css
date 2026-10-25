@@ -20,3 +20,14 @@
 #soloTutorialOverlay button:focus-visible{outline:2px solid #afe7e1;outline-offset:3px}
 @media(max-height:580px){#soloTutorialOverlay{padding:9px 13px}#soloTutorialOverlay .tutorial-header{padding-bottom:6px}#soloTutorialOverlay .tutorial-title{margin:6px 0;font-size:19px}#soloTutorialOverlay .tutorial-copy{margin:7px 0 6px;min-height:49px;font-size:12px}#soloTutorialOverlay .tutorial-progress{margin-bottom:7px}#soloTutorialOverlay button{min-height:40px}}
 @media(prefers-reduced-motion:reduce){#soloTutorialOverlay *{transition:none!important;animation:none!important}}
+/* Six/seven-page warning tutorial: retain the exact 9:16 image geometry while
+   allowing the longer Japanese captions to fit smaller iPad/iPhone viewports. */
+#soloTutorialOverlay.is-warning .tutorial-title{margin:9px 0 7px;font-size:clamp(18px,5vw,23px)}
+#soloTutorialOverlay.is-warning .tutorial-copy{margin:9px 0 9px;min-height:0;font-size:clamp(12px,3.15vw,14px);line-height:1.6}
+#soloTutorialOverlay.is-warning .tutorial-progress{gap:7px;margin-bottom:9px}
+#soloTutorialOverlay.is-warning .tutorial-progress span{width:20px}
+@media(max-height:670px){
+ #soloTutorialOverlay.is-warning .tutorial-title{margin:5px 0;font-size:18px}
+ #soloTutorialOverlay.is-warning .tutorial-copy{margin:6px 0;font-size:12px;line-height:1.5}
+ #soloTutorialOverlay.is-warning .tutorial-progress{margin-bottom:6px}
+}
