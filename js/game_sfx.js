@@ -46,6 +46,10 @@
   let previousClockSec = 0;
   let pendingTouchSound = null;
   const touchDevice = Number(w.navigator?.maxTouchPoints || 0) > 0;
+  // Mixed native media + Web Audio can silence subsequent taps on iPadOS.
+  // Keep both BGM and recorded SFX on native HTMLMediaElements on iOS.
+  const iosDevice = /iPad|iPhone|iPod/.test(w.navigator?.userAgent || '')
+    || (w.navigator?.platform === 'MacIntel' && touchDevice);
   function contextHealthy() {
     const ctx = getContext();
     if (!ctx || ctx.state !== 'running' || preferNative) return false;
@@ -76,7 +80,7 @@
 
   function key(kind, number) { return kind + '_' + number; }
   function getContext() {
-    if (context || !AudioContextCtor) return context;
+    if (iosDevice || context || !AudioContextCtor) return context;
     try {
       context = new AudioContextCtor({ latencyHint: 'interactive' });
       // An iPad WebKit interruption can persist despite calling resume().
@@ -137,7 +141,7 @@
     for (const [kind, count] of Object.entries(GROUPS)) {
       for (let i = 1; i <= count; i += 1) {
         ensureNative(kind, i);
-        tasks.push(decodeOne(kind, i));
+        if (!iosDevice) tasks.push(decodeOne(kind, i));
       }
     }
     preparing = Promise.all(tasks).catch(() => {});
@@ -145,6 +149,7 @@
   }
 
   function activate() {
+    if (iosDevice) return; // Do not create/switch to Web Audio on iOS.
     const ctx = getContext();
     if (ctx && ctx.state !== 'running') {
       try {
@@ -224,8 +229,13 @@
     try {
       if (!preparing) prepare();
       if (kind === 'death') stopKind('poison'); // Avoid overlap at lethal capture.
-      activate();
       const number = variantIndex(GROUPS[kind]) + 1;
+      if (iosDevice) {
+        // The next pointerup/touchend is the real Safari media gesture.
+        nativeOnNextGesture(kind, number);
+        return;
+      }
+      activate();
       if (!playBuffer(kind, decoded.get(key(kind, number)))) {
         nativeOnNextGesture(kind, number);
       }
