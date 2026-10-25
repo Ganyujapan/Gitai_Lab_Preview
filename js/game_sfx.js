@@ -50,6 +50,12 @@
   // Keep both BGM and recorded SFX on native HTMLMediaElements on iOS.
   const iosDevice = /iPad|iPhone|iPod/.test(w.navigator?.userAgent || '')
     || (w.navigator?.platform === 'MacIntel' && touchDevice);
+  // The verified AAC-native route remains the iOS default. Opt in to a
+  // low-latency experiment with ?sfx=fast: decode AAC before gameplay and
+  // start AudioBufferSourceNode on the successful pointerdown. A suspended,
+  // interrupted or frozen context falls back to AAC on pointerup.
+  // Never alter the rainforest BGM's independent native media elements.
+  const lowLatencyIOS = iosDevice && /(?:^|[?&])sfx=fast(?:&|$)/.test(w.location?.search || '');
   function contextHealthy() {
     const ctx = getContext();
     if (!ctx || ctx.state !== 'running' || preferNative) return false;
@@ -80,7 +86,7 @@
 
   function key(kind, number) { return kind + '_' + number; }
   function getContext() {
-    if (iosDevice || context || !AudioContextCtor) return context;
+    if ((iosDevice && !lowLatencyIOS) || context || !AudioContextCtor) return context;
     try {
       context = new AudioContextCtor({ latencyHint: 'interactive' });
       // An iPad WebKit interruption can persist despite calling resume().
@@ -121,7 +127,7 @@
   async function decodeOne(kind, number) {
     const audio = getContext();
     if (!audio || typeof w.fetch !== 'function') return;
-    for (const format of formats) {
+    for (const format of (lowLatencyIOS ? ['aac', 'opus'] : formats)) {
       try {
         const response = await w.fetch(fileName(kind, number, format), { cache: 'force-cache' });
         if (!response.ok) continue;
@@ -141,7 +147,7 @@
     for (const [kind, count] of Object.entries(GROUPS)) {
       for (let i = 1; i <= count; i += 1) {
         ensureNative(kind, i);
-        if (!iosDevice) tasks.push(decodeOne(kind, i));
+        if (!iosDevice || lowLatencyIOS) tasks.push(decodeOne(kind, i));
       }
     }
     preparing = Promise.all(tasks).catch(() => {});
@@ -149,7 +155,7 @@
   }
 
   function activate() {
-    if (iosDevice) return; // Do not create/switch to Web Audio on iOS.
+    if (iosDevice && !lowLatencyIOS) return; // Preserve the verified AAC-native default.
     const ctx = getContext();
     if (ctx && ctx.state !== 'running') {
       try {
@@ -230,7 +236,7 @@
       if (!preparing) prepare();
       if (kind === 'death') stopKind('poison'); // Avoid overlap at lethal capture.
       const number = variantIndex(GROUPS[kind]) + 1;
-      if (iosDevice) {
+      if (iosDevice && !lowLatencyIOS) {
         // The next pointerup/touchend is the real Safari media gesture.
         nativeOnNextGesture(kind, number);
         return;
