@@ -79,6 +79,11 @@
     if (context || !AudioContextCtor) return context;
     try {
       context = new AudioContextCtor({ latencyHint: 'interactive' });
+      // An iPad WebKit interruption can persist despite calling resume().
+      // Don't feed a dead context; future sounds go through native AAC.
+      context.addEventListener?.('statechange', () => {
+        if (context?.state === 'interrupted') preferNative = true;
+      });
       master = context.createDynamicsCompressor();
       master.threshold.value = -12;
       master.knee.value = 4;
@@ -93,7 +98,9 @@
   function ensureNative(kind, number) {
     const id = key(kind, number);
     if (native.has(id)) return native.get(id);
-    const format = formats[0];
+    // Native AAC is the most reliable iPad/iPhone media codec. Safari may
+    // report Ogg support yet fail to play that codec in native <audio>.
+    const format = touchDevice ? 'aac' : formats[0];
     const list = Array.from({ length: 2 }, () => {
       const player = document.createElement('audio');
       player.preload = 'auto';
