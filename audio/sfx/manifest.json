@@ -20,8 +20,8 @@
   },
   "processing_note": "These are adjusted derivatives; original archive is not modified.",
   "volumes": {
-    "capture": 0.58,
-    "poison": 0.55,
+    "capture": 0.387,
+    "poison": 0.367,
     "death": 0.64
   },
   "max_concurrent_voices": 8,
