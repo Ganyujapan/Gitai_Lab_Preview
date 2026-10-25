@@ -55,8 +55,8 @@ assert.doesNotMatch(code,/Math\.random\(/);
 assert.match(code,/source\.start\(0\)/);
 assert.match(code,/cache: 'force-cache'/);
 assert.match(code,/previousClockMs/);
-assert.match(code,/if \(iosDevice\) \{/);
-assert.match(code,/if \(iosDevice \|\| context \|\| !AudioContextCtor\)/);
+assert.match(code,/if \(iosDevice && !lowLatencyIOS\) \{/);
+assert.match(code,/if \(\(iosDevice && !lowLatencyIOS\) \|\| context \|\| !AudioContextCtor\)/);
 assert.match(code,/ctx\.currentTime - previousClockSec < 0\.015/);
 assert.match(code,/document\.addEventListener\('pointerup', flushTouchSound/);
 assert.match(code,/const format = touchDevice \? 'aac' : formats\[0\]/);
@@ -69,7 +69,7 @@ assert.equal(files.filter(x=>x.startsWith('opus/')).length,10);
 assert.equal(files.filter(x=>x.startsWith('aac/')).length,10);
 
 // In-process WebAudio fake tests that don't depend on browsers, network or soundcard.
-async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=false, touch=false, ios=false }={}) {
+async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=false, touch=false, ios=false, fastIOS=false }={}) {
   let random=0;
   const starts=[],nativePlays=[],stops=[],fetches=[],listeners=[];
   const soundBuffers=[];
@@ -101,6 +101,7 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
         return Promise.resolve();}};
   }
   const window = {
+    location: { search: fastIOS ? '?sfx=fast' : '' },
     navigator: { maxTouchPoints: touch ? 5 : 0, userAgent: ios ? 'iPad Safari' : '', platform: ios ? 'MacIntel' : '' },
     AudioContext: webaudio ? TestContext : null,
     crypto:{getRandomValues(arr){arr[0]=random++;return arr;}},
@@ -151,6 +152,24 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
   assert.equal(ipad.starts.length,0);
   assert.ok(ipad.nativePlays[1].includes('/aac/capture_'));
   assert.ok(ipad.nativePlays[2].includes('/aac/death_'));
+  // Optional low-latency iOS mode decodes AAC once, then fires directly in
+  // pointerdown. Default route above must remain entirely native.
+  const fast=await mock({webaudio:true,ogg:true,touch:true,ios:true,fastIOS:true});
+  assert.equal(fast.fetches.length,10,'Fast iOS buffers predecoded before a tap');
+  assert.ok(fast.fetches.every(x=>x.includes('/aac/')),'Use Safari AAC for predecoded buffers');
+  fast.api.play('poison');
+  fast.api.play('capture');
+  fast.api.play('death');
+  assert.equal(fast.starts.length,3,'Fast iOS plays poison, capture and death on pointerdown');
+  assert.equal(fast.nativePlays.length,0,'No HTML audio playback latency when Web Audio is healthy');
+  assert.ok(fast.starts[0].includes('/aac/poison_'));
+  assert.ok(fast.starts[1].includes('/aac/capture_'));
+  assert.ok(fast.starts[2].includes('/aac/death_'));
+  const fallback=await mock({webaudio:false,ogg:true,touch:true,ios:true,fastIOS:true});
+  fallback.api.play('capture');
+  assert.equal(fallback.nativePlays.length,0,'Fallback waits for iOS pointerup gesture');
+  fallback.listeners.find(e=>e[0]==='pointerup')[1]();
+  assert.equal(fallback.nativePlays.length,1,'Failed fast audio keeps AAC native fallback');
   const d=await mock({webaudio:false,ogg:false,failNative:true});
   assert.doesNotThrow(()=>d.api.play('death'),'Audio errors must never stop gameplay');
   console.log('SFX verified: 20 files, 10 variants, AAC fallback, voice cap, death suppression, nonblocking sound.');
