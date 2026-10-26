@@ -22,7 +22,7 @@ jobs:
       contents: read
     uses: ./.github/workflows/verify-public-preview.yml
   deploy:
-    needs: verify:
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
