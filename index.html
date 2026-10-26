@@ -5367,8 +5367,11 @@
       state.submitStatus = 'failed';
       returnEntertainmentToReview();
       authorNewsTeaser.hidden = true;
+      // The local evolution engine can finish an atomic IndexedDB commit
+      // after a fetch AbortSignal expires. Do NOT say the data was rolled
+      // back or regenerate with a new run ID; retry preserves this run ID.
       const message = err && err.name === 'AbortError'
-        ? 'サーバー応答がタイムアウトしました'
+        ? '送信の確認がタイムアウトしました。世代が保存済みの可能性があります。同じ送信内容で再確認してください。'
         : (err.message || err);
       evolutionStatus.textContent = `次世代の生成に失敗しました：${message}`;
       state.uiTransitionLocked = false;
