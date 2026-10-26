@@ -9,6 +9,9 @@
       return;
     }
     try {
+      // Registration is not an administrator-only update check. Browsers may
+      // discover updates independently; repeated registration does not mean
+      // every invocation necessarily performs a network update check.
       await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' });
       await navigator.serviceWorker.ready;
       const response = await caches.match(new URL('./game.html', location.href), { ignoreSearch: true });
