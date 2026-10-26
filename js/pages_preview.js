@@ -133,6 +133,7 @@
 
   let dbPromise = null;
   let appConfig = null;
+  let configPromise = null;
   let speciesConfig = null;
   let environmentConfig = null;
   let evolutionConfig = null;
@@ -1561,69 +1562,110 @@
 
   async function ensureConfig() {
     if (appConfig) return;
-    appConfig = await loadJson('config/konchu_univ_alpha.json');
-    speciesConfig = await loadJson(appConfig.species_config);
-
-    const params = new URLSearchParams(location.search);
-    const environmentPath =
-      `environments/${PREVIEW_ENV_ID}/environment.json`;
-    const evolutionPath =
-      `data/evolution_models/${EVOLUTION_MODEL_ID}/config.json`;
-
-    environmentConfig = await loadJson(environmentPath);
-    evolutionConfig = await loadJson(evolutionPath);
-    const warningConfig = WARNING_EXPERIMENT
-      ? await loadJson('config/warning_color_experiment.json')
-      : null;
-    if (WARNING_EXPERIMENT) {
-      if (
-        warningConfig.lineage_size !== WARNING.PER_LINEAGE
-        || warningConfig.per_round_by_lineage !== 6
-        || warningConfig.rounds_per_generation !== 5
-        || !Array.isArray(warningConfig.background_pool)
-        || !warningConfig.background_pool.length
-        || !Number.isInteger(warningConfig.independent_neutral_generations)
-        || warningConfig.independent_neutral_generations !== 20
-        || warningConfig.first_playable_generation !== 21
-        || warningConfig.capture_target_per_round !== 5
-      ) {
-        throw new Error('警戒色の実験設定が不正です');
+    // All callers share ONE in-flight initialization. Merely fetching the
+    // first JSON file must never mark the configuration as ready.
+    if (configPromise) return configPromise;
+    configPromise = (async () => {
+      const incomingApp = await loadJson('config/konchu_univ_alpha.json');
+      if (!incomingApp || typeof incomingApp !== 'object'
+          || Array.isArray(incomingApp)
+          || typeof incomingApp.species_config !== 'string'
+          || !incomingApp.species_config
+          || !incomingApp.game || typeof incomingApp.game !== 'object'
+          || Array.isArray(incomingApp.game)) {
+        throw new Error('ゲームの基本設定が不正です。');
       }
-    }
+      const incomingSpecies = await loadJson(incomingApp.species_config);
+      if (!incomingSpecies || typeof incomingSpecies !== 'object'
+          || !incomingSpecies.image || typeof incomingSpecies.image !== 'object'
+          || typeof incomingSpecies.image.asset_template !== 'string'
+          || !incomingSpecies.genetics || typeof incomingSpecies.genetics !== 'object'
+          || typeof incomingSpecies.genetics.mask_source !== 'string') {
+        throw new Error('蛾の種設定が不正です。');
+      }
 
-    const loadedModelId = String(
-      evolutionConfig.model_id || EVOLUTION_MODEL_ID
-    );
-    if (loadedModelId !== EVOLUTION_MODEL_ID) {
-      throw new Error(
-        `進化モデルIDが一致しません: ${loadedModelId}`
+      const params = new URLSearchParams(location.search);
+      const environmentPath =
+        `environments/${PREVIEW_ENV_ID}/environment.json`;
+      const evolutionPath =
+        `data/evolution_models/${EVOLUTION_MODEL_ID}/config.json`;
+
+      const incomingEnvironment = await loadJson(environmentPath);
+      if (!incomingEnvironment || typeof incomingEnvironment !== 'object'
+          || !incomingEnvironment.background
+          || typeof incomingEnvironment.background.src !== 'string') {
+        throw new Error('背景の環境設定が不正です。');
+      }
+      const incomingEvolution = await loadJson(evolutionPath);
+      if (!incomingEvolution || typeof incomingEvolution !== 'object'
+          || Array.isArray(incomingEvolution)) {
+        throw new Error('進化モデル設定が不正です。');
+      }
+      const warningConfig = WARNING_EXPERIMENT
+        ? await loadJson('config/warning_color_experiment.json')
+        : null;
+      if (WARNING_EXPERIMENT) {
+        if (!warningConfig || typeof warningConfig !== 'object'
+            || warningConfig.lineage_size !== WARNING.PER_LINEAGE
+            || warningConfig.per_round_by_lineage !== 6
+            || warningConfig.rounds_per_generation !== 5
+            || !Array.isArray(warningConfig.background_pool)
+            || !warningConfig.background_pool.length
+            || !Number.isInteger(warningConfig.independent_neutral_generations)
+            || warningConfig.independent_neutral_generations !== 20
+            || warningConfig.first_playable_generation !== 21
+            || warningConfig.capture_target_per_round !== 5) {
+          throw new Error('警戒色の実験設定が不正です');
+        }
+      }
+
+      const loadedModelId = String(
+        incomingEvolution.model_id || EVOLUTION_MODEL_ID
       );
-    }
+      if (loadedModelId !== EVOLUTION_MODEL_ID) {
+        throw new Error(`進化モデルIDが一致しません: ${loadedModelId}`);
+      }
 
-    appConfig = JSON.parse(JSON.stringify(appConfig));
-    appConfig.mode = 'pages_preview';
-    if (WARNING_EXPERIMENT) {
-      appConfig.warning_color = warningConfig;
-    }
-    appConfig.environment_config = environmentPath;
-    appConfig.evolution_config = evolutionPath;
-    appConfig.evolution_model_id = EVOLUTION_MODEL_ID;
-    appConfig.preview_run_id = PREVIEW_RUN_ID;
-    appConfig.title = `${appConfig.title} — Pages Preview`;
-    appConfig.network = {
-      ...(appConfig.network || {}),
-      submit_timeout_ms: 120000,
-    };
+      // Preserve the existing merged config values, including the display
+      // speed overrides. Prepare EVERYTHING before publishing any global.
+      const preparedApp = JSON.parse(JSON.stringify(incomingApp));
+      preparedApp.mode = 'pages_preview';
+      if (WARNING_EXPERIMENT) {
+        preparedApp.warning_color = warningConfig;
+      }
+      preparedApp.environment_config = environmentPath;
+      preparedApp.evolution_config = evolutionPath;
+      preparedApp.evolution_model_id = EVOLUTION_MODEL_ID;
+      preparedApp.preview_run_id = PREVIEW_RUN_ID;
+      preparedApp.title = `${preparedApp.title} — Pages Preview`;
+      preparedApp.network = {
+        ...(preparedApp.network || {}),
+        submit_timeout_ms: 120000,
+      };
 
-    const seconds = Number(params.get('seconds'));
-    if (
-      Number.isFinite(seconds)
-      && seconds >= 0.5
-      && seconds <= 10
-    ) {
-      appConfig.game.round_time_ms = Math.round(seconds * 1000);
-    } else if (params.get('fast') === '1') {
-      appConfig.game.round_time_ms = 500;
+      const seconds = Number(params.get('seconds'));
+      if (
+        Number.isFinite(seconds)
+        && seconds >= 0.5
+        && seconds <= 10
+      ) {
+        preparedApp.game.round_time_ms = Math.round(seconds * 1000);
+      } else if (params.get('fast') === '1') {
+        preparedApp.game.round_time_ms = 500;
+      }
+
+      // No await after this point: even concurrent callers cannot observe
+      // a half-initialized species/evolution/warning setup.
+      speciesConfig = incomingSpecies;
+      environmentConfig = incomingEnvironment;
+      evolutionConfig = incomingEvolution;
+      appConfig = preparedApp;
+    })();
+    try {
+      await configPromise;
+    } catch (error) {
+      configPromise = null; // A transient fetch/error can be retried in-page.
+      throw error;
     }
   }
 
