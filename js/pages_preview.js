@@ -2532,13 +2532,19 @@
     ) {
       return stored;
     }
-    const genome = inferGenomeFromImage(
-      imageData,
-      generationId,
-      index,
+
+    // A rendered image cannot reveal hidden pattern alleles or exact
+    // parental genotype. Inference silently overwrote the original DNA in
+    // current saved runs. Keep the existing data untouched and stop instead.
+    // Preserve inferGenomeFromImage for a future EXPLICIT legacy migration,
+    // but never persist its approximation in the same experiment.
+    const category = stored === undefined || stored === null
+      ? '欠損'
+      : '未対応の形式';
+    throw new Error(
+      `第${generationId.slice(3)}世代の${index}番の蛾の遺伝情報が${category}しています。`
+      + ' 元の実験データは変更していません。バックアップを確認してください。'
     );
-    await idbPut(META_STORE, genomeKey(generationId, index), genome);
-    return genome;
   }
 
   function inheritModule(parentA, parentB, locus, genetics, childSeed, diagnosticEvents = null, rng = Math.random) {
