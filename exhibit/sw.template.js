@@ -21,10 +21,15 @@ self.addEventListener('install', (event) => {
       await caches.delete(ACTIVE_CACHE);
       throw error;
     }
-    // Do NOT skipWaiting here; open gameplay must not be replaced automatically.
+    // Do not skipWaiting during install: the previous worker normally remains
+    // active while it still controls open clients. Once those clients close,
+    // or the browser shuts down, the new worker may activate automatically.
+    // This is NOT a lock that waits for administrator approval.
   })());
 });
 
+// Activation can occur without an APPLY message after all old clients close.
+// Cache cleanup is scoped to exhibition versions; IndexedDB is untouched.
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
@@ -62,7 +67,8 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'APPLY_EXHIBIT_UPDATE') {
-    // Called only from the administrator landing screen after full pre-cache.
+    // The administrator UI sends this after pre-cache and confirmation.
+    // This message is an early-activation request, not a PIN/security gate.
     self.skipWaiting();
   }
 });

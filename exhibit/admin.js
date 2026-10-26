@@ -459,8 +459,10 @@
       say('復元失敗（既存データは保持）：' + (error?.message || String(error)));
     }
   });
-  // Software updates are checked only by an unlocked administrator on the
-  // landing screen. The new worker stays WAITING until explicitly applied.
+  // Only the update UI is PIN-gated. The browser may discover/install a new
+  // Service Worker independently. Without install-time skipWaiting, it normally
+  // waits while old controlled clients remain open, but can auto-activate once
+  // all those clients close or the browser shuts down. This is not version pinning.
   const updateStatus = document.getElementById('exhibitUpdateStatus');
   const updateApply = document.getElementById('exhibitUpdateApply');
   let pendingWorker = null;
@@ -494,7 +496,7 @@
       }
       if (!reg.waiting) throw Error('更新を完了できませんでした。旧版は維持されています。');
       pendingWorker = reg.waiting;
-      setUpdate('ダウンロード完了。アプリを使用していない今なら適用できます。');
+      setUpdate('ダウンロード完了。展示中のプレイを終了し、世代保存と他の展示画面の終了を確認してから適用してください。');
       updateApply.hidden = false;
     } catch (error) {
       setUpdate('更新失敗：' + (error.message || String(error)) +
