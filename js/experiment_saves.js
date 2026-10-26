@@ -8,7 +8,13 @@
   const portal = document.getElementById('entertainmentPortal');
   if (!engine || !portal || engine.context?.evolutionModelId !== 'continuous_v1') return;
 
-  const KEY = 'gitai-experiment-records-v1';
+  // Canonical registry transactions run in experiment_registry.js. The old
+  // localStorage v1 JSON remains untouched as a last-resort migration backup.
+  const registry = window.GitaiExperimentRegistry;
+  if (!registry) {
+    console.error('保存一覧の安全な読み書き機能を読み込めませんでした。');
+    return;
+  }
   const LIMIT = 10;
   const context = engine.context;
   const params = new URLSearchParams(location.search);
@@ -16,24 +22,7 @@
   const modeLabel = warning ? '目立つギタイ' : '隠れるギタイ';
   const dbName = context.storageNamespace;
 
-  function readRegistry() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.records)) return [];
-      return parsed.records.filter(item =>
-        item && /^[a-z0-9_-]{1,48}$/i.test(String(item.id)) &&
-        typeof item.dbName === 'string' &&
-        typeof item.name === 'string' &&
-        item.config && typeof item.config === 'object'
-      ).slice(0, LIMIT);
-    } catch (_) { return []; }
-  }
-  function writeRegistry(records) {
-    if (records.length > LIMIT) throw Error('保存できる実験は10個までです。');
-    const json = JSON.stringify({version: 1, records});
-    localStorage.setItem(KEY, json);
-    if (localStorage.getItem(KEY) !== json) throw Error('実験記録の保存を確認できませんでした。');
-  }
+  function readRegistry() { return registry.snapshot(); }
   function currentRecord() {
     return readRegistry().find(item => item.dbName === dbName) || null;
   }
@@ -228,28 +217,29 @@
     return modeLabel + ' ' + n + ' · ' + new Date().toLocaleDateString('ja-JP');
   }
   async function registerCurrent(title) {
+    // Re-read the canonical index; display snapshots from another tab may
+    // have become stale while a generation was played.
+    await registry.refresh();
     const existing = currentRecord();
     if (existing) return existing;
-    const records = readRegistry();
-    if (records.length >= LIMIT) throw Error('セーブスロットが満杯です。実験記録から不要なものを削除してください。');
-    // Inspect ALL 60 images and both lineage genomes before registering.
-    // A complete current generation is already auto-saved by the game engine.
+    // Verify actual saved evolution (60 PNGs and genomes) FIRST. Registry
+    // writes are serialized in the separate v2 IDB state transaction.
     const state = await engine.getSaveState();
-    const id = newId();
+    const records = readRegistry();
     const record = {
-      id, dbName, name: String(title || defaultTitle(records.length + 1)).trim().slice(0, 40),
+      id: newId(), dbName,
+      name: String(title || defaultTitle(records.length + 1)).trim().slice(0, 40),
       config: configFromPage(),
       createdAt: new Date().toISOString(),
       savedGeneration: state.generationId
     };
     if (!record.name) record.name = defaultTitle(records.length + 1);
-    if (records.some(item => item.id === record.id || item.dbName === record.dbName))
-      throw Error('同じ実験はすでに保存されています。');
-    writeRegistry([...records, record]);
+    const committed = await registry.mutate('add', record);
     updateCounter();
-    return record;
+    return committed;
   }
-  function showSaveCurrent() {
+  async function showSaveCurrent() {
+    await registry.refresh();
     heading.textContent = '実験を保存';
     entries.replaceChildren();
     const saved = currentRecord();
@@ -306,6 +296,7 @@
     return urlFor(config);
   }
   async function discardUnregisteredAndStart(preserveCurrent = false) {
+    await registry.refresh();
     // Resolve the target before touching any data. For a registered Run, keep
     // its IndexedDB and registry entry intact; only unregistered Runs are discarded.
     // The preserve flag also protects a Run saved when the confirmation opened,
@@ -315,6 +306,7 @@
     location.assign(nextUrl);
   }
   async function saveAndStart(title) {
+    await registry.refresh();
     const nextUrl = freshUrl();
     // Verify the full saved generation, persist the registry, and re-read it
     // BEFORE navigating. A failed save must never initialize a new Run.
@@ -358,7 +350,8 @@
       await discardUnregisteredAndStart(Boolean(saved));
     }, 'gitai-danger'));
   }
-  function showResetCurrent() {
+  async function showResetCurrent() {
+    await registry.refresh();
     const saved = currentRecord();
     heading.textContent = '実験を初期化';
     summary.textContent = saved
@@ -368,7 +361,8 @@
     appendResetAction();
     openModal();
   }
-  function showSaveAndStart() {
+  async function showSaveAndStart() {
+    await registry.refresh();
     const saved = currentRecord();
     heading.textContent = '保存して実験を初期化';
     summary.textContent = saved
@@ -378,7 +372,8 @@
     appendSaveAndStartAction();
     openModal();
   }
-  function showStartNew() {
+  async function showStartNew() {
+    await registry.refresh();
     const saved = currentRecord();
     heading.textContent = '最初から実験';
     summary.textContent = saved
@@ -423,8 +418,7 @@
       // Also scope cleanup by ID AND database, so a stale panel cannot remove
       // a different record that reused the same ID after another tab edited it.
       try { localStorage.removeItem('gitai-warning-life-v1:' + record.dbName); } catch (_) {}
-      writeRegistry(readRegistry().filter(x =>
-        !(x.id === record.id && x.dbName === record.dbName)));
+      await registry.mutate('remove',record);
       await showRecords();
       message.textContent = '実験データを削除しました。';
     } finally {
@@ -436,10 +430,11 @@
     if (next === null) return;
     const name = next.trim().slice(0, 40);
     if (!name) throw Error('実験名を入力してください。');
-    writeRegistry(readRegistry().map(x => x.id === record.id ? {...x, name} : x));
+    await registry.mutate('rename',{id: record.id,dbName:record.dbName,name});
     await showRecords();
   }
   async function showRecords() {
+    await registry.refresh();
     heading.textContent = '実験記録';
     const records = readRegistry();
     summary.textContent = records.length + ' / 10件保存済み。保存した実験は世代更新ごとに自動保存されます。';
@@ -482,13 +477,37 @@
     openModal();
     updateCounter();
   }
-  recordsButton.addEventListener('click', () => { void showRecords(); });
-  startButton.addEventListener('click', showStartNew);
-  gallerySaveButton?.addEventListener('click', showSaveCurrent);
-  galleryResetButton?.addEventListener('click', showResetCurrent);
-  gallerySaveAndResetButton?.addEventListener('click', showSaveAndStart);
-  introSaveAndResetButton?.addEventListener('click', showSaveAndStart);
-  introResetButton?.addEventListener('click', showResetCurrent);
+  // A registry initialization/migration error must not open a destructive
+  // action with an empty-looking slot list. Show an explicit fail-closed UI.
+  async function safelyOpen(action) {
+    try { await action(); }
+    catch (error) {
+      heading.textContent = '保存一覧を確認できません';
+      summary.textContent = '元の保存記録を保護しています。実験の保存・初期化は行っていません。';
+      entries.replaceChildren();
+      openModal();
+      message.textContent = '操作できません：' + (error?.message || error);
+    }
+  }
+  recordsButton.addEventListener('click', () => { void safelyOpen(showRecords); });
+  startButton.addEventListener('click', () => { void safelyOpen(showStartNew); });
+  gallerySaveButton?.addEventListener('click', () => { void safelyOpen(showSaveCurrent); });
+  galleryResetButton?.addEventListener('click', () => { void safelyOpen(showResetCurrent); });
+  gallerySaveAndResetButton?.addEventListener('click', () => { void safelyOpen(showSaveAndStart); });
+  introSaveAndResetButton?.addEventListener('click', () => { void safelyOpen(showSaveAndStart); });
+  introResetButton?.addEventListener('click', () => { void safelyOpen(showResetCurrent); });
+  registry.subscribe(() => {
+    updateCounter();
+    if (!busy && !dialog.hidden && heading.textContent === '実験記録') {
+      void showRecords().catch(console.warn);
+    }
+  });
+  // The player can continue evolving offline even if the registry is
+  // temporarily unavailable, but registration/reset controls fail closed.
+  void registry.ready().then(updateCounter).catch(error => {
+    recordsButton.textContent = '実験記録（確認が必要）';
+    console.warn('保存一覧を確認できません',error);
+  });
   close.addEventListener('click', closeModal);
   dialog.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !busy) { e.preventDefault(); closeModal(); }
@@ -496,7 +515,7 @@
   // Existing external reset requests now open the same safe player-facing flow.
   window.GitaiExperimentSaves = Object.freeze({
     openStart: showStartNew,
-    openRecords: showRecords
+    openRecords: () => safelyOpen(showRecords)
   });
   updateCounter();
 })();

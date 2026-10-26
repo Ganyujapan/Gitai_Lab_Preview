@@ -33,6 +33,7 @@ function createDeletionFixture({confirm=true,records=null,current='current'}={})
    id:'exp_4',dbName:'db-4',name:'Fourth'}];
  const store=new Map([['gitai-experiment-records-v1',JSON.stringify({version:1,records:all})],
   ['gitai-warning-life-v1:db-2','6']]);
+ let canonicalRecords=all.slice();
  const reqs=[],events={},state={messages:[],show:0,registryWrites:0},message={textContent:''};
  const localStorage={
   getItem:key=>store.has(key)?store.get(key):null,
@@ -45,9 +46,14 @@ function createDeletionFixture({confirm=true,records=null,current='current'}={})
   window:{confirm:()=>confirm,addEventListener:(type,callback)=>{events[type]=callback}},
   localStorage,
   message,
-  readRegistry:()=>JSON.parse(store.get('gitai-experiment-records-v1')).records,
-  writeRegistry:rs=>{state.registryWrites++;localStorage.setItem('gitai-experiment-records-v1',
-    JSON.stringify({version:1,records:rs}))},
+  registry:{
+    async mutate(op,record){
+      assert.equal(op,'remove');
+      state.registryWrites++;
+      canonicalRecords=canonicalRecords.filter(x=>!(x.id===record.id && x.dbName===record.dbName));
+      return true;
+    }
+  },
   showRecords:async()=>{state.show++},
   Error
  };
@@ -55,7 +61,7 @@ function createDeletionFixture({confirm=true,records=null,current='current'}={})
    '\nglobalThis.removeSaved=deleteSavedRecord;globalThis.isPending=()=>pendingDeletion;',
   ctx,{filename:'experiment_saves.js:deleteSavedRecord',timeout:1000});
  return {ctx,target,reqs,events,store,state,message,
-  records:()=>ctx.readRegistry(),
+  records:()=>canonicalRecords.slice(),
   remove:record=>ctx.removeSaved(record||target)};
 }
 async function testDeleteBlockedSuccess(){
