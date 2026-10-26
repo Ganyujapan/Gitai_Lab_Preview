@@ -2184,7 +2184,7 @@
     }
   }
 
-  async function evolveGenerationLegacy(generationId, eatenIndices) {
+  async function evolveGenerationLegacy(generationId, eatenIndices, runId = '') {
     await ensureConfig();
     await ensureMask();
 
@@ -2234,12 +2234,7 @@
       }
     }
 
-    for (const [index, blob] of blobs.entries()) {
-      await idbPut(IMAGE_STORE, imageKey(nextId, index), blob);
-    }
-
-    await idbPut(META_STORE, 'current_generation_id', nextId);
-    await deleteGeneration(generationId);
+    await commitEvolutionGeneration(generationId, nextId, blobs, null, null, runId);
 
     currentGenerationId = nextId;
     await loadGeneratedGeneration(nextId);
@@ -3823,7 +3818,7 @@
     return { genome, diagnostic };
   }
 
-  async function evolveGenerationByMorph(generationId, eatenIndices) {
+  async function evolveGenerationByMorph(generationId, eatenIndices, runId = '') {
     await ensureConfig();
     await ensureMask();
     await ensureTemplateAlpha();
@@ -3875,15 +3870,6 @@
       }
     }
 
-    for (const [index, blob] of blobs.entries()) {
-      await idbPut(IMAGE_STORE, imageKey(nextId, index), blob);
-      await idbPut(
-        META_STORE,
-        genomeKey(nextId, index),
-        genomes.get(index),
-      );
-    }
-
     const eatenSet = new Set(eatenIndices);
     const survivors = [];
     for (let i = 1; i <= TOTAL; i += 1) {
@@ -3932,13 +3918,9 @@
       },
     };
 
-    await idbPut(
-      META_STORE,
-      diagnosticKey(generationId),
-      generationDiagnostic,
+    await commitEvolutionGeneration(
+      generationId, nextId, blobs, genomes, generationDiagnostic, runId,
     );
-    await idbPut(META_STORE, 'current_generation_id', nextId);
-    await deleteGeneration(generationId);
 
     currentGenerationId = nextId;
     await loadGeneratedGeneration(nextId);
@@ -4431,7 +4413,7 @@
     return child;
   }
 
-  async function evolveGenerationByGenome(generationId, eatenIndices) {
+  async function evolveGenerationByGenome(generationId, eatenIndices, runId = '') {
     await ensureConfig();
     await ensureMask();
     await ensureTemplateAlpha();
@@ -4533,11 +4515,6 @@
       }
     }
 
-    for (const [index, blob] of blobs.entries()) {
-      await idbPut(IMAGE_STORE, imageKey(nextId, index), blob);
-      await idbPut(META_STORE, genomeKey(nextId, index), genomes.get(index));
-    }
-
     let visualSimilarityNext = null;
     if (visualSamples) {
       try {
@@ -4615,13 +4592,9 @@
       },
     };
 
-    await idbPut(
-      META_STORE,
-      diagnosticKey(generationId),
-      generationDiagnostic,
+    await commitEvolutionGeneration(
+      generationId, nextId, blobs, genomes, generationDiagnostic, runId,
     );
-    await idbPut(META_STORE, 'current_generation_id', nextId);
-    await deleteGeneration(generationId);
 
     currentGenerationId = nextId;
     await loadGeneratedGeneration(nextId);
@@ -4662,7 +4635,7 @@
     };
   }
 
-  async function evolveGeneration(generationId, eatenIndices) {
+  async function evolveGeneration(generationId, eatenIndices, runId = '') {
     if (
       WARNING_EXPERIMENT
       && (!Array.isArray(eatenIndices) || !WARNING.viable(eatenIndices))
@@ -4687,6 +4660,7 @@
       nextId = await evolveGenerationByMorph(
         generationId,
         eatenIndices,
+        runId,
       );
     } else if (
       EVOLUTION_MODEL_ID === 'continuous_v1'
@@ -4695,11 +4669,13 @@
       nextId = await evolveGenerationByGenome(
         generationId,
         eatenIndices,
+        runId,
       );
     } else {
       nextId = await evolveGenerationLegacy(
         generationId,
         eatenIndices,
+        runId,
       );
     }
 
