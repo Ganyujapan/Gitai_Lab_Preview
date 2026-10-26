@@ -162,14 +162,28 @@
   window.addEventListener('gitai:solo-assets-ready', sync);
   sync();
 
-  // Built-in menu routes must not send exhibition visitors to the public portal.
-  for (const id of ['soloHomeButton', 'resultBackToMenu', 'backToMenu']) {
+  // Exhibition game HTML inherits #portalBackToMenu (not #backToMenu).
+  // The production handler pauses SOLO and shows its hidden portal.
+  // Intercept in capture phase to prevent a paused, invisible screen.
+  document.getElementById('portalBackToMenu')?.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (handoverPending) return;
+    if (startOverlay?.classList.contains('visible')
+        && !reviewOverlay?.classList.contains('visible')) {
+      // Start-screen return never discards a saved generation.
+      location.assign(home.href);
+    }
+  }, true);
+
+  // Defensive interception for other portal controls, hidden in exhibition.
+  for (const id of ['soloHomeButton', 'resultBackToMenu']) {
     document.getElementById(id)?.addEventListener('click', event => {
       event.preventDefault();
       event.stopImmediatePropagation();
-      // A partial round is NOT committed. Returning to splash is safe;
-      // handover is only offered after a finished five-round generation.
-      if (reviewOverlay?.classList.contains('visible')) void safelyHandover();
+      if (!handoverPending && reviewOverlay?.classList.contains('visible')) {
+        void safelyHandover();
+      }
     }, true);
   }
   document.getElementById('resetConfirmButton')?.setAttribute('disabled', 'true');

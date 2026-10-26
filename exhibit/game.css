@@ -1,7 +1,7 @@
 /* A locked-down public exhibition interface, not an admin security boundary. */
  #pagesPreviewBadge, [data-action="reset"],[data-action="environment"],[data-action="model"],
 [data-action="diagnostic"],[data-action="chatgpt-log"],
-#resetConfirmOverlay,#backToMenu,#resultBackToMenu,
+#resetConfirmOverlay,#resultBackToMenu,
 #soloHomeButton,#entertainmentPortal,#portalIntro,#portalMenu,
 #authorNewsTeaser{display:none!important}
 
