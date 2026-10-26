@@ -210,7 +210,7 @@
   // happen in the same transaction, so a stale tab can never overwrite a
   // newer generation, even without Web Locks support (e.g. iOS Safari).
   // Per-run replay records are stored in the already-existing meta store:
-  // no schema/version migration, no new IndexedDB or localStorage keys.
+  // No database version or store migration; per-run keys are added to meta.
   function completedRunKey(runId) {
     return 'completed_run:' + runId;
   }
