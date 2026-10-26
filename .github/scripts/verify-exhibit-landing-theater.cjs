@@ -3,7 +3,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const html = fs.readFileSync('exhibit/index.html','utf8');
+const html = fs.readFileSync('exhibit/modes.html','utf8');
+const title = fs.readFileSync('exhibit/index.html','utf8');
+const ordinary = fs.readFileSync('index.html','utf8');
 const css = fs.readFileSync('exhibit/theater.css','utf8');
 const landing = fs.readFileSync('exhibit/landing.js','utf8');
 const theater = fs.readFileSync('exhibit/theater.js','utf8');
@@ -12,11 +14,20 @@ const gameCSS = fs.readFileSync('exhibit/game.css','utf8');
 const build = fs.readFileSync('exhibit/build.py','utf8');
 const admin = fs.readFileSync('exhibit/admin.js','utf8');
 const assertHas = (s,p)=>assert.match(s,p);
-assertHas(html,/id="exhibitSplash"/);
-assertHas(html,/id="exhibitSplashStart"[^>]*>START/);
-assertHas(html,/class="exhibit-title-eyebrow">進化シミュレーター/);
-assertHas(html,/class="exhibit-brand-logo">ギタイラボ/);
-assertHas(html,/id="exhibitTheaterImageBuffer"/);
+// The title DOM, stylesheet and generator JS are copied from the original
+// entertainment portal. The mode selection is a physically different URL.
+const portal = ordinary.slice(ordinary.indexOf('    <section id="entertainmentPortal"'),
+  ordinary.indexOf('\n  </main>',ordinary.indexOf('    <section id="entertainmentPortal"')));
+assert.ok(title.includes(portal),'standalone title must reuse identical production portal DOM');
+assertHas(title,/id="portalArt"/);
+assertHas(title,/id="portalEnter"/);
+assertHas(title,/js\/entertainment_portal\.js/);
+assertHas(title,/js\/portal_random_moth\.js/);
+assertHas(title,/css\/entertainment_portal\.css/);
+assertHas(title,/new URL\('modes\.html',location\.href\)/);
+assert.ok(!title.includes('exhibitGenerationCryptic'),'title must not expose mode cards');
+assert.ok(!html.includes('id="exhibitSplash"'),'no overlapping title inside selector');
+assertHas(html,/id="exhibitTheaterCanvas"/);
 assertHas(html,/id="exhibitTheaterMarkers"/);
 assertHas(html,/id="exhibitTheaterPlayed"/);
 assertHas(html,/id="exhibitHandoverFinished"/);
@@ -26,16 +37,18 @@ assertHas(html,/id="exhibitGenerationWarning"/);
 assert.equal((html.match(/data-view-theater=/g)||[]).length,2);
 assertHas(html,/game\.html\?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1/);
 assertHas(html,/experiment=warning_color&amp;run=warning_color_fog_v2&amp;fog=1&amp;play=1&amp;tutorial=1/);
-assertHas(landing,/sessionStorage\.removeItem\(visitKey\)/);
-assertHas(landing,/window\.GitaiExhibitLanding/);
+assertHas(build,/"index.html", "modes.html", "title.css"/);
 assertHas(build,/"theater\.js", "theater\.css"/);
-assertHas(css,/Double.buffer|outgoing frame visible/i);
+assertHas(css,/persistent composited drawing surface/i);
+assertHas(theater,/picture\.drawImage\(bitmap, 0, 0, canvas\.width, canvas\.height\)/);
+assert.doesNotMatch(theater,/target\.hidden = true/);
 assertHas(game,/reviewOverlay\?\.querySelector\('\.review-actions'\)/);
 assertHas(game,/次へ（進化シアター）/);
 assertHas(game,/sessionStorage\.setItem\(HANDOVER_KEY/);
 assertHas(game,/sessionStorage\.getItem\(VISIT_KEY/);
 assertHas(game,/continueButton\?\.addEventListener\('click', event =>/);
 assertHas(game,/next !== previous/);
+assertHas(game,/new URL\('modes\.html', home\.href\)/);
 assertHas(gameCSS,/#reviewOverlay #exhibitHandover/);
 assert.doesNotMatch(gameCSS,/position:fixed[^}]*#exhibitHandover/);
 assert.doesNotMatch(theater,/(?:indexedDB\.deleteDatabase|\.objectStore\([^)]*\)\.(?:put|add|clear)\()/);
@@ -66,13 +79,17 @@ function setup({handover=false,absentWarning=false}={}) {
   return n;
  }
  for(const id of ['exhibitTheaterDialog','exhibitTheaterTitle','exhibitTheaterMeta',
-  'exhibitTheaterImage','exhibitTheaterImageBuffer','exhibitTheaterEmpty',
+  'exhibitTheaterCanvas','exhibitTheaterEmpty',
   'exhibitTheaterSlider','exhibitTheaterProgress','exhibitTheaterClose',
   'exhibitTheaterPrev','exhibitTheaterNext','exhibitTheaterPlay',
   'exhibitGenerationCryptic','exhibitGenerationWarning',
   'exhibitTheaterPlayed','exhibitTheaterMarkers','exhibitHandoverFinished',
   'exhibitHandoverFinishNext']) elements.set(id,node(id));
  const stage=node('theaterStage');
+ const paints=[];
+ elements.get('exhibitTheaterCanvas').getContext=()=>({
+  drawImage(...args){paints.push(args)},imageSmoothingEnabled:true
+ });
  elements.get('exhibitTheaterDialog').querySelector=()=>stage;
  const cButton=node('crypticButton'),wButton=node('warningButton');
  cButton.dataset.viewTheater='cryptic';wButton.dataset.viewTheater='warning';
@@ -120,7 +137,7 @@ function setup({handover=false,absentWarning=false}={}) {
   getItem:k=>stash.has(k)?stash.get(k):null,
   setItem:(k,v)=>stash.set(k,v),removeItem:k=>stash.delete(k)
  };
- const loc={href:'https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/'+(handover?'?handover=1':''),
+ const loc={href:'https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/modes.html'+(handover?'?handover=1':''),
   assign:href=>navigated.push(href)};
  const FakeURL=class extends URL{};
  FakeURL.createObjectURL=()=>{const url='blob:test-'+(urls.length+1);urls.push(url);return url};
@@ -129,6 +146,11 @@ function setup({handover=false,absentWarning=false}={}) {
   document:doc,window:{addEventListener:(evt,cb)=>windowListeners[evt]=cb,
    GitaiExhibitLanding:{showMenu(){},showSplash(){}}},location:loc,
   Blob,indexedDB,URL:FakeURL,sessionStorage,
+  Image:class FakeImage {
+   set src(value){this._src=value;queueMicrotask(()=>this.onload?.())}
+   get src(){return this._src}
+   decode(){return Promise.resolve()}
+  },
   console:{warn(){},error(){}},
   setInterval:fn=>{intervals.push(fn);return intervals.length},
   clearInterval:()=>{},
@@ -136,7 +158,7 @@ function setup({handover=false,absentWarning=false}={}) {
   clearTimeout:()=>{}
  };
  vm.runInNewContext(theater,globals,{filename:'exhibit/theater.js',timeout:5000});
- return {elements,stage,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,
+ return {elements,stage,paints,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,
   async settle(){await new Promise(resolve=>setTimeout(resolve,6))},
   open(which){(which==='warning'?wButton:cButton).trigger('click')},
   tick(){const cb=intervals.at(-1);if(cb)cb()},
@@ -155,11 +177,14 @@ function setup({handover=false,absentWarning=false}={}) {
  assert.equal(s.elements.get('exhibitTheaterDialog').hidden,false);
  assert.match(s.elements.get('exhibitTheaterMeta').textContent,/第26世代/);
  assert.equal(s.elements.get('exhibitTheaterProgress').textContent,'7 / 7');
- assert.equal(s.elements.get('exhibitTheaterImage').hidden,false);
- // The old image remains visible while the next buffer is loading.
- s.elements.get('exhibitTheaterPrev').trigger('click');await s.settle();
- assert.equal(s.elements.get('exhibitTheaterImageBuffer').hidden,false);
- assert.equal(s.elements.get('exhibitTheaterImage').hidden,true);
+ assert.equal(s.elements.get('exhibitTheaterCanvas').hidden,false);
+ assert.equal(s.paints.length,1);
+ // The previous pixels remain on the same canvas until next drawImage.
+ s.elements.get('exhibitTheaterPrev').trigger('click');
+ assert.equal(s.elements.get('exhibitTheaterCanvas').hidden,false);
+ await s.settle();
+ assert.equal(s.elements.get('exhibitTheaterCanvas').hidden,false);
+ assert.equal(s.paints.length,2);
  assert.equal(s.elements.get('exhibitTheaterMarkers').hidden,true);
  s.close();assert.equal(s.elements.get('exhibitTheaterDialog').hidden,true);
  assert.ok(s.urls.every(u=>s.revoked.includes(u)),'all display URLs must be revoked');
@@ -188,5 +213,5 @@ function setup({handover=false,absentWarning=false}={}) {
  h.elements.get('exhibitHandoverFinishNext').trigger('click');
  assert.deepEqual(h.navigated,['https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/']);
  assert.ok(h.transactions.every(x=>x==='readonly'));
- console.log('Exhibition: logo/splash, readonly theater, flicker-free buffering, five-visit highlighting & handover OK');
+ console.log('Exhibition: exact production title, separate modes, atomic canvas, readonly generations, five-visit handover OK');
 })().catch(e=>{console.error(e);process.exitCode=1});
