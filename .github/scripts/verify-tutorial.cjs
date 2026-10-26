@@ -6,7 +6,7 @@ const vm=require('node:vm');
 const code=fs.readFileSync('js/solo_tutorial.js','utf8');
 const css=fs.readFileSync('css/solo_tutorial.css','utf8');
 const html=fs.readFileSync('index.html','utf8');
-const exhibitIndex=fs.readFileSync('exhibit/index.html','utf8');
+const exhibitIndex=fs.readFileSync('exhibit/modes.html','utf8');
 const exhibitGame=fs.readFileSync('exhibit/game.js','utf8');
 assert.match(code,/function arrow\(/);
 assert.match(code,/#ee2c31/);
