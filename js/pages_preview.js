@@ -205,6 +205,103 @@
     });
   }
 
+  // STO-01: IndexedDB readwrite transactions on these stores serialize
+  // across tabs. The CURRENT pointer check and the ENTIRE offspring commit
+  // happen in the same transaction, so a stale tab can never overwrite a
+  // newer generation, even without Web Locks support (e.g. iOS Safari).
+  // Per-run replay records are stored in the already-existing meta store:
+  // no schema/version migration, no new IndexedDB or localStorage keys.
+  function completedRunKey(runId) {
+    return 'completed_run:' + runId;
+  }
+
+  async function persistedCompletedRun(runId) {
+    if (!runId) return null;
+    const result = await idbGet(META_STORE, completedRunKey(runId));
+    return result && typeof result === 'object'
+      && /^gen\\d{5}$/.test(String(result.generation_id))
+      && /^gen\\d{5}$/.test(String(result.next_generation_id))
+      ? result
+      : null;
+  }
+
+  async function commitEvolutionGeneration(sourceId, nextId, blobs,
+                                           genomes = null, diagnostic = null,
+                                           runId = '') {
+    if (blobs.size !== TOTAL || (genomes && genomes.size !== TOTAL)) {
+      throw new Error('次世代の画像または遺伝情報が60個揃っていません。保存を中断しました。');
+    }
+    for (let i = 1; i <= TOTAL; i += 1) {
+      if (!(blobs.get(i) instanceof Blob) || (genomes && !genomes.has(i))) {
+        throw new Error('次世代の蛾の保存情報が不足しています。');
+      }
+    }
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([IMAGE_STORE, META_STORE], 'readwrite');
+      const images = tx.objectStore(IMAGE_STORE);
+      const meta = tx.objectStore(META_STORE);
+      let failure = null;
+      const abortWith = (code, message) => {
+        failure = new Error(message);
+        failure.code = code;
+        try { tx.abort(); } catch (_) { reject(failure); }
+      };
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(failure || tx.error
+        || new Error('次世代の保存が中断されました。元の世代を保持しました。'));
+      tx.onerror = () => {
+        // The transaction automatically aborts, rolling back ALL writes.
+      };
+      const pointerRequest = meta.get('current_generation_id');
+      pointerRequest.onsuccess = () => {
+        if (pointerRequest.result !== sourceId) {
+          abortWith('generation_mismatch',
+            '別の画面で世代が進みました。元のデータを変更せず保存を中止しました。');
+          return;
+        }
+        const queueCommit = () => {
+          try {
+            for (let i = 1; i <= TOTAL; i += 1) {
+              images.put(blobs.get(i), imageKey(nextId, i));
+              if (genomes) meta.put(genomes.get(i), genomeKey(nextId, i));
+            }
+            if (diagnostic) meta.put(diagnostic, diagnosticKey(sourceId));
+            if (runId) {
+              meta.put({
+                generation_id: sourceId,
+                next_generation_id: nextId,
+                committed_at: new Date().toISOString(),
+              }, completedRunKey(runId));
+            }
+            // Atomically update the current pointer LAST, alongside all
+            // image and genome writes, so no reader sees partial offspring.
+            meta.put(nextId, 'current_generation_id');
+            if (sourceId !== 'gen00001') {
+              for (let i = 1; i <= TOTAL; i += 1) {
+                images.delete(imageKey(sourceId, i));
+                meta.delete(genomeKey(sourceId, i));
+              }
+            }
+          } catch (error) {
+            failure = error;
+            try { tx.abort(); } catch (_) { reject(error); }
+          }
+        };
+        if (!runId) { queueCommit(); return; }
+        const previousRequest = meta.get(completedRunKey(runId));
+        previousRequest.onsuccess = () => {
+          if (previousRequest.result) {
+            abortWith('run_already_completed',
+              'この実験送信はすでに記録されています。');
+          } else {
+            queueCommit();
+          }
+        };
+      };
+    });
+  }
+
   async function idbEntriesByPrefix(storeName, prefix) {
     const db = await openDb();
     return new Promise((resolve, reject) => {
