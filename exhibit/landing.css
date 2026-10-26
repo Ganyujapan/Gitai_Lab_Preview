@@ -1,1 +1,14 @@
 :root{color-scheme:dark;font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100svh;background:#090d0c;color:#f2f5ec}main{max-width:670px;min-height:100svh;margin:auto;padding:max(32px,env(safe-area-inset-top)) 22px max(30px,env(safe-area-inset-bottom));display:flex;flex-direction:column;justify-content:center}header{text-align:center;margin-bottom:28px}.eyebrow{letter-spacing:.14em;font:700 10px/1.6 monospace;color:#a4c7ab}h1{font-size:clamp(40px,9vw,68px);letter-spacing:.04em;margin:12px 0 8px}header>p:last-child{color:#d1ddd1}.modes{display:grid;gap:16px}.mode{display:grid;gap:9px;padding:22px 24px;border:2px solid #718c74;border-radius:12px;text-decoration:none;color:inherit;background:#1a241e;min-height:160px;touch-action:manipulation}.mode:nth-child(2){border-color:#b68d70;background:#2a241f}.mode:focus-visible{outline:3px solid white;outline-offset:3px}.mode-index{font:11px monospace;letter-spacing:.13em;color:#a1b5a3}.mode strong{font-size:clamp(26px,6vw,37px)}.mode>span:nth-of-type(2){font-size:14px;color:#dedfd2}.arrow{text-align:right;font-weight:700}.instructions{font-size:13px;line-height:1.9;color:#c7cfca;margin:25px 0}.status{border-top:1px solid #526159;padding-top:9px;color:#a4c7ab;font-size:12px;line-height:1.4}.status p{margin:6px 0}a:active{opacity:.82}
+
+/* Match the main portal's modern line-mode brand lettering. */
+.exhibit-brand-logo{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;font-size:clamp(37px,11vw,58px);font-weight:850;letter-spacing:-.06em;line-height:1.32;color:#faf9f3;text-shadow:none;filter:none}
+.exhibit-title-eyebrow{font-size:clamp(13px,3.6vw,18px);font-weight:650;letter-spacing:.13em;margin:10px 0 0;color:#eeeeea}
+#exhibitModeSelection[hidden]{display:none!important}
+.exhibit-splash[hidden]{display:none!important}
+.exhibit-splash{position:fixed;inset:0;z-index:18000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100svh;background:#050707;color:#faf9f3;text-align:center;padding:25px}
+.exhibit-splash-brand{position:absolute;top:19%;left:12px;right:12px}
+.exhibit-splash-eyebrow{font-size:clamp(13px,3.6vw,18px);font-weight:650;letter-spacing:.13em;color:#eeeeea;margin:0 0 8px}
+.exhibit-splash .exhibit-brand-logo{margin:0;font-size:clamp(41px,11vw,63px)}
+.exhibit-splash-start{position:absolute;bottom:max(12%,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);min-width:225px;min-height:74px;padding:16px 50px;border:2px solid #eff3ed;border-radius:6px;background:#121c18;color:#faf9f3;font:800 25px/1 system-ui,sans-serif;letter-spacing:.15em;touch-action:manipulation}
+.exhibit-splash-start:focus-visible{outline:4px solid #acd5ba;outline-offset:4px}
+.exhibit-splash-caption{position:absolute;bottom:7%;color:#a6bfb4;font:700 11px/1.5 monospace;letter-spacing:.16em}
