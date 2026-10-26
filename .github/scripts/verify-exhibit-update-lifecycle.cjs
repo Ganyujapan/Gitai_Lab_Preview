@@ -81,7 +81,8 @@ function harness({failAdd=false}={}) {
     URL,Request:FakeRequest,caches,
     async fetch(request){
       network++;
-      const url=typeof request==='string'?request:request.url;
+      const url=typeof request==='string'?request:
+        (request instanceof URL?request.href:request.url);
       if(url===path('precache.json'))return {
         ok:true,
         async json(){return ['index.html','modes.html','game.html','version.json'];}
