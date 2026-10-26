@@ -19,8 +19,11 @@
   if (!dialog) return;
   const title = document.getElementById('exhibitTheaterTitle');
   const meta = document.getElementById('exhibitTheaterMeta');
-  const image = document.getElementById('exhibitTheaterImage');
-  const imageBuffer = document.getElementById('exhibitTheaterImageBuffer');
+  // A single persistent canvas is painted atomically only after the new
+  // snapshot has finished decoding. Never remove the visible old frame.
+  const canvas = document.getElementById('exhibitTheaterCanvas');
+  const picture = canvas.getContext('2d', { alpha: false });
+  picture.imageSmoothingEnabled = false;
   const stage = dialog.querySelector('.exhibit-theater-stage');
   const playedLabel = document.getElementById('exhibitTheaterPlayed');
   const markers = document.getElementById('exhibitTheaterMarkers');
@@ -38,10 +41,9 @@
   let frames = [];
   let cursor = 0;
   let activeMode = null;
-  let currentUrl = null;
-  let pendingUrl = null;
-  let activeImage = null;
   let frameLoadId = 0;
+  let loadedImages = new Map();
+  let frameUrls = [];
   let handoverData = null;
   let finalTimer = null;
   let playback = null;
@@ -133,21 +135,43 @@
   }
 
   function releaseImage() {
-    // Dispose only when leaving the theater or switching modes.
-    // NEVER clear the visible layer before the next image is decoded.
-    frameLoadId++;
-    for (const layer of [image, imageBuffer]) {
-      layer.onload = null;
-      layer.onerror = null;
-      layer.hidden = true;
-      layer.removeAttribute('src');
+    ++frameLoadId;
+    canvas.hidden = true;
+    // The gallery's object URLs follow the regular entertainment theater:
+    // create once per saved frame, revoke ONLY on dialog teardown.
+    for (const uri of frameUrls) URL.revokeObjectURL(uri);
+    frameUrls = [];
+    loadedImages.clear();
+  }
+  function assignFrameUrls() {
+    frameUrls = frames.map(frame => URL.createObjectURL(frame.image_blob));
+  }
+  function decodeFrame(index) {
+    if (!frames[index]) return Promise.reject(Error('Frame unavailable'));
+    if (loadedImages.has(index)) return loadedImages.get(index);
+    const preview = new Image();
+    preview.decoding = 'async';
+    const url = frameUrls[index];
+    const ready = new Promise((resolve,reject) => {
+      preview.onload = () => {
+        const decoded = typeof preview.decode === 'function'
+          ? preview.decode().catch(() => {}) : Promise.resolve();
+        Promise.resolve(decoded).then(() => resolve(preview));
+      };
+      preview.onerror = () => reject(Error('Frame image could not be read'));
+      preview.src = url;
+    });
+    loadedImages.set(index, ready);
+    ready.catch(() => loadedImages.delete(index));
+    // Keep a small decoded window around the current slide. Blob URLs stay
+    // valid for the whole viewer, so old generations can be revisited.
+    if (loadedImages.size > 7) {
+      for (const key of loadedImages.keys()) {
+        if (Math.abs(key - cursor) > 3) loadedImages.delete(key);
+        if (loadedImages.size <= 6) break;
+      }
     }
-    for (const url of [pendingUrl, currentUrl]) {
-      if (url) URL.revokeObjectURL(url);
-    }
-    pendingUrl = null;
-    currentUrl = null;
-    activeImage = null;
+    return ready;
   }
   function stopPlayback() {
     if (playback !== null) {
@@ -201,42 +225,24 @@
     previous.disabled = cursor === 0;
     next.disabled = cursor === frames.length - 1;
 
-    // Double buffering: keep the previously visible frame in place until
-    // the following frame is fully loaded/decoded. This avoids the black
-    // flash produced by removing src and hiding the old <img> first.
-    ++frameLoadId;
-    const requestId = frameLoadId;
-    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
-    const target = activeImage === image ? imageBuffer : image;
-    target.onload = null;
-    target.onerror = null;
-    target.hidden = true;
-    pendingUrl = URL.createObjectURL(record.image_blob);
-    const candidateUrl = pendingUrl;
-    const reveal = () => {
-      if (frameLoadId !== requestId || dialog.hidden) return;
-      target.hidden = false;
-      if (activeImage && activeImage !== target) activeImage.hidden = true;
-      activeImage = target;
-      const previousUrl = currentUrl;
-      currentUrl = candidateUrl;
-      pendingUrl = null;
-      if (previousUrl) URL.revokeObjectURL(previousUrl);
+    // Paint the next frame directly on the SAME canvas after decoding.
+    // No CSS visibility toggle, src reset, or intermediate black frame.
+    const ticket = ++frameLoadId;
+    void decodeFrame(index).then(bitmap => {
+      if (ticket !== frameLoadId || dialog.hidden) return;
+      picture.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      canvas.hidden = false;
       empty.hidden = true;
-    };
-    target.onload = () => {
-      const decoded = typeof target.decode === 'function'
-        ? target.decode().catch(() => {}) : Promise.resolve();
-      Promise.resolve(decoded).then(reveal);
-    };
-    target.onerror = () => {
-      if (frameLoadId !== requestId) return;
-      empty.textContent = '画像を読み込めませんでした。';
-      empty.hidden = !activeImage;
-      URL.revokeObjectURL(candidateUrl);
-      pendingUrl = null;
-    };
-    target.src = candidateUrl;
+      // Warm up the next slide while preserving a bounded decoded cache.
+      if (index + 1 < frames.length) void decodeFrame(index + 1).catch(() => {});
+    }).catch(error => {
+      if (ticket !== frameLoadId || dialog.hidden) return;
+      if (canvas.hidden) {
+        empty.textContent = '画像を読み込めませんでした。';
+        empty.hidden = false;
+      }
+      console.warn('進化シアター画像', error);
+    });
   }
   function finishHandover() {
     if (!handoverData || dialog.hidden) return;
@@ -313,6 +319,7 @@
           return n >= from && n <= handover.end;
         });
       }
+      assignFrameUrls();
       renderMarkers();
       if (!frames.length) {
         meta.textContent = result.generation
@@ -411,10 +418,9 @@
       && Number.isInteger(handover.start) && Number.isInteger(handover.end)
       && handover.start > 0 && handover.end >= handover.start
       && handover.end - handover.start <= 4) {
-      window.GitaiExhibitLanding?.showMenu?.();
       void openTheater(handover.mode, handover);
     } else {
-      window.GitaiExhibitLanding?.showSplash?.();
+      location.replace(new URL('./', location.href).href);
     }
   }
   void refreshGenerations();
