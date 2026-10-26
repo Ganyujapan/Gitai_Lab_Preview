@@ -3,6 +3,25 @@
   const offline = document.getElementById('offlineStatus');
   const version = document.getElementById('buildVersion');
   const storage = document.getElementById('storageStatus');
+  const splash = document.getElementById('exhibitSplash');
+  const start = document.getElementById('exhibitSplashStart');
+  const visitKey = 'gitai-exhibit-visit-start-v1';
+  const handoverRoute = new URL(location.href).searchParams.get('handover') === '1';
+  function showMenu() {
+    splash.hidden = true;
+    document.getElementById('exhibitModeSelection').hidden = false;
+  }
+  function showSplash() {
+    splash.hidden = false;
+    document.getElementById('exhibitModeSelection').hidden = true;
+  }
+  window.GitaiExhibitLanding = { showMenu, showSplash };
+  if (handoverRoute) showMenu(); else showSplash();
+  start.addEventListener('click', () => {
+    // Reset the VISITOR's counter only. All evolution/IndexedDB data survives.
+    try { sessionStorage.removeItem(visitKey); } catch (_) {}
+    showMenu();
+  });
   async function setup() {
     if (!('serviceWorker' in navigator) || !('caches' in window)) {
       offline.textContent = 'この端末ではオフライン機能を利用できません。';
