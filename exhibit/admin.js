@@ -381,7 +381,7 @@
     const {body, prepared} = await validateBackup(await file.text(), selected);
     const mode = MODES[selected];
     if (!confirm(mode.label + 'を' + body.currentGeneration +
-      'に復元します。現在の同モードのデータは置き換えられます。実行しますか？')) return false;
+      'に復元します。現在の同モードのデータは置き換えられます。実行しますか？')) return {status: 'cancelled'};
     const db = await openDb(mode.db);
     try {
       // Atomic across ALL object stores. On quota/write errors, IDB rolls
@@ -411,11 +411,13 @@
         if (body.warningLife == null) localStorage.removeItem(lifeKey);
         else localStorage.setItem(lifeKey, body.warningLife);
       } catch (error) {
-        say('進化データは復元しましたがライフ情報の保存に失敗しました。' + error.message);
-        return true;
+        // IndexedDB has already committed. Preserve that fact rather than
+        // treating this as a rollback or allowing the UI to claim full success.
+        return {status: 'partial', generation: body.currentGeneration,
+          detail: error?.message || String(error)};
       }
     }
-    return true;
+    return {status: 'complete', generation: body.currentGeneration};
   }
 
   const button = document.getElementById('exhibitAdminOpen');
@@ -443,8 +445,16 @@
     if (!unlocked || !input.files?.[0]) return;
     say('バックアップを検証中…');
     try {
-      const succeeded = await restoreMode(selector.value, input.files[0]);
-      say(succeeded ? '進化データの復元が完了しました。' : '復元をキャンセルしました。');
+      const result = await restoreMode(selector.value, input.files[0]);
+      if (result.status === 'cancelled') {
+        say('復元をキャンセルしました。');
+      } else if (result.status === 'partial') {
+        say('進化データ（' + result.generation + '）は復元しましたが、ライフ情報を復元できませんでした。' +
+          '以前のライフ情報が残っている可能性があります。保存エラー：' + result.detail +
+          '。バックアップを確認し、再度復元してください。');
+      } else {
+        say('進化データ（' + result.generation + '）の復元が完了しました。');
+      }
     } catch (error) {
       say('復元失敗（既存データは保持）：' + (error?.message || String(error)));
     }
