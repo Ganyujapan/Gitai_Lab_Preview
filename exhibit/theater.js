@@ -20,6 +20,14 @@
   const title = document.getElementById('exhibitTheaterTitle');
   const meta = document.getElementById('exhibitTheaterMeta');
   const image = document.getElementById('exhibitTheaterImage');
+  const imageBuffer = document.getElementById('exhibitTheaterImageBuffer');
+  const stage = dialog.querySelector('.exhibit-theater-stage');
+  const playedLabel = document.getElementById('exhibitTheaterPlayed');
+  const markers = document.getElementById('exhibitTheaterMarkers');
+  const handoverFinished = document.getElementById('exhibitHandoverFinished');
+  const handoverFinishNext = document.getElementById('exhibitHandoverFinishNext');
+  const HANDOVER_KEY = 'gitai-exhibit-handover-v1';
+  const VISIT_KEY = 'gitai-exhibit-visit-start-v1';
   const empty = document.getElementById('exhibitTheaterEmpty');
   const slider = document.getElementById('exhibitTheaterSlider');
   const counter = document.getElementById('exhibitTheaterProgress');
@@ -31,6 +39,11 @@
   let cursor = 0;
   let activeMode = null;
   let currentUrl = null;
+  let pendingUrl = null;
+  let activeImage = null;
+  let frameLoadId = 0;
+  let handoverData = null;
+  let finalTimer = null;
   let playback = null;
   let token = 0;
   let focusReturn = null;
@@ -120,12 +133,21 @@
   }
 
   function releaseImage() {
-    image.hidden = true;
-    image.removeAttribute('src');
-    if (currentUrl) {
-      URL.revokeObjectURL(currentUrl);
-      currentUrl = null;
+    // Dispose only when leaving the theater or switching modes.
+    // NEVER clear the visible layer before the next image is decoded.
+    frameLoadId++;
+    for (const layer of [image, imageBuffer]) {
+      layer.onload = null;
+      layer.onerror = null;
+      layer.hidden = true;
+      layer.removeAttribute('src');
     }
+    for (const url of [pendingUrl, currentUrl]) {
+      if (url) URL.revokeObjectURL(url);
+    }
+    pendingUrl = null;
+    currentUrl = null;
+    activeImage = null;
   }
   function stopPlayback() {
     if (playback !== null) {
@@ -140,43 +162,132 @@
     next.disabled = !enabled;
     play.disabled = !enabled;
   }
+  function renderMarkers() {
+    markers.replaceChildren();
+    if (!handoverData || frames.length === 0) {
+      markers.hidden = true;
+      return;
+    }
+    markers.hidden = false;
+    for (let i = 0; i < frames.length; i++) {
+      const generation = numberOf(frames[i].generation_id);
+      const marker = document.createElement('span');
+      marker.className = 'exhibit-theater-marker';
+      marker.textContent = String(generation);
+      if (generation >= handoverData.start && generation <= handoverData.end) {
+        marker.classList.add('is-played');
+        marker.setAttribute('title', 'あなたのプレイ 第' + generation + '世代');
+      }
+      markers.appendChild(marker);
+    }
+  }
   function showFrame(index) {
     if (index < 0 || index >= frames.length) return;
     cursor = index;
-    releaseImage();
     const record = frames[cursor];
-    currentUrl = URL.createObjectURL(record.image_blob);
-    image.src = currentUrl;
-    image.hidden = false;
-    empty.hidden = true;
-    meta.textContent = '第' + numberOf(record.generation_id) + '世代 · ' +
+    const generation = numberOf(record.generation_id);
+    const marked = !!handoverData
+      && generation >= handoverData.start && generation <= handoverData.end;
+    playedLabel.hidden = !marked;
+    stage.classList.toggle('is-played', marked);
+    for (let i = 0; i < markers.children.length; i++) {
+      markers.children[i].classList.toggle('is-current', i === cursor);
+    }
+    meta.textContent = '第' + generation + '世代 · ' +
       (cursor + 1) + ' / ' + frames.length + '枚';
     counter.textContent = (cursor + 1) + ' / ' + frames.length;
     slider.max = String(frames.length - 1);
     slider.value = String(cursor);
     previous.disabled = cursor === 0;
     next.disabled = cursor === frames.length - 1;
+
+    // Double buffering: keep the previously visible frame in place until
+    // the following frame is fully loaded/decoded. This avoids the black
+    // flash produced by removing src and hiding the old <img> first.
+    ++frameLoadId;
+    const requestId = frameLoadId;
+    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+    const target = activeImage === image ? imageBuffer : image;
+    target.onload = null;
+    target.onerror = null;
+    target.hidden = true;
+    pendingUrl = URL.createObjectURL(record.image_blob);
+    const candidateUrl = pendingUrl;
+    const reveal = () => {
+      if (frameLoadId !== requestId || dialog.hidden) return;
+      target.hidden = false;
+      if (activeImage && activeImage !== target) activeImage.hidden = true;
+      activeImage = target;
+      const previousUrl = currentUrl;
+      currentUrl = candidateUrl;
+      pendingUrl = null;
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      empty.hidden = true;
+    };
+    target.onload = () => {
+      const decoded = typeof target.decode === 'function'
+        ? target.decode().catch(() => {}) : Promise.resolve();
+      Promise.resolve(decoded).then(reveal);
+    };
+    target.onerror = () => {
+      if (frameLoadId !== requestId) return;
+      empty.textContent = '画像を読み込めませんでした。';
+      empty.hidden = !activeImage;
+      URL.revokeObjectURL(candidateUrl);
+      pendingUrl = null;
+    };
+    target.src = candidateUrl;
+  }
+  function finishHandover() {
+    if (!handoverData || dialog.hidden) return;
+    stopPlayback();
+    handoverFinished.hidden = false;
+    handoverFinishNext.focus({ preventScroll: true });
+  }
+  function scheduleHandoverPlayback() {
+    if (!handoverData || dialog.hidden) return;
+    if (frames.length < 2) {
+      finalTimer = setTimeout(finishHandover, frames.length ? 1300 : 400);
+      return;
+    }
+    let steps = 0;
+    playback = setInterval(() => {
+      if (dialog.hidden) { stopPlayback(); return; }
+      if (cursor >= frames.length - 1) {
+        stopPlayback();
+        finalTimer = setTimeout(finishHandover, 1100);
+      } else {
+        showFrame(cursor + 1);
+      }
+      if (++steps > 50) finishHandover();
+    }, 950);
   }
   function closeTheater() {
-    if (dialog.hidden) return;
-    token += 1;  // discard an asynchronous read that may still be in flight
+    if (dialog.hidden || handoverData) return;
+    token += 1;
     stopPlayback();
+    if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     releaseImage();
     frames = [];
-    activeMode = null;
     dialog.hidden = true;
     document.body.style.overflow = originalOverflow;
     focusReturn?.focus?.({ preventScroll: true });
     focusReturn = null;
     void refreshGenerations();
   }
-  async function openTheater(modeId) {
+  async function openTheater(modeId, handover = null) {
     const mode = MODES[modeId];
     if (!mode) return;
     stopPlayback();
+    if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     frames = [];
     releaseImage();
-    activeMode = modeId;
+    handoverData = handover;
+    dialog.classList.toggle('is-handover', !!handover);
+    handoverFinished.hidden = true;
+    markers.hidden = true;
+    playedLabel.hidden = true;
+    stage.classList.remove('is-played');
     focusReturn = document.activeElement;
     originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -187,12 +298,22 @@
     empty.hidden = false;
     counter.textContent = '-- / --';
     enableControls(false);
-    closeButton.focus({ preventScroll: true });
+    if (!handover) closeButton.focus({ preventScroll: true });
     const requestToken = ++token;
     try {
       const result = await readMode(mode);
       if (requestToken !== token || dialog.hidden) return;
       frames = result.frames;
+      if (handover) {
+        // A compact closing recap: 4 earlier frames for context, plus all
+        // available frames of the visitor's up to five completed generations.
+        const from = Math.max(1, handover.start - 4);
+        frames = frames.filter(frame => {
+          const n = numberOf(frame.generation_id);
+          return n >= from && n <= handover.end;
+        });
+      }
+      renderMarkers();
       if (!frames.length) {
         meta.textContent = result.generation
           ? '現在 第' + numberOf(result.generation) + '世代'
@@ -200,23 +321,32 @@
         empty.textContent = result.generation
           ? '閲覧できる進化シアター画像はまだありません。'
           : '実験開始後、進化した蛾の履歴がここに表示されます。';
+        if (handover) scheduleHandoverPlayback();
         return;
       }
       enableControls(true);
-      // Start at the most recent stored snapshot, not a newly generated frame.
-      showFrame(frames.length - 1);
+      showFrame(handover ? 0 : frames.length - 1);
+      if (handover) scheduleHandoverPlayback();
     } catch (error) {
       if (requestToken !== token || dialog.hidden) return;
       meta.textContent = '読み込みに失敗しました';
-      empty.textContent = '保存された画像を確認できません。' +
-        ' データは変更していません。';
+      empty.textContent = '保存された画像を確認できません。データは変更していません。';
       console.error('閲覧専用進化シアター', error);
+      if (handover) scheduleHandoverPlayback();
     }
   }
-
   for (const button of document.querySelectorAll('[data-view-theater]')) {
     button.addEventListener('click', () => openTheater(button.dataset.viewTheater));
   }
+  handoverFinishNext.addEventListener('click', () => {
+    stopPlayback();
+    if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
+    try {
+      sessionStorage.removeItem(VISIT_KEY);
+      sessionStorage.removeItem(HANDOVER_KEY);
+    } catch (_) {}
+    location.assign(new URL('./', location.href).href);
+  });
   closeButton.addEventListener('click', closeTheater);
   previous.addEventListener('click', () => {
     stopPlayback();
@@ -269,5 +399,23 @@
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) void refreshGenerations();
   });
+  // A completed visitor's handover is authorized only by a one-use local
+  // session marker written AFTER the offspring were safely committed.
+  if (new URL(location.href).searchParams.get('handover') === '1') {
+    let handover = null;
+    try {
+      handover = JSON.parse(sessionStorage.getItem(HANDOVER_KEY) || 'null');
+      sessionStorage.removeItem(HANDOVER_KEY);
+    } catch (_) {}
+    if (handover && MODES[handover.mode]
+      && Number.isInteger(handover.start) && Number.isInteger(handover.end)
+      && handover.start > 0 && handover.end >= handover.start
+      && handover.end - handover.start <= 4) {
+      window.GitaiExhibitLanding?.showMenu?.();
+      void openTheater(handover.mode, handover);
+    } else {
+      window.GitaiExhibitLanding?.showSplash?.();
+    }
+  }
   void refreshGenerations();
 })();

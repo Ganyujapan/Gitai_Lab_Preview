@@ -4,8 +4,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#090d0c">
 <link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="landing.css"><link rel="stylesheet" href="theater.css"><link rel="stylesheet" href="admin.css">
 <title>ギタイラボ | 昆虫大学 2026</title></head><body>
-<main>
-<header><p class="eyebrow">KONCHU UNIVERSITY 2026 / OFFLINE EXHIBITION</p><h1>ギタイラボ</h1><p>キミの選択が、蛾の進化を変える。</p></header>
+<section id="exhibitSplash" class="exhibit-splash" aria-label="ギタイラボ トップページ">
+<div class="exhibit-splash-brand"><p class="exhibit-splash-eyebrow">進化シミュレーター</p><h1 class="exhibit-brand-logo">ギタイラボ</h1></div>
+<button id="exhibitSplashStart" class="exhibit-splash-start" type="button">START</button>
+<p class="exhibit-splash-caption">KONCHU UNIVERSITY 2026</p>
+</section>
+<main id="exhibitModeSelection">
+<header><p class="eyebrow">KONCHU UNIVERSITY 2026 / OFFLINE EXHIBITION</p><p class="exhibit-title-eyebrow">進化シミュレーター</p><h1 class="exhibit-brand-logo">ギタイラボ</h1><p>キミの選択が、蛾の進化を変える。</p></header>
 <div class="modes">
 <article class="mode" data-exhibit-mode="cryptic">
 <a class="mode-play" href="game.html?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1">
@@ -31,7 +36,8 @@
 <button id="exhibitTheaterClose" class="exhibit-theater-close" type="button" aria-label="進化シアターを閉じる">閉じる ×</button>
 </header>
 <p id="exhibitTheaterMeta" class="exhibit-theater-meta" aria-live="polite">世代を読み込み中…</p>
-<div class="exhibit-theater-stage"><img id="exhibitTheaterImage" alt="保存された世代の蛾60匹" hidden><p id="exhibitTheaterEmpty">保存された世代の画像を確認しています…</p></div>
+<div class="exhibit-theater-stage"><img id="exhibitTheaterImage" alt="保存された世代の蛾60匹" hidden><img id="exhibitTheaterImageBuffer" alt="" aria-hidden="true" hidden><p id="exhibitTheaterEmpty">保存された世代の画像を確認しています…</p><span id="exhibitTheaterPlayed" class="exhibit-theater-played" hidden>あなたのプレイ</span></div>
+<div id="exhibitTheaterMarkers" class="exhibit-theater-markers" aria-label="世代の進行" hidden></div>
 <div class="exhibit-theater-slider"><input id="exhibitTheaterSlider" type="range" min="0" max="0" value="0" step="1" aria-label="進化シアターの世代を選択"><span id="exhibitTheaterProgress">-- / --</span></div>
 <div class="exhibit-theater-controls">
 <button type="button" id="exhibitTheaterPrev">◀ 前へ</button>
@@ -39,6 +45,7 @@
 <button type="button" id="exhibitTheaterNext">次へ ▶</button>
 </div>
 <p class="exhibit-theater-footnote">閲覧専用：進化データは変更されません。</p>
+<div id="exhibitHandoverFinished" class="exhibit-handover-finished" hidden><p>進化シアター終了！</p><p>次の人へ変わってください。<br>待っている人がいない場合は続行しても大丈夫です。</p><button id="exhibitHandoverFinishNext" type="button">次へ →</button></div>
 </div></section>
 <button id="exhibitAdminOpen" type="button">管理者用</button>
 <section id="exhibitAdminPanel" hidden aria-label="管理者専用設定">

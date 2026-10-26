@@ -4,8 +4,10 @@
 #resetConfirmOverlay,#backToMenu,#resultBackToMenu,
 #soloHomeButton,#entertainmentPortal,#portalIntro,#portalMenu,
 #authorNewsTeaser{display:none!important}
-#exhibitHandover{position:fixed;z-index:30000;right:12px;bottom:max(12px,env(safe-area-inset-bottom));width:auto;max-width:calc(100vw - 24px);padding:12px 15px;border:2px solid #b4efc2;border-radius:8px;color:#f4fff3;background:#123e29;font:700 14px/1.4 system-ui,-apple-system,sans-serif;box-shadow:0 3px 13px #0009;touch-action:manipulation}
-#exhibitHandover[hidden]{display:none!important}
-#exhibitHandover:focus-visible{outline:3px solid white}
-#exhibitHandoverNotice{position:fixed;z-index:30000;bottom:70px;left:10px;right:10px;text-align:center;background:#153a2e;color:#fff4b2;border:1px solid #b8bd8d;padding:9px;border-radius:7px;font:700 13px system-ui;pointer-events:none}
-#exhibitHandoverNotice[hidden]{display:none!important}
+
+/* Only at the five-round result panel; no floating in-game handover UI. */
+#reviewOverlay #exhibitHandover{display:block;width:100%;min-height:52px;margin:12px 0 0;padding:12px;border:2px solid #aedfc0;border-radius:8px;color:#f2fff0;background:#1f4b37;font:700 clamp(14px,3.8vw,18px)/1.4 system-ui,-apple-system,sans-serif;touch-action:manipulation}
+#reviewOverlay #exhibitHandover[hidden]{display:none!important}
+#reviewOverlay #exhibitHandover:focus-visible{outline:3px solid white}
+#reviewOverlay #exhibitHandoverNotice{display:block;margin:12px 0 5px;padding:10px 12px;text-align:center;color:#fff2bc;border:1px solid #b8bd8d;border-radius:7px;background:#294233;font:700 clamp(13px,3.5vw,16px)/1.5 system-ui}
+#reviewOverlay #exhibitHandoverNotice[hidden]{display:none!important}
