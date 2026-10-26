@@ -79,6 +79,8 @@ jobs:
         run: node .github/scripts/verify-experiment-reset.cjs
       - name: Preserve generations when saved moth images are missing
         run: node .github/scripts/verify-generation-recovery.cjs
+      - name: Reject concurrent or partial generation commits
+        run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Prevent missing DNA from being rewritten by image inference
         run: node .github/scripts/verify-genome-integrity.cjs
       - name: Build and validate Pages artifact
