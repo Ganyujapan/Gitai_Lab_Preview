@@ -105,6 +105,32 @@ function build({ warning = false, saved = false, others = 0, failSave = false } 
   const records = Array.from({length: others}, (_, n) => makeRecord(n, 'db-other-' + n));
   if (saved) records.push(makeRecord(99, 'db-current'));
   const store = new Map([[KEY, JSON.stringify({ version: 1, records })]]);
+  let canonicalRecords = records.slice();
+  const registry = {
+    async ready(){return canonicalRecords.slice()},
+    async refresh(){return canonicalRecords.slice()},
+    snapshot(){return canonicalRecords.slice()},
+    subscribe(){return ()=>{}},
+    async mutate(op,record){
+      if(op==='add'){
+        const existing=canonicalRecords.find(x=>x.dbName===record.dbName);
+        if(existing)return existing;
+        if(canonicalRecords.length>=10)throw Error('セーブスロットが満杯です。');
+        canonicalRecords.push(record);return record;
+      }
+      if(op==='remove'){
+        const before=canonicalRecords.length;
+        canonicalRecords=canonicalRecords.filter(x=>!(x.id===record.id && x.dbName===record.dbName));
+        return before!==canonicalRecords.length;
+      }
+      if(op==='rename'){
+        const existing=canonicalRecords.find(x=>x.id===record.id && x.dbName===record.dbName);
+        if(!existing)throw Error('変更対象なし');
+        existing.name=record.name;return existing;
+      }
+      throw Error('unknown mutation');
+    }
+  };
   const localStorage = {
     getItem: key => store.has(key) ? store.get(key) : null,
     setItem: (key, value) => store.set(key, value),
@@ -178,6 +204,7 @@ function build({ warning = false, saved = false, others = 0, failSave = false } 
   const windowListeners = {};
   const window = {
     GitaiPagesPreview: engine,
+    GitaiExperimentRegistry: registry,
     confirm: () => true,
     addEventListener(type, fn) {
       (windowListeners[type] ||= []).push(fn);
@@ -192,7 +219,7 @@ function build({ warning = false, saved = false, others = 0, failSave = false } 
     elements, dialog, entries: dialog.querySelector('#gitaiExperimentEntries'),
     status: dialog.querySelector('#gitaiExperimentMessage'),
     navigated, deleted, databases,
-    getRecords: () => JSON.parse(localStorage.getItem(KEY)).records,
+    getRecords: () => canonicalRecords.slice(),
     introButtons: () => elements.startButton.after?.children || [],
     ready: () => {
       elements.startButton.disabled = false;
