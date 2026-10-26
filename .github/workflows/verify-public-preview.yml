@@ -71,6 +71,8 @@ jobs:
           for file in js/*.js; do node --check "$file"; done
       - name: Test safe experiment reset and save flows
         run: node .github/scripts/verify-experiment-reset.cjs
+      - name: Preserve generations when saved moth images are missing
+        run: node .github/scripts/verify-generation-recovery.cjs
       - name: Build and validate Pages artifact
         run: |
           set -euo pipefail

@@ -1477,7 +1477,13 @@
   async function ensureCurrentGeneration() {
     await ensureConfig();
     const stored = await idbGet(META_STORE, 'current_generation_id');
-    if (typeof stored === 'string' && /^gen\d{5}$/.test(stored)) {
+    const hasStoredGeneration = stored !== undefined && stored !== null;
+    if (hasStoredGeneration) {
+      // An invalid pointer is NOT an empty, never-started experiment.
+      // Do not reset an existing record as an implicit repair.
+      if (typeof stored !== 'string' || !/^gen\d{5}$/.test(stored)) {
+        throw new Error('保存された世代IDが不正です。元データは変更していません。バックアップを確認してください。');
+      }
       currentGenerationId = stored;
     }
 
@@ -1485,27 +1491,31 @@
       usesBrowserGeneratedFounder()
       && currentGenerationId === 'gen00001'
     ) {
-      await ensureFounderGeneration();
+      if (hasStoredGeneration) {
+        // Previously, founder initialization could silently regenerate a
+        // partially lost gen1. Only initialize founders for a NEW run.
+        const completeFounder = await loadGeneratedGeneration('gen00001');
+        if (!completeFounder) {
+          throw new Error('保存された第1世代の画像が不足しています。元データは変更していません。バックアップから復元してください。');
+        }
+      } else {
+        await ensureFounderGeneration();
+      }
       if (WARNING_EXPERIMENT) {
-        // Two separate 30-moth lineages reproduce for 20 generations
-        // without predation before the first playable generation.
+        // Preserve existing neutral headstart logic/seed for a new or
+        // interrupted pre-play generation. Do not re-run on saved gen21+.
         await ensureWarningNeutralHeadstart();
       }
     }
 
-    let loaded = await loadGeneratedGeneration(currentGenerationId);
+    const loaded = await loadGeneratedGeneration(currentGenerationId);
     if (!loaded) {
-      currentGenerationId = 'gen00001';
-      if (usesBrowserGeneratedFounder()) {
-        await ensureFounderGeneration();
-        if (WARNING_EXPERIMENT) await ensureWarningNeutralHeadstart();
-      }
-      await idbPut(META_STORE, 'current_generation_id', currentGenerationId);
-      loaded = await loadGeneratedGeneration(currentGenerationId);
-    }
-
-    if (!loaded) {
-      throw new Error('第1世代の生成に失敗しました');
+      // Never overwrite current_generation_id or regenerate ancestors
+      // when a persisted generation is missing one or more of its 60 PNGs.
+      throw new Error(
+        `保存された${currentGenerationId}の蛾画像が揃っていません。`
+        + ' 世代を初期化せず、元データを保持しました。バックアップを確認してください。'
+      );
     }
 
     // Evolution Theater snapshots are lightweight contact sheets.
