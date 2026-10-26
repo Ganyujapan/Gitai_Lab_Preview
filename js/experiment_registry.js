@@ -93,20 +93,23 @@
       const store = tx.objectStore(STORE);
       let output, value, issue;
       tx.oncomplete = () => {
-        if (value) setCache(value);
-        resolve(output);
+        try { if (value) setCache(value); resolve(output); }
+        catch (error) { reject(error); }
       };
       tx.onabort = () => reject(issue || tx.error || Error('セーブ一覧の操作が中断されました。'));
       tx.onerror = () => { /* abort rejects the entire transaction */ };
-      try { action(store,tx,(v,result) => {value=v;output=result}) }
-      catch (error) {issue=error;try{tx.abort()}catch(_){reject(error)}}
+      const fail = error => {
+        issue = error;
+        try { tx.abort(); } catch (_) { reject(error); }
+      };
+      try { action(store,tx,(v,result) => {value=v;output=result},fail) }
+      catch (error) { fail(error) }
     }));
   }
   async function initialize() {
     // Migration is a single serializable transaction. Two new tabs cannot
     // both overwrite each other's initial snapshot.
-    const legacy = readLegacy();
-    await startTransaction('readwrite',(store,tx,accept)=>{
+    await startTransaction('readwrite',(store,tx,accept,fail)=>{
       const req = store.get(KEY);
       req.onsuccess = () => {
         try {
@@ -118,13 +121,14 @@
             validateRecords(state.records);
             accept(state,state.records);
           } else {
+            const legacy = readLegacy(); // Only consult v1 on first migration.
             const created = {version:2,revision:0,records:legacy};
             store.put(created,KEY);
             accept(created,legacy);
           }
         } catch (error) {
           // Never create a blank registry over unrecognized old data.
-          tx.abort();
+          fail(error);
         }
       };
     });
@@ -137,21 +141,21 @@
   }
   async function refresh() {
     await ready();
-    return startTransaction('readonly',(store,tx,accept)=>{
+    return startTransaction('readonly',(store,tx,accept,fail)=>{
       const req=store.get(KEY);
       req.onsuccess=()=>{
         const state=req.result;
         if (!state || state.version!==2 || !Number.isSafeInteger(state.revision)) {
-          tx.abort();return;
+          fail(Error('保存記録の形式が不正です。'));return;
         }
         try {validateRecords(state.records);accept(state,state.records)}
-        catch (_) {tx.abort()}
+        catch (error) {fail(error)}
       };
     });
   }
   async function mutate(op,record) {
     await ready();
-    const result = await startTransaction('readwrite',(store,tx,accept)=>{
+    const result = await startTransaction('readwrite',(store,tx,accept,fail)=>{
       const req = store.get(KEY);
       req.onsuccess=()=>{
         let state = req.result;
@@ -186,7 +190,7 @@
         } catch(error) {
           // Abort prevents a partial or silently failed operation. The
           // request's handler is synchronous (no awaits inside transaction).
-          tx.abort();
+          fail(error);
         }
       };
     });
