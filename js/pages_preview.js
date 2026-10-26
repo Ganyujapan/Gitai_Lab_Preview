@@ -4739,17 +4739,39 @@
       ? [...payload.eaten_indices].sort((a, b) => a - b)
       : [];
 
-    if (generationId !== currentGenerationId) {
-      const previous = completedRuns.get(runId);
-      if (previous && previous.generation_id === generationId) {
-        return jsonResponse(200, {
-          ok: true,
-          next_generation_id: previous.next_generation_id,
-          entertainment_event: previous.entertainment_event || null,
-          replayed: true,
-          preview: true,
+    // A generated run ID is necessary for persistent idempotency across
+    // page reloads and concurrent browser tabs. The actual game supplies
+    // this through ensureRunId(); older incomplete submissions fail safe.
+    if (!runId || runId.length > 128) {
+      return jsonResponse(400, { error: 'invalid_run_id' });
+    }
+
+    async function replayCompleted(record) {
+      if (record.generation_id !== generationId) {
+        return jsonResponse(409, {
+          error: 'run_id_conflict',
+          client_generation_id: generationId,
         });
       }
+      const event = record.entertainment_event !== undefined
+        ? record.entertainment_event
+        : await entertainmentMutationEvent(generationId, record.next_generation_id);
+      return jsonResponse(200, {
+        ok: true,
+        next_generation_id: record.next_generation_id,
+        entertainment_event: event || null,
+        replayed: true,
+        preview: true,
+      });
+    }
+
+    // This exists in IndexedDB even after reload; completedRuns is only a
+    // quick in-memory cache. A previous tab's result can always be recovered.
+    const already = completedRuns.get(runId)
+      || await persistedCompletedRun(runId);
+    if (already) return replayCompleted(already);
+
+    if (generationId !== currentGenerationId) {
       return jsonResponse(409, {
         error: 'generation_mismatch',
         server_current_generation_id: currentGenerationId,
@@ -4781,7 +4803,24 @@
       });
     }
 
-    const nextId = await evolveGeneration(generationId, eaten);
+    let nextId;
+    try {
+      nextId = await evolveGeneration(generationId, eaten, runId);
+    } catch (error) {
+      if (error?.code === 'generation_mismatch'
+          || error?.code === 'run_already_completed') {
+        // Another tab's fully atomic transaction was committed first.
+        const winner = await persistedCompletedRun(runId);
+        if (winner) return replayCompleted(winner);
+        const latest = await idbGet(META_STORE, 'current_generation_id');
+        return jsonResponse(409, {
+          error: 'generation_mismatch',
+          server_current_generation_id: latest,
+          client_generation_id: generationId,
+        });
+      }
+      throw error; // QuotaExceeded/abort must not be mistaken for success.
+    }
     // Read-only diagnostic enrichment after evolution. Weather does not
     // participate in parent selection, breeding, or mutation RNG draws.
     if (['warning_color_fog_v1', 'warning_color_fog_v2'].includes(PREVIEW_RUN_ID)
