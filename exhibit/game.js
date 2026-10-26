@@ -130,7 +130,7 @@
       sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
         mode, start: firstGeneration, end: completed
       }));
-      const nextPage = new URL(home.href);
+      const nextPage = new URL('modes.html', home.href);
       nextPage.searchParams.set('handover', '1');
       location.assign(nextPage.href);
     } catch (error) {
