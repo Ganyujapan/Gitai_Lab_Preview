@@ -1,5 +1,5 @@
 /* Exhibition landing: read-only access to its two isolated evolution Runs.
-   Never open an IndexedDB transaction in readwrite mode, never initialize a
+   Never open a database writing transaction, never initialize a
    missing Run, and never start the simulator just to display theater frames. */
 (() => {
   'use strict';
