@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#090d0c">
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="landing.css"><link rel="stylesheet" href="theater.css"><link rel="stylesheet" href="admin.css">
+<title>モード選択 | ギタイラボ 昆虫大学 2026</title></head><body>
+<main id="exhibitModeSelection">
+<header><p class="eyebrow">KONCHU UNIVERSITY 2026 / OFFLINE EXHIBITION</p><p class="exhibit-title-eyebrow">進化シミュレーター</p><h1 class="exhibit-brand-logo">ギタイラボ</h1><p>キミの選択が、蛾の進化を変える。</p></header>
+<div class="modes">
+<article class="mode" data-exhibit-mode="cryptic">
+<a class="mode-play" href="game.html?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1">
+<span class="mode-index">01 / CRYPTIC</span><strong>隠れるギタイ</strong><span class="mode-subtitle">隠蔽擬態</span><span class="arrow">プレイする →</span></a>
+<div class="mode-theater-actions">
+<p class="mode-generation" id="exhibitGenerationCryptic" aria-live="polite">現在世代を確認中…</p>
+<button type="button" class="mode-theater-button" data-view-theater="cryptic" aria-haspopup="dialog">進化シアターを見る ▶</button>
+</div></article>
+<article class="mode" data-exhibit-mode="warning">
+<a class="mode-play" href="game.html?model=continuous_v1&amp;env=kusagi_001&amp;experiment=warning_color&amp;run=warning_color_fog_v2&amp;fog=1&amp;play=1&amp;tutorial=1">
+<span class="mode-index">02 / WARNING</span><strong>目立つギタイ</strong><span class="mode-subtitle">警告色の進化とベイツ型擬態</span><span class="arrow">プレイする →</span></a>
+<div class="mode-theater-actions">
+<p class="mode-generation" id="exhibitGenerationWarning" aria-live="polite">現在世代を確認中…</p>
+<button type="button" class="mode-theater-button" data-view-theater="warning" aria-haspopup="dialog">進化シアターを見る ▶</button>
+</div></article>
+</div>
+<p class="instructions">同じiPadで進化を引き継ぎます。1人5世代を目安に、次の人へ交代してください。待っている人がいなければ続けてプレイできます。</p>
+<section class="status" aria-live="polite"><p id="offlineStatus">オフライン準備を確認中…</p><p id="buildVersion"></p><p id="storageStatus"></p></section>
+<section id="exhibitTheaterDialog" class="exhibit-theater-overlay" role="dialog" aria-modal="true" aria-labelledby="exhibitTheaterTitle" hidden>
+<div class="exhibit-theater-panel">
+<header class="exhibit-theater-header">
+<div><span class="exhibit-theater-kicker">EVOLUTION THEATER / READ ONLY</span><h2 id="exhibitTheaterTitle">進化シアター</h2></div>
+<button id="exhibitTheaterClose" class="exhibit-theater-close" type="button" aria-label="進化シアターを閉じる">閉じる ×</button>
+</header>
+<p id="exhibitTheaterMeta" class="exhibit-theater-meta" aria-live="polite">世代を読み込み中…</p>
+<div class="exhibit-theater-stage"><img id="exhibitTheaterImage" alt="保存された世代の蛾60匹" hidden><img id="exhibitTheaterImageBuffer" alt="" aria-hidden="true" hidden><p id="exhibitTheaterEmpty">保存された世代の画像を確認しています…</p><span id="exhibitTheaterPlayed" class="exhibit-theater-played" hidden>あなたのプレイ</span></div>
+<div id="exhibitTheaterMarkers" class="exhibit-theater-markers" aria-label="世代の進行" hidden></div>
+<div class="exhibit-theater-slider"><input id="exhibitTheaterSlider" type="range" min="0" max="0" value="0" step="1" aria-label="進化シアターの世代を選択"><span id="exhibitTheaterProgress">-- / --</span></div>
+<div class="exhibit-theater-controls">
+<button type="button" id="exhibitTheaterPrev">◀ 前へ</button>
+<button type="button" id="exhibitTheaterPlay">再生</button>
+<button type="button" id="exhibitTheaterNext">次へ ▶</button>
+</div>
+<p class="exhibit-theater-footnote">閲覧専用：進化データは変更されません。</p>
+<div id="exhibitHandoverFinished" class="exhibit-handover-finished" hidden><p>進化シアター終了！</p><p>次の人へ変わってください。<br>待っている人がいない場合は続行しても大丈夫です。</p><button id="exhibitHandoverFinishNext" type="button">次へ →</button></div>
+</div></section>
+<button id="exhibitAdminOpen" type="button">管理者用</button>
+<section id="exhibitAdminPanel" hidden aria-label="管理者専用設定">
+<h2>展示管理</h2><p>バックアップはモードごとにJSONで保存します。復元時は同じモードを選択してください。</p>
+<label for="exhibitBackupMode">対象モード</label>
+<select id="exhibitBackupMode"><option value="cryptic">隠れるギタイ</option><option value="warning">目立つギタイ</option></select>
+<button type="button" id="exhibitBackupExport">JSONバックアップを書き出す</button>
+<button type="button" id="exhibitBackupRestore">JSONから復元する</button>
+<input type="file" id="exhibitBackupFile" accept=".json,application/json">
+<hr>
+<button type="button" id="exhibitUpdateCheck">最新版を確認（インターネット接続時）</button>
+<p id="exhibitUpdateStatus" role="status" aria-live="polite"></p>
+<button type="button" id="exhibitUpdateApply" hidden>ダウンロード済みの更新を適用</button>
+<p id="exhibitAdminMessage" role="status" aria-live="polite"></p>
+<button type="button" id="exhibitAdminClose">管理画面を閉じる・ロックする</button>
+</section>
+</main><script src="landing.js" defer></script><script src="theater.js" defer></script><script src="admin.js" defer></script></body></html>
