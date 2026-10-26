@@ -711,7 +711,11 @@
         + '>'
         + compactNumber(event.after, 0)
         + '('
-        + compactNumber(event.signed_jump_deg, 0)
+        + (Number.isFinite(event.signed_delta_deg)
+          ? compactNumber(event.signed_delta_deg, 0)
+          : Number.isFinite(event.signed_jump_deg)
+            ? compactNumber(event.signed_jump_deg, 0)
+            : 'unknown')
         + 'deg)';
     }
     if (type === 'base_value_major') {
