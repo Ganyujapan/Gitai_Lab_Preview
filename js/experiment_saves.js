@@ -390,18 +390,46 @@
     openModal();
   }
 
+  // Deletion requests do NOT stop after IndexedDB reports "blocked".
+  // The browser still holds the request open, and may complete deletion
+  // after a second tab closes. Do not reject early and leave a stale entry
+  // for a database that was actually deleted.
+  let pendingDeletion = false;
+  window.addEventListener('beforeunload', event => {
+    if (!pendingDeletion) return;
+    // Browsers may ignore this prompt; the main protection is keeping the
+    // request pending and updating the registry only after actual success.
+    event.preventDefault();
+    event.returnValue = '';
+  });
   async function deleteSavedRecord(record) {
     if (record.dbName === dbName) throw Error('現在開いている実験は削除できません。先に別の実験に切り替えてください。');
     if (!window.confirm('「' + record.name + '」の進化データと進化シアターを完全に削除しますか？\nこの操作は元に戻せません。')) return;
-    await new Promise((resolve, reject) => {
-      const request = indexedDB.deleteDatabase(record.dbName);
-      request.onsuccess = resolve;
-      request.onerror = () => reject(request.error);
-      request.onblocked = () => reject(Error('別のタブで開かれているため削除できません。'));
-    });
-    try { localStorage.removeItem('gitai-warning-life-v1:' + record.dbName); } catch (_) {}
-    writeRegistry(readRegistry().filter(x => x.id !== record.id));
-    await showRecords();
+    pendingDeletion = true;
+    try {
+      await new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(record.dbName);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error || Error('実験データを削除できませんでした。'));
+        request.onblocked = () => {
+          // "blocked" is only a notification, not a terminal failure.
+          // Remain busy/disable buttons until the request succeeds or fails.
+          message.textContent = '別のタブでこの実験が使用中です。'
+            + 'そのタブを閉じると削除が続行されます。'
+            + 'この画面は削除完了まで閉じないでください。';
+        };
+      });
+      // Only an ACTUAL successful IDB deletion may remove the registry entry.
+      // Also scope cleanup by ID AND database, so a stale panel cannot remove
+      // a different record that reused the same ID after another tab edited it.
+      try { localStorage.removeItem('gitai-warning-life-v1:' + record.dbName); } catch (_) {}
+      writeRegistry(readRegistry().filter(x =>
+        !(x.id === record.id && x.dbName === record.dbName)));
+      await showRecords();
+      message.textContent = '実験データを削除しました。';
+    } finally {
+      pendingDeletion = false;
+    }
   }
   async function renameSavedRecord(record) {
     const next = window.prompt('実験の名前を変更', record.name);

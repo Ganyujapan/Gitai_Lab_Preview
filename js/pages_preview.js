@@ -153,6 +153,31 @@
     });
   }
 
+  // An IndexedDB deletion request can stay pending in a second tab until
+  // this tab releases its connection. Do NOT close the connection silently
+  // during active play: show the player what must be done, preserving any
+  // uncommitted in-memory round until they choose to close this tab.
+  function showStorageConflictNotice(message) {
+    if (typeof document === 'undefined' || !document.body) {
+      console.warn(message);
+      return;
+    }
+    let notice = document.getElementById('gitaiStorageConflictNotice');
+    if (!notice) {
+      notice = document.createElement('aside');
+      notice.id = 'gitaiStorageConflictNotice';
+      notice.setAttribute('role', 'alert');
+      notice.style.cssText = 'position:fixed;z-index:2147483647;'
+        + 'top:env(safe-area-inset-top,0px);left:8px;right:8px;'
+        + 'padding:16px;background:#401f22;color:white;'
+        + 'border:2px solid #ffccab;border-radius:8px;'
+        + 'font:700 16px/1.6 sans-serif;text-align:center;';
+      document.body.appendChild(notice);
+    }
+    notice.textContent = message;
+    console.warn(message);
+  }
+
   function openDb() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
@@ -169,7 +194,20 @@
           db.createObjectStore(THEATER_STORE);
         }
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        const db = req.result;
+        db.onversionchange = () => {
+          // Another tab may request an upgrade or deletion. Do not close
+          // automatically mid-generation or give the deletion a false success.
+          // The waiting tab proceeds when this tab is closed by the player.
+          showStorageConflictNotice(
+            '別のタブからこの実験の更新・削除が要求されています。'
+            + 'プレイを中断し、このタブを閉じてください。'
+            + 'このタブを閉じるまで、別のタブの処理は待機します。'
+          );
+        };
+        resolve(db);
+      };
       req.onerror = () => reject(req.error || new Error('進化データベースを開けませんでした。'));
     }).catch(error => {
       // A transient open error (quota, blocked upgrade, private browsing)
@@ -1390,8 +1428,16 @@
     await new Promise((resolve, reject) => {
       const req = indexedDB.deleteDatabase(DB_NAME);
       req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error('別のタブで実験データが使用中です。タブを閉じてもう一度試してください。'));
+      req.onerror = () => reject(req.error || new Error('実験データの削除に失敗しました。'));
+      req.onblocked = () => {
+        // IDB deleteDatabase continues waiting even after onblocked.
+        // Never reject and then allow this deletion to complete unnoticed.
+        showStorageConflictNotice(
+          '別のタブで実験データが使用中のため、初期化を待機しています。'
+          + 'そのタブを閉じると初期化が続行されます。'
+          + 'この画面を閉じず、完了までお待ちください。'
+        );
+      };
     });
   }
 
