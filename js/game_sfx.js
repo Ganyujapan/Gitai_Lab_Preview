@@ -46,6 +46,8 @@
   let previousClockSec = 0;
   let pendingTouchSound = null;
   let pendingFastSound = null;
+  let lastPointer = null;
+  const TOUCH_SOUND_MAX_AGE_MS = 2500;
   // A new document gets a NEW AudioContext. In iOS, auto-start's synthetic
   // click after a generation reload does not grant playback activation.
   // Arm the fast audio graph from a *trusted* pointerup/touchend before
@@ -78,7 +80,9 @@
     return true;
   }
   function nativeOnNextGesture(kind, number) {
-    if (touchDevice) pendingTouchSound = { kind, number };
+    if (touchDevice) pendingTouchSound = {
+      kind, number, pointerId: lastPointer?.id ?? null, createdAt: Date.now()
+    };
     else playNative(kind, number);
   }
   function flushTouchSound(event) {
@@ -127,9 +131,19 @@
       }
       return;
     }
-    // Original native AAC fallback and non-iOS behavior remain unchanged.
-    activate();
+    // A cancelled/stale touch must never play during a later unrelated click.
+    // Native Safari AAC still starts inside its ORIGINAL trusted pointerup.
+    if (event?.type === 'click' || event?.isTrusted === false) return;
     const pending = pendingTouchSound;
+    if (pending && (document.hidden || Date.now() - pending.createdAt > TOUCH_SOUND_MAX_AGE_MS)) {
+      pendingTouchSound = null;
+      return;
+    }
+    if (pending?.pointerId != null && event?.type === 'pointerup'
+        && event.pointerId !== pending.pointerId) return;
+    if (pending?.pointerId != null && event?.type === 'touchend'
+        && typeof w.PointerEvent !== 'undefined') return;
+    activate();
     pendingTouchSound = null;
     if (pending) playNative(pending.kind, pending.number);
   }
@@ -323,7 +337,19 @@
     } catch (_) { /* Keep predation and progression independent of audio. */ }
   }
 
-  document.addEventListener('pointerdown', activate, { capture: true, passive: true });
+  document.addEventListener('pointerdown', event => {
+    lastPointer = event?.isTrusted === false ? null : {
+      id: event?.pointerId ?? null, createdAt: Date.now()
+    };
+    activate();
+  }, { capture: true, passive: true });
+  document.addEventListener('pointercancel', event => {
+    if (pendingTouchSound && (pendingTouchSound.pointerId == null
+        || pendingTouchSound.pointerId === event.pointerId)) pendingTouchSound = null;
+  }, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pendingTouchSound = null;
+  });
   document.addEventListener('pointerup', flushTouchSound, { capture: true, passive: true });
   document.addEventListener('touchend', flushTouchSound, { capture: true, passive: true });
   document.addEventListener('click', flushTouchSound, { capture: true });
