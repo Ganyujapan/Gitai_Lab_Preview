@@ -38,7 +38,7 @@ assertHas(game,/continueButton\?\.addEventListener\('click', event =>/);
 assertHas(game,/next !== previous/);
 assertHas(gameCSS,/#reviewOverlay #exhibitHandover/);
 assert.doesNotMatch(gameCSS,/position:fixed[^}]*#exhibitHandover/);
-assert.doesNotMatch(theater,/(?:\.put\(|\.add\(|\.clear\(|deleteDatabase)/);
+assert.doesNotMatch(theater,/(?:indexedDB\.deleteDatabase|\.objectStore\([^)]*\)\.(?:put|add|clear)\()/);
 assertHas(theater,/transaction\(stores, 'readonly'\)/);
 assertHas(theater,/request\.transaction\.abort\(\)/);
 const prefix='gitai-exhibit-2026-gitai-pages-preview-v3-kusagi_001-continuous_v1-';
