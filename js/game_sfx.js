@@ -221,7 +221,7 @@
   function releaseNative(item) {
     // A voice can be interrupted, reused, or rejected before 'ended' fires.
     // Detach its own handler, never one belonging to a newer playback.
-    if (item.onEnded) item.player.removeEventListener('ended', item.onEnded);
+    if (item.onEnded) item.player.removeEventListener?.('ended', item.onEnded);
     const index = liveNative.indexOf(item);
     if (index !== -1) liveNative.splice(index, 1);
   }
