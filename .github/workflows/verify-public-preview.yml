@@ -81,6 +81,8 @@ jobs:
         run: node .github/scripts/verify-generation-recovery.cjs
       - name: Reject concurrent or partial generation commits
         run: node .github/scripts/verify-atomic-generation-commit.cjs
+      - name: Reject aborted evolution and specimen transactions without hanging
+        run: node .github/scripts/verify-indexeddb-aborts.cjs
       - name: Prevent missing DNA from being rewritten by image inference
         run: node .github/scripts/verify-genome-integrity.cjs
       - name: Build and validate Pages artifact
