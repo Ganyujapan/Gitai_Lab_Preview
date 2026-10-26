@@ -26,7 +26,23 @@
   function currentRecord() {
     return readRegistry().find(item => item.dbName === dbName) || null;
   }
+  // These URL-only gameplay overrides are not part of the evolution genome
+  // or storage namespace. Persist valid effective overrides with each record
+  // so resumed experiments do not silently change their play conditions.
+  function effectivePlayOverrides(config) {
+    const rawSeconds = config?.seconds;
+    const seconds = rawSeconds == null || String(rawSeconds).trim() === ''
+      ? NaN : Number(rawSeconds);
+    if (Number.isFinite(seconds) && seconds >= 0.5 && seconds <= 10) {
+      return {seconds: String(seconds), fast: ''};
+    }
+    return {seconds: '', fast: config?.fast === '1' ? '1' : ''};
+  }
   function configFromPage() {
+    const overrides = effectivePlayOverrides({
+      seconds: params.get('seconds'), fast: params.get('fast')
+    });
+    const life = params.get('life');
     return {
       env: context.environmentId,
       model: context.evolutionModelId,
@@ -40,13 +56,25 @@
       fog: warning && (params.get('fog') === '1'
         || params.get('run') === 'warning_color_fog_v1'
         || params.get('run') === 'warning_color_fog_v2') ? '1' : '',
-      slot: params.get('slot') || ''
+      slot: params.get('slot') || '',
+      ...overrides,
+      // The life override is meaningful only in the warning fog-v2 run.
+      life: warning && params.get('run') === 'warning_color_fog_v2'
+        && (life === '0' || life === '1') ? life : ''
     };
   }
   function urlFor(config) {
     const u = new URL(location.pathname, location.origin);
     for (const name of ['env', 'model', 'run', 'experiment', 'fog', 'slot']) {
       if (config[name]) u.searchParams.set(name, config[name]);
+    }
+    const overrides = effectivePlayOverrides(config);
+    if (overrides.seconds) u.searchParams.set('seconds', overrides.seconds);
+    else if (overrides.fast) u.searchParams.set('fast', overrides.fast);
+    if (config.experiment === 'warning_color'
+        && config.run === 'warning_color_fog_v2'
+        && (config.life === '0' || config.life === '1')) {
+      u.searchParams.set('life', config.life);
     }
     u.searchParams.set('play', '1');
     return u.toString();
