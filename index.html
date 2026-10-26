@@ -2602,14 +2602,21 @@
       enabled ? 'アイボリー背景に切り替える' : '生息環境の背景に切り替える');
   }
 
+  // An obsolete IndexedDB request must never append cards or retain blob URLs
+  // after a newer open or close of the specimen overlay.
+  let specimenDisplayRequest = 0;
   async function showSpecimenBox() {
+    const requestId = ++specimenDisplayRequest;
     releaseSpecimenObjectUrls();
     specimenGrid.innerHTML = '';
     setSpecimenHabitatView(false);
     specimenBoxOverlay.classList.add('visible');
 
     try {
-      const records = (await specimenAll()).sort(
+      const records = await specimenAll();
+      if (requestId !== specimenDisplayRequest
+          || !specimenBoxOverlay.classList.contains('visible')) return;
+      records.sort(
         (a, b) => String(b.saved_at || '').localeCompare(String(a.saved_at || ''))
       );
 
@@ -2673,6 +2680,9 @@
         specimenGrid.appendChild(card);
       }
     } catch (error) {
+      if (requestId !== specimenDisplayRequest
+          || !specimenBoxOverlay.classList.contains('visible')) return;
+      releaseSpecimenObjectUrls();
       specimenGrid.innerHTML = '';
       const empty = document.createElement('div');
       empty.className = 'specimen-empty';
@@ -5710,8 +5720,10 @@
   });
 
   specimenBoxCloseButton.addEventListener('click', () => {
+    specimenDisplayRequest += 1;
     specimenBoxOverlay.classList.remove('visible');
     releaseSpecimenObjectUrls();
+    specimenGrid.innerHTML = '';
   });
 
   specimenBackgroundToggle.addEventListener('click', () => {
