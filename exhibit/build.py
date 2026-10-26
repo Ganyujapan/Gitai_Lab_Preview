@@ -126,8 +126,8 @@ def main() -> None:
         ), encoding="utf-8"
     )
     # The exhibition bundles only the currently supported public simulator.
-    for name in ("index.html", "landing.js", "landing.css", "manifest.webmanifest",
-                 "game.js", "game.css", "admin.js", "admin.css"):
+    for name in ("index.html", "landing.js", "landing.css", "theater.js", "theater.css",
+                 "manifest.webmanifest", "game.js", "game.css", "admin.js", "admin.css"):
         shutil.copy2(root / name, exhibit / name)
     worker = (root / "sw.template.js").read_text(encoding="utf-8")
     (exhibit / "sw.js").write_text(
@@ -155,6 +155,8 @@ def main() -> None:
                 clip = f"audio/sfx/{fmt}/{kind}_{i:02d}.{ext}"
                 assert clip in runtime_files, clip
     assert "js/game_sfx.js" in runtime_files
+    assert "theater.js" in runtime_files and "theater.css" in runtime_files
+    assert "exhibitTheaterDialog" in (exhibit / "index.html").read_text(encoding="utf-8")
     print("Exhibition PWA:", len(runtime_files), "offline files; build", build)
 
 if __name__ == "__main__":
