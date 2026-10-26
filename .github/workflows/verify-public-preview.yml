@@ -91,6 +91,8 @@ jobs:
           for file in js/*.js; do node --check "$file"; done
       - name: Test safe experiment reset and save flows
         run: node .github/scripts/verify-experiment-reset.cjs
+      - name: Verify saved experiments preserve effective gameplay URL overrides
+        run: node .github/scripts/verify-experiment-resume-options.cjs
       - name: Verify atomic experiment registry migration and two-tab save safety
         run: node .github/scripts/verify-experiment-registry.cjs
       - name: Verify atomic and retryable config initialization for entertainment and exhibition
