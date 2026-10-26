@@ -208,9 +208,118 @@
     return current;
   }
 
+  // Existing export encoding and IndexedDB schemas are unchanged.
+  // Keep a conservative limit before JSON decode and BEFORE any destructive
+  // restore transaction. A checksum detects accidental damage, not authorship.
+  const MAX_BACKUP_BYTES = 150 * 1024 * 1024;
+  const MAX_BACKUP_ENTRIES = 20000;
+  const MAX_BACKUP_NODES = 350000;
+  const MAX_MOTH_PNG_BYTES = 2 * 1024 * 1024;
+  const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+
+  function validateTreeShape(root) {
+    let visited = 0;
+    const pending = [[root, 0]];
+    while (pending.length) {
+      const [value, depth] = pending.pop();
+      if (++visited > MAX_BACKUP_NODES || depth > 36) {
+        throw Error('バックアップの構造が大きすぎるか、入れ子が深すぎます。');
+      }
+      if (value && typeof value === 'object') {
+        const children = Object.values(value);
+        if (visited + children.length > MAX_BACKUP_NODES) {
+          throw Error('バックアップの項目数が上限を超えています。');
+        }
+        for (const item of children) pending.push([item, depth + 1]);
+      }
+    }
+  }
+
+  function checkGenome(genome, index, selected) {
+    if (!genome || typeof genome !== 'object' || Array.isArray(genome)
+        || Number(genome.schema_version) !== 1) {
+      throw Error('現在世代の遺伝情報が不足、または未対応の形式です（' + index + '番）。');
+    }
+    for (const key of ['baseHue', 'baseSaturation', 'baseValue',
+                       'patternContrast', 'textureStrength', 'textureSeed']) {
+      if (typeof genome[key] !== 'number' || !Number.isFinite(genome[key])) {
+        throw Error('遺伝情報の数値が不正です（' + index + '番・' + key + '）。');
+      }
+    }
+    if (!genome.modules || typeof genome.modules !== 'object'
+        || Array.isArray(genome.modules)
+        || Object.keys(genome.modules).length < 1
+        || Object.keys(genome.modules).length > 64) {
+      throw Error('遺伝情報の模様遺伝子が不足しています（' + index + '番）。');
+    }
+    // A visual PNG cannot recover the recessive alleles. Never invent them
+    // while restoring a backup or silently downgrade genotype schema.
+    for (const module of Object.values(genome.modules)) {
+      if (!module || typeof module !== 'object' || Array.isArray(module)
+          || !Array.isArray(module.alleles) || module.alleles.length !== 2
+          || module.alleles.some(value => value !== 0 && value !== 1)) {
+        throw Error('遺伝情報の対立遺伝子が不正です（' + index + '番）。');
+      }
+    }
+    const expected = index <= 30 ? 'poison' : 'harmless';
+    if (selected === 'warning' && genome.lineage !== expected) {
+      throw Error('毒蛾と無毒蛾の系統情報が一致しません（' + index + '番）。');
+    }
+    const pending = [genome], seen = new Set();
+    let nodes = 0;
+    while (pending.length) {
+      const value = pending.pop();
+      if (value && typeof value === 'object') {
+        if (seen.has(value)) continue;
+        seen.add(value);
+        if (++nodes > 5000) throw Error('遺伝情報の構造が大きすぎます。');
+        for (const child of Object.values(value)) pending.push(child);
+      } else if (typeof value === 'number' && !Number.isFinite(value)) {
+        throw Error('遺伝情報に不正な数値があります（' + index + '番）。');
+      }
+    }
+  }
+
+  async function checkMothPng(blob, index) {
+    if (!(blob instanceof Blob) || blob.size < 24 || blob.size > MAX_MOTH_PNG_BYTES
+        || (blob.type && blob.type !== 'image/png')) {
+      throw Error('現在世代の蛾画像の形式・容量が不正です（' + index + '番）。');
+    }
+    const header = new Uint8Array(await blob.slice(0, 24).arrayBuffer());
+    const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+    if (!PNG_SIGNATURE.every((value, i) => header[i] === value)
+        || view.getUint32(16) !== 128 || view.getUint32(20) !== 128) {
+      throw Error('蛾画像のPNGヘッダーまたは寸法が不正です（' + index + '番）。');
+    }
+    // Header bytes alone aren't enough: a truncated PNG also has an IHDR.
+    let width = 0, height = 0;
+    if (typeof createImageBitmap === 'function') {
+      const bitmap = await createImageBitmap(blob).catch(() => {
+        throw Error('蛾画像をデコードできません（' + index + '番）。');
+      });
+      try { width = bitmap.width; height = bitmap.height; }
+      finally { bitmap.close?.(); }
+    } else {
+      const url = URL.createObjectURL(blob);
+      try {
+        const dimensions = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve([img.naturalWidth, img.naturalHeight]);
+          img.onerror = () => reject(Error('蛾画像をデコードできません（' + index + '番）。'));
+          img.src = url;
+        });
+        [width, height] = dimensions;
+      } finally { URL.revokeObjectURL(url); }
+    }
+    if (width !== 128 || height !== 128) {
+      throw Error('蛾画像のデコード後の寸法が不正です（' + index + '番）。');
+    }
+  }
+
   async function validateBackup(raw, selected) {
-    if (raw.length > 150 * 1024 * 1024) throw Error('JSONファイルが大きすぎます。');
+    if (raw.length > MAX_BACKUP_BYTES) throw Error('JSONファイルが大きすぎます。');
     const doc = JSON.parse(raw);
+    validateTreeShape(doc);
     const body = doc.payload;
     if (!body || body.schema !== BACKUP_SCHEMA || !MODES[selected] ||
         body.mode !== selected || body.database !== MODES[selected].db ||
@@ -220,8 +329,13 @@
     if (await digest(JSON.stringify(body)) !== doc.checksum) {
       throw Error('バックアップの整合性検証に失敗しました。');
     }
+    let totalEntries = 0;
     for (const store of STORES) {
       if (!Array.isArray(body.stores?.[store])) throw Error('必須の保存データが不足しています。');
+      totalEntries += body.stores[store].length;
+    }
+    if (totalEntries > MAX_BACKUP_ENTRIES) {
+      throw Error('バックアップの保存項目が多すぎます。');
     }
     const current = body.stores.meta.find(item => item.key === 'current_generation_id')?.value;
     if (!/^gen\d{5}$/.test(String(current)) || current !== body.currentGeneration) {
@@ -230,7 +344,7 @@
     const prepared = {};
     for (const store of STORES) {
       prepared[store] = body.stores[store].map(entry => {
-        if (typeof entry.key !== 'string' && typeof entry.key !== 'number') {
+        if (!entry || (typeof entry.key !== 'string' && typeof entry.key !== 'number')) {
           throw Error('無効なデータキーです。');
         }
         return {key: entry.key, value: decode(entry.value)};
@@ -239,11 +353,23 @@
         throw Error('キーの重複を検出しました。');
       }
     }
-    // Only gen00001 can rely on bundled founder art. Every later playable
-    // generation needs a complete set of sixty persisted moth images.
-    if (current !== 'gen00001') {
-      const count = prepared.images.filter(item => String(item.key).startsWith(current + ':')).length;
-      if (count !== 60) throw Error('現在世代の蛾画像が60枚揃っていません。');
+    const images = new Map(prepared.images.map(item => [item.key, item.value]));
+    const genomes = new Map(prepared.meta.map(item => [item.key, item.value]));
+    // Validate EXACT keys 01..60, not a count of arbitrary prefix matches.
+    // Gen1 is also checked: under the current engine missing stored PNGs
+    // block continuation rather than silently resetting the experiment.
+    for (let index = 1; index <= 60; index++) {
+      const id = String(index).padStart(2, '0');
+      const imageKey = current + ':' + id;
+      const genomeKey = 'genome:' + current + ':' + id;
+      if (!images.has(imageKey)) {
+        throw Error('現在世代の蛾画像が不足しています（' + index + '番）。');
+      }
+      if (!genomes.has(genomeKey)) {
+        throw Error('現在世代の遺伝情報が不足しています（' + index + '番）。');
+      }
+      checkGenome(genomes.get(genomeKey), index, selected);
+      await checkMothPng(images.get(imageKey), index);
     }
     return {body, prepared};
   }
