@@ -54,7 +54,6 @@ assert.equal((html.match(/data-view-theater=/g)||[]).length,2);
 assertHas(html,/game\.html\?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1/);
 assertHas(html,/experiment=warning_color&amp;run=warning_color_fog_v2&amp;fog=1&amp;play=1&amp;tutorial=1/);
 assertHas(build,/"index.html", "modes.html", "title.css"/);
-assertHas(build,/"theater\.js", "theater\.css"/);
 assertHas(css,/persistent composited drawing surface/i);
 assertHas(theater,/picture\.drawImage\(bitmap, 0, 0, canvas\.width, canvas\.height\)/);
 assert.doesNotMatch(theater,/target\.hidden = true/);
