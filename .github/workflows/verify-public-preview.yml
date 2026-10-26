@@ -83,6 +83,8 @@ jobs:
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Reject aborted evolution and specimen transactions without hanging
         run: node .github/scripts/verify-indexeddb-aborts.cjs
+      - name: Verify blocked experiment deletions settle only after actual result
+        run: node .github/scripts/verify-blocked-experiment-deletion.cjs
       - name: Prevent missing DNA from being rewritten by image inference
         run: node .github/scripts/verify-genome-integrity.cjs
       - name: Build and validate Pages artifact
