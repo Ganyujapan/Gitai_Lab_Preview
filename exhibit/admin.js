@@ -86,21 +86,33 @@
       };
     });
   }
-  function readStore(db, name) {
+  function snapshotStores(db) {
+    // Read all stores in ONE readonly transaction. A generation commit or
+    // restore transaction can run before or after this snapshot, not between
+    // the images, genomes and current-generation pointer being collected.
+    // Do not await blob encoding inside the IDB transaction: Safari can
+    // auto-commit an inactive transaction between asynchronous turns.
     return new Promise((resolve, reject) => {
-      const entries = [];
-      const tx = db.transaction(name, 'readonly');
-      const request = tx.objectStore(name).openCursor();
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (cursor) {
-          entries.push({key: cursor.key, value: cursor.value});
-          cursor.continue();
+      const stores = Object.fromEntries(STORES.map(name => [name, []]));
+      const tx = db.transaction(STORES, 'readonly');
+      tx.oncomplete = () => resolve(stores);
+      tx.onerror = () => reject(tx.error || Error('バックアップの読込みに失敗しました。'));
+      tx.onabort = () => reject(tx.error || Error('バックアップの読込みが中断されました。'));
+      try {
+        for (const store of STORES) {
+          const output = stores[store];
+          const request = tx.objectStore(store).openCursor();
+          request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor) return;
+            output.push({key: cursor.key, value: cursor.value});
+            cursor.continue();
+          };
         }
-      };
-      tx.oncomplete = () => resolve(entries);
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
+      } catch (error) {
+        try { tx.abort(); } catch (_) {}
+        reject(error);
+      }
     });
   }
   function encode64(bytes) {
@@ -169,16 +181,18 @@
     const mode = MODES[modeId];
     if (!mode) throw Error('不明なモードです。');
     const db = await openDb(mode.db);
-    const stores = {};
+    let snapshot;
     try {
-      for (const store of STORES) {
-        const entries = await readStore(db, store);
-        stores[store] = [];
-        for (const item of entries) {
-          stores[store].push({key: item.key, value: await encode(item.value)});
-        }
-      }
+      snapshot = await snapshotStores(db);
     } finally { db.close(); }
+    // Encode only AFTER the complete, transactionally consistent snapshot.
+    const stores = {};
+    for (const store of STORES) {
+      stores[store] = [];
+      for (const item of snapshot[store]) {
+        stores[store].push({key: item.key, value: await encode(item.value)});
+      }
+    }
     const current = stores.meta.find(item => item.key === 'current_generation_id')?.value;
     if (!/^gen\d{5}$/.test(String(current))) {
       throw Error('このモードには保存済みの進化データがまだありません。');
