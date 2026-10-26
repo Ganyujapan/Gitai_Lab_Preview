@@ -87,6 +87,8 @@ jobs:
         run: node .github/scripts/verify-config-initialization.cjs
       - name: Preserve generations when saved moth images are missing
         run: node .github/scripts/verify-generation-recovery.cjs
+      - name: Verify compact diagnostic log hue mutation angles
+        run: node .github/scripts/verify-diagnostic-hue-events.cjs
       - name: Reject concurrent or partial generation commits
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Reject aborted evolution and specimen transactions without hanging
