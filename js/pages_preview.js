@@ -170,7 +170,12 @@
         }
       };
       req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onerror = () => reject(req.error || new Error('進化データベースを開けませんでした。'));
+    }).catch(error => {
+      // A transient open error (quota, blocked upgrade, private browsing)
+      // must not poison every later save/read until the page is reloaded.
+      dbPromise = null;
+      throw error;
     });
     return dbPromise;
   }
@@ -179,9 +184,12 @@
     const db = await openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readonly');
+      let value;
       const req = tx.objectStore(storeName).get(key);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onsuccess = () => { value = req.result; };
+      tx.oncomplete = () => resolve(value);
+      tx.onerror = () => reject(tx.error || req.error || new Error('読み込みに失敗しました。'));
+      tx.onabort = () => reject(tx.error || new Error('読み込みを中断しました。'));
     });
   }
 
@@ -190,8 +198,10 @@
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       tx.objectStore(storeName).put(value, key);
+      // Resolve only on transaction commit, never on an individual put().
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error || new Error('保存に失敗しました。'));
+      tx.onabort = () => reject(tx.error || new Error('保存が中断されました。元のデータを保持しました。'));
     });
   }
 
@@ -201,7 +211,8 @@
       const tx = db.transaction(storeName, 'readwrite');
       tx.objectStore(storeName).delete(key);
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error || new Error('削除に失敗しました。'));
+      tx.onabort = () => reject(tx.error || new Error('削除が中断されました。'));
     });
   }
 
@@ -311,17 +322,16 @@
       const req = store.openCursor();
       req.onsuccess = () => {
         const cursor = req.result;
-        if (!cursor) {
-          resolve(out);
-          return;
-        }
+        if (!cursor) return;
         const key = String(cursor.key);
         if (key.startsWith(prefix)) {
           out.push({ key, value: cursor.value });
         }
         cursor.continue();
       };
-      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => resolve(out);
+      tx.onerror = () => reject(tx.error || req.error || new Error('一覧の読み込みに失敗しました。'));
+      tx.onabort = () => reject(tx.error || new Error('一覧の読み込みを中断しました。'));
     });
   }
 
