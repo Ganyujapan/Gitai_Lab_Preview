@@ -4254,7 +4254,9 @@
     // Once one caller has replaced its blob URL, reuse that replacement.
     if (!window.GitaiTheaterScale.needsRebuild(frame)) return true;
     if (
-      !result || result.render_version !== window.GitaiTheaterScale.VERSION
+      !result || window.GitaiTheaterScale.needsRebuild({
+        ...frame, render_version: result.render_version
+      })
       || !(result.image_blob instanceof Blob)
       || !state.theaterFrames.includes(frame)
     ) return false;
