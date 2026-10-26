@@ -15,7 +15,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    # Run the EXACT same full public + offline exhibition tests as PRs.
+    # Permissions are kept read-only; deploying requires this job to pass.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/verify-public-preview.yml
   deploy:
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
