@@ -218,6 +218,14 @@
     }
   }
 
+  function releaseNative(item) {
+    // A voice can be interrupted, reused, or rejected before 'ended' fires.
+    // Detach its own handler, never one belonging to a newer playback.
+    if (item.onEnded) item.player.removeEventListener('ended', item.onEnded);
+    const index = liveNative.indexOf(item);
+    if (index !== -1) liveNative.splice(index, 1);
+  }
+
   function stopKind(kind) {
     for (const item of [...live]) {
       if (item.kind !== kind) continue;
@@ -227,9 +235,8 @@
     }
     for (const item of [...liveNative]) {
       if (item.kind !== kind) continue;
+      releaseNative(item);
       try { item.player.pause(); } catch (_) {}
-      const i = liveNative.indexOf(item);
-      if (i !== -1) liveNative.splice(i, 1);
     }
   }
 
@@ -264,22 +271,25 @@
       const entry = ensureNative(kind, number);
       const player = entry.list[entry.next];
       entry.next = (entry.next + 1) % entry.list.length;
-      const already = liveNative.findIndex(item => item.player === player);
-      if (already !== -1) liveNative.splice(already, 1);
+      const previous = liveNative.find(item => item.player === player);
+      if (previous) releaseNative(previous);
       if (liveNative.length >= MAX_VOICES) {
-        const oldest = liveNative.shift();
+        const oldest = liveNative[0];
+        releaseNative(oldest);
         try { oldest.player.pause(); } catch (_) {}
       }
       try { player.pause(); player.currentTime = 0; } catch (_) {}
-      const item = { player, kind };
+      const item = { player, kind, onEnded: null };
+      const done = () => releaseNative(item);
+      item.onEnded = done;
       liveNative.push(item);
-      const done = () => {
-        const i = liveNative.indexOf(item);
-        if (i !== -1) liveNative.splice(i, 1);
-      };
       player.addEventListener('ended', done, { once: true });
-      const attempt = player.play(); // Directly inside the caller's user gesture.
-      if (attempt && typeof attempt.catch === 'function') attempt.catch(done);
+      try {
+        const attempt = player.play(); // Directly inside the caller's user gesture.
+        if (attempt && typeof attempt.catch === 'function') attempt.catch(done);
+      } catch (_) {
+        releaseNative(item);
+      }
     } catch (_) { /* Sound must never interrupt gameplay. */ }
   }
 
