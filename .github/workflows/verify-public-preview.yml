@@ -62,6 +62,8 @@ jobs:
         run: node .github/scripts/verify-tutorial.cjs
       - name: Check recorded SFX content and playback logic
         run: node .github/scripts/verify-sfx.cjs
+      - name: Verify native audio ended-listener cleanup and voice cap
+        run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
       - name: Verify exhibition generation counters and read-only theater
         run: node .github/scripts/verify-exhibit-landing-theater.cjs
       - name: Verify theater snapshot version upgrades per evolution mode
