@@ -1,65 +1,120 @@
 <!doctype html>
 <html lang="ja"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#090d0c">
-<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="landing.css"><link rel="stylesheet" href="theater.css"><link rel="stylesheet" href="admin.css">
-<title>ギタイラボ | 昆虫大学 2026</title></head><body>
-<section id="exhibitSplash" class="exhibit-splash" aria-label="ギタイラボ トップページ">
-<div class="exhibit-splash-brand"><p class="exhibit-splash-eyebrow">進化シミュレーター</p><h1 class="exhibit-brand-logo">ギタイラボ</h1></div>
-<button id="exhibitSplashStart" class="exhibit-splash-start" type="button">START</button>
-<p class="exhibit-splash-caption">KONCHU UNIVERSITY 2026</p>
-</section>
-<main id="exhibitModeSelection">
-<header><p class="eyebrow">KONCHU UNIVERSITY 2026 / OFFLINE EXHIBITION</p><p class="exhibit-title-eyebrow">進化シミュレーター</p><h1 class="exhibit-brand-logo">ギタイラボ</h1><p>キミの選択が、蛾の進化を変える。</p></header>
-<div class="modes">
-<article class="mode" data-exhibit-mode="cryptic">
-<a class="mode-play" href="game.html?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1">
-<span class="mode-index">01 / CRYPTIC</span><strong>隠れるギタイ</strong><span class="mode-subtitle">隠蔽擬態</span><span class="arrow">プレイする →</span></a>
-<div class="mode-theater-actions">
-<p class="mode-generation" id="exhibitGenerationCryptic" aria-live="polite">現在世代を確認中…</p>
-<button type="button" class="mode-theater-button" data-view-theater="cryptic" aria-haspopup="dialog">進化シアターを見る ▶</button>
-</div></article>
-<article class="mode" data-exhibit-mode="warning">
-<a class="mode-play" href="game.html?model=continuous_v1&amp;env=kusagi_001&amp;experiment=warning_color&amp;run=warning_color_fog_v2&amp;fog=1&amp;play=1&amp;tutorial=1">
-<span class="mode-index">02 / WARNING</span><strong>目立つギタイ</strong><span class="mode-subtitle">警告色の進化とベイツ型擬態</span><span class="arrow">プレイする →</span></a>
-<div class="mode-theater-actions">
-<p class="mode-generation" id="exhibitGenerationWarning" aria-live="polite">現在世代を確認中…</p>
-<button type="button" class="mode-theater-button" data-view-theater="warning" aria-haspopup="dialog">進化シアターを見る ▶</button>
-</div></article>
-</div>
-<p class="instructions">同じiPadで進化を引き継ぎます。1人5世代を目安に、次の人へ交代してください。待っている人がいなければ続けてプレイできます。</p>
-<section class="status" aria-live="polite"><p id="offlineStatus">オフライン準備を確認中…</p><p id="buildVersion"></p><p id="storageStatus"></p></section>
-<section id="exhibitTheaterDialog" class="exhibit-theater-overlay" role="dialog" aria-modal="true" aria-labelledby="exhibitTheaterTitle" hidden>
-<div class="exhibit-theater-panel">
-<header class="exhibit-theater-header">
-<div><span class="exhibit-theater-kicker">EVOLUTION THEATER / READ ONLY</span><h2 id="exhibitTheaterTitle">進化シアター</h2></div>
-<button id="exhibitTheaterClose" class="exhibit-theater-close" type="button" aria-label="進化シアターを閉じる">閉じる ×</button>
-</header>
-<p id="exhibitTheaterMeta" class="exhibit-theater-meta" aria-live="polite">世代を読み込み中…</p>
-<div class="exhibit-theater-stage"><img id="exhibitTheaterImage" alt="保存された世代の蛾60匹" hidden><img id="exhibitTheaterImageBuffer" alt="" aria-hidden="true" hidden><p id="exhibitTheaterEmpty">保存された世代の画像を確認しています…</p><span id="exhibitTheaterPlayed" class="exhibit-theater-played" hidden>あなたのプレイ</span></div>
-<div id="exhibitTheaterMarkers" class="exhibit-theater-markers" aria-label="世代の進行" hidden></div>
-<div class="exhibit-theater-slider"><input id="exhibitTheaterSlider" type="range" min="0" max="0" value="0" step="1" aria-label="進化シアターの世代を選択"><span id="exhibitTheaterProgress">-- / --</span></div>
-<div class="exhibit-theater-controls">
-<button type="button" id="exhibitTheaterPrev">◀ 前へ</button>
-<button type="button" id="exhibitTheaterPlay">再生</button>
-<button type="button" id="exhibitTheaterNext">次へ ▶</button>
-</div>
-<p class="exhibit-theater-footnote">閲覧専用：進化データは変更されません。</p>
-<div id="exhibitHandoverFinished" class="exhibit-handover-finished" hidden><p>進化シアター終了！</p><p>次の人へ変わってください。<br>待っている人がいない場合は続行しても大丈夫です。</p><button id="exhibitHandoverFinishNext" type="button">次へ →</button></div>
-</div></section>
-<button id="exhibitAdminOpen" type="button">管理者用</button>
-<section id="exhibitAdminPanel" hidden aria-label="管理者専用設定">
-<h2>展示管理</h2><p>バックアップはモードごとにJSONで保存します。復元時は同じモードを選択してください。</p>
-<label for="exhibitBackupMode">対象モード</label>
-<select id="exhibitBackupMode"><option value="cryptic">隠れるギタイ</option><option value="warning">目立つギタイ</option></select>
-<button type="button" id="exhibitBackupExport">JSONバックアップを書き出す</button>
-<button type="button" id="exhibitBackupRestore">JSONから復元する</button>
-<input type="file" id="exhibitBackupFile" accept=".json,application/json">
-<hr>
-<button type="button" id="exhibitUpdateCheck">最新版を確認（インターネット接続時）</button>
-<p id="exhibitUpdateStatus" role="status" aria-live="polite"></p>
-<button type="button" id="exhibitUpdateApply" hidden>ダウンロード済みの更新を適用</button>
-<p id="exhibitAdminMessage" role="status" aria-live="polite"></p>
-<button type="button" id="exhibitAdminClose">管理画面を閉じる・ロックする</button>
-</section>
-</main><script src="landing.js" defer></script><script src="theater.js" defer></script><script src="admin.js" defer></script></body></html>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#050707">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/entertainment_portal.css?v=20261021-tagline1">
+<link rel="stylesheet" href="title.css">
+<title>ギタイラボ | 昆虫大学 2026</title>
+</head><body>
+<main id="exhibitTitle" aria-label="ギタイラボ 昆虫大学2026 トップページ">
+    <section id="entertainmentPortal" class="pixel-portal portal-line-mode" hidden aria-hidden="true" aria-label="ギタイラボ エンタメ版">
+      <canvas id="portalArt" class="portal-art" width="180" height="320" aria-hidden="true"></canvas>
+      <div class="portal-noise" aria-hidden="true"></div>
+      <div class="portal-frame" aria-hidden="true"></div>
+
+      <div id="portalIntro" class="portal-screen portal-intro is-active" aria-hidden="false">
+        <div class="portal-topline" aria-hidden="true">
+          <span>GITAI / LAB</span><span>EST. 2026</span>
+        </div>
+        <div class="portal-brand-intro">
+          <div class="portal-eyebrow">進化シミュレーター</div>
+          <h1 class="portal-main-logo">ギタイラボ</h1>
+        </div>
+        <div class="portal-intro-footer" aria-hidden="true">
+          <p class="portal-tagline"><span>あなたの行動が進化を決める</span><span>蛾の模様は3兆通り以上！！！</span></p>
+          <button id="portalEnter" class="portal-tap-prompt" type="button" aria-label="スタート：モード選択へ進む">START <span aria-hidden="true">↗</span></button>
+          
+        </div>
+        <div class="portal-bottom-meta" aria-hidden="true">A LITTLE WORLD OF MIMICRY</div>
+      </div>
+
+      <div id="portalMenu" class="portal-screen portal-menu" aria-hidden="true">
+        <div class="portal-menu-header">
+          <button id="portalToIntro" class="portal-back" type="button" aria-label="タイトルに戻る">←</button>
+          <div class="portal-menu-header-label">GITAI LAB<span>SELECT YOUR PATH / 02</span></div>
+        </div>
+        <div class="portal-menu-content">
+          <div class="portal-menu-kicker">INVISILAB / MODE SELECT</div>
+          <h2 class="portal-menu-heading">ギタイラボ</h2>
+          <p class="portal-menu-description">どんなギタイをする？</p>
+          <label class="portal-nickname" for="portalNickname">
+            <span class="portal-nickname-label">NICKNAME</span>
+            <input id="portalNickname" class="portal-nickname-input" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="ニックネーム">
+          </label>
+          <div class="portal-modes">
+            <button id="portalSolo" class="portal-mode portal-mode-solo" type="button">
+              <span class="portal-mode-icon" aria-hidden="true">◈</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">ひとりでギタイ</span><span class="portal-mode-sub">自分だけの進化を育てよう</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">PLAY ▶</span>
+            </button>
+            <button id="portalShared" class="portal-mode" type="button" aria-haspopup="dialog">
+              <span class="portal-mode-icon" aria-hidden="true">◇</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">みんなでギタイ</span><span class="portal-mode-sub">世界をつなぐ / 準備中</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">SOON</span>
+            </button>
+            <button id="portalMystery" class="portal-mode portal-mode-locked" type="button" aria-haspopup="dialog">
+              <span class="portal-mode-icon" aria-hidden="true">?</span>
+              <span class="portal-mode-text"><span class="portal-mode-title">？？？？</span><span class="portal-mode-sub">まだ見ぬ研究区画</span></span>
+              <span class="portal-mode-arrow" aria-hidden="true">LOCK</span>
+            </button>
+          </div>
+        </div>
+        <div class="portal-author-news">
+          <a id="portalAuthorNews" href="author_news.html">なぜギタイラボを作ろうと思ったのか。作者からのおしらせ。</a>
+        </div>
+        <div class="portal-menu-footer">INVISILAB / EVERY LIFE HAS A STORY</div>
+        <section id="portalEvolutionModes" class="portal-experiment-choice" role="dialog"
+          aria-labelledby="portalEvolutionTitle" aria-modal="true" hidden>
+          <div class="portal-experiment-content">
+            <h2 id="portalEvolutionTitle">進化実験を選ぶ</h2>
+            <div class="portal-experiment-list">
+              <button id="portalCrypticMode" class="portal-experiment-button" type="button">
+                <strong>隠れるギタイ</strong>
+                <span class="portal-experiment-moth-stage" aria-hidden="true">
+                  <img class="portal-experiment-moth-image" data-experiment-moth="white" alt="">
+                  <span class="portal-experiment-change-arrow">→</span>
+                  <img class="portal-experiment-moth-image" data-experiment-moth="cryptic" alt="">
+                </span>
+              </button>
+              <button id="portalWarningMode" class="portal-experiment-button" type="button">
+                <strong>目立つギタイ</strong>
+                <span class="portal-experiment-moth-stage" aria-hidden="true">
+                  <img class="portal-experiment-moth-image" data-experiment-moth="white" alt="">
+                  <span class="portal-experiment-change-arrow">→</span>
+                  <img class="portal-experiment-moth-image" data-experiment-moth="warning" alt="">
+                </span>
+              </button>
+            </div>
+            <button id="portalEvolutionBack" class="portal-experiment-back" type="button">← 戻る</button>
+          </div>
+        </section>
+        <div id="portalDialog" class="portal-dialog" role="dialog" aria-modal="true" aria-labelledby="portalDialogTitle" hidden>
+          <h3 id="portalDialogTitle" class="portal-dialog-title">準備中</h3>
+          <p id="portalDialogText" class="portal-dialog-text"></p>
+          <button id="portalDialogClose" type="button">もどる</button>
+        </div>
+      </div>
+    </section>
+</main>
+<script>
+'use strict';
+// The title art, animation, labels, typography and moth interactions are
+// directly reused from the standard entertainment page. Only START's
+// destination is replaced to lead into the exhibition-specific modes page.
+// Do not initialize the game engine or touch its IndexedDB.
+document.getElementById('portalEnter').addEventListener('click',event=>{
+ event.preventDefault();
+ event.stopImmediatePropagation();
+ try {sessionStorage.removeItem('gitai-exhibit-visit-start-v1');} catch (_) {}
+ location.assign(new URL('modes.html',location.href).href);
+},true);
+if('serviceWorker' in navigator){
+ navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'})
+  .catch(error=>console.warn('展示版オフライン登録',error));
+}
+</script>
+<script src="js/mask_data.js"></script>
+<script src="js/portal_random_moth.js?v=20261020-leafcards2" defer></script>
+<script src="js/entertainment_portal.js?v=20261025-warning-tutorial-audio1" defer></script>
+</body></html>
