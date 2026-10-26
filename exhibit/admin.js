@@ -337,7 +337,7 @@
     if (totalEntries > MAX_BACKUP_ENTRIES) {
       throw Error('バックアップの保存項目が多すぎます。');
     }
-    const current = body.stores.meta.find(item => item.key === 'current_generation_id')?.value;
+    const current = body.stores.meta.find(item => item?.key === 'current_generation_id')?.value;
     if (!/^gen\d{5}$/.test(String(current)) || current !== body.currentGeneration) {
       throw Error('世代番号が不正です。');
     }
@@ -374,6 +374,10 @@
     return {body, prepared};
   }
   async function restoreMode(selected, file) {
+    // Reject a large import BEFORE allocating an equally large UTF-8 string.
+    if (!file || !Number.isFinite(file.size) || file.size > MAX_BACKUP_BYTES) {
+      throw Error('バックアップファイルの容量が上限を超えています。');
+    }
     const {body, prepared} = await validateBackup(await file.text(), selected);
     const mode = MODES[selected];
     if (!confirm(mode.label + 'を' + body.currentGeneration +
