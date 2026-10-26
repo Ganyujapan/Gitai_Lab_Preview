@@ -70,6 +70,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-landing-theater.cjs
       - name: Verify theater snapshot version upgrades per evolution mode
         run: node .github/scripts/verify-theater-version-upgrade.cjs
+      - name: Verify specimen box ignores stale async reads and releases object URLs
+        run: node .github/scripts/verify-specimen-async-display.cjs
       - name: Verify exhibition offline directory startup and handover navigation
         run: node .github/scripts/verify-exhibit-offline-navigation.cjs
       - name: Verify exhibition Service Worker update lifecycle and offline cache safety
