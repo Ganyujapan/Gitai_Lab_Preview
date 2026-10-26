@@ -10,7 +10,8 @@ const source = fs.readFileSync('exhibit/admin.js', 'utf8');
 const restoreStart = source.indexOf('  const MAX_BACKUP_BYTES = ');
 const restoreEnd = source.indexOf('\n  const button = document.getElementById', restoreStart);
 const handlerStart = source.indexOf("  const input = document.getElementById('exhibitBackupFile');");
-const handlerEnd = source.indexOf('  // Software updates', handlerStart);
+// Anchor on executable code, not wording of EXH-05 lifecycle comments.
+const handlerEnd = source.indexOf("  const updateStatus = document.getElementById('exhibitUpdateStatus');", handlerStart);
 assert.ok(restoreStart >= 0 && restoreEnd > restoreStart);
 assert.ok(handlerStart > restoreEnd && handlerEnd > handlerStart);
 const realCode = source.slice(restoreStart, restoreEnd) + '\n' +
