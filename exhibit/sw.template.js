@@ -44,6 +44,15 @@ self.addEventListener('fetch', (event) => {
       (url.pathname.endsWith('/version.json') && url.searchParams.has('online'))) return;
   event.respondWith((async () => {
     const cache = await caches.open(ACTIVE_CACHE);
+    // The installed PWA launches at /exhibit/ (directory URL), while the
+    // atomic precache stores /exhibit/index.html. Cache.match ignoreSearch
+    // ignores query only; it does NOT equate a directory to index.html.
+    // This fallback is strictly for navigation to this exact scoped root,
+    // never for game assets, JSON/API requests, or the public preview.
+    if (request.mode === 'navigate' && url.pathname === new URL(BASE).pathname) {
+      const home = await cache.match(new URL('index.html', BASE).href);
+      if (home) return home;
+    }
     const cached = await cache.match(request, { ignoreSearch: true });
     if (cached) return cached;
     // Do not cache arbitrary live responses; they are not part of a verified build.
