@@ -11,7 +11,7 @@ const second=source.indexOf('  function playNative(');
 const last=source.indexOf('  function play(kind)',second);
 assert.ok(first>0 && middle>first && second>middle && last>second);
 const body=source.slice(first,middle)+'\n'+source.slice(second,last);
-assert.match(body,/player\.removeEventListener\('ended', item\.onEnded\)/);
+assert.match(body,/player\.removeEventListener\?\.\('ended', item\.onEnded\)/);
 
 function harness(){
  const players=new Map(), promises=[];
