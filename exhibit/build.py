@@ -126,7 +126,7 @@ def main() -> None:
         ), encoding="utf-8"
     )
     # The exhibition bundles only the currently supported public simulator.
-    for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater.js", "theater.css",
+    for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css",
                  "manifest.webmanifest", "game.js", "game.css", "admin.js", "admin.css"):
         shutil.copy2(root / name, exhibit / name)
     worker = (root / "sw.template.js").read_text(encoding="utf-8")
@@ -155,7 +155,7 @@ def main() -> None:
                 clip = f"audio/sfx/{fmt}/{kind}_{i:02d}.{ext}"
                 assert clip in runtime_files, clip
     assert "js/game_sfx.js" in runtime_files
-    assert "theater.js" in runtime_files and "theater.css" in runtime_files
+    assert "theater_canvas_20261026.js" in runtime_files and "theater_canvas_20261026.css" in runtime_files
     assert "exhibitTheaterDialog" in (exhibit / "modes.html").read_text(encoding="utf-8")
     assert 'id="portalArt"' in (exhibit / "index.html").read_text(encoding="utf-8")
     assert (exhibit / "title.css").is_file()

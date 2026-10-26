@@ -6,9 +6,9 @@ const vm = require('node:vm');
 const html = fs.readFileSync('exhibit/modes.html','utf8');
 const title = fs.readFileSync('exhibit/index.html','utf8');
 const ordinary = fs.readFileSync('index.html','utf8');
-const css = fs.readFileSync('exhibit/theater.css','utf8');
+const css = fs.readFileSync('exhibit/theater_canvas_20261026.css','utf8');
 const landing = fs.readFileSync('exhibit/landing.js','utf8');
-const theater = fs.readFileSync('exhibit/theater.js','utf8');
+const theater = fs.readFileSync('exhibit/theater_canvas_20261026.js','utf8');
 const game = fs.readFileSync('exhibit/game.js','utf8');
 const gameCSS = fs.readFileSync('exhibit/game.css','utf8');
 const build = fs.readFileSync('exhibit/build.py','utf8');
@@ -28,6 +28,22 @@ assertHas(title,/new URL\('modes\.html',location\.href\)/);
 assert.ok(!title.includes('exhibitGenerationCryptic'),'title must not expose mode cards');
 assert.ok(!html.includes('id="exhibitSplash"'),'no overlapping title inside selector');
 assertHas(html,/id="exhibitTheaterCanvas"/);
+// The previous PWA worker uses cache.match(..., {ignoreSearch:true}).
+// A new query string cannot select a new viewer bundle on that old worker,
+// therefore the filenames themselves MUST be new.
+assertHas(html,/href="theater_canvas_20261026\.css"/);
+assertHas(html,/src="theater_canvas_20261026\.js" defer/);
+assert.doesNotMatch(html,/(?:src="theater\.js"|href="theater\.css")/);
+assert.doesNotMatch(build,/"theater\.js", "theater\.css"/);
+assertHas(build,/"theater_canvas_20261026\.js", "theater_canvas_20261026\.css"/);
+const legacyCachedPaths=new Set(['theater.js','theater.css','index.html','game.html']);
+for(const name of ['theater_canvas_20261026.js','theater_canvas_20261026.css']){
+ assert.ok(!legacyCachedPaths.has(name),'viewer asset filename must bypass old worker cache');
+ assert.ok(fs.statSync('exhibit/'+name).size>100,'new viewer asset must exist');
+}
+const sw=fs.readFileSync('exhibit/sw.template.js','utf8');
+assert.match(sw,/cache\.match\(request, \{ ignoreSearch: true \}\)/);
+
 assertHas(html,/id="exhibitTheaterMarkers"/);
 assertHas(html,/id="exhibitTheaterPlayed"/);
 assertHas(html,/id="exhibitHandoverFinished"/);
@@ -38,7 +54,6 @@ assert.equal((html.match(/data-view-theater=/g)||[]).length,2);
 assertHas(html,/game\.html\?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1/);
 assertHas(html,/experiment=warning_color&amp;run=warning_color_fog_v2&amp;fog=1&amp;play=1&amp;tutorial=1/);
 assertHas(build,/"index.html", "modes.html", "title.css"/);
-assertHas(build,/"theater\.js", "theater\.css"/);
 assertHas(css,/persistent composited drawing surface/i);
 assertHas(theater,/picture\.drawImage\(bitmap, 0, 0, canvas\.width, canvas\.height\)/);
 assert.doesNotMatch(theater,/target\.hidden = true/);
@@ -157,7 +172,7 @@ function setup({handover=false,absentWarning=false}={}) {
   setTimeout:fn=>{timeouts.push(fn);return timeouts.length},
   clearTimeout:()=>{}
  };
- vm.runInNewContext(theater,globals,{filename:'exhibit/theater.js',timeout:5000});
+ vm.runInNewContext(theater,globals,{filename:'exhibit/theater_canvas_20261026.js',timeout:5000});
  return {elements,stage,paints,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,
   async settle(){await new Promise(resolve=>setTimeout(resolve,6))},
   open(which){(which==='warning'?wButton:cButton).trigger('click')},
