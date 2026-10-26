@@ -219,8 +219,8 @@
     if (!runId) return null;
     const result = await idbGet(META_STORE, completedRunKey(runId));
     return result && typeof result === 'object'
-      && /^gen\\d{5}$/.test(String(result.generation_id))
-      && /^gen\\d{5}$/.test(String(result.next_generation_id))
+      && /^gen\d{5}$/.test(String(result.generation_id))
+      && /^gen\d{5}$/.test(String(result.next_generation_id))
       ? result
       : null;
   }
