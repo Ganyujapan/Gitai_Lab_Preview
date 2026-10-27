@@ -2739,6 +2739,66 @@
     };
   }
 
+  // RE2-EV-02: validate persisted DNA before ANY inheritance RNG draws.
+  // These broad bounds match exhibit/admin.js's existing backup validator;
+  // do not clamp, infer from PNG or silently replace malformed alleles.
+  function validateLoadedGenome(genome, generationId, index) {
+    const invalid = detail => {
+      throw new Error(
+        '保存された' + generationId + 'の' + index + '番の蛾の遺伝情報が不正です（'
+        + detail + '）。元の実験データは変更していません。バックアップを確認してください。'
+      );
+    };
+    if (!genome || typeof genome !== 'object' || Array.isArray(genome)
+        || Number(genome.schema_version) !== 1) invalid('schema');
+    const baseLimits = {
+      baseHue: [0, 360], baseSaturation: [0, 1], baseValue: [0, 1],
+      patternContrast: [0, 1], textureStrength: [0, 1],
+      textureSeed: [0, Number.MAX_SAFE_INTEGER],
+    };
+    for (const [key, [min, max]] of Object.entries(baseLimits)) {
+      const value = genome[key];
+      if (typeof value !== 'number' || !Number.isFinite(value)
+          || value < min || value > max) invalid(key);
+    }
+    const loci = evolutionConfig?.trait_genetics?.pattern_loci;
+    if (!Array.isArray(loci) || !loci.length) invalid('pattern_loci');
+    const expected = loci.map(locus => locus.id);
+    if (!genome.modules || typeof genome.modules !== 'object'
+        || Array.isArray(genome.modules)
+        || Object.keys(genome.modules).length !== expected.length
+        || expected.some(id => !Object.prototype.hasOwnProperty.call(genome.modules, id))) {
+      invalid('modules');
+    }
+    const moduleLimits = {
+      cx: [-1, 2], cy: [-1, 2], rx: [0, 2], ry: [0, 2],
+      valueEffect: [-2, 2], hueEffect: [-360, 360],
+      saturationEffect: [-2, 2], pigmentHue: [-360, 720],
+      pigmentSaturation: [0, 2], phase: [-1000000, 1000000],
+      angle: [-360, 360], frequency: [0, 100], roughness: [0, 2],
+    };
+    for (const locusId of expected) {
+      const module = genome.modules[locusId];
+      if (!module || typeof module !== 'object' || Array.isArray(module)
+          || !Array.isArray(module.alleles) || module.alleles.length !== 2
+          || module.alleles.some(value => value !== 0 && value !== 1)) {
+        invalid(locusId + '.alleles');
+      }
+      // Older schema-1 saves can omit newly introduced pigment properties.
+      // Present numeric properties must nevertheless be finite and reasonable.
+      for (const [key, [min, max]] of Object.entries(moduleLimits)) {
+        if (!Object.prototype.hasOwnProperty.call(module, key)) continue;
+        const value = module[key];
+        if (typeof value !== 'number' || !Number.isFinite(value)
+            || value < min || value > max) invalid(locusId + '.' + key);
+      }
+    }
+    if (WARNING_EXPERIMENT && genome.lineage !== WARNING.lineage(index)) {
+      invalid('lineage');
+    }
+    return genome;
+  }
+
   async function loadGenomeOrInfer(generationId, index, imageData) {
     const stored = await idbGet(META_STORE, genomeKey(generationId, index));
     if (
@@ -2746,7 +2806,9 @@
       && typeof stored === 'object'
       && Number(stored.schema_version) === 1
     ) {
-      return stored;
+      // Fail closed on structurally corrupt schema-1 DNA: never breed or
+      // render a replacement phenotype from NaN or missing hidden loci.
+      return validateLoadedGenome(stored, generationId, index);
     }
 
     // A rendered image cannot reveal hidden pattern alleles or exact
