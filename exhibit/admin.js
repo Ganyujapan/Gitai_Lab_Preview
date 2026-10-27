@@ -657,7 +657,7 @@
         && typeof intent.epoch==='string'
         && /^restore-[a-f0-9]{32}$/.test(intent.epoch)
         && typeof intent.generation_id==='string'
-        && /^gen(?:\\d{5}|[1-9]\\d{5,})$/.test(intent.generation_id)
+        && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(intent.generation_id)
         && (intent.value===null||typeof intent.value==='string');
       if(!valid){
         return {status:'stale',detail:'未完了のライフ復元情報が不正です。進化データは変更しません。'};
@@ -741,7 +741,14 @@
         }
       });
     } finally { db.close(); }
-    if(selected==='warning')return retryPendingWarningLife();
+    if(selected==='warning') {
+      // The IndexedDB swap has ALREADY committed at this point. A failure in
+      // localStorage, re-opening IDB or clearing the intent is PARTIAL, never
+      // a rolled-back restore. A later explicit click retries only life.
+      try{return await retryPendingWarningLife();}
+      catch(error){return {status:'partial',generation:body.currentGeneration,
+        detail:error?.message||String(error)};}
+    }
     return {status:'complete',generation:body.currentGeneration};
   }
 
