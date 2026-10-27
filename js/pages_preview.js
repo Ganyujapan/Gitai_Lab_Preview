@@ -275,8 +275,8 @@
     if (!runId) return null;
     const result = await idbGet(META_STORE, completedRunKey(runId));
     return result && typeof result === 'object'
-      && /^gen\d{5}$/.test(String(result.generation_id))
-      && /^gen\d{5}$/.test(String(result.next_generation_id))
+      && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(result.generation_id))
+      && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(result.next_generation_id))
       ? result
       : null;
   }
@@ -1365,7 +1365,7 @@
   }
 
   async function ensureTheaterSnapshot(generationId, stats = {}) {
-    if (!generationId || !/^gen\d{5}$/.test(generationId)) {
+    if (!generationId || !/^gen(?:\d{5}|[1-9]\d{5,})$/.test(generationId)) {
       return null;
     }
 
@@ -1431,7 +1431,7 @@
       .filter((item) => (
         item
         && item.image_blob instanceof Blob
-        && /^gen\d{5}$/.test(String(item.generation_id || ''))
+        && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(item.generation_id || ''))
       ))
       .sort(
         (a, b) => (
@@ -1465,7 +1465,7 @@
 
   async function getSaveState() {
     const generationId = await idbGet(META_STORE, 'current_generation_id');
-    if (!/^gen\d{5}$/.test(String(generationId))) {
+    if (!/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(generationId))) {
       throw new Error('現在の世代をまだ保存できません。ゲームの読み込み完了後に操作してください。');
     }
     const db = await openDb();
@@ -1702,7 +1702,7 @@
     if (hasStoredGeneration) {
       // An invalid pointer is NOT an empty, never-started experiment.
       // Do not reset an existing record as an implicit repair.
-      if (typeof stored !== 'string' || !/^gen\d{5}$/.test(stored)) {
+      if (typeof stored !== 'string' || !/^gen(?:\d{5}|[1-9]\d{5,})$/.test(stored)) {
         throw new Error('保存された世代IDが不正です。元データは変更していません。バックアップを確認してください。');
       }
       currentGenerationId = stored;
@@ -2282,7 +2282,7 @@
   async function getStoredGenomeForSpecimen(generationId, index) {
     if (
       EVOLUTION_MODEL_ID !== 'continuous_v1'
-      || !/^gen\d{5}$/.test(String(generationId))
+      || !/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(generationId))
       || !Number.isInteger(index)
       || index < 1
       || index > TOTAL

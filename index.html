@@ -3413,7 +3413,7 @@
     if (!res.ok) throw new Error(`世代情報を取得できません (HTTP ${res.status})`);
     const data = await res.json();
     const id = String(data.current_generation_id || '');
-    if (!/^gen\d{5}$/.test(id)) throw new Error('世代IDが不正です');
+    if (!/^gen(?:\d{5}|[1-9]\d{5,})$/.test(id)) throw new Error('世代IDが不正です');
     return id;
   }
 
@@ -5357,7 +5357,7 @@
       state.submitStatus = 'success';
       // Commit life ONLY after offspring have been saved successfully.
       // Death or invalid rounds never carry an uncommitted life gain forward.
-      if (WARNING_LIFE && /^gen\d{5}$/.test(state.nextGenerationId)) {
+      if (WARNING_LIFE && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(state.nextGenerationId)) {
         saveWarningLife(state.nextGenerationId, state.warningLifeThirds);
       }
 

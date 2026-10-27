@@ -93,7 +93,7 @@
             const c = request.result;
             if (!c) return;
             const entry = c.value;
-            if (entry && /^gen\d{5}$/.test(String(entry.generation_id || ''))
+            if (entry && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(entry.generation_id || ''))
               && entry.image_blob instanceof Blob) {
               savedFrames.push(entry);
             }
@@ -104,7 +104,7 @@
           savedFrames.sort((a, b) =>
             Number(a.generation_id.slice(3)) - Number(b.generation_id.slice(3)));
           resolve({
-            generation: /^gen\d{5}$/.test(String(generation)) ? generation : null,
+            generation: /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(generation)) ? generation : null,
             frames: savedFrames
           });
         };
