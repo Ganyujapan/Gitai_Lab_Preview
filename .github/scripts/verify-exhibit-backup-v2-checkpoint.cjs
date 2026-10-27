@@ -169,9 +169,9 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   // Creation requires a deliberately provisioned stage store: no implicit DB
   // upgrade, no accidental copy into an actual version-2 exhibition database.
   const legacy=fakeDb({withStage:false});
-  await assert.rejects(makeCheckpoint(legacy.db,ID),/未準備/);
+  assert.throws(()=>makeCheckpoint(legacy.db,ID),/未準備/);
   assert.deepEqual(legacy.data.meta.get('current_generation_id'),GEN);
-  await assert.rejects(makeCheckpoint(f.db,'../unsafe'),/識別子/);
+  assert.throws(()=>makeCheckpoint(f.db,'../unsafe'),/識別子/);
   assert.equal(f.getStage(ID),0);
   // Simulate a competing generation commit blocked until checkpoint completes.
   f.mutateAfterCheckpoint(data=>{
