@@ -42,6 +42,7 @@
   let cursor = 0;
   let activeMode = null;
   let frameLoadId = 0;
+  let pendingFrameIndex = null;
   let loadedImages = new Map();
   let frameUrls = [];
   let handoverData = null;
@@ -136,6 +137,7 @@
 
   function releaseImage() {
     ++frameLoadId;
+    pendingFrameIndex = null;
     canvas.hidden = true;
     // The gallery's object URLs follow the regular entertainment theater:
     // create once per saved frame, revoke ONLY on dialog teardown.
@@ -207,40 +209,48 @@
   }
   function showFrame(index) {
     if (index < 0 || index >= frames.length) return;
-    cursor = index;
-    const record = frames[cursor];
-    const generation = numberOf(record.generation_id);
-    const marked = !!handoverData
-      && generation >= handoverData.start && generation <= handoverData.end;
-    playedLabel.hidden = !marked;
-    stage.classList.toggle('is-played', marked);
-    for (let i = 0; i < markers.children.length; i++) {
-      markers.children[i].classList.toggle('is-current', i === cursor);
-    }
-    meta.textContent = '第' + generation + '世代 · ' +
-      (cursor + 1) + ' / ' + frames.length + '枚';
-    counter.textContent = (cursor + 1) + ' / ' + frames.length;
-    slider.max = String(frames.length - 1);
-    slider.value = String(cursor);
-    previous.disabled = cursor === 0;
-    next.disabled = cursor === frames.length - 1;
-
-    // Paint the next frame directly on the SAME canvas after decoding.
-    // No CSS visibility toggle, src reset, or intermediate black frame.
+    if (pendingFrameIndex === index) return;
+    // The cursor, labels and highlighted generation describe the image that
+    // has actually been decoded and drawn, NOT the requested image.
+    // Keep the old image and all its labels while the next image is pending.
+    pendingFrameIndex = index;
     const ticket = ++frameLoadId;
     void decodeFrame(index).then(bitmap => {
       if (ticket !== frameLoadId || dialog.hidden) return;
+      const record = frames[index];
+      if (!record) return;
       picture.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      cursor = index;
+      pendingFrameIndex = null;
+      const generation = numberOf(record.generation_id);
+      const marked = !!handoverData
+        && generation >= handoverData.start && generation <= handoverData.end;
+      playedLabel.hidden = !marked;
+      stage.classList.toggle('is-played', marked);
+      for (let i = 0; i < markers.children.length; i++) {
+        markers.children[i].classList.toggle('is-current', i === cursor);
+      }
+      meta.textContent = '第' + generation + '世代 · ' +
+        (cursor + 1) + ' / ' + frames.length + '枚';
+      counter.textContent = (cursor + 1) + ' / ' + frames.length;
+      slider.max = String(frames.length - 1);
+      slider.value = String(cursor);
+      previous.disabled = cursor === 0;
+      next.disabled = cursor === frames.length - 1;
       canvas.hidden = false;
       empty.hidden = true;
       // Warm up the next slide while preserving a bounded decoded cache.
       if (index + 1 < frames.length) void decodeFrame(index + 1).catch(() => {});
     }).catch(error => {
       if (ticket !== frameLoadId || dialog.hidden) return;
-      if (canvas.hidden) {
-        empty.textContent = '画像を読み込めませんでした。';
-        empty.hidden = false;
-      }
+      pendingFrameIndex = null;
+      // A failed image must NEVER inherit the previous image's canvas while
+      // displaying the failed generation's label. The old frame stays intact.
+      slider.value = String(cursor);
+      empty.textContent = canvas.hidden
+        ? '画像を読み込めませんでした。'
+        : '画像を読み込めませんでした。前の世代の画像を表示しています。';
+      empty.hidden = false;
       console.warn('進化シアター画像', error);
     });
   }
@@ -288,6 +298,7 @@
     if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     frames = [];
     releaseImage();
+    cursor = 0;
     handoverData = handover;
     dialog.classList.toggle('is-handover', !!handover);
     handoverFinished.hidden = true;
