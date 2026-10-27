@@ -30,6 +30,8 @@
     while (stack.length) {
       const [value, depth] = stack.pop();
       if (++total > MAX_PART_NODES || depth > MAX_DEPTH) fail('構造が複雑すぎます。');
+      if (value instanceof Blob || value instanceof Date ||
+          value instanceof ArrayBuffer || ArrayBuffer.isView(value)) continue;
       if (value && typeof value === 'object') {
         const children = Object.values(value);
         if (total + children.length > MAX_PART_NODES) fail('構造ノードが多すぎます。');
@@ -323,6 +325,9 @@
           if (record.value !== options.currentGeneration) fail('現在世代の参照先が一致しません。');
           pointerFound = true;
         }
+      }
+      if (!Object.hasOwn(record, 'value') || record.value === undefined) {
+        fail('保存項目に値がありません。');
       }
       // Shape check before recursively allocating base64/JSON. The actual
       // encoded byte ceiling remains authoritative after serialization.
