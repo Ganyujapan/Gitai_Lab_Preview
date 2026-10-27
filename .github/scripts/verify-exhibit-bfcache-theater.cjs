@@ -26,7 +26,7 @@ function fixture({visible=true,frames=3,handover=false,finished=false}={}){
   releaseImage:()=>{calls.push('release');ctx.frameUrls=[];},
   clearTimeout:id=>calls.push('clear:'+id),
   refreshGenerations:async()=>calls.push('refresh'),
-  assignFrameUrls:()=>{calls.push('assign');ctx.frameUrls=ctx.frames.map((_,i)=>'blob:new-'+i);}
+  assignFrameUrls:()=>{calls.push('assign');ctx.frameUrls=ctx.frames.map((_,i)=>'blob:new-'+i);},
   showFrame(index){calls.push('paint:'+index);},
   scheduleHandoverPlayback(){calls.push('handover-play');},
   openTheater(mode,data){calls.push('reload:'+mode+':'+(data?.start||'none'));return Promise.resolve()}
