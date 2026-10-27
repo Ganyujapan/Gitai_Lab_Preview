@@ -5,10 +5,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync('exhibit/game.js','utf8');
-const injected=source.replace(/\}\)\(\);\s*$/,String.raw\`
-  globalThis.__test={numberFrom,sync,safelyHandover,button,notice,
-    start:()=>firstGeneration,pending:()=>handoverPending};
-})();\`.replace(/\\\`/g,''));
+const injected=source.replace(/\}\)\(\);\s*$/, '  globalThis.__test={numberFrom,sync,safelyHandover,button,notice,\n' +
+  '    start:()=>firstGeneration,pending:()=>handoverPending};\n})();');
 assert.notEqual(injected,source,'must execute the actual controller');
 
 function element(text='',visible=false){
