@@ -273,6 +273,15 @@ async function errorMatching(p,pattern){await assert.rejects(p,pattern);}
   assert.deepEqual(env.snapshot(),before);
   assert.equal(env.getStageSize(stageId),122);
 
+  // An injected browser transaction abort after multiple PUTs also must
+  // roll back every cleared live store. This injection is sandbox-only and
+  // deterministic; it is NOT a simulated OS crash or storage quota limit.
+  await errorMatching(restore.commitStagedRestore(env.db,prepared,{
+    cryptoApi,simulateAbortAfterRecords:15
+  }),/Isolated simulated transaction abort/);
+  assert.deepEqual(env.snapshot(),before);
+  assert.equal(env.getStageSize(stageId),122);
+
   // Missing staged row (e.g. interrupted cleanup) must abort after clear()
   // is queued, atomically rolling back the original images/meta/theater.
   const envMissing=fakeDatabase();
