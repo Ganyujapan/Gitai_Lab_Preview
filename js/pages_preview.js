@@ -281,6 +281,39 @@
       : null;
   }
 
+  // STO-04: a submission timeout is an UNKNOWN outcome, not a rollback.
+  // This status lookup only reads the durable run ID and generation pointer.
+  // It never generates children, repairs records, resets data or retries.
+  async function readSubmissionStatus(runId) {
+    const committed = await persistedCompletedRun(runId);
+    const latest = await idbGet(META_STORE, 'current_generation_id');
+    if (!committed) {
+      return {
+        status: 'unconfirmed',
+        current_generation_id: latest || null,
+        preview: true,
+      };
+    }
+    let event = null;
+    try {
+      event = await entertainmentMutationEvent(
+        committed.generation_id, committed.next_generation_id,
+      );
+    } catch (error) {
+      // Saved generation and run record are authoritative. A missing visual
+      // announcement must not invalidate a safely persisted generation.
+      console.warn('保存済みの進化イベントを取得できませんでした', error);
+    }
+    return {
+      status: 'committed',
+      generation_id: committed.generation_id,
+      next_generation_id: committed.next_generation_id,
+      entertainment_event: event,
+      current_generation_id: latest || null,
+      preview: true,
+    };
+  }
+
   async function commitEvolutionGeneration(sourceId, nextId, blobs,
                                            genomes = null, diagnostic = null,
                                            runId = '') {
@@ -4979,6 +5012,7 @@
 
     if (!path.endsWith('/api/app_config') &&
         !path.endsWith('/api/current_generation') &&
+        !path.endsWith('/api/run_status') &&
         !path.endsWith('/api/submit_run')) {
       return nativeFetch(input, init);
     }
@@ -5020,6 +5054,16 @@
         current_generation_id: currentGenerationId,
         preview: true,
       });
+    }
+
+    if (path.endsWith('/api/run_status')) {
+      const runId = String(url.searchParams.get('run_id') || '');
+      if (!runId || runId.length > 128) {
+        return jsonResponse(400, {error: 'invalid_run_id'});
+      }
+      // Unlike current_generation, querying submission status must not
+      // bootstrap gen1 or mutate any existing saved experiment.
+      return jsonResponse(200, await readSubmissionStatus(runId));
     }
 
     await ensureCurrentGeneration();
