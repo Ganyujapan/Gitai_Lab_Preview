@@ -90,6 +90,11 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   };
   const restoreButton={addEventListener() {}};
   const lifeRetryButton={addEventListener(event,cb){handlers['retry:'+event]=cb;}};
+  const verifyFileInput={
+    value:'',files:[],click(){},
+    addEventListener(event,cb){handlers['verify:'+event]=cb;}
+  };
+  const verifyButton={addEventListener(event,cb){handlers['verify-button:'+event]=cb;}};
   const context = {
     MODES,STORES,BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
     Blob,Uint8Array,DataView,digest,
@@ -183,6 +188,8 @@ function harness({mode='warning', confirmed=true, idbFail=false,
         if(id==='exhibitBackupFile')return input;
         if(id==='exhibitBackupRestore')return restoreButton;
         if(id==='exhibitBackupLifeRetry')return lifeRetryButton;
+        if(id==='exhibitBackupVerifyFile')return verifyFileInput;
+        if(id==='exhibitBackupVerify')return verifyButton;
         throw Error('Unexpected DOM lookup: '+id);
       }
     }
@@ -190,6 +197,8 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   vm.runInNewContext(realCode,context,{filename:'EXH-03:exhibit/admin.js',timeout:5000});
   assert.equal(typeof handlers['file:change'],'function');
   assert.equal(typeof handlers['retry:click'],'function');
+  assert.equal(typeof handlers['verify:change'],'function');
+  assert.equal(typeof handlers['verify-button:click'],'function');
   return {
     messages,state,saved,
     setLifeFailure(value){failSet=value;},
@@ -199,6 +208,16 @@ function harness({mode='warning', confirmed=true, idbFail=false,
     get opened(){return opened;},
     get closed(){return closed;},
     get confirmations(){return confirmations;},
+    async verifySaved(raw) {
+      handlers['verify-button:click']();
+      verifyFileInput.files=[{
+        size:Buffer.byteLength(raw,'utf8'),
+        name:'reselected-from-ipad-files.json',
+        async text(){return raw;}
+      }];
+      await handlers['verify:change']();
+      return messages.at(-1);
+    },
     async restore(raw) {
       input.files=[{size:raw.length,async text(){return raw;}}];
       await handlers['file:change']();
@@ -213,6 +232,19 @@ function harness({mode='warning', confirmed=true, idbFail=false,
 (async()=>{
   const savedLife = JSON.stringify({generation_id:'gen00025',thirds:18});
   const rawWarning = await backup('warning',savedLife);
+  const verifiedFirst=harness();
+  const currentBefore=verifiedFirst.state.meta.get('current_generation_id');
+  assert.match(await verifiedFirst.verifySaved(rawWarning),/保存済みJSONの検証成功/);
+  assert.equal(verifiedFirst.state.meta.get('current_generation_id'),currentBefore,
+    'Verification must not import or overwrite any evolution data');
+  assert.equal(verifiedFirst.opened,0);
+  assert.equal(verifiedFirst.confirmations,0);
+  assert.equal(verifiedFirst.saved.get(lifeKey),'PREVIOUS_LIFE');
+  const damagedCopy=JSON.parse(rawWarning);damagedCopy.checksum='wrong';
+  assert.match(await verifiedFirst.verifySaved(JSON.stringify(damagedCopy)),
+    /保存済みJSONの検証失敗/);
+  assert.equal(verifiedFirst.opened,0);
+
   const full = harness();
   const fullMessage = await full.restore(rawWarning);
   assert.match(fullMessage,/復元が完了/);
