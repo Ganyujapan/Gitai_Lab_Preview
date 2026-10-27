@@ -43,7 +43,7 @@ function fakeDatabase({hasStage=true}={}) {
     theater_frames:new Map([['old:theater',{marker:'BEFORE'}]]),
     ...(hasStage?{backup_v2_stage:new Map()}: {})
   };
-  let failSwapAt=Infinity,swapPuts=0;
+  let failSwapAt=Infinity,swapPuts=0,failStageAt=Infinity,stagePuts=0;
   const txLog=[];
   const db={
     name:DB,version:3,objectStoreNames:{contains:s=>!!states[s]},
@@ -69,6 +69,8 @@ function fakeDatabase({hasStage=true}={}) {
             enqueue(()=>{
               const k=keyOf(key);
               if(unique&&staged[name].has(k))throw Error('ConstraintError');
+              if(stage&&mode==='readwrite'&&++stagePuts===failStageAt)
+                throw Error('QuotaExceededError');
               if(names.length===4&&name!=='backup_v2_stage'&&
                  ++swapPuts===failSwapAt)throw Error('QuotaExceededError');
               staged[name].set(k,stage?{__key:clone(key),value:clone(value)}:clone(value));
@@ -138,6 +140,7 @@ function fakeDatabase({hasStage=true}={}) {
   };
   return {db,txLog,
     setFailSwapAt(n){failSwapAt=n;swapPuts=0},
+    setFailStageAt(n){failStageAt=n;stagePuts=0},
     snapshot(){return {
       images:[...states.images.keys()],
       meta:[...states.meta.keys()],
@@ -253,6 +256,14 @@ async function errorMatching(p,pattern){await assert.rejects(p,pattern);}
   }),/破損/);
   assert.equal(envTampered.getStageSize(stageId),0);
   assert.deepEqual(envTampered.snapshot(),before);
+
+  // Mid-stream quota exhaustion after some completed temporary batches:
+  // no original store has changed, and cleanup erases committed temp batches.
+  const stageQuota=fakeDatabase();
+  stageQuota.setFailStageAt(15);
+  await errorMatching(stage(stageQuota,files),/QuotaExceededError/);
+  assert.equal(stageQuota.getStageSize(stageId),0);
+  assert.deepEqual(stageQuota.snapshot(),before);
 
   // Abort in the middle of the four-store transaction restores ALL old
   // records; a partial clear() must never leak to committed state.
