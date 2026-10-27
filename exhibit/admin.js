@@ -752,6 +752,35 @@
     return {status:'complete',generation:body.currentGeneration};
   }
 
+  // EXH-F01: verify bytes selected BACK FROM iPad Files, without using
+  // a database connection or localStorage. Merely starting a download or
+  // invoking the Share sheet is not evidence that a backup was saved.
+  async function verifySavedBackupFile(file, selected) {
+    if (!file || !Number.isSafeInteger(file.size) ||
+        file.size <= 0 || file.size > MAX_BACKUP_BYTES) {
+      throw Error('保存済みJSONの容量が0か150 MiBの上限を超えています。');
+    }
+    if (!MODES[selected]) throw Error('検証するモードを選び直してください。');
+    // One file only; no access to the live game, and NO write transactions.
+    // Same checksum, 60 decoded PNGs and exact DNA/life constraints as the
+    // production v1 restorer, but without calling restoreMode().
+    const raw = await file.text();
+    // File.size was checked BEFORE this read. Do not re-encode the entire
+    // 150 MiB JSON to Uint8Array: doubling peak memory can crash iPad Safari.
+    // validateBackup also rejects oversized raw text before JSON.parse().
+    if (raw.length > MAX_BACKUP_BYTES)
+      throw Error('選択されたJSONの文字数が上限を超えています。');
+    const {body, prepared} = await validateBackup(raw, selected);
+    return Object.freeze({
+      generation:body.currentGeneration,
+      mode:selected,
+      count:STORES.reduce((n,name)=>n+prepared[name].length,0),
+      fileName:String(file.name||'名称不明').slice(0,180),
+      bytes:file.size,
+      integrity:'sha256-and-current-generation-shape'
+    });
+  }
+
   const button = document.getElementById('exhibitAdminOpen');
   button.addEventListener('click', async () => {
     try { await unlock(); } catch (error) { alert(error.message); }
@@ -820,6 +849,36 @@
       say('ライフ情報の再試行に失敗しました。進化データは変更していません：'
         +(error?.message||String(error)));
     }
+  });
+
+  // File re-selection must be explicit. File.text() reads the saved copy;
+  // it is not enough to re-check the in-memory object from exportMode().
+  const verifyBackupInput=document.getElementById('exhibitBackupVerifyFile');
+  let selectedModeForFileCheck=null;
+  document.getElementById('exhibitBackupVerify').addEventListener('click',()=>{
+    if(!unlocked)return;
+    selectedModeForFileCheck=selector.value;
+    verifyBackupInput.value='';
+    verifyBackupInput.click();
+  });
+  verifyBackupInput.addEventListener('change',async()=>{
+    if(!unlocked||!verifyBackupInput.files?.[0])return;
+    const file=verifyBackupInput.files[0];
+    const requestedMode=selectedModeForFileCheck;
+    selectedModeForFileCheck=null;
+    say('「ファイル」アプリから選択したJSONを検証中…保存データは変更しません。');
+    try{
+      const result=await verifySavedBackupFile(file,requestedMode);
+      say('保存済みJSONの検証成功：'+result.fileName
+        +'／'+MODES[result.mode].label+'／'+result.generation
+        +'／'+result.count+'件。SHA-256、現世代の画像60匹とDNA60匹を確認しました。'
+        +'実験データは変更していません。'
+        +'これは選択したファイルの形式・内容の検証であり、実際の復元やiPadの将来の保存保証ではありません。');
+    }catch(error){
+      say('保存済みJSONの検証失敗：'+(error?.message||String(error))
+        +'。ゲームの進化データは変更していません。'
+        +'元のバックアップや保存済み実験を削除しないでください。');
+    }finally{verifyBackupInput.value='';}
   });
 
   document.getElementById('exhibitBackupRestore').addEventListener('click', () => {
