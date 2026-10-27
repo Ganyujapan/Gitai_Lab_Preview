@@ -48,7 +48,7 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
       assert.equal(name,'meta');assert.equal(kind,'readonly');
       return {objectStore(){return {get(){
         const req={result:pointer};queueMicrotask(()=>req.onsuccess?.());return req;
-      }}};
+      }};
     }};
     const req={result:db};queueMicrotask(()=>req.onsuccess?.());return req;
   }};
