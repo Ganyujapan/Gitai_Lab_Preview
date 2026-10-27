@@ -47,7 +47,7 @@
   reviewOverlay?.querySelector('.review-actions')?.insertAdjacentElement('beforebegin', notice);
 
   function numberFrom(node) {
-    const match = (node?.textContent || '').match(/(?:GENERATION|第)\\s*(\\d+)/i);
+    const match = (node?.textContent || '').match(/(?:GENERATION|第)\s*(\d+)/i);
     return match ? Number(match[1]) : null;
   }
   function ensureVisitorStart() {
@@ -114,7 +114,7 @@
       for (let i = 0; i < 180; i += 1) {
         await delay(500);
         const next = await savedGeneration();
-        if (/^gen\\d{5}$/.test(String(next)) && Number(next.slice(3)) > completed
+        if (/^gen\d{5}$/.test(String(next)) && Number(next.slice(3)) > completed
           && next !== previous) {
           committed = true;
           break;
