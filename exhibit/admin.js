@@ -484,6 +484,11 @@
     const mode = MODES[selected];
     if (!confirm(mode.label + 'を' + body.currentGeneration +
       'に復元します。現在の同モードのデータは置き換えられます。実行しますか？')) return {status: 'cancelled'};
+    // Unique restore epoch: never reuse a value from an imported backup.
+    // Browser cryptographic randomness is separate from evolution RNG.
+    const entropy = crypto.getRandomValues(new Uint8Array(16));
+    const epoch = 'restore-' + [...entropy]
+      .map(value => value.toString(16).padStart(2, '0')).join('');
     const db = await openDb(mode.db);
     try {
       // Atomic across ALL object stores. On quota/write errors, IDB rolls
@@ -498,6 +503,9 @@
             const objectStore = tx.objectStore(store);
             objectStore.clear();
             for (const {key, value} of prepared[store]) objectStore.put(value, key);
+            // Same transaction as every other restored store. Any historic
+            // restore_epoch in the backup is intentionally replaced.
+            if (store === 'meta') objectStore.put(epoch, 'restore_epoch');
           }
         } catch (error) {
           // Synchronous put errors must not leave queued clear() operations
