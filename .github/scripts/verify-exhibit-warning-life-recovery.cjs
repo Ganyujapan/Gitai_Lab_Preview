@@ -2,9 +2,37 @@
 // CI for warning-life post-restore protocol. Isolated synthetic DB and
 // synthetic localStorage only. The existing warning game life key is NEVER used.
 const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm');
 const {writePartsFromRecords,validateManifest,MAX_MANIFEST_BYTES}=
   require('../../exhibit/backup_v2.js');
 const life=require('../../exhibit/backup_warning_life_recovery_v2.js');
+for(const file of [
+  'exhibit/backup_warning_life_recovery_v2.js',
+  'exhibit/backup_warning_life_rehearsal.js'
+])new vm.Script(fs.readFileSync(file,'utf8'),{filename:file});
+const html=fs.readFileSync('exhibit/backup_rehearsal.html','utf8');
+const script=html.match(/<script>([\\s\\S]*?)<\\/script>/);
+assert.ok(script);
+new vm.Script(script[1],{filename:'backup_rehearsal.html'});
+assert.match(html,/id="runLife"/);
+assert.match(html,/lifeButton\\.addEventListener\\('click'/);
+assert.match(html,/GitaiWarningLifeRehearsal\\.runRehearsal/);
+assert.match(html,/本物の進化データやゲームのライフには触れません/);
+const browser=fs.readFileSync('exhibit/backup_warning_life_rehearsal.js','utf8');
+assert.match(browser,/schemaApi\\.uniqueSandboxName\\(cryptoApi\\)/);
+assert.match(browser,/lifeStorage\\.removeItem\\(key\\)/);
+assert.match(browser,/await removeDb\\(indexedDb,name\\)/);
+assert.match(browser,/Synthetic localStorage SecurityError/);
+assert.doesNotMatch(browser,/gitai-warning-life-v1:/);
+const build=fs.readFileSync('exhibit/build.py','utf8');
+assert.match(build,/backup_warning_life_recovery_v2\\.js/);
+assert.match(build,/backup_warning_life_rehearsal\\.js/);
+for(const production of ['exhibit/index.html','exhibit/modes.html',
+  'exhibit/admin.js','exhibit/game.js','exhibit/landing.js']){
+  const data=fs.readFileSync(production,'utf8');
+  assert.doesNotMatch(data,/backup_warning_life_recovery_v2/);
+  assert.doesNotMatch(data,/backup_warning_life_rehearsal/);
+}
 const DB='gitai-backup-rehearsal-'+'a'.repeat(32);
 const GEN='gen00035',EPOCH='restore-'+'b'.repeat(32);
 const partApi={validateManifest,MAX_MANIFEST_BYTES};
