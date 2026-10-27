@@ -244,6 +244,10 @@
     try {
       snapshot = await snapshotStores(db);
     } finally { db.close(); }
+    // Reject corrupt or incomplete current-generation records before spending
+    // memory on a JSON artifact that this exact release could never restore.
+    // The snapshot is read-only and represents one consistent IDB point.
+    await verifyExportCurrentSnapshot(snapshot, modeId);
     // Encode only AFTER the complete, transactionally consistent snapshot.
     const stores = {};
     for (const store of STORES) {
@@ -462,6 +466,36 @@
     if (width !== 128 || height !== 128) {
       throw Error('蛾画像のデコード後の寸法が不正です（' + index + '番）。');
     }
+  }
+
+  // EXH-02: an exported file must at least contain a current generation
+  // which this release would accept on import. All checks are read-only.
+  // An old/invalid experimental record is kept intact for manual recovery;
+  // never synthesize missing DNA from pixels or truncate the history.
+  async function verifyExportCurrentSnapshot(snapshot, selected) {
+    const meta = new Map(snapshot.meta.map(item => [item.key, item.value]));
+    const images = new Map(snapshot.images.map(item => [item.key, item.value]));
+    const current = meta.get('current_generation_id');
+    if (!/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(current))) {
+      throw Error('このモードには復元可能な世代情報がありません。'
+        + ' 元の実験は変更していません。');
+    }
+    for (let index = 1; index <= 60; index += 1) {
+      const id = String(index).padStart(2, '0');
+      const imageKey = current + ':' + id;
+      const dnaKey = 'genome:' + current + ':' + id;
+      if (!images.has(imageKey)) {
+        throw Error('バックアップできる蛾画像が不足しています（'
+          + index + '番）。実験データは保持しました。');
+      }
+      if (!meta.has(dnaKey)) {
+        throw Error('バックアップできる遺伝情報が不足しています（'
+          + index + '番）。実験データは保持しました。');
+      }
+      checkGenome(meta.get(dnaKey), index, selected);
+      await checkMothPng(images.get(imageKey), index);
+    }
+    return current;
   }
 
   // An invalid/stale life string must not be treated as a successful
