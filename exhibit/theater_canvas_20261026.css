@@ -1,7 +1,7 @@
 
 /* Dedicated read-only theater on the exhibition landing page. */
 [hidden]{display:none!important}
-.mode{gap:0;padding:0;overflow:hidden}
+.mode{gap:0;padding:0;overflow:hidden;--exhibit-action-width:clamp(158px,44vw,190px)}
 .mode-play{display:grid;gap:9px;padding:20px 24px 12px;text-decoration:none;color:inherit;touch-action:manipulation}
 .mode-play:focus-visible,.mode-theater-button:focus-visible{outline:3px solid #fff;outline-offset:-4px}
 .mode-play .mode-index{font:11px monospace;letter-spacing:.13em;color:#a1b5a3}
@@ -12,6 +12,7 @@
    card remains one keyboard/touch-accessible link, with no nested button. */
 .mode-play .arrow{
   display:inline-flex;align-items:center;justify-content:center;justify-self:end;
+  box-sizing:border-box;width:var(--exhibit-action-width);white-space:nowrap;
   min-height:52px;padding:10px 22px;margin-top:clamp(20px,4vw,30px);
   border:2px solid #e1f9d9;border-radius:10px;
   background:#c9eec2;color:#13281c;
@@ -31,7 +32,7 @@
 .mode:nth-child(2) .mode-theater-actions{border-top-color:#715a4a}
 .mode-generation{font-size:clamp(15px,3.4vw,19px);font-weight:750;margin:0;color:#dcf2d9;line-height:1.5}
 .mode:nth-child(2) .mode-generation{color:#ffe3bc}
-.mode-theater-button{min-height:44px;padding:8px 12px;border:1px solid #687d6d;border-radius:8px;background:transparent;color:#cedbcf;font-size:clamp(12px,2.9vw,15px);font-weight:650;touch-action:manipulation;cursor:pointer}
+.mode-theater-button{box-sizing:border-box;width:var(--exhibit-action-width);flex:0 0 var(--exhibit-action-width);margin-inline-start:auto;min-height:44px;padding:8px 12px;border:1px solid #687d6d;border-radius:8px;background:transparent;color:#cedbcf;font-size:clamp(12px,2.9vw,15px);font-weight:650;text-align:center;white-space:nowrap;touch-action:manipulation;cursor:pointer}
 .mode:nth-child(2) .mode-theater-button{background:transparent;border-color:#896c56;color:#e6d0bc}
 .mode-theater-button:disabled{opacity:.65}
 .exhibit-theater-overlay{position:fixed;inset:0;z-index:20000;display:flex;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));background:rgba(0,0,0,.94);touch-action:manipulation}

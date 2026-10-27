@@ -24,13 +24,27 @@ assert.match(primary,/min-height:52px/);
 assert.match(primary,/margin-top:clamp\(20px,4vw,30px\)/,
   'keep empty space above CTA for the future moth thumbnail');
 assert.match(primary,/font-weight:850/);
+const card=rule('.mode');
+assert.match(card,/--exhibit-action-width:clamp\(158px,44vw,190px\)/);
+assert.match(primary,/width:var\(--exhibit-action-width\)/,
+ 'experiment start button uses the shared action width');
+assert.match(theater,/width:var\(--exhibit-action-width\)/,
+ 'theater button uses exactly the same action width');
+assert.match(theater,/flex:0 0 var\(--exhibit-action-width\)/,
+ 'flex layout must not shrink only the lower button');
+assert.match(theater,/margin-inline-start:auto/,
+ 'theater button aligns to right edge even on narrow screens');
+assert.match(primary,/justify-self:end/,
+ 'start button stays right aligned');
+assert.match(primary,/white-space:nowrap/);
+assert.match(theater,/white-space:nowrap/);
 assert.match(theater,/background:transparent/);
 assert.match(theaterWarning,/background:transparent/);
 assert.match(base,/\.mode\{display:grid/);
 assert.equal((html.match(/class="mode-play"/g)||[]).length,2);
-assert.equal((html.match(/class="arrow">プレイする →/g)||[]).length,2);
+assert.equal((html.match(/class="arrow">実験開始 →/g)||[]).length,2);
 assert.equal((html.match(/class="mode-theater-button"/g)||[]).length,2);
-assert.ok(html.indexOf('プレイする →')<html.indexOf('進化シアターを見る ▶'),
+assert.ok(html.indexOf('実験開始 →')<html.indexOf('進化シアターを見る ▶'),
   'start action must precede theater within each card');
 for(const token of [
  'game.html?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1',
@@ -61,4 +75,4 @@ assert.ok(crypticRatio>=7,'cryptic primary play CTA low contrast '+crypticRatio)
 assert.ok(warningRatio>=7,'warning primary play CTA low contrast '+warningRatio);
 // The theater label remains legible but uses transparent/outline treatment.
 assert.match(theater,/font-weight:650/);
-console.log('Exhibition: two visually prominent high-contrast play CTAs, space for thumbnails, theater secondary, original layout and links unchanged.');
+console.log('Exhibition: two high-contrast 実験開始 CTAs align to the same width and right edge as theater, thumbnail spacing and links preserved.');
