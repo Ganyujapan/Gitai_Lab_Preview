@@ -188,6 +188,8 @@
   const message = dialog.querySelector('#gitaiExperimentMessage');
   const close = dialog.querySelector('#gitaiExperimentClose');
   let busy = false;
+  // Invalidate an old async records refresh on close or a newer refresh.
+  let recordsRequestSerial = 0;
 
   function updateGallerySaveButton() {
     if (!gallerySaveButton) return;
@@ -211,6 +213,7 @@
   }
   function closeModal() {
     if (busy) return;
+    recordsRequestSerial += 1;
     dialog.hidden = true;
     close.textContent = 'キャンセル・戻る';
     entries.replaceChildren();
@@ -462,7 +465,13 @@
     await showRecords();
   }
   async function showRecords() {
-    await registry.refresh();
+    const request = ++recordsRequestSerial;
+    try { await registry.refresh(); }
+    catch (error) {
+      if (request !== recordsRequestSerial) return;
+      throw error;
+    }
+    if (request !== recordsRequestSerial) return;
     heading.textContent = '実験記録';
     const records = readRegistry();
     summary.textContent = records.length + ' / 10件保存済み。保存した実験は世代更新ごとに自動保存されます。';
