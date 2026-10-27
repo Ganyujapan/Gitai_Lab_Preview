@@ -42,16 +42,32 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   const nodes={startGeneration,reviewGeneration,startOverlay,reviewOverlay,continueButton};
   const doc={body:{},getElementById:id=>nodes[id]||null,
     createElement:()=>element(),addEventListener(){}};
-  const indexedDB={open(_name,version){
-    assert.equal(version,2);
-    const db={close(){},transaction(name,kind){
-      assert.equal(name,'meta');assert.equal(kind,'readonly');
-      return {objectStore(){return {get(){
-        const req={result:pointer};queueMicrotask(()=>req.onsuccess?.());return req;
-      }};
-    }};
-    const req={result:db};queueMicrotask(()=>req.onsuccess?.());return req;
-  }};
+  const indexedDB = {
+    open(_name, version) {
+      assert.equal(version, 2);
+      const db = {
+        close() {},
+        transaction(name, kind) {
+          assert.equal(name, 'meta');
+          assert.equal(kind, 'readonly');
+          return {
+            objectStore() {
+              return {
+                get() {
+                  const req = { result: pointer };
+                  queueMicrotask(() => req.onsuccess?.());
+                  return req;
+                }
+              };
+            }
+          };
+        }
+      };
+      const req = { result: db };
+      queueMicrotask(() => req.onsuccess?.());
+      return req;
+    }
+  };
   const sessionStorage={getItem:k=>stash.get(k)||null,setItem:(k,v)=>stash.set(k,v)};
   const context={document:doc,indexedDB,sessionStorage,URL,
     window:{GitaiPagesPreview:{context:{storageNamespace:'gitai-exhibit-test'}},
