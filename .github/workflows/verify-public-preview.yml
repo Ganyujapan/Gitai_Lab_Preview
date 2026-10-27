@@ -98,6 +98,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-backup-validation.cjs
       - name: Verify exhibition backup restore reports partial success accurately
         run: node .github/scripts/verify-exhibit-restore-result.cjs
+      - name: Verify exhibit admin opens DB without creation or upgrade and preflights archive size
+        run: node .github/scripts/verify-exhibit-admin-nonmutating-open.cjs
       - name: Verify exhibition backup reads all stores in one atomic snapshot
         run: node .github/scripts/verify-exhibit-atomic-export.cjs
       - name: Prevent exporting exhibition backups that this release cannot import
