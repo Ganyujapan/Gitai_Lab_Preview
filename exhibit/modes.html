@@ -49,6 +49,8 @@
 <h2>展示管理</h2><p>バックアップはモードごとにJSONで保存します。復元時は同じモードを選択してください。</p><p>バックアップと復元の前に、同じiPadの他の展示ゲーム画面を閉じ、進行中の世代保存がないことを確認してください。別タブとの完全な排他は実装されていません。</p>
 <label for="exhibitBackupMode">対象モード</label>
 <select id="exhibitBackupMode"><option value="cryptic">隠れるギタイ</option><option value="warning">目立つギタイ</option></select>
+<button type="button" id="exhibitBackupReadiness">保存状況を診断（読み取り専用）</button>
+<pre id="exhibitBackupReadinessResult" role="status" aria-live="polite" hidden></pre>
 <button type="button" id="exhibitBackupExport">JSONバックアップを書き出す</button>
 <button type="button" id="exhibitBackupRestore">JSONから復元する</button>
 <button type="button" id="exhibitBackupLifeRetry">ライフ情報だけ再試行（進化データは変更しない）</button>
@@ -61,4 +63,4 @@
 <p id="exhibitAdminMessage" role="status" aria-live="polite"></p>
 <button type="button" id="exhibitAdminClose">管理画面を閉じる・ロックする</button>
 </section>
-</main><script src="landing.js" defer></script><script src="theater_canvas_20261026.js" defer></script><script src="admin.js" defer></script></body></html>
+</main><script src="landing.js" defer></script><script src="theater_canvas_20261026.js" defer></script><script src="backup_readiness.js" defer></script><script src="admin.js" defer></script></body></html>
