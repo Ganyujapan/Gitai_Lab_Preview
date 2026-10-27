@@ -2456,13 +2456,31 @@
     if (specimenDbPromise) return specimenDbPromise;
     specimenDbPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(SPECIMEN_DB_NAME, 1);
+      // STO-04: blocked version upgrades must not leave specimen operations
+      // suspended forever. An open request cannot be cancelled, so close an
+      // eventual late success instead of retaining an orphan connection.
+      let blocked = false;
+      req.onblocked = () => {
+        blocked = true;
+        reject(new Error(
+          '標本箱のデータベースが別のタブによって使用されています。'
+          + '他のゲーム画面を閉じてから再試行してください。'
+          + '標本は削除していません。'
+        ));
+      };
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(SPECIMEN_STORE)) {
           db.createObjectStore(SPECIMEN_STORE, { keyPath: 'id' });
         }
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        if (blocked) {
+          req.result.close();
+          return;
+        }
+        resolve(req.result);
+      };
       req.onerror = () => reject(req.error || new Error('標本箱のデータベースを開けませんでした。'));
     }).catch(error => {
       // Retry a transient open failure instead of caching a rejected Promise.
