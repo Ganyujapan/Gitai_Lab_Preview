@@ -148,7 +148,9 @@
   // restore_epoch, all within ONE readwrite transaction spanning all 4 stores.
   // Any malformed/incomplete stage or failed PUT aborts and rolls back clear().
   // Never await file/Blob conversion or any promise within this transaction.
-  async function commitStagedRestore(db,prepared,{cryptoApi=globalThis.crypto}={}){
+  async function commitStagedRestore(db,prepared,{cryptoApi=globalThis.crypto,
+    // Test-only injection is sandbox-name-gated by requireSandbox.
+    simulateAbortAfterRecords=null}={}){
     if(!prepared||prepared.stageComplete!==true)
       fail('検証と一時保存が完了していません。');
     requireSandbox(db,prepared.stageId);
@@ -158,6 +160,11 @@
          !Number.isSafeInteger(prepared.byStore[s])||prepared.byStore[s]<0)||
        STORES.reduce((sum,s)=>sum+prepared.byStore[s],0)!==prepared.entries) {
       fail('一時保存の検証結果が不正です。');
+    }
+    if(simulateAbortAfterRecords!==null &&
+       (!Number.isSafeInteger(simulateAbortAfterRecords)||
+        simulateAbortAfterRecords<1||simulateAbortAfterRecords>60)) {
+      fail('テスト用中断位置が不正です。');
     }
     const random=makeStageId(cryptoApi);
     const epoch='restore-'+random.slice('restore-'.length);
@@ -211,6 +218,11 @@
               try {
                 tx.objectStore(rec.store).put(rec.value,rec.key);
                 counts[rec.store]++;seen++;
+                if(simulateAbortAfterRecords!==null &&
+                   seen===simulateAbortAfterRecords) {
+                  abort(Error('Isolated simulated transaction abort'));
+                  return;
+                }
                 if(rec.store==='meta'&&rec.key==='current_generation_id') {
                   if(rec.value!==prepared.generation) {
                     abort(Error('Stage generation mismatch'));return;
