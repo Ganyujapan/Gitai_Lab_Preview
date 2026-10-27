@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const engine = fs.readFileSync('js/pages_preview.js','utf8');
 const html = fs.readFileSync('index.html','utf8');
+const admin = fs.readFileSync('exhibit/admin.js','utf8');
 function section(source, from, until) {
   const a = source.indexOf(from), z = source.indexOf(until,a);
   assert.ok(a >= 0 && z > a, 'Source section not found: ' + from);
@@ -16,6 +17,7 @@ const evolution = section(engine,'  function openDb() {','  // STO-01:') +
   section(engine,'  async function idbEntriesByPrefix(', '  function diagnosticKey(');
 const specimen = section(html,'  function openSpecimenDb() {','  function specimenIdentity(') +
   section(html,'  async function specimenPut(', '  async function loadSpecimenGenome(');
+const adminOpen = section(admin,'  async function openDb(name) {','  // RE2-EXH-02:');
 assert.match(engine,/async function commitEvolutionGeneration/);
 assert.match(engine,/tx\.onabort = \(\) => reject\(failure \|\| tx\.error/);
 assert.match(engine,/tx\.onabort = \(\) => reject\(tx\.error \|\| new Error\('世代情報の確認を中断しました/);
@@ -59,7 +61,7 @@ function simulate(source,isSpecimen=false) {
   }};
   const ctx={indexedDB,dbPromise:null,specimenDbPromise:null,
     DB_NAME:'test-evolution',DB_VERSION:2,IMAGE_STORE:'images',META_STORE:'meta',THEATER_STORE:'theater_frames',
-    SPECIMEN_DB_NAME:'test-specimen',SPECIMEN_STORE:'specimens',console,Error,
+    SPECIMEN_DB_NAME:'test-specimen',SPECIMEN_STORE:'specimens',STORES:['images','meta','theater_frames'],console,Error,
     showStorageConflictNotice:message=>state.storageConflicts.push(message)};
   vm.runInNewContext(source,ctx,{filename:isSpecimen?'index.html:specimen':'pages_preview.js:indexeddb',timeout:1000});
   const nextTx=async operation=>{
@@ -175,10 +177,21 @@ async function rejects(p,pattern) {
   assert.equal(blockedSpecimen.state.lateCloses,1,
     'new specimen DB connection must not inherit prior blocked state');
 
+  // Admin backup must close the delayed DB opening after reporting blocked.
+  const blockedAdmin=simulate(adminOpen);
+  const adminAttempt=blockedAdmin.ctx.openDb('test-exhibit');
+  blockedAdmin.requests[0].onblocked();
+  await rejects(adminAttempt,/データベースが使用中です/);
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(blockedAdmin.state.lateCloses,1);
+  assert.strictEqual(await blockedAdmin.ctx.openDb('test-exhibit'),blockedAdmin.db);
+  assert.equal(blockedAdmin.requests.length,2);
+  assert.equal(blockedAdmin.state.lateCloses,1);
+
   // Sanity: data records and object stores are never cleared or deleted.
   assert.match(engine,/req\.onblocked = \(\) => \{/);
   assert.match(html,/req\.onblocked = \(\) => \{/);
   assert.match(engine,/if \(blocked\) \{[\s\S]*?db\.close\(\)/);
   assert.match(html,/if \(blocked\) \{\s*req\.result\.close\(\)/);
-  console.log('STO-04: evolution+specimens abort/error cases, blocked open prompt rejection, late connection close, memoized retry, no user data mutation verified.');
+  console.log('STO-04: game, specimens and admin blocked IDB opens reject promptly, close late connections and remain retryable; original abort guards preserved.');
 })().catch(err=>{console.error(err);process.exitCode=1});
