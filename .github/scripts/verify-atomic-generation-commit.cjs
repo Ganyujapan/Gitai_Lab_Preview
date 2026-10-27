@@ -26,6 +26,8 @@ assert.match(source,/const already = completedRuns\.get\(runId\)/);
 assert.match(source,/await persistedCompletedRun\(runId\)/);
 assert.match(source,/runId\.length > 128/);
 assert.match(source,/error\?\.code === 'generation_mismatch'/);
+assert.match(source,/restore_epoch_mismatch/);
+assert.match(source,/restoreEpochCaptured = true/);
 
 function dbFixture(sourceId='gen00021',failAt=Infinity) {
  const stores={images:new Map(),meta:new Map()};
@@ -112,7 +114,8 @@ function dbFixture(sourceId='gen00021',failAt=Infinity) {
   return {blobs,dna,diag:{marker,offspring:[{marker}]}};
  };
  return {stores,txLog,make,commit:(from,to,data,runId)=>context.commit(
-  from,to,data.blobs,data.dna,data.diag,runId),replay:id=>context.replay(id)};
+  from,to,data.blobs,data.dna,data.diag,runId),replay:id=>context.replay(id),
+  loadEpoch:epoch=>{context.loadedRestoreEpoch=epoch;}};
 }
 (async()=>{
  const a=dbFixture();const first=a.make('first'),second=a.make('second');
@@ -164,6 +167,13 @@ function dbFixture(sourceId='gen00021',failAt=Infinity) {
    assert.equal(await restored.stores.images.get(key).text(),'restored-B');
    assert.equal(restored.stores.meta.get('genome:'+key).marker,'restored-B');
  }
+
+ // A new document loaded after restore B may commit normally.
+ restored.loadEpoch('restore-B');
+ await restored.commit('gen00021','gen00022',restored.make('new-B'),'new-tab-run');
+ assert.equal(restored.stores.meta.get('current_generation_id'),'gen00022');
+ assert.equal(restored.stores.meta.get('restore_epoch'),'restore-B');
+ assert.equal(restored.stores.meta.get('completed_run:new-tab-run').generation_id,'gen00021');
 
  const stale=dbFixture('gen00022');
  await assert.rejects(
