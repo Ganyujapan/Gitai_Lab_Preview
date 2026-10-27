@@ -110,6 +110,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-stage-upgrade-preflight.cjs
       - name: Verify additive v3 upgrade in sandbox-only browser rehearsal
         run: node .github/scripts/verify-exhibit-isolated-upgrade-rehearsal.cjs
+      - name: Validate multipart semantic restore preflight using shipped genome and PNG checks
+        run: node .github/scripts/verify-exhibit-v2-semantic-restore-preflight.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
