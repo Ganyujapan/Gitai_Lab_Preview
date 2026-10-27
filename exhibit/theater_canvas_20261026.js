@@ -164,7 +164,11 @@
       preview.src = url;
     });
     loadedImages.set(index, ready);
-    ready.catch(() => loadedImages.delete(index));
+    ready.catch(() => {
+      // An old session's failure must not delete a newer session's
+      // same-index cached decode after close/reopen or mode switch.
+      if (loadedImages.get(index) === ready) loadedImages.delete(index);
+    });
     // Keep a small decoded window around the current slide. Blob URLs stay
     // valid for the whole viewer, so old generations can be revisited.
     if (loadedImages.size > 7) {
