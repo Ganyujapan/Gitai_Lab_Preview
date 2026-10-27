@@ -119,6 +119,8 @@ jobs:
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Verify long-running generation IDs remain valid after generation 99999
         run: node .github/scripts/verify-long-generation-ids.cjs
+      - name: Verify local evolution submission timeout does not cancel or replay uncertain commits
+        run: node .github/scripts/verify-local-submit-timeout.cjs
       - name: Reject aborted evolution and specimen transactions without hanging
         run: node .github/scripts/verify-indexeddb-aborts.cjs
       - name: Verify blocked experiment deletions settle only after actual result

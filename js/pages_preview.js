@@ -4965,7 +4965,17 @@
       return nativeFetch(input, init);
     }
 
+    // Abort is safe only before the local operation starts. Never abort an
+    // IDB generation commit mid-flight: it might already have completed.
+    const rejectCancelledBeforeStart = () => {
+      if (!init?.signal?.aborted) return;
+      const error = new Error('ローカル操作の開始前にキャンセルされました。');
+      error.name = 'AbortError';
+      throw error;
+    };
+    rejectCancelledBeforeStart();
     await ensureConfig();
+    rejectCancelledBeforeStart();
 
     if (path.endsWith('/api/app_config')) {
       const publicConfig = JSON.parse(JSON.stringify(appConfig));
@@ -5079,6 +5089,9 @@
       });
     }
 
+    // Last cancellable boundary. After evolution begins, an abort signal
+    // must not imply an IDB rollback (the commit may already be durable).
+    rejectCancelledBeforeStart();
     let nextId;
     try {
       nextId = await evolveGeneration(generationId, eaten, runId);
