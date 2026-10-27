@@ -23,7 +23,7 @@
 }
 #exhibitModeSelection .mode-play{
   display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-columns:minmax(0,1fr) minmax(0,148px);
   grid-template-rows:auto auto auto auto;
   align-items:center;
   column-gap:12px;
@@ -35,38 +35,51 @@
 }
 #exhibitModeSelection .mode-thumbnail{
   display:block;
-  grid-column:1/-1;
+  grid-column:1;
+  grid-row:4;
   width:100%;
-  height:auto;
-  aspect-ratio:16 / 5;
+  max-width:173px;
+  height:54px;
+  margin-top:18px;
   object-fit:cover;
-  border-radius:7px;
+  object-position:center;
+  border-radius:10px;
   border:1px solid rgba(230,242,231,.16);
 }
 #exhibitModeSelection .mode-play .mode-index{
   grid-column:1/-1;
+  grid-row:1;
   margin-top:4px;
   font-size:10px;
 }
 #exhibitModeSelection .mode-play strong{
-  grid-column:1;
+  grid-column:1/-1;
+  grid-row:2;
   font-size:clamp(22px,5.5vw,30px);
   line-height:1.24;
 }
 #exhibitModeSelection .mode-play .mode-subtitle{
-  grid-column:1;
+  grid-column:1/-1;
+  grid-row:3;
   color:#e1e7dd;
   font-size:12px;
   line-height:1.5;
 }
 #exhibitModeSelection .mode-play .arrow{
   grid-column:2;
-  grid-row:3 / span 2;
-  align-self:center;
+  grid-row:4;
+  align-self:stretch;
   justify-self:end;
-  padding:11px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  max-width:148px;
+  height:54px;
+  margin-top:18px;
+  padding:0 10px;
   border:1px solid #bfd8c1;
-  border-radius:6px;
+  border-radius:10px;
   background:#2c5237;
   color:#fff;
   font-size:14px;
