@@ -82,6 +82,8 @@ async function produce(recordStream, opts={}) {
   assert.equal(diag.value.note,'sample ☘ 演算');
   assert.equal(legacy.typed.$type,'Uint16Array');
   assert.equal(legacy.image.$type,'Blob');
+  assert.deepEqual(JSON.parse(JSON.stringify(allRecords.find(x=>x.key===generation+':01').value)),
+    JSON.parse(JSON.stringify(legacy.image)), 'image encoding matches v1');
 
   const miniCheck=await verifyPartIntegrity(mini.manifestFile,mini.files,'cryptic',db);
   assert.equal(miniCheck.generation,generation);
@@ -100,6 +102,14 @@ async function produce(recordStream, opts={}) {
   assert.equal(verified.entries,22172);
   assert.ok(many.manifest.parts.every(p=>p.bytes<=MAX_PART_BYTES && /^[a-f0-9]{64}$/.test(p.sha256)));
 
+  // Existing restore does not decode DataView or BigInt views.
+  const unsupported = async function* () {
+    for await (const item of records(0)) {
+      yield item.store === 'theater_frames' ?
+        {...item,value:{unknownView:new DataView(new ArrayBuffer(8))}} : item;
+    }
+  };
+  await assert.rejects(produce(unsupported()),/復元未対応/);
   await assert.rejects(produce(records(0,{duplicate:true})),/重複|順序/);
   await assert.rejects(produce(records(0,{badOrder:true})),/順序/);
   await assert.rejects(produce(records(0,{noGenome:true})),/DNAが不足/);
