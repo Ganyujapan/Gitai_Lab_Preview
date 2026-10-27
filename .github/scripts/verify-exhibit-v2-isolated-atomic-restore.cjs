@@ -186,7 +186,7 @@ const checkMothPng=async(blob,index)=>{
   if(!(blob instanceof Blob)||blob.type!=='image/png'||blob.size<5)
     throw Error('Invalid PNG '+index);
 };
-const cryptoApi={getRandomValues(arr)=>{arr.fill(0x19);return arr;}};
+const cryptoApi={getRandomValues(arr){arr.fill(0x19);return arr;}};
 async function stage(env,parts,idValue=stageId){
   return restore.stageValidatedBackup({
     db:env.db,stageId:idValue,manifestFile:parts.manifestFile,
