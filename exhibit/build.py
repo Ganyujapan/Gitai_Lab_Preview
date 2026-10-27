@@ -14,6 +14,20 @@ def main() -> None:
     exhibit = site / "exhibit"
     exhibit.mkdir(parents=True, exist_ok=True)
 
+    # Mode-select banners come from the authored modeselect_tmb ZIP. They
+    # must be bundled in the exhibit scope; its service worker precaches them.
+    thumbnails = (
+        "gitailab_thumbnail_hide_960x300.webp",
+        "gitailab_thumbnail_warning_960x300.webp",
+    )
+    for thumbnail in thumbnails:
+        path = root / "img" / "modeselect" / thumbnail
+        assert path.is_file(), "Missing exhibit mode thumbnail: " + str(path)
+        # Real WebP (RIFF + WEBP), not a missing image or text placeholder.
+        with path.open("rb") as fp:
+            head = fp.read(12)
+        assert head[:4] == b"RIFF" and head[8:12] == b"WEBP", thumbnail
+
     # All runtime files are physically inside the exhibit scope. The service
     # worker must not control/cache normal public-preview paths.
     for folder in ("audio", "config", "css", "data", "environments", "img", "js", "species"):
@@ -155,6 +169,12 @@ def main() -> None:
                    "js/warning_color.js", "img/backgrounds/bg_leaf01.png",
                    "audio/gitailab_rainforest_overlap_test_48k.ogg"):
         assert needed in runtime_files, needed
+    for thumbnail in thumbnails:
+        artifact = "img/modeselect/" + thumbnail
+        assert artifact in runtime_files, artifact
+    modes_source = (exhibit / "modes.html").read_text(encoding="utf-8")
+    for thumbnail in thumbnails:
+        assert modes_source.count("img/modeselect/" + thumbnail) == 1, thumbnail
     # Keep BOTH codecs of all ten recorded effects in the offline scope.
     for kind, count in (("capture", 4), ("poison", 4), ("death", 2)):
         for i in range(1, count + 1):
