@@ -110,7 +110,11 @@
       } else if (item instanceof Date) {
         nodes += 2; // {$type, data}
       } else if (item && typeof item === 'object') {
-        for (const child of Object.values(item)) stack.push([child, depth + 1]);
+        const children = Array.isArray(item) ? item : Object.values(item);
+        if (nodes + stack.length + children.length > MAX_BACKUP_NODES) {
+          throw Error('保存履歴の構造がバックアップ上限を超えています。');
+        }
+        for (const child of children) stack.push([child, depth + 1]);
       }
       if (nodes > MAX_BACKUP_NODES || base64Bytes > MAX_BACKUP_BYTES) {
         throw Error('保存履歴の構造または画像容量がバックアップ上限を超えています。');
