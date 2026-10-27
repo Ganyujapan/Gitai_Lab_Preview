@@ -25,7 +25,9 @@ assert.match(primary,/margin-top:clamp\(20px,4vw,30px\)/,
   'keep empty space above CTA for the future moth thumbnail');
 assert.match(primary,/font-weight:850/);
 const card=rule('.mode');
-assert.match(card,/--exhibit-action-width:clamp\(158px,44vw,190px\)/);
+assert.match(card,/--exhibit-action-width:148px/,
+ 'both actions share the original theater button footprint');
+assert.ok(148<158,'compact action width must be narrower than previous minimum');
 assert.match(primary,/width:var\(--exhibit-action-width\)/,
  'experiment start button uses the shared action width');
 assert.match(theater,/width:var\(--exhibit-action-width\)/,
