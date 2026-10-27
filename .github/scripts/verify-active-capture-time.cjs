@@ -127,6 +127,7 @@ assert.match(toxin,/state\.toxinPaused = true;\s*freezeRoundElapsedClock\(\)/);
 assert.match(toxin,/if \(state\.soloPaused\) return;\s*resumeRoundElapsedClock\(\)/);
 assert.match(fatal,/freezeRoundElapsedClock\(\);\s*state\.roundActive = false/);
 assert.match(tap,/elapsed_ms: currentRoundElapsedMs\(\)/);
+assert.match(endRound,/tap_elapsed_basis: 'active_excludes_explicit_pauses_v2'/);
 assert.doesNotMatch(tap,/performance\.now\(\) - state\.roundStartedAt/);
 // Timed normal rounds still retain their original schedule, pause/resume, and
 // no extra random draws or data storage were added to active-time helpers.
