@@ -79,7 +79,9 @@
       throw Error('保存一覧の形式が不正です。データは変更していません。');
     }
     validateRecords(value.records);
-    if (value.revision >= revision) {
+    // A readonly refresh of an unchanged revision is NOT a data change.
+    // Notifying on equality causes subscriber -> showRecords -> refresh loops.
+    if (value.revision > revision) {
       revision = value.revision;
       cache = value.records.map(item => ({...item,config:{...item.config}}));
       for (const subscriber of subscribers) {
