@@ -180,9 +180,10 @@ const resultWith=(env,plan,store)=>life.applyPendingLife({db:env.db,plan,storage
   await assert.rejects(pending(makeDb(),mf,{...commit(),lifeRestored:true}),
     /確定が確認できません/);
   await assert.rejects(pending(makeDb(),mf,commit(123)),/一致しません/);
-  await assert.rejects(pending(makeDb(),await manifest(JSON.stringify({generation_id:GEN,thirds:31}))),
+  // Invalid life is rejected when creating the backup manifest itself.
+  await assert.rejects(manifest(JSON.stringify({generation_id:GEN,thirds:31})),
     /ライフ/);
-  await assert.rejects(pending(makeDb(),await manifest(JSON.stringify({generation_id:'gen00034',thirds:4}))),
+  await assert.rejects(manifest(JSON.stringify({generation_id:'gen00034',thirds:4})),
     /ライフ/);
   await assert.rejects(pending(makeDb('gitai-exhibit-2026-warning'),mf),
     /隔離DB/);
