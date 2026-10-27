@@ -70,6 +70,8 @@ jobs:
         run: node .github/scripts/verify-fast-sfx-cancelled-taps.cjs
       - name: Verify exhibition generation counters and read-only theater
         run: node .github/scripts/verify-exhibit-landing-theater.cjs
+      - name: Verify exhibition play buttons stand out without losing thumbnail space
+        run: node .github/scripts/verify-exhibit-primary-play-cta.cjs
       - name: Verify exhibition theater's image and generation label remain consistent
         run: node .github/scripts/verify-exhibit-theater-image-label.cjs
       - name: Verify obsolete exhibition theater image errors cannot evict current decode
