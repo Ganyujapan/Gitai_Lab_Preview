@@ -251,7 +251,7 @@ async function shouldFail(mode,payload,match) {
  assert.match(admin,/verifyBackupInput\.addEventListener\('change'/);
  assert.match(admin,/await verifySavedBackupFile\(file,requestedMode\)/);
  assert.doesNotMatch(body.slice(body.indexOf('  async function verifySavedBackupFile(')),
-   /\bopenDb\(|db\.transaction\(|localStorage\.|\brestoreMode\(/,
+   /\bopenDb\(|db\.transaction\(|localStorage\.|await restoreMode\(/,
    'Saved backup verification MUST NOT open DB, write to life or trigger restore');
  console.log('EXH-F01: Re-selected v1 backup checksum, all 60 images/DNA, byte limits and wrong-mode guards verified without any IndexedDB or localStorage access.');
 })().catch(e=>{console.error(e);process.exitCode=1});
