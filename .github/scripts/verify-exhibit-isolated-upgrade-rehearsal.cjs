@@ -70,6 +70,9 @@ assert.match(rehearsal,/idb\.open\(name, version\)/);
 assert.match(rehearsal,/idb\.deleteDatabase\(name\)/);
 assert.match(rehearsal,/assertSandboxName\(name\)/);
 assert.match(rehearsal,/tx\.abort\(\)/);
+assert.match(rehearsal,/error\?\.name !== 'AbortError'/);
+assert.doesNotMatch(rehearsal,/if \(\/予期せず完了\//);
+
 assert.match(rehearsal,/new Blob/);
 assert.match(rehearsal,/makeCheckpoint\(db, snapshotId\)/);
 assert.match(rehearsal,/writePartsFromRecords/);

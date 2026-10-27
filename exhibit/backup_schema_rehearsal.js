@@ -154,8 +154,10 @@
         });
         throw new Error('中断した移行が予期せず完了しました。');
       } catch (error) {
-        // AbortError is expected; a synthetic success error is NOT.
-        if (/予期せず完了/.test(error.message)) throw error;
+        // Only an IDB transaction AbortError proves that the deliberate
+        // versionchange rollback took place. VersionError, QuotaExceededError,
+        // unexpected rejections and synthetic success errors MUST fail closed.
+        if (error?.name !== 'AbortError') throw error;
       }
       blocker.close();
       blocker = null;
