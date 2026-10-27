@@ -122,6 +122,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-warning-life-recovery.cjs
       - name: Verify private-data-safe iPad isolated backup test report and user-triggered exports
         run: node .github/scripts/verify-exhibit-rehearsal-report.cjs
+      - name: EV-08 verify capture elapsed times exclude poison and menu pauses
+        run: node .github/scripts/verify-active-capture-time.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
