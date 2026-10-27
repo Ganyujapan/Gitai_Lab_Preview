@@ -38,6 +38,7 @@
         for (const child of children) stack.push([child, depth + 1]);
       }
     }
+    return total;
   }
 
   function validateManifest(manifest, expectedMode, expectedDb) {
@@ -274,6 +275,7 @@
     let chunks = [];
     let size = 0;
     let count = 0;
+    let partNodes = 0;
     let prefix = '';
 
     function makePrefix(store, index) {
@@ -287,6 +289,8 @@
       prefix = makePrefix(store, parts.length);
       chunks = [];
       count = 0;
+      // JSON structure: root + 7 property values, including entries array.
+      partNodes = 8;
       size = utf8(prefix + ']}');
     }
     async function flush() {
@@ -342,16 +346,24 @@
       const entryText = JSON.stringify({key: record.key, value: encoded});
       if (!entryText) fail('保存項目がJSON化できません。');
       const entryBytes = utf8(entryText);
-      if (entryBytes + utf8(makePrefix(store, parts.length) + ']}') > maxPartBytes) {
+      // The verifier's MAX_PART_NODES applies to the complete parsed part,
+      // not each record. Track exact JSON nodes (record + key + value tree),
+      // otherwise many small diagnostic arrays create a part it rejects.
+      const entryNodes = 2 + checkDepthAndNodes(encoded);
+      if (entryBytes + utf8(makePrefix(store, parts.length) + ']}') > maxPartBytes ||
+          8 + entryNodes > MAX_PART_NODES) {
         fail('単一保存項目が分割上限を超えています。');
       }
-      if (count && (count >= maxPartEntries || size + 1 + entryBytes > maxPartBytes)) {
+      if (count && (count >= maxPartEntries ||
+          size + 1 + entryBytes > maxPartBytes ||
+          partNodes + entryNodes > MAX_PART_NODES)) {
         await flush();
         begin(store);
       }
       const extra = entryBytes + (count ? 1 : 0);
       chunks.push(entryText);
       size += extra;
+      partNodes += entryNodes;
       count++;
       byStore[store]++;
     }
