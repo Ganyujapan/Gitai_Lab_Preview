@@ -43,7 +43,7 @@ assert.match(test,/canvas\.toBlob/);
 assert.match(test,/createImageBitmap\(blob\)/);
 assert.match(test,/img\.onload/);
 assert.match(test,/db\.transaction\(stores,'readonly'\)/);
-assert.match(test,/indexedDb\.deleteDatabase\(name\)/);
+assert.match(test,/idb\.deleteDatabase\(name\)/);
 assert.doesNotMatch(test,/gitai-exhibit-2026-/);
 assert.doesNotMatch(test,/localStorage\./);
 assert.doesNotMatch(test,/\.clear\(/);
