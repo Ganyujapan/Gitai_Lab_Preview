@@ -100,6 +100,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-export-preflight.cjs
       - name: Verify exporter refuses incomplete current PNG and DNA records
         run: node .github/scripts/verify-exhibit-export-validates-current.cjs
+      - name: Preflight experimental split-backup manifest and parts (read-only)
+        run: node .github/scripts/verify-exhibit-backup-v2-preflight.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
