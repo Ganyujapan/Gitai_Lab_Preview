@@ -75,96 +75,137 @@ function backup(mode, warningLife) {
 function harness({mode='warning', confirmed=true, idbFail=false,
                   lifeSetFail=false, lifeRemoveFail=false}={}) {
   const saved = new Map([[lifeKey,'PREVIOUS_LIFE']]);
-  const messages = [];
-  const handlers = {};
+  const messages = [], handlers = {};
   let opened = 0, closed = 0, confirmations = 0, epochCounter = 0;
+  let failSet=lifeSetFail,failRemove=lifeRemoveFail;
   const state = {
     images: new Map([['old-image','kept']]),
     meta: new Map([['current_generation_id','gen00010']]),
     theater_frames: new Map([['old-frame','kept']])
   };
   const input = {
-    value:'', files:[],
-    addEventListener(event,callback) {handlers[event]=callback;},
-    click() {}
+    value:'',files:[],
+    addEventListener(event,callback){handlers['file:'+event]=callback;},
+    click(){}
   };
-  const restoreButton = {addEventListener() {}};
+  const restoreButton={addEventListener() {}};
+  const lifeRetryButton={addEventListener(event,cb){handlers['retry:'+event]=cb;}};
   const context = {
-    MODES, STORES, BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
-    Blob, Uint8Array, DataView, digest,
-    crypto:{getRandomValues(bytes) {bytes.fill((++epochCounter)%256);return bytes;}},
-    selector:{value:mode}, unlocked:true,
-    say(message) { messages.push(message); },
-    confirm() {confirmations++;return confirmed;},
-    decode(value) {
-      if(value && value.$blob) return new Blob([Uint8Array.from(value.$blob)],{type:value.mime});
+    MODES,STORES,BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
+    Blob,Uint8Array,DataView,digest,
+    crypto:{getRandomValues(bytes){bytes.fill((++epochCounter)%256);return bytes;}},
+    selector:{value:mode},unlocked:true,
+    say(message){messages.push(message);},
+    confirm(){confirmations++;return confirmed;},
+    decode(value){
+      if(value && value.$blob) return new Blob(
+        [Uint8Array.from(value.$blob)],{type:value.mime});
       return value;
     },
-    createImageBitmap:async () => ({width:128,height:128,close(){}}),
+    createImageBitmap:async()=>({width:128,height:128,close(){}}),
     localStorage:{
-      getItem(key) {return saved.has(key) ? saved.get(key) : null;},
-      setItem(key,value) {
-        if(lifeSetFail) throw Error('TEST_QUOTA_FAILURE');
+      getItem(key){return saved.has(key)?saved.get(key):null;},
+      setItem(key,value){
+        if(failSet)throw Error('TEST_QUOTA_FAILURE');
         saved.set(key,String(value));
       },
-      removeItem(key) {
-        if(lifeRemoveFail) throw Error('TEST_REMOVE_FAILURE');
+      removeItem(key){
+        if(failRemove)throw Error('TEST_REMOVE_FAILURE');
         saved.delete(key);
       }
     },
-    openDb:async () => {
+    openDb:async()=>{
       opened++;
       return {
-        close() {closed++;},
-        transaction(stores,mode) {
-          assert.equal(mode,'readwrite');
-          assert.deepEqual(Array.from(stores), STORES);
-          const draft = Object.fromEntries(STORES.map(s => [s,new Map(state[s])]));
-          let aborted = false;
-          const tx = {
-            error:Error('TEST_IDB_ABORT'),
-            objectStore(store) {
+        close(){closed++;},
+        transaction(stores,mode){
+          const names=Array.isArray(stores)?stores:[stores];
+          assert.ok(names.length && names.every(x=>STORES.includes(x)));
+          assert.ok(mode==='readonly'||mode==='readwrite');
+          const draft=Object.fromEntries(names.map(x=>[x,new Map(state[x])]));
+          let pending=0,aborted=false,scheduled=false,completed=false;
+          const tx={
+            error:Error('TEST_IDB_ABORT'),oncomplete:null,onabort:null,onerror:null,
+            objectStore(name){
+              assert.ok(names.includes(name));
               return {
-                clear() {draft[store].clear();},
-                put(value,key) {draft[store].set(key,value);}
+                clear(){assert.equal(mode,'readwrite');draft[name].clear();},
+                put(value,key){
+                  assert.equal(mode,'readwrite');draft[name].set(key,value);
+                },
+                delete(key){
+                  assert.equal(mode,'readwrite');draft[name].delete(key);
+                },
+                get(key){
+                  pending++;
+                  const req={result:undefined,onsuccess:null,onerror:null};
+                  queueMicrotask(()=>{
+                    if(aborted||completed)return;
+                    req.result=draft[name].get(key);
+                    try{req.onsuccess?.();}
+                    catch(error){tx.error=error;tx.abort();return;}
+                    pending--;
+                    settle();
+                  });
+                  return req;
+                }
               };
             },
-            abort() {
-              aborted = true;
-              queueMicrotask(() => tx.onabort && tx.onabort());
+            abort(){
+              if(aborted||completed)return;
+              aborted=true;
+              queueMicrotask(()=>tx.onabort?.());
             }
           };
-          queueMicrotask(() => {
-            if (aborted) return;
-            if (idbFail) {
-              tx.onabort && tx.onabort();
-            } else {
-              for (const store of STORES) state[store]=draft[store];
-              tx.oncomplete && tx.oncomplete();
-            }
-          });
+          function settle(){
+            if(aborted||completed||pending!==0||scheduled)return;
+            scheduled=true;
+            queueMicrotask(()=>{
+              scheduled=false;
+              if(aborted||completed||pending!==0)return;
+              if(idbFail&&mode==='readwrite'&&names.length===STORES.length){
+                aborted=true;tx.onabort?.();return;
+              }
+              if(mode==='readwrite'){
+                for(const name of names)state[name]=draft[name];
+              }
+              completed=true;
+              tx.oncomplete?.();
+            });
+          }
+          queueMicrotask(settle);
           return tx;
         }
       };
     },
     document:{
-      getElementById(id) {
+      getElementById(id){
         if(id==='exhibitBackupFile')return input;
         if(id==='exhibitBackupRestore')return restoreButton;
-        throw Error('Unexpected DOM lookup: ' + id);
+        if(id==='exhibitBackupLifeRetry')return lifeRetryButton;
+        throw Error('Unexpected DOM lookup: '+id);
       }
     }
   };
   vm.runInNewContext(realCode,context,{filename:'EXH-03:exhibit/admin.js',timeout:5000});
-  assert.equal(typeof handlers.change,'function');
+  assert.equal(typeof handlers['file:change'],'function');
+  assert.equal(typeof handlers['retry:click'],'function');
   return {
-    messages, state, saved,
+    messages,state,saved,
+    setLifeFailure(value){failSet=value;},
+    setRemoveFailure(value){failRemove=value;},
+    setGeneration(value){state.meta.set('current_generation_id',value);},
+    setEpoch(value){state.meta.set('restore_epoch',value);},
     get opened(){return opened;},
     get closed(){return closed;},
     get confirmations(){return confirmations;},
     async restore(raw) {
       input.files=[{size:raw.length,async text(){return raw;}}];
-      await handlers.change();
+      await handlers['file:change']();
+      return messages.at(-1);
+    },
+    async retry() {
+      await handlers['retry:click']();
       return messages.at(-1);
     }
   };
@@ -183,8 +224,8 @@ function harness({mode='warning', confirmed=true, idbFail=false,
     'restoring the same backed-up generation MUST mint a fresh epoch');
   assert.equal(full.saved.get(lifeKey),savedLife);
   assert.equal(full.state.images.size,60);
-  assert.equal(full.opened,2);
-  assert.equal(full.closed,2);
+  assert.equal(full.opened,4);
+  assert.equal(full.closed,4);
 
   const cryptic = harness({mode:'cryptic'});
   assert.match(await cryptic.restore(await backup('cryptic',null)),/復元が完了/);
@@ -239,6 +280,17 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   assert.equal(partial.state.images.size,60);
   assert.equal(partial.saved.get(lifeKey),'PREVIOUS_LIFE');
   assert.equal(partial.messages.length,2,'UI warning must be final, not overwritten');
+  const savedEpoch=partial.state.meta.get('restore_epoch');
+  assert.ok(partial.state.meta.has('pending_warning_life_restore_v1'),
+    'life-retry intent must be durable in the SAME committed meta store');
+  partial.setLifeFailure(false);
+  assert.match(await partial.retry(),/ライフ情報だけ復元しました/);
+  assert.equal(partial.saved.get(lifeKey),savedLife);
+  assert.equal(partial.state.meta.get('restore_epoch'),savedEpoch,
+    'retry MUST NOT perform a second destructive backup restore');
+  assert.equal(partial.state.images.size,60);
+  assert.equal(partial.state.meta.has('pending_warning_life_restore_v1'),false);
+  assert.equal(partial.opened,3,'retry opens the existing db once, not a full import');
 
   const removalFailure = harness({lifeRemoveFail:true});
   const noLife = await removalFailure.restore(await backup('warning',null));
@@ -246,6 +298,41 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   assert.match(noLife,/TEST_REMOVE_FAILURE/);
   assert.equal(removalFailure.state.meta.get('current_generation_id'),'gen00025');
   assert.equal(removalFailure.saved.get(lifeKey),'PREVIOUS_LIFE');
+  removalFailure.setRemoveFailure(false);
+  assert.match(await removalFailure.retry(),/ライフ情報だけ復元しました/);
+  assert.equal(removalFailure.saved.get(lifeKey),undefined);
+  assert.equal(removalFailure.state.meta.has('pending_warning_life_restore_v1'),false);
+
+  // After a partial restore, the user may already have evolved another
+  // generation. Retrying must NEVER overwrite the new generation's life.
+  const advanced=harness({lifeSetFail:true});
+  await advanced.restore(rawWarning);
+  advanced.setLifeFailure(false);
+  advanced.setGeneration('gen00026');
+  assert.match(await advanced.retry(),/ライフ情報は変更していません/);
+  assert.equal(advanced.saved.get(lifeKey),'PREVIOUS_LIFE');
+  assert.equal(advanced.state.meta.get('current_generation_id'),'gen00026');
+  assert.ok(advanced.state.meta.has('pending_warning_life_restore_v1'));
+  // An intervening restore of the SAME generation still has a fresh epoch.
+  const sameGenNewEpoch=harness({lifeSetFail:true});
+  await sameGenNewEpoch.restore(rawWarning);
+  sameGenNewEpoch.setLifeFailure(false);
+  sameGenNewEpoch.setEpoch('restore-'+'f'.repeat(32));
+  assert.match(await sameGenNewEpoch.retry(),/ライフ情報は変更していません/);
+  assert.equal(sameGenNewEpoch.saved.get(lifeKey),'PREVIOUS_LIFE');
+  // A retry with no intent never creates new records or alters storage.
+  const empty=harness();
+  assert.match(await empty.retry(),/再試行が必要なライフ情報はありません/);
+  assert.equal(empty.state.meta.get('current_generation_id'),'gen00010');
+  assert.equal(empty.saved.get(lifeKey),'PREVIOUS_LIFE');
+  // Retry may still fail due to storage denial: it must leave the pending
+  // intent and current evolution generation in place until a later retry.
+  const denied=harness({lifeSetFail:true});
+  await denied.restore(rawWarning);
+  assert.match(await denied.retry(),/ライフ情報が未完了です/);
+  assert.equal(denied.saved.get(lifeKey),'PREVIOUS_LIFE');
+  assert.equal(denied.state.meta.get('current_generation_id'),'gen00025');
+  assert.ok(denied.state.meta.has('pending_warning_life_restore_v1'));
 
   console.log('EXH-03: full warning/cryptic, cancelled, validation reject, IDB abort, localStorage set/remove partial success; UI and persisted state agree.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -579,6 +579,120 @@
     }
     return {body, prepared};
   }
+  // EXH-03: IndexedDB and localStorage cannot commit atomically. Keep a tiny,
+  // durable intent in the existing v2 meta store INSIDE the restore transaction,
+  // so a failed life write can be retried without restoring (overwriting) all
+  // evolution records again. This does NOT require a DB schema upgrade.
+  const PENDING_WARNING_LIFE_KEY = 'pending_warning_life_restore_v1';
+  const warningLifeStorageKey = dbName => 'gitai-warning-life-v1:' + dbName;
+
+  function readWarningLifeState(db) {
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction('meta','readonly');
+      const meta=tx.objectStore('meta');
+      const result={};
+      for(const [field,key] of [
+        ['generation','current_generation_id'],
+        ['epoch','restore_epoch'],
+        ['pending',PENDING_WARNING_LIFE_KEY]
+      ]){
+        const req=meta.get(key);
+        req.onsuccess=()=>{result[field]=req.result;};
+      }
+      tx.oncomplete=()=>resolve(result);
+      tx.onerror=()=>{};
+      tx.onabort=()=>reject(tx.error||Error('ライフ復元情報の読み込みが中断されました。'));
+    });
+  }
+  // The cleanup has its OWN guarded transaction. It can never delete a newer
+  // restore's intent after a concurrent backup restore or generation update.
+  function clearCompletedWarningLifeIntent(db,intent) {
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction('meta','readwrite');
+      const meta=tx.objectStore('meta');
+      let failure=null;
+      const abort=message=>{
+        failure=Error(message);
+        try{tx.abort();}catch(_){reject(failure);}
+      };
+      tx.oncomplete=()=>resolve();
+      tx.onabort=()=>reject(failure||tx.error||Error('ライフ復元記録の更新が中断されました。'));
+      tx.onerror=()=>{};
+      const epoch=meta.get('restore_epoch');
+      epoch.onsuccess=()=>{
+        if(epoch.result!==intent.epoch){
+          abort('別の復元を検出したため、ライフ復元記録を変更しません。');
+          return;
+        }
+        const generation=meta.get('current_generation_id');
+        generation.onsuccess=()=>{
+          if(generation.result!==intent.generation_id){
+            abort('世代が進んだため、ライフ復元記録を変更しません。');
+            return;
+          }
+          const req=meta.get(PENDING_WARNING_LIFE_KEY);
+          req.onsuccess=()=>{
+            const current=req.result;
+            if(!current||current.epoch!==intent.epoch||
+                current.generation_id!==intent.generation_id||
+                current.value!==intent.value){
+              abort('ライフ復元記録が更新されたため、以前の記録を変更しません。');
+              return;
+            }
+            try{meta.delete(PENDING_WARNING_LIFE_KEY);}
+            catch(error){failure=error;try{tx.abort();}catch(_){reject(error);}}
+          };
+        };
+      };
+    });
+  }
+
+  async function retryPendingWarningLife() {
+    const db=await openDb(MODES.warning.db);
+    try{
+      const before=await readWarningLifeState(db);
+      const intent=before.pending;
+      if(intent==null)return {status:'none'};
+      const valid=typeof intent==='object'&&!Array.isArray(intent)
+        && typeof intent.epoch==='string'
+        && /^restore-[a-f0-9]{32}$/.test(intent.epoch)
+        && typeof intent.generation_id==='string'
+        && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(intent.generation_id)
+        && (intent.value===null||typeof intent.value==='string');
+      if(!valid){
+        return {status:'stale',detail:'未完了のライフ復元情報が不正です。進化データは変更しません。'};
+      }
+      checkWarningLife(intent.value,intent.generation_id);
+      if(before.generation!==intent.generation_id||before.epoch!==intent.epoch){
+        return {status:'stale',detail:'世代または復元履歴が更新されました。古いライフは適用しません。'};
+      }
+      const lifeKey=warningLifeStorageKey(MODES.warning.db);
+      try{
+        if(intent.value===null)localStorage.removeItem(lifeKey);
+        else localStorage.setItem(lifeKey,intent.value);
+        if(localStorage.getItem(lifeKey)!==intent.value)
+          throw Error('ライフ情報が保存されていません。');
+      }catch(error){
+        return {status:'partial',generation:intent.generation_id,
+          detail:error?.message||String(error)};
+      }
+      const after=await readWarningLifeState(db);
+      if(after.generation!==intent.generation_id||after.epoch!==intent.epoch){
+        // localStorage cannot be atomic with IDB. Never claim success if
+        // another tab advanced the game while the life write was performed.
+        return {status:'stale',detail:'ライフの書込み中に世代が変更されました。'
+          +'ゲーム画面を閉じた状態で管理者に確認してください。'};
+      }
+      try{await clearCompletedWarningLifeIntent(db,intent);}
+      catch(error){
+        return {status:'partial',generation:intent.generation_id,
+          detail:'ライフ情報は保存されましたが完了記録を更新できません：'
+            +(error?.message||String(error))};
+      }
+      return {status:'complete',generation:intent.generation_id};
+    }finally{db.close();}
+  }
+
   async function restoreMode(selected, file) {
     // Reject a large import BEFORE allocating an equally large UTF-8 string.
     if (!file || !Number.isFinite(file.size) || file.size > MAX_BACKUP_BYTES) {
@@ -609,7 +723,15 @@
             for (const {key, value} of prepared[store]) objectStore.put(value, key);
             // Same transaction as every other restored store. Any historic
             // restore_epoch in the backup is intentionally replaced.
-            if (store === 'meta') objectStore.put(epoch, 'restore_epoch');
+            if (store === 'meta') {
+              objectStore.put(epoch, 'restore_epoch');
+              if(selected==='warning') {
+                objectStore.put({
+                  epoch,generation_id:body.currentGeneration,
+                  value:body.warningLife??null
+                },PENDING_WARNING_LIFE_KEY);
+              }
+            }
           }
         } catch (error) {
           // Synchronous put errors must not leave queued clear() operations
@@ -619,19 +741,15 @@
         }
       });
     } finally { db.close(); }
-    if (selected === 'warning') {
-      const lifeKey = 'gitai-warning-life-v1:' + mode.db;
-      try {
-        if (body.warningLife == null) localStorage.removeItem(lifeKey);
-        else localStorage.setItem(lifeKey, body.warningLife);
-      } catch (error) {
-        // IndexedDB has already committed. Preserve that fact rather than
-        // treating this as a rollback or allowing the UI to claim full success.
-        return {status: 'partial', generation: body.currentGeneration,
-          detail: error?.message || String(error)};
-      }
+    if(selected==='warning') {
+      // The IndexedDB swap has ALREADY committed at this point. A failure in
+      // localStorage, re-opening IDB or clearing the intent is PARTIAL, never
+      // a rolled-back restore. A later explicit click retries only life.
+      try{return await retryPendingWarningLife();}
+      catch(error){return {status:'partial',generation:body.currentGeneration,
+        detail:error?.message||String(error)};}
     }
-    return {status: 'complete', generation: body.currentGeneration};
+    return {status:'complete',generation:body.currentGeneration};
   }
 
   const button = document.getElementById('exhibitAdminOpen');
@@ -652,6 +770,30 @@
     }
   });
   const input = document.getElementById('exhibitBackupFile');
+  document.getElementById('exhibitBackupLifeRetry').addEventListener('click',async()=>{
+    if(!unlocked)return;
+    if(selector.value!=='warning'){
+      say('ライフ情報の再試行は「目立つギタイ」を選択してください。');
+      return;
+    }
+    say('保存済みの世代とライフ復元情報を確認中…');
+    try{
+      const result=await retryPendingWarningLife();
+      if(result.status==='complete')
+        say('進化データには触れず、'+result.generation+'のライフ情報だけ復元しました。');
+      else if(result.status==='none')
+        say('再試行が必要なライフ情報はありません。');
+      else if(result.status==='stale')
+        say('ライフ情報は変更していません：'+result.detail);
+      else
+        say('進化データは保存済みですが、ライフ情報が未完了です：'
+          +result.detail+'。他のゲーム画面を閉じて再試行してください。');
+    }catch(error){
+      say('ライフ情報の再試行に失敗しました。進化データは変更していません：'
+        +(error?.message||String(error)));
+    }
+  });
+
   document.getElementById('exhibitBackupRestore').addEventListener('click', () => {
     if (unlocked) { input.value = ''; input.click(); }
   });
@@ -665,7 +807,12 @@
       } else if (result.status === 'partial') {
         say('進化データ（' + result.generation + '）は復元しましたが、ライフ情報を復元できませんでした。' +
           '以前のライフ情報が残っている可能性があります。保存エラー：' + result.detail +
-          '。バックアップを確認し、再度復元してください。');
+          '。全データを復元し直さず「ライフ情報だけ再試行」を押してください。');
+      } else if(result.status==='stale'){
+        say('進化データの復元後に世代変更を検出しました。ライフは安全のため確定していません：'
+          +result.detail);
+      } else if(result.status==='none'){
+        say('進化データを復元しましたが、ライフ復元の完了情報が見つかりません。管理者へ確認してください。');
       } else {
         say('進化データ（' + result.generation + '）の復元が完了しました。');
       }
