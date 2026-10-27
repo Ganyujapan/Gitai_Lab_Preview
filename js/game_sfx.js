@@ -85,11 +85,28 @@
     };
     else playNative(kind, number);
   }
+  function queueFastSound(kind, number) {
+    pendingFastSound = {
+      kind, number, pointerId: lastPointer?.id ?? null, createdAt: Date.now()
+    };
+  }
   function flushTouchSound(event) {
     // Never treat an auto-start script's synthetic click as an iOS audio
     // gesture. The pointerup of a real tap can unlock a fresh AudioContext.
     if (lowLatencyIOS && event?.isTrusted !== false) {
+      // Fast mode must obey the same tap identity, age and cancellation
+      // rules as the native fallback. A later click cannot flush an old tap.
+      if (event?.type === 'click') return;
       const sound = pendingFastSound;
+      if (sound && (document.hidden
+          || Date.now() - sound.createdAt > TOUCH_SOUND_MAX_AGE_MS)) {
+        pendingFastSound = null;
+        return;
+      }
+      if (sound?.pointerId != null && event?.type === 'pointerup'
+          && event.pointerId !== sound.pointerId) return;
+      if (sound?.pointerId != null && event?.type === 'touchend'
+          && typeof w.PointerEvent !== 'undefined') return;
       pendingFastSound = null;
       const ctx = getContext();
       if (!ctx) {
@@ -322,14 +339,14 @@
         // First tap of a freshly navigated generation: do not start a buffer
         // into a context that Safari has not unlocked. Resume on pointerup,
         // then play THIS SAME tap once the graph reports running.
-        pendingFastSound = { kind, number };
+        queueFastSound(kind, number);
         return;
       }
       activate();
       if (!playBuffer(kind, decoded.get(key(kind, number)))) {
         if (lowLatencyIOS) {
           fastUnlocked = false;
-          pendingFastSound = { kind, number };
+          queueFastSound(kind, number);
         } else {
           nativeOnNextGesture(kind, number);
         }
@@ -346,9 +363,14 @@
   document.addEventListener('pointercancel', event => {
     if (pendingTouchSound && (pendingTouchSound.pointerId == null
         || pendingTouchSound.pointerId === event.pointerId)) pendingTouchSound = null;
+    if (pendingFastSound && (pendingFastSound.pointerId == null
+        || pendingFastSound.pointerId === event.pointerId)) pendingFastSound = null;
   }, { capture: true, passive: true });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pendingTouchSound = null;
+    if (document.hidden) {
+      pendingTouchSound = null;
+      pendingFastSound = null;
+    }
   });
   document.addEventListener('pointerup', flushTouchSound, { capture: true, passive: true });
   document.addEventListener('touchend', flushTouchSound, { capture: true, passive: true });
