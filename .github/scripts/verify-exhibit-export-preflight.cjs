@@ -14,6 +14,7 @@ function section(a,b) {
 const codecs=section('  function encode64(', '  async function digest(');
 const exported=section('  async function exportMode(', '  // Existing export encoding');
 const bounds=section('  const MAX_BACKUP_BYTES', '  function checkGenome(');
+const lifeCheck=section('  function checkWarningLife(', '  async function validateBackup(');
 const validateBeginning=section('  async function validateBackup(', '  async function restoreMode(');
 assert.match(exported,/checkBackupExportLimits\(envelope, file.size\)/);
 assert.match(validateBeginning,/countBackupEntries\(body.stores\)/);
@@ -32,7 +33,7 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
   const stores=['images','meta','theater_frames'];
   let dbClosed=false;
   const downloads=[];
-  const textSource=codecs+'\n'+exported+'\n'+bounds+
+  const textSource=codecs+'\n'+exported+'\n'+bounds+'\n'+lifeCheck+
     '\nglobalThis.__audit={exportMode,validateTreeShape,countBackupEntries,checkBackupExportLimits};';
   const limitSource=maxBytes==null?textSource
     :textSource.replace('150 * 1024 * 1024',String(maxBytes));
