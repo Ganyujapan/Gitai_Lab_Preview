@@ -92,6 +92,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-return-controls.cjs
       - name: Verify exhibition visitor handover by actual saved generation
         run: node .github/scripts/verify-exhibit-visitor-handover.cjs
+      - name: Inspect exhibit backup readiness read-only without allocating history
+        run: node .github/scripts/verify-exhibit-backup-readiness.cjs
       - name: Verify exhibition backup cannot overwrite existing data with malformed JSON
         run: node .github/scripts/verify-exhibit-backup-validation.cjs
       - name: Verify exhibition backup restore reports partial success accurately
