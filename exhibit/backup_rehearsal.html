@@ -41,6 +41,23 @@
   <button type="button" id="copyReport" disabled>結果レポートをコピー</button>
   <button type="button" id="saveReport" disabled>結果レポートを保存</button>
   <p id="reportStatus" role="status" aria-live="polite"></p>
+  <h2>5. iPad「ファイル」への分割保存・再読込みテスト</h2>
+  <p class="notice"><strong>これは合成データのみです。実物のバックアップではありません。</strong>
+    画面で作る蛾の画像・DNAは偽物で、実験の復元には使用できません。
+    IndexedDB・通常のライフ・実験記録は一切読み書きしません。</p>
+  <p>「テストファイルを作る」を押してから、表示されたJSONファイルを<strong>1つずつ手動で</strong>iPadの「ファイル」アプリ内の専用フォルダへ保存してください。
+    一括自動ダウンロードはSafariで拒否される場合があるため使用しません。
+    最後に保存した<strong>全ファイルをまとめて再選択</strong>してハッシュを検証します。
+    「保存を開始しました」は保存成功を保証しません。保存した場所から選び直して初めて検証できます。</p>
+  <button type="button" id="handoffPrepare">合成テストファイルを作る</button>
+  <p id="handoffState" role="status" aria-live="polite">未実行</p>
+  <div id="handoffDownloadButtons" aria-label="ファイルごとの保存ボタン"></div>
+  <p>保存後、ファイル選択で <strong>manifest.json と part-*.json の全ファイル</strong>を同時に指定してください。</p>
+  <label for="handoffFiles">保存したすべてのJSONを再選択（複数選択）</label>
+  <input type="file" id="handoffFiles" accept=".json,application/json" multiple disabled>
+  <pre id="handoffLog" aria-label="保存ファイルの再読み込み検証結果"></pre>
+  <p>合格は<strong>合成ファイルの受け渡しと改ざん・欠損検出</strong>の確認に限ります。本番データのバックアップ成功、iPadの容量制限、復元安全性は保証しません。</p>
+  <script src="backup_file_handoff_rehearsal.js"></script>
   <script src="backup_v2.js"></script>
   <script src="backup_checkpoint_v2.js"></script>
   <script src="backup_schema_rehearsal.js"></script>
@@ -178,6 +195,76 @@
         reportStatus.textContent='保存操作を開始しました。「ファイル」アプリ等に保存されたことを確認してください。';
       }catch(error){
         reportStatus.textContent='保存を開始できませんでした：'+(error?.message||String(error));
+      }
+    });
+    // v2 File handoff: create only tiny SYNTHETIC files. Each save request
+    // is a distinct direct user click. Never automatically open a download.
+    const handoffPrepare=document.getElementById('handoffPrepare');
+    const handoffState=document.getElementById('handoffState');
+    const handoffButtons=document.getElementById('handoffDownloadButtons');
+    const handoffFiles=document.getElementById('handoffFiles');
+    const handoffLog=document.getElementById('handoffLog');
+    handoffPrepare.addEventListener('click',async()=>{
+      handoffPrepare.disabled=true;
+      handoffFiles.disabled=true;
+      handoffFiles.value='';
+      handoffButtons.replaceChildren();
+      handoffLog.textContent='';
+      handoffState.textContent='合成ファイルを準備・検証中…';
+      try{
+        const report=await GitaiBackupFileHandoffRehearsal.prepare(GitaiBackupV2);
+        report.files.forEach(info=>{
+          const button=document.createElement('button');
+          button.type='button';
+          button.textContent=info.name+' を保存（'+info.bytes+'バイト）';
+          button.style.cssText='display:block;width:100%;margin:8px 0;text-align:left';
+          button.addEventListener('click',()=>{
+            try{
+              // Do not await inside the gesture. Safari may otherwise drop
+              // the user-initiated download/share action.
+              const file=GitaiBackupFileHandoffRehearsal.downloadFile(info.name);
+              const url=URL.createObjectURL(file);
+              const a=document.createElement('a');
+              a.href=url;a.download=info.name;a.hidden=true;
+              document.body.appendChild(a);
+              a.click();a.remove();
+              setTimeout(()=>URL.revokeObjectURL(url),30000);
+              handoffState.textContent='保存操作を開始：'+info.name+
+                '。実際に保存されたかは全ファイルの再選択で確認します。';
+            }catch(error){
+              handoffState.textContent='保存の開始に失敗：'+(error?.message||String(error));
+            }
+          });
+          handoffButtons.appendChild(button);
+        });
+        handoffFiles.disabled=false;
+        handoffState.textContent='合成ファイル'+report.files.length+
+          '点、合成データ'+report.entries+'件を生成しました。'
+          +'各保存ボタンを1回ずつ押して「ファイル」に保存してください。'
+          +'最後のmanifest.jsonも必須です。';
+      }catch(error){
+        handoffState.textContent='合成テストの準備に失敗：'+(error?.message||String(error));
+      }finally{handoffPrepare.disabled=false;}
+    });
+    handoffFiles.addEventListener('change',async()=>{
+      if(handoffFiles.disabled||!handoffFiles.files?.length)return;
+      handoffFiles.disabled=true;
+      handoffLog.textContent='「ファイル」から再選択したJSONを検証中…';
+      try{
+        const result=await GitaiBackupFileHandoffRehearsal.verifyReselected(
+          handoffFiles.files,GitaiBackupV2);
+        handoffLog.textContent='成功：保存済み合成ファイル'
+          +result.checkedFiles+'点（分割'+result.checkedParts+'点）を'
+          +'再読み込みし、SHA-256と'+result.checkedEntries
+          +'件の整合性を確認しました。\n'
+          +'※本番の蛾・ライフ・進化データの復元を検証したものではありません。';
+      }catch(error){
+        handoffLog.textContent='再読み込み検証に失敗：'
+          +(error?.message||String(error))
+          +'\nファイルを「ファイル」アプリに保存して、全ファイルを選び直してください。';
+      }finally{
+        handoffFiles.value='';
+        handoffFiles.disabled=false;
       }
     });
   })();
