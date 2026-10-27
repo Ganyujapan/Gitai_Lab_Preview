@@ -169,12 +169,13 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   };
 }
 (async()=>{
-  const rawWarning = await backup('warning','RESTORED_LIFE');
+  const savedLife = JSON.stringify({generation_id:'gen00025',thirds:18});
+  const rawWarning = await backup('warning',savedLife);
   const full = harness();
   const fullMessage = await full.restore(rawWarning);
   assert.match(fullMessage,/復元が完了/);
   assert.equal(full.state.meta.get('current_generation_id'),'gen00025');
-  assert.equal(full.saved.get(lifeKey),'RESTORED_LIFE');
+  assert.equal(full.saved.get(lifeKey),savedLife);
   assert.equal(full.state.images.size,60);
   assert.equal(full.opened,1);
   assert.equal(full.closed,1);
@@ -197,6 +198,23 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   assert.equal(invalid.opened,0);
   assert.equal(invalid.confirmations,0);
   assert.equal(invalid.state.meta.get('current_generation_id'),'gen00010');
+
+  for (const badLife of [
+    'broken-json', JSON.stringify({generation_id:'gen00024',thirds:5}),
+    JSON.stringify({generation_id:'gen00025',thirds:0}),
+    JSON.stringify({generation_id:'gen00025',thirds:31}),
+    JSON.stringify({generation_id:'gen00025',thirds:'18'}),
+    JSON.stringify({generation_id:'gen00025',thirds:12.5}),
+    JSON.stringify([]), {generation_id:'gen00025',thirds:12}
+  ]) {
+    const rejected = harness();
+    const rejectedText = await rejected.restore(await backup('warning',badLife));
+    assert.match(rejectedText,/復元失敗（既存データは保持）/);
+    assert.equal(rejected.opened,0,'wrong life must be rejected before any IDB mutation');
+    assert.equal(rejected.confirmations,0);
+    assert.equal(rejected.state.meta.get('current_generation_id'),'gen00010');
+    assert.equal(rejected.saved.get(lifeKey),'PREVIOUS_LIFE');
+  }
 
   const idbFailure = harness({idbFail:true});
   assert.match(await idbFailure.restore(rawWarning),/復元失敗（既存データは保持）/);

@@ -214,6 +214,7 @@
     // Never announce a successful export that the same release's import
     // rejects on byte, entry, node or nesting limits. Preserve original DB.
     checkBackupExportLimits(envelope, file.size);
+    if (modeId === 'warning') checkWarningLife(payload.warningLife, current);
     if (navigator.canShare?.({files: [file]}) && navigator.share) {
       await navigator.share({title: 'ギタイラボ 進化バックアップ', files: [file]});
     } else {
@@ -404,6 +405,25 @@
     }
   }
 
+  // An invalid/stale life string must not be treated as a successful
+  // backup restoration. This is the JSON format persisted by
+  // index.html:saveWarningLife; null means no saved life and is supported.
+  function checkWarningLife(value, generationId) {
+    if (value == null) return;
+    if (typeof value !== 'string' || value.length > 1024) {
+      throw Error('ライフの保存形式が不正です。');
+    }
+    let life;
+    try { life = JSON.parse(value); }
+    catch (_) { throw Error('ライフのJSONが破損しています。'); }
+    if (!life || typeof life !== 'object' || Array.isArray(life)
+        || life.generation_id !== generationId
+        || !Number.isInteger(life.thirds)
+        || life.thirds < 1 || life.thirds > 30) {
+      throw Error('ライフの世代番号または残量が不正です。');
+    }
+  }
+
   async function validateBackup(raw, selected) {
     if (raw.length > MAX_BACKUP_BYTES) throw Error('JSONファイルが大きすぎます。');
     const doc = JSON.parse(raw);
@@ -422,6 +442,7 @@
     if (!/^gen\d{5}$/.test(String(current)) || current !== body.currentGeneration) {
       throw Error('世代番号が不正です。');
     }
+    if (selected === 'warning') checkWarningLife(body.warningLife, current);
     const prepared = {};
     for (const store of STORES) {
       prepared[store] = body.stores[store].map(entry => {
