@@ -68,6 +68,6 @@ assert.ok(source.includes('const specialMutationChildSet = new Set(specialMutati
 assert.ok(source.includes('Math.random() < specialMutationGenerationP'),
  'cryptic single-child mutation lottery must stay unchanged');
 assert.match(build,/const EXHIBIT_MUTATION_RATE_FACTOR = 0\.5/);
-assert.ok(build.includes('// Applies to live gameplay, not the warning experiment\\'s neutral headstart.'),
+assert.ok(build.includes("// Applies to live gameplay, not the warning experiment's neutral headstart."),
  'exhibition neutral headstart reduction policy must not change');
 console.log('MODEL-02: independent poison/harmless mutation events (none/one/both), p=.2 joint distribution, cryptic behavior and exhibit factor verified.');
