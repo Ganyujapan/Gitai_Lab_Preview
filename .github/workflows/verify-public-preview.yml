@@ -118,6 +118,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-safari-atomic-rehearsal.cjs
       - name: Verify isolated warning-life post-restore retry and stale epoch rejection
         run: node .github/scripts/verify-exhibit-warning-life-recovery.cjs
+      - name: Verify private-data-safe iPad isolated backup test report and user-triggered exports
+        run: node .github/scripts/verify-exhibit-rehearsal-report.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
