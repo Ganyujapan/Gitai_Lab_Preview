@@ -115,6 +115,8 @@ jobs:
         run: node .github/scripts/verify-founder-checkpoint.cjs
       - name: Verify compact diagnostic log hue mutation angles
         run: node .github/scripts/verify-diagnostic-hue-events.cjs
+      - name: Verify neutrality of large brightness mutations after dark-bias removal
+        run: node .github/scripts/verify-neutral-value-mutation.cjs
       - name: Reject concurrent or partial generation commits
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Verify long-running generation IDs remain valid after generation 99999
