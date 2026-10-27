@@ -4059,6 +4059,101 @@
     );
   }
 
+  // RE2-EV-01: New founders are written in one transaction. For a legacy
+  // interrupted initialization, repair ONLY a missing pointer after checking
+  // the expected identity, all 60 existing images and DNA, and no evidence
+  // of later generations. Never re-render or replace recovered DNA.
+  async function commitFounderCheckpoint(markerKey, expectedMarker, prepared = null) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([IMAGE_STORE, META_STORE, THEATER_STORE], 'readwrite');
+      const images = tx.objectStore(IMAGE_STORE);
+      const meta = tx.objectStore(META_STORE);
+      const theater = tx.objectStore(THEATER_STORE);
+      let failure = null;
+      let pending = 0;
+      let finalized = false;
+      const values = Object.create(null);
+      const fail = error => {
+        if (finalized) return;
+        finalized = true;
+        failure = error instanceof Error ? error : new Error(String(error));
+        try { tx.abort(); } catch (_) { reject(failure); }
+      };
+      tx.oncomplete = () => resolve(true);
+      tx.onabort = () => reject(failure || tx.error
+        || new Error('初代の保存を中断しました。元のデータは保持しました。'));
+      tx.onerror = () => { /* atomic abort rejects all writes */ };
+      const record = (id, request) => {
+        pending += 1;
+        request.onsuccess = () => {
+          values[id] = request.result;
+          if (--pending === 0 && !finalized) finalize();
+        };
+      };
+      const validIndexKey = key =>
+        /^gen00001:(0[1-9]|[1-5][0-9]|60)$/.test(String(key));
+      const validGenomeKey = key =>
+        /^genome:gen00001:(0[1-9]|[1-5][0-9]|60)$/.test(String(key));
+      function finalize() {
+        try {
+          const pointer = values.pointer;
+          const imageKeys = values.imageKeys.map(String);
+          const metaKeys = values.metaKeys.map(String);
+          const frameKeys = values.frameKeys.map(String);
+          if (prepared) {
+            if (pointer !== undefined || imageKeys.length || metaKeys.length
+                || frameKeys.length) {
+              throw new Error('他の画面で初代が作成されているか、未完成の記録があります。'
+                + ' 元データは変更せず停止しました。再読み込みしてください。');
+            }
+            for (let i = 1; i <= TOTAL; i += 1) {
+              images.put(prepared.blobs.get(i), imageKey('gen00001', i));
+              meta.put(prepared.genomes.get(i), genomeKey('gen00001', i));
+            }
+            meta.put(expectedMarker, markerKey);
+          } else {
+            const allowedMeta = key => key === markerKey
+              || validGenomeKey(key)
+              || (WARNING_EXPERIMENT && key === 'warning_neutral_run_seed_v1');
+            if (pointer !== undefined || values.marker !== expectedMarker
+                || imageKeys.length !== TOTAL
+                || imageKeys.some(key => !validIndexKey(key))
+                || metaKeys.some(key => !allowedMeta(key))
+                || frameKeys.some(key => key !== 'gen00001')) {
+              throw new Error('初代の記録を安全に復旧できません。'
+                + ' 元の画像・遺伝情報は変更していません。');
+            }
+            for (let i = 1; i <= TOTAL; i += 1) {
+              const image = values['image' + i];
+              const dna = values['dna' + i];
+              if (!(image instanceof Blob) || !dna || typeof dna !== 'object'
+                  || Number(dna.schema_version) !== 1) {
+                throw new Error('初代の画像または遺伝情報が不足しています。'
+                  + ' 初期化せず、元データを保持しました。');
+              }
+            }
+          }
+          meta.put('gen00001', 'current_generation_id');
+          finalized = true;
+        } catch (error) { fail(error); }
+      }
+      try {
+        record('pointer', meta.get('current_generation_id'));
+        record('marker', meta.get(markerKey));
+        record('imageKeys', images.getAllKeys());
+        record('metaKeys', meta.getAllKeys());
+        record('frameKeys', theater.getAllKeys());
+        if (!prepared) {
+          for (let i = 1; i <= TOTAL; i += 1) {
+            record('image' + i, images.get(imageKey('gen00001', i)));
+            record('dna' + i, meta.get(genomeKey('gen00001', i)));
+          }
+        }
+      } catch (error) { fail(error); }
+    });
+  }
+
   async function ensureFounderGeneration() {
     await ensureConfig();
     await ensureMask();
@@ -4079,17 +4174,10 @@
     const storedMarker = await idbGet(META_STORE, markerKey);
 
     if (storedMarker === expectedMarker) {
-      const first = await idbGet(
-        IMAGE_STORE,
-        imageKey('gen00001', 1),
-      );
-      const last = await idbGet(
-        IMAGE_STORE,
-        imageKey('gen00001', TOTAL),
-      );
-      if (first instanceof Blob && last instanceof Blob) {
-        return true;
-      }
+      // Legacy checkpoint: 60 images + DNA + identity were committed, but
+      // current_generation_id was not. Repair the pointer with strict CAS.
+      await commitFounderCheckpoint(markerKey, expectedMarker);
+      return true;
     }
 
     const founderA = makePureWhiteFounderGenome(1);
@@ -4103,6 +4191,8 @@
       ]
       : null;
 
+    const founderBlobs = new Map();
+    const founderGenomes = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
       let genome;
 
@@ -4144,24 +4234,17 @@
         ? whiteBlobs[WARNING.lineage(i) === WARNING.POISON ? 0 : 1]
         : await imageDataToBlob(renderGenome(genome));
 
-      await idbPut(IMAGE_STORE, imageKey('gen00001', i), blob);
-      await idbPut(
-        META_STORE,
-        genomeKey('gen00001', i),
-        genome,
-      );
+      founderBlobs.set(i, blob);
+      founderGenomes.set(i, genome);
 
       if (i % 8 === 0) {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
 
-    await idbPut(META_STORE, markerKey, expectedMarker);
-    await idbPut(
-      META_STORE,
-      'current_generation_id',
-      'gen00001',
-    );
+    await commitFounderCheckpoint(markerKey, expectedMarker, {
+      blobs: founderBlobs, genomes: founderGenomes,
+    });
     return true;
   }
 
