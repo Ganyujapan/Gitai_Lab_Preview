@@ -88,12 +88,13 @@
   // it could leave incomplete data if a later part fails verification.
   async function preflightSemanticRestore({
     manifestFile, partFiles, mode, database, partApi,
-    checkGenome, checkMothPng
+    checkGenome, checkMothPng, generation: currentGeneration
   }) {
     if (!partApi || typeof partApi.verifyPartIntegrity !== 'function' ||
         !['cryptic', 'warning'].includes(mode) || !database ||
         typeof checkGenome !== 'function' ||
-        typeof checkMothPng !== 'function') {
+        typeof checkMothPng !== 'function' ||
+        typeof currentGeneration !== 'string') {
       fail('必須の厳格なPNG・DNA検証処理がありません。');
     }
     const currentKeys = new Set();
