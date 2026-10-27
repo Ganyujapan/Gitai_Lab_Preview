@@ -289,6 +289,7 @@
     if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     releaseImage();
     frames = [];
+    activeMode = null;
     dialog.hidden = true;
     document.body.style.overflow = originalOverflow;
     focusReturn?.focus?.({ preventScroll: true });
@@ -298,6 +299,7 @@
   async function openTheater(modeId, handover = null) {
     const mode = MODES[modeId];
     if (!mode) return;
+    activeMode = modeId;
     stopPlayback();
     if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     frames = [];
@@ -414,10 +416,28 @@
     }
   });
   window.addEventListener('pagehide', () => {
+    // Invalidate a pending IDB read as well as pending image decoding.
+    // BFCache retains JavaScript state but our object URLs are revoked.
+    token += 1;
     stopPlayback();
+    if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     releaseImage();
   });
-  window.addEventListener('pageshow', () => { void refreshGenerations(); });
+  window.addEventListener('pageshow', event => {
+    void refreshGenerations();
+    if (!event.persisted || dialog.hidden || !activeMode) return;
+    if (frames.length) {
+      // BFCache resumed the same document, not a new page. Reuse the
+      // already-read Blob records, not a new experiment or DB write.
+      if (!frameUrls.length) assignFrameUrls();
+      showFrame(cursor);
+      if (handoverData && handoverFinished.hidden) scheduleHandoverPlayback();
+    } else {
+      // The page was suspended before the readonly theater query finished.
+      // It was invalidated on pagehide, so restart that read deliberately.
+      void openTheater(activeMode, handoverData);
+    }
+  });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) void refreshGenerations();
   });

@@ -72,6 +72,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-theater-image-label.cjs
       - name: Verify obsolete exhibition theater image errors cannot evict current decode
         run: node .github/scripts/verify-exhibit-theater-decode-cache.cjs
+      - name: Verify exhibition theater reconstructs decoded frames after BFCache restore
+        run: node .github/scripts/verify-exhibit-bfcache-theater.cjs
       - name: Verify theater snapshot version upgrades per evolution mode
         run: node .github/scripts/verify-theater-version-upgrade.cjs
       - name: Verify specimen box ignores stale async reads and releases object URLs
