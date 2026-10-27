@@ -19,12 +19,21 @@
   <h1>ギタイラボ：バックアップDB移行の隔離テスト</h1>
   <p class="notice"><strong>展示用の本物のセーブデータは読み書きしません。</strong>毎回、名前を無作為生成した別のテスト専用DBを作って試験します。結果が出たらそのDBを削除します。実際の保存容量や長期間プレイの保証ではありません。</p>
   <p>Safari/iPadで、DB v2→v3の移行失敗時の復旧、別タブのブロック、旧v2の接続拒否、122項目の一時コピーと分割ファイルの検証を試します。押すまで何も実行しません。</p>
+  <h2>1. DB移行・分割書き出しのテスト</h2>
   <button type="button" id="run">隔離テストを実行</button>
   <p id="state" role="status" aria-live="polite">未実行</p>
   <pre id="log" aria-label="テストの詳細"></pre>
+  <h2>2. 原子的復元と中断のテスト（追加）</h2>
+  <p>こちらも完全に別の隔離DBを使用します。合成した128×128 PNGとDNAを分割ファイルに保存し、一時展開後、意図的に書き込みトランザクションを中断します。旧データが保持されたことを確認してから正常復元を実行します。<strong>実際の容量不足、強制終了、本番DBの動作を証明するテストではありません。</strong></p>
+  <button type="button" id="runRestore">隔離DBの復元テストを実行</button>
+  <p id="restoreState" role="status" aria-live="polite">未実行</p>
+  <pre id="restoreLog" aria-label="復元テストの詳細"></pre>
   <script src="backup_v2.js"></script>
   <script src="backup_checkpoint_v2.js"></script>
   <script src="backup_schema_rehearsal.js"></script>
+  <script src="backup_restore_preflight_v2.js"></script>
+  <script src="backup_restore_atomic_v2.js"></script>
+  <script src="backup_atomic_rehearsal.js"></script>
   <script>
   (() => {
     'use strict';
@@ -46,6 +55,24 @@
       } finally {
         button.disabled = false;
       }
+    });
+    const restoreButton=document.getElementById('runRestore');
+    const restoreState=document.getElementById('restoreState');
+    const restoreLog=document.getElementById('restoreLog');
+    restoreButton.addEventListener('click',async()=>{
+      restoreButton.disabled=true;
+      restoreLog.textContent='';
+      restoreState.textContent='隔離DBで検証中…';
+      try {
+        const result=await GitaiAtomicRestoreRehearsal.runRehearsal({
+          onPhase:message=>{restoreLog.textContent+=message+String.fromCharCode(10);}
+        });
+        restoreLog.textContent+=JSON.stringify(result,null,2);
+        restoreState.textContent='成功：中断後の旧世代保持と、正常な原子的復元を確認';
+      }catch(error){
+        restoreState.textContent='テスト失敗：ログを確認してください';
+        restoreLog.textContent+=(error?.stack||error?.message||String(error));
+      }finally{restoreButton.disabled=false;}
     });
   })();
   </script>

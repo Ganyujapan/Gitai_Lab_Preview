@@ -114,6 +114,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-v2-semantic-restore-preflight.cjs
       - name: Verify isolated multipart restore with atomic rollback under quota failure
         run: node .github/scripts/verify-exhibit-v2-isolated-atomic-restore.cjs
+      - name: Verify opt-in Safari atomic restore rehearsal cannot reach production DB
+        run: node .github/scripts/verify-exhibit-safari-atomic-rehearsal.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
