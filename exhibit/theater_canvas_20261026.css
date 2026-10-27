@@ -7,13 +7,32 @@
 .mode-play .mode-index{font:11px monospace;letter-spacing:.13em;color:#a1b5a3}
 .mode-play strong{font-size:clamp(26px,6vw,37px)}
 .mode-play .mode-subtitle{font-size:14px;color:#dedfd2}
-.mode-play .arrow{text-align:right;font-weight:700}
+/* Exhibition mode cards: PLAY is the main action. Keep the card layout and
+   clear space above the CTA for a future moth thumbnail. The entire top
+   card remains one keyboard/touch-accessible link, with no nested button. */
+.mode-play .arrow{
+  display:inline-flex;align-items:center;justify-content:center;justify-self:end;
+  min-height:52px;padding:10px 22px;margin-top:clamp(20px,4vw,30px);
+  border:2px solid #e1f9d9;border-radius:10px;
+  background:#c9eec2;color:#13281c;
+  font-size:clamp(18px,4vw,20px);font-weight:850;letter-spacing:.02em;
+  line-height:1.2;text-align:center;
+  box-shadow:0 3px 0 rgba(0,0,0,.35),0 0 0 1px rgba(200,245,198,.18);
+}
+.mode:nth-child(2) .mode-play .arrow{
+  border-color:#ffe2bc;background:#ffd29b;color:#352218;
+  box-shadow:0 3px 0 rgba(0,0,0,.35),0 0 0 1px rgba(255,210,155,.18);
+}
+.mode-play:active .arrow{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+@media (hover:hover){
+  .mode-play:hover .arrow{filter:brightness(1.08)}
+}
 .mode-theater-actions{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:9px;padding:12px 24px 17px;border-top:1px solid #526453}
 .mode:nth-child(2) .mode-theater-actions{border-top-color:#715a4a}
 .mode-generation{font-size:clamp(15px,3.4vw,19px);font-weight:750;margin:0;color:#dcf2d9;line-height:1.5}
 .mode:nth-child(2) .mode-generation{color:#ffe3bc}
-.mode-theater-button{min-height:44px;padding:8px 12px;border:1px solid #9ab8a2;border-radius:8px;background:#283d32;color:#f8fff4;font-size:clamp(12px,2.9vw,15px);font-weight:750;touch-action:manipulation;cursor:pointer}
-.mode:nth-child(2) .mode-theater-button{background:#48352b;border-color:#c8a07e}
+.mode-theater-button{min-height:44px;padding:8px 12px;border:1px solid #687d6d;border-radius:8px;background:transparent;color:#cedbcf;font-size:clamp(12px,2.9vw,15px);font-weight:650;touch-action:manipulation;cursor:pointer}
+.mode:nth-child(2) .mode-theater-button{background:transparent;border-color:#896c56;color:#e6d0bc}
 .mode-theater-button:disabled{opacity:.65}
 .exhibit-theater-overlay{position:fixed;inset:0;z-index:20000;display:flex;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));background:rgba(0,0,0,.94);touch-action:manipulation}
 .exhibit-theater-panel{display:flex;flex-direction:column;align-items:center;gap:9px;width:min(100%,520px);height:100%;min-height:0;padding:10px 12px 13px;border:1px solid #799282;border-radius:12px;background:#0e1512}
