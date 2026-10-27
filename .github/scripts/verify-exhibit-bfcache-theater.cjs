@@ -23,10 +23,10 @@ function fixture({visible=true,frames=3,handover=false,finished=false}={}){
   handoverData:handover?{mode:'warning',start:21,end:25}:null,
   handoverFinished:{hidden:!finished},
   stopPlayback:()=>calls.push('stop'),
-  releaseImage(){calls.push('release');this.frameUrls=[];},
+  releaseImage:()=>{calls.push('release');ctx.frameUrls=[];},
   clearTimeout:id=>calls.push('clear:'+id),
   refreshGenerations:async()=>calls.push('refresh'),
-  assignFrameUrls(){calls.push('assign');this.frameUrls=this.frames.map((_,i)=>'blob:new-'+i);},
+  assignFrameUrls:()=>{calls.push('assign');ctx.frameUrls=ctx.frames.map((_,i)=>'blob:new-'+i);}
   showFrame(index){calls.push('paint:'+index);},
   scheduleHandoverPlayback(){calls.push('handover-play');},
   openTheater(mode,data){calls.push('reload:'+mode+':'+(data?.start||'none'));return Promise.resolve()}
