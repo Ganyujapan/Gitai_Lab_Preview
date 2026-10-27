@@ -65,7 +65,7 @@
       restoreState.textContent='隔離DBで検証中…';
       try {
         const result=await GitaiAtomicRestoreRehearsal.runRehearsal({
-          onPhase:message=>{restoreLog.textContent+=message+'\\n';}
+          onPhase:message=>{restoreLog.textContent+=message+String.fromCharCode(10);}
         });
         restoreLog.textContent+=JSON.stringify(result,null,2);
         restoreState.textContent='成功：中断後の旧世代保持と、正常な原子的復元を確認';
