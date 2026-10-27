@@ -129,6 +129,10 @@
             new Error('バックアップ移行調査：読み取りが中断されました。'));
           tx.onerror = () => {};
           tx.oncomplete = async () => {
+            // The IDB transaction is complete. Release the connection before
+            // awaiting the optional quota estimate or a slow platform API.
+            try { db.close(); } catch (_) {}
+            db = null;
             summary.currentGeneration = typeof generation === 'string' && GEN_RE.test(generation)
               ? generation : null;
             summary.storedEntries = counts;
