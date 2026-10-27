@@ -3182,6 +3182,26 @@
     return `${value}${separator}v=${Date.now()}`;
   }
 
+  // PF05: a static background image is immutable within one loaded game.
+  // Share both an in-flight decode and the resolved Image across generation
+  // reloads, warning backgrounds and per-moth score calculations. Retry after
+  // a real image error; never cache dynamic per-generation PNGs here.
+  const backgroundImageRequests = new Map();
+  function loadStaticBackground(src) {
+    const key = String(src || '');
+    if (!key) return Promise.reject(new Error('背景画像が指定されていません。'));
+    const cached = backgroundImageRequests.get(key);
+    if (cached) return cached;
+    const pending = loadImage(cacheBustUrl(key)).catch(error => {
+      if (backgroundImageRequests.get(key) === pending) {
+        backgroundImageRequests.delete(key);
+      }
+      throw error;
+    });
+    backgroundImageRequests.set(key, pending);
+    return pending;
+  }
+
   async function requestScreenWakeLock() {
     if (!('wakeLock' in navigator)) return;
 
@@ -3418,11 +3438,11 @@
   }
 
   async function preloadAssets() {
-    state.backgroundImage = await loadImage(cacheBustUrl(CONFIG.BACKGROUND_SRC));
+    state.backgroundImage = await loadStaticBackground(CONFIG.BACKGROUND_SRC);
     if (WARNING_MODE) {
       for (const bg of CONFIG.WARNING_POOL) {
         if (!state.warningBackgrounds.has(bg.src)) {
-          const img = await loadImage(cacheBustUrl(bg.src));
+          const img = await loadStaticBackground(bg.src);
           state.warningBackgrounds.set(bg.src, img);
         }
       }
@@ -4909,7 +4929,7 @@
     }
 
     const [background, mothImage] = await Promise.all([
-      loadImage(cacheBustUrl(backgroundSrc)),
+      loadStaticBackground(backgroundSrc),
       loadShareImage(mothSrc),
     ]);
 
