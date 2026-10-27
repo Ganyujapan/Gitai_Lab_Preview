@@ -37,10 +37,18 @@ function mothBlob() {
   bytes[23] = 128;
   return {$blob: Array.from(bytes), mime:'image/png'};
 }
+const EXPECTED_LOCI=JSON.parse(fs.readFileSync(
+  'data/evolution_models/continuous_v1/config.json','utf8'
+)).trait_genetics.pattern_loci.map(x=>x.id);
 function genome(i, warning) {
+  const modules=Object.fromEntries(EXPECTED_LOCI.map(id=>[id,{
+    alleles:[1,0],cx:0.5,cy:0.5,rx:0.2,ry:0.2,
+    valueEffect:-0.2,hueEffect:0,saturationEffect:0,
+    phase:1.5,angle:0,frequency:1.5,roughness:0.25
+  }]));
   return {schema_version:1, baseHue:30, baseSaturation:.3, baseValue:.9,
     patternContrast:.3, textureStrength:.01, textureSeed:i,
-    modules:{band:{alleles:[1,0],hue:30,width:.1}},
+    modules,
     ...(warning ? {lineage:i <= 30 ? 'poison' : 'harmless'} : {})};
 }
 function backup(mode, warningLife) {
