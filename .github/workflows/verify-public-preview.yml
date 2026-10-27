@@ -66,6 +66,8 @@ jobs:
         run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
       - name: Verify native audio cannot replay cancelled pointer sounds
         run: node .github/scripts/verify-cancelled-tap-sfx.cjs
+      - name: Verify fast iOS audio does not replay cancelled or stale pointer sounds
+        run: node .github/scripts/verify-fast-sfx-cancelled-taps.cjs
       - name: Verify exhibition generation counters and read-only theater
         run: node .github/scripts/verify-exhibit-landing-theater.cjs
       - name: Verify exhibition theater's image and generation label remain consistent
