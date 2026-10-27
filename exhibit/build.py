@@ -142,6 +142,7 @@ def main() -> None:
     # The exhibition bundles only the currently supported public simulator.
     for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css",
                  "manifest.webmanifest", "game.js", "game.css", "admin.js", "admin.css",
+                 "backup_readiness.js",
                  # Optional diagnostics: NEVER loaded by index/modes/game/admin.
                  "backup_rehearsal.html", "backup_schema_rehearsal.js",
                  "backup_checkpoint_v2.js", "backup_v2.js",
@@ -181,6 +182,10 @@ def main() -> None:
             for fmt, ext in (("opus", "ogg"), ("aac", "m4a")):
                 clip = f"audio/sfx/{fmt}/{kind}_{i:02d}.{ext}"
                 assert clip in runtime_files, clip
+    assert "backup_readiness.js" in runtime_files
+    assert 'src="backup_readiness.js"' in (exhibit / "modes.html").read_text(encoding="utf-8")
+    assert "backup_readiness.js" not in (exhibit / "game.html").read_text(encoding="utf-8")
+    # Capacity inspector never imports v3 rehearsal code into production.
     assert "js/game_sfx.js" in runtime_files
     assert "theater_canvas_20261026.js" in runtime_files and "theater_canvas_20261026.css" in runtime_files
     assert "exhibitTheaterDialog" in (exhibit / "modes.html").read_text(encoding="utf-8")

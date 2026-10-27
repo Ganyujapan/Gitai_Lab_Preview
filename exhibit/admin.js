@@ -759,6 +759,34 @@
   document.getElementById('exhibitAdminClose').addEventListener('click', () => {
     unlocked = false; panel.hidden = true;
   });
+  // Read-only capacity preflight: neither uses openDb(name, 2), which can
+  // initialize an empty database, nor loads image blobs / whole history.
+  // This is informative only; the existing export/import paths are unchanged.
+  const readinessButton=document.getElementById('exhibitBackupReadiness');
+  const readinessResult=document.getElementById('exhibitBackupReadinessResult');
+  readinessButton.addEventListener('click',async()=>{
+    if(!unlocked)return;
+    const modeId=selector.value;
+    readinessButton.disabled=true;
+    readinessResult.hidden=false;
+    readinessResult.textContent='保存状態を読み取り専用で確認しています…';
+    try{
+      const api=window.GitaiExhibitBackupReadiness;
+      if(!api||typeof api.inspect!=='function')throw Error('診断機能が読み込まれていません。ページを更新してください。');
+      const selectedMode=MODES[modeId];
+      if(!selectedMode)throw Error('対象モードを選択してください。');
+      const result=await api.inspect({
+        name:selectedMode.db,indexedDb:indexedDB,
+        storage:navigator.storage
+      });
+      readinessResult.textContent=api.format(result,selectedMode.label);
+    }catch(error){
+      readinessResult.textContent='診断できませんでした：'
+        +(error?.message||String(error))
+        +'\n実験データの削除・変更は行っていません。';
+    }finally{readinessButton.disabled=false;}
+  });
+
   document.getElementById('exhibitBackupExport').addEventListener('click', async () => {
     if (!unlocked) return;
     say('JSONバックアップを作成中…');

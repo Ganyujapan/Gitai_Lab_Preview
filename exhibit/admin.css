@@ -9,3 +9,5 @@
 #exhibitBackupFile{display:none}
 
 #exhibitAdminPanel [hidden]{display:none!important}
+
+#exhibitBackupReadinessResult{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border:1px solid #6e8d76;background:#13231a;color:#dce9d8;font:13px/1.65 system-ui,sans-serif;border-radius:8px;max-height:340px;overflow:auto}
