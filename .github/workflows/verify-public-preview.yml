@@ -104,6 +104,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-backup-v2-preflight.cjs
       - name: Test bounded multipart export writer with 20k+ histories and broken-file rejection
         run: node .github/scripts/verify-exhibit-backup-v2-writer.cjs
+      - name: Verify isolated atomic checkpoint and bounded staged multipart export
+        run: node .github/scripts/verify-exhibit-backup-v2-checkpoint.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
