@@ -41,12 +41,38 @@ for (const {name,mode,title} of images) {
   assert.match(card[1], /class="mode-play"/);
   assert.ok(card[1].indexOf('class="mode-thumbnail"') <
     card[1].indexOf('</a>'), 'thumbnail must be within play link');
+  // Agreed 2026-10-27: thumbnail replaces the grey LEFT slot, not a full
+  // width banner above the title. The right slot is the start button.
+  const body = card[1];
+  assert.ok(body.indexOf('class="mode-index"') <
+    body.indexOf('<strong>'+title+'</strong>'));
+  assert.ok(body.indexOf('class="mode-subtitle"') <
+    body.indexOf('class="mode-thumbnail"'),
+    'thumbnail must appear UNDER subtitle, not at the top of the card');
+  assert.ok(body.indexOf('class="mode-thumbnail"') <
+    body.indexOf('class="arrow"'),
+    'left thumbnail must precede right play button');
 }
 assert.notEqual(signatures[0], signatures[1], 'distinct mode banners required');
 assert.match(build,/shutil\.copytree\(site \/ folder, exhibit \/ folder/);
 assert.match(build,/assert artifact in runtime_files/);
 assert.match(build,/modes_source\.count\("img\/modeselect\/"/);
 assert.match(css,/#exhibitModeSelection \.mode-thumbnail/);
+const thumbRule=css.split('#exhibitModeSelection .mode-thumbnail{')[1]?.split('}')[0];
+const playRule=css.split('#exhibitModeSelection .mode-play .arrow{')[1]?.split('}')[0];
+assert.ok(thumbRule&&playRule,'missing image/button layout rules');
+assert.match(thumbRule,/grid-column:1;/);
+assert.match(thumbRule,/grid-row:4;/);
+assert.match(thumbRule,/max-width:173px;/);
+assert.match(thumbRule,/height:54px;/);
+assert.match(thumbRule,/border-radius:10px;/);
+assert.doesNotMatch(thumbRule,/grid-column:1\/-1;/);
+assert.match(playRule,/grid-column:2;/);
+assert.match(playRule,/grid-row:4;/);
+assert.match(playRule,/max-width:148px;/);
+assert.match(playRule,/height:54px;/);
+assert.match(playRule,/border-radius:10px;/);
+assert.match(css,/grid-template-columns:minmax\(0,1fr\) minmax\(0,148px\);/);
 assert.match(css,/#exhibitModeSelection \.mode-play:focus-visible/);
 assert.match(css,/#exhibitModeSelection \.mode-theater-actions/);
 assert.match(css,/@media \(max-width:410px\)/);
