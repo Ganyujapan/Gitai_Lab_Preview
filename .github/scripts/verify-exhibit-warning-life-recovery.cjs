@@ -11,22 +11,22 @@ for(const file of [
   'exhibit/backup_warning_life_rehearsal.js'
 ])new vm.Script(fs.readFileSync(file,'utf8'),{filename:file});
 const html=fs.readFileSync('exhibit/backup_rehearsal.html','utf8');
-const script=html.match(/<script>([\\s\\S]*?)<\\/script>/);
+const script=html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(script);
 new vm.Script(script[1],{filename:'backup_rehearsal.html'});
 assert.match(html,/id="runLife"/);
-assert.match(html,/lifeButton\\.addEventListener\\('click'/);
-assert.match(html,/GitaiWarningLifeRehearsal\\.runRehearsal/);
+assert.match(html,/lifeButton\.addEventListener\('click'/);
+assert.match(html,/GitaiWarningLifeRehearsal\.runRehearsal/);
 assert.match(html,/本物の進化データやゲームのライフには触れません/);
 const browser=fs.readFileSync('exhibit/backup_warning_life_rehearsal.js','utf8');
-assert.match(browser,/schemaApi\\.uniqueSandboxName\\(cryptoApi\\)/);
-assert.match(browser,/lifeStorage\\.removeItem\\(key\\)/);
-assert.match(browser,/await removeDb\\(indexedDb,name\\)/);
+assert.match(browser,/schemaApi\.uniqueSandboxName\(cryptoApi\)/);
+assert.match(browser,/lifeStorage\.removeItem\(key\)/);
+assert.match(browser,/await removeDb\(indexedDb,name\)/);
 assert.match(browser,/Synthetic localStorage SecurityError/);
 assert.doesNotMatch(browser,/gitai-warning-life-v1:/);
 const build=fs.readFileSync('exhibit/build.py','utf8');
-assert.match(build,/backup_warning_life_recovery_v2\\.js/);
-assert.match(build,/backup_warning_life_rehearsal\\.js/);
+assert.match(build,/backup_warning_life_recovery_v2\.js/);
+assert.match(build,/backup_warning_life_rehearsal\.js/);
 for(const production of ['exhibit/index.html','exhibit/modes.html',
   'exhibit/admin.js','exhibit/game.js','exhibit/landing.js']){
   const data=fs.readFileSync(production,'utf8');
