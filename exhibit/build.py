@@ -127,7 +127,10 @@ def main() -> None:
     )
     # The exhibition bundles only the currently supported public simulator.
     for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css",
-                 "manifest.webmanifest", "game.js", "game.css", "admin.js", "admin.css"):
+                 "manifest.webmanifest", "game.js", "game.css", "admin.js", "admin.css",
+                 # Optional diagnostics: NEVER loaded by index/modes/game/admin.
+                 "backup_rehearsal.html", "backup_schema_rehearsal.js",
+                 "backup_checkpoint_v2.js", "backup_v2.js"):
         shutil.copy2(root / name, exhibit / name)
     worker = (root / "sw.template.js").read_text(encoding="utf-8")
     (exhibit / "sw.js").write_text(
@@ -158,6 +161,16 @@ def main() -> None:
     assert "theater_canvas_20261026.js" in runtime_files and "theater_canvas_20261026.css" in runtime_files
     assert "exhibitTheaterDialog" in (exhibit / "modes.html").read_text(encoding="utf-8")
     assert 'id="portalArt"' in (exhibit / "index.html").read_text(encoding="utf-8")
+    # Real-browser rehearsal stays isolated; production entry points don't
+    # import or execute diagnostic database upgrade code.
+    for needed in ("backup_rehearsal.html", "backup_schema_rehearsal.js",
+                   "backup_checkpoint_v2.js", "backup_v2.js"):
+        assert needed in runtime_files
+    for entry in ("game.html", "modes.html", "index.html"):
+        page_source = (exhibit / entry).read_text(encoding="utf-8")
+        assert "backup_schema_rehearsal.js" not in page_source
+        assert "backup_checkpoint_v2.js" not in page_source
+    assert "backup_schema_rehearsal.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
     assert (exhibit / "title.css").is_file()
     print("Exhibition PWA:", len(runtime_files), "offline files; build", build)
 

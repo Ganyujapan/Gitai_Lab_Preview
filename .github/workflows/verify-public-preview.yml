@@ -108,6 +108,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-backup-v2-checkpoint.cjs
       - name: Ensure backup stage schema upgrade is gated by read-only runtime checks
         run: node .github/scripts/verify-exhibit-stage-upgrade-preflight.cjs
+      - name: Verify additive v3 upgrade in sandbox-only browser rehearsal
+        run: node .github/scripts/verify-exhibit-isolated-upgrade-rehearsal.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax

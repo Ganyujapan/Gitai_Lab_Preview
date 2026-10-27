@@ -12,7 +12,15 @@ const build=fs.readFileSync('exhibit/build.py','utf8');
 assert.match(engine,/const DB_VERSION = 2/);
 assert.match(admin,/indexedDB\.open\(name, 2\)/);
 assert.doesNotMatch(build,/backup_upgrade_preflight_v2\.js/);
-assert.doesNotMatch(build,/backup_checkpoint_v2\.js/);
+assert.match(build,/backup_checkpoint_v2\.js/);
+assert.match(build,/backup_rehearsal\.html/);
+// Presence in the offline distribution is allowed only as an opt-in diagnostic
+// page; it must not auto-run from the normal game or exhibit admin screens.
+const game=fs.readFileSync('exhibit/game.js','utf8');
+const landing=fs.readFileSync('exhibit/landing.js','utf8');
+assert.doesNotMatch(admin,/backup_schema_rehearsal/);
+assert.doesNotMatch(game,/backup_schema_rehearsal/);
+assert.doesNotMatch(landing,/backup_schema_rehearsal/);
 assert.ok(TARGET_VERSION>2);
 assert.equal(STAGE_STORE,'backup_v2_stage');
 
