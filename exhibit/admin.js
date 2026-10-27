@@ -765,10 +765,11 @@
     // Same checksum, 60 decoded PNGs and exact DNA/life constraints as the
     // production v1 restorer, but without calling restoreMode().
     const raw = await file.text();
-    // Cap original serialized UTF-8 too; a browser may report a corrupt
-    // or atypical File with inconsistent metadata.
-    if (new TextEncoder().encode(raw).byteLength > MAX_BACKUP_BYTES)
-      throw Error('選択されたJSONの実容量が上限を超えています。');
+    // File.size was checked BEFORE this read. Do not re-encode the entire
+    // 150 MiB JSON to Uint8Array: doubling peak memory can crash iPad Safari.
+    // validateBackup also rejects oversized raw text before JSON.parse().
+    if (raw.length > MAX_BACKUP_BYTES)
+      throw Error('選択されたJSONの文字数が上限を超えています。');
     const {body, prepared} = await validateBackup(raw, selected);
     return Object.freeze({
       generation:body.currentGeneration,
