@@ -117,7 +117,7 @@ const endRound=section('  function endRound() {','  // Temporary visual ranking'
 const pauseSolo=section('  function pauseSolo() {','  function resumeSolo() {');
 const resumeSolo=section('  function resumeSolo() {',"  window.addEventListener('gitai:solo-pause'");
 const toxin=section('  function showPoisonPenalty() {','  function handleTap(');
-const tap=section('  function handleTap(',"  function pointerToCanvas");
+const tap=section('  function handleTap(',"  canvas.addEventListener('pointerdown'");
 const fatal=section('  function showWarningToxicDeath() {','  warningDeathReturn.addEventListener');
 assert.match(startRound,/state\.roundStartedAt = performance\.now\(\);\s*resetRoundElapsedClock\(state\.roundStartedAt\)/);
 assert.match(endRound,/freezeRoundElapsedClock\(\);\s*clearTimers\(\)/);
