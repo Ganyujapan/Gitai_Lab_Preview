@@ -283,14 +283,38 @@
     }
   }
 
+  // The shipped continuous_v1 model has these frozen pattern loci. Keep the
+  // list aligned with data/evolution_models/continuous_v1/config.json via CI.
+  // Do not synthesize missing modules from pixels or silently repair alleles.
+  const EXPECTED_PATTERN_LOCI = Object.freeze([
+    'central_blotch', 'transverse_band', 'outer_edge', 'speckle_cluster',
+    'longitudinal_streaks', 'cloud_mottle', 'ring_spots', 'diagonal_streak',
+    'chevron_pair', 'twin_spots', 'ripple_bands', 'radial_rays'
+  ]);
+  // Broad safety bounds (not a redefinition of mutation limits). Values
+  // outside these cannot be valid continuous_v1 traits, but accepted old
+  // numeric module fields remain optional for older schema-1 saves.
+  const MODULE_NUMBER_BOUNDS = Object.freeze({
+    cx: [-1, 2], cy: [-1, 2], rx: [0, 2], ry: [0, 2],
+    valueEffect: [-2, 2], hueEffect: [-360, 360],
+    saturationEffect: [-2, 2], pigmentHue: [-360, 720],
+    pigmentSaturation: [0, 2], phase: [-1000000, 1000000],
+    angle: [-360, 360], frequency: [0, 100], roughness: [0, 2]
+  });
   function checkGenome(genome, index, selected) {
     if (!genome || typeof genome !== 'object' || Array.isArray(genome)
         || Number(genome.schema_version) !== 1) {
       throw Error('現在世代の遺伝情報が不足、または未対応の形式です（' + index + '番）。');
     }
-    for (const key of ['baseHue', 'baseSaturation', 'baseValue',
-                       'patternContrast', 'textureStrength', 'textureSeed']) {
-      if (typeof genome[key] !== 'number' || !Number.isFinite(genome[key])) {
+    const baseLimits = {
+      baseHue: [0, 360], baseSaturation: [0, 1], baseValue: [0, 1],
+      patternContrast: [0, 1], textureStrength: [0, 1],
+      textureSeed: [0, Number.MAX_SAFE_INTEGER]
+    };
+    for (const [key, [min, max]] of Object.entries(baseLimits)) {
+      const value = genome[key];
+      if (typeof value !== 'number' || !Number.isFinite(value)
+          || value < min || value > max) {
         throw Error('遺伝情報の数値が不正です（' + index + '番・' + key + '）。');
       }
     }
@@ -300,13 +324,29 @@
         || Object.keys(genome.modules).length > 64) {
       throw Error('遺伝情報の模様遺伝子が不足しています（' + index + '番）。');
     }
-    // A visual PNG cannot recover the recessive alleles. Never invent them
-    // while restoring a backup or silently downgrade genotype schema.
-    for (const module of Object.values(genome.modules)) {
+    // A PNG cannot recover hidden/recessive alleles or lost loci.
+    // All loci in the *current frozen model* must exist; extra/unknown loci
+    // must not be accepted as substitutes for the missing ones.
+    const actualLoci = Object.keys(genome.modules);
+    if (actualLoci.length !== EXPECTED_PATTERN_LOCI.length ||
+        EXPECTED_PATTERN_LOCI.some(id =>
+          !Object.prototype.hasOwnProperty.call(genome.modules, id))) {
+      throw Error('遺伝情報の必須模様遺伝子が欠損または不一致です（' + index + '番）。');
+    }
+    for (const locusId of EXPECTED_PATTERN_LOCI) {
+      const module = genome.modules[locusId];
       if (!module || typeof module !== 'object' || Array.isArray(module)
           || !Array.isArray(module.alleles) || module.alleles.length !== 2
           || module.alleles.some(value => value !== 0 && value !== 1)) {
-        throw Error('遺伝情報の対立遺伝子が不正です（' + index + '番）。');
+        throw Error('遺伝情報の対立遺伝子が不正です（' + index + '番・' + locusId + '）。');
+      }
+      for (const [key, [min, max]] of Object.entries(MODULE_NUMBER_BOUNDS)) {
+        if (!Object.prototype.hasOwnProperty.call(module, key)) continue;
+        const value = module[key];
+        if (typeof value !== 'number' || !Number.isFinite(value)
+            || value < min || value > max) {
+          throw Error('模様遺伝子の数値が不正です（' + index + '番・' + locusId + '.' + key + '）。');
+        }
       }
     }
     const expected = index <= 30 ? 'poison' : 'harmless';
