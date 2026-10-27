@@ -65,6 +65,10 @@
   async function openDb(name) {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(name, 2);
+      // STO-04: onblocked already rejects the administrator operation.
+      // The request itself cannot be cancelled and may open much later;
+      // close that stale connection to avoid holding a versionchange lock.
+      let blocked = false;
       request.onupgradeneeded = () => {
         // Never create a version-2 DB without the game engine's stores.
         // An admin backup attempt before the first play must be harmless.
@@ -74,9 +78,16 @@
         }
       };
       request.onerror = () => reject(request.error);
-      request.onblocked = () => reject(new Error('データベースが使用中です。ゲーム画面を閉じてください。'));
+      request.onblocked = () => {
+        blocked = true;
+        reject(new Error('データベースが使用中です。ゲーム画面を閉じてください。'));
+      };
       request.onsuccess = () => {
         const db = request.result;
+        if (blocked) {
+          db.close();
+          return;
+        }
         if (STORES.some(s => !db.objectStoreNames.contains(s))) {
           db.close();
           reject(new Error('保存データの形式が想定と異なります。'));
