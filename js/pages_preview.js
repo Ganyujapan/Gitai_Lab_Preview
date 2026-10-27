@@ -3595,6 +3595,28 @@
   }
 
 
+  // MODEL-03: cryptic-mode-style latent hue diversity in warning-color
+  // founders. Their saturation remains exactly zero, so all 60 are white.
+  // A separate per-individual seeded stream avoids changing mutation odds
+  // or consuming the neutral headstart's RNG.
+  function makeWarningWhiteFounderGenome(index) {
+    const lineage = WARNING.lineage(index);
+    const genome = makePureWhiteFounderGenome(
+      lineage === WARNING.POISON ? 1 : 2,
+    );
+    const founder = evolutionConfig.founder_model || {};
+    if (founder.latent_hue_diversity) {
+      const seed = String(
+        founder.founder_seed || founder.founder_set_id || 'standard_white_001'
+      );
+      genome.baseHue = makeSeededRng(
+        seed + ':warning-latent-hue-v1:' + index,
+      )() * 360;
+    }
+    genome.lineage = lineage;
+    return genome;
+  }
+
   function randomRange(rng, minValue, maxValue) {
     const min = Number(minValue);
     const max = Math.max(min, Number(maxValue));
@@ -4247,9 +4269,7 @@
       let genome;
 
       if (WARNING_EXPERIMENT) {
-        genome = makePureWhiteFounderGenome(
-          WARNING.lineage(i) === WARNING.POISON ? 1 : 2,
-        );
+        genome = makeWarningWhiteFounderGenome(i);
       } else if (
         String(evolutionConfig?.inheritance || '')
           .startsWith('discrete_morph_')
@@ -4335,10 +4355,18 @@
 
     let population = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
-      const genome = makePureWhiteFounderGenome(
-        WARNING.lineage(i) === WARNING.POISON ? 1 : 2,
+      // Start the neutral 20 generations from the SAME saved founder
+      // genomes as the visible gen1. This also preserves compatibility
+      // with an interrupted older run whose founders still used H=0.
+      const genome = await idbGet(
+        META_STORE, genomeKey('gen00001', i),
       );
-      genome.lineage = WARNING.lineage(i);
+      if (!genome || Number(genome.schema_version) !== 1
+          || genome.lineage !== WARNING.lineage(i)) {
+        throw new Error(
+          '創始者の遺伝情報が不足または不正です。元の実験を変更せず停止しました。'
+        );
+      }
       population.set(i, genome);
     }
 

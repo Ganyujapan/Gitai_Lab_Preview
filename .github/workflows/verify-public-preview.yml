@@ -119,6 +119,8 @@ jobs:
         run: node .github/scripts/verify-neutral-value-mutation.cjs
       - name: Verify independent poison and harmless mutation lotteries
         run: node .github/scripts/verify-warning-independent-mutations.cjs
+      - name: Verify white warning founders inherit unbiased per-individual latent hues
+        run: node .github/scripts/verify-warning-latent-founder-hues.cjs
       - name: Reject concurrent or partial generation commits
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Verify long-running generation IDs remain valid after generation 99999
