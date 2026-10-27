@@ -30,11 +30,18 @@ function blobPayload({badHeader=false,corrupt=false,width=128}={}) {
  array[24]=corrupt?13:42;
  return {$blob:Array.from(array),mime:'image/png'};
 }
+const MODEL_LOCI = JSON.parse(fs.readFileSync(
+ 'data/evolution_models/continuous_v1/config.json','utf8'
+)).trait_genetics.pattern_loci.map(item=>item.id);
 function makeGenome(i,warning) {
+ const modules=Object.fromEntries(MODEL_LOCI.map(id=>[id,{
+   alleles:[1,0],cx:0.5,cy:0.5,rx:0.2,ry:0.2,
+   valueEffect:-0.2,hueEffect:0,saturationEffect:0,
+   phase:1.5,angle:0,frequency:1.5,roughness:0.25
+ }]));
  return {schema_version:1,baseHue:30,baseSaturation:.3,baseValue:.9,
   patternContrast:.3,textureStrength:.01,textureSeed:i,
-  modules:{band:{alleles:[1,0],hue:30,width:.1}},
-  ...(warning?{lineage:i<=30?'poison':'harmless'}:{})
+  modules,...(warning?{lineage:i<=30?'poison':'harmless'}:{})
  };
 }
 function createPayload(mode,gen) {
@@ -71,8 +78,9 @@ function harness() {
   openDb:async()=>{openCalls++;throw Error('Should never touch user data for a failed backup')},
   confirm:()=>{confirmCalls++;return true}
  };
- vm.runInNewContext(body+'\nglobalThis.validate=validateBackup;globalThis.restore=restoreMode;',
+ vm.runInNewContext(body+'\nglobalThis.validate=validateBackup;globalThis.restore=restoreMode;globalThis.loci=EXPECTED_PATTERN_LOCI;',
    context,{filename:'exhibit/admin.js:EXH-02',timeout:5000});
+ assert.deepEqual(Array.from(context.loci),MODEL_LOCI,'validator must match frozen model loci');
  return {validate:(raw,mode)=>context.validate(raw,mode),
   restore:(mode,file)=>context.restore(mode,file),
   get openCalls(){return openCalls},get confirmCalls(){return confirmCalls}};
@@ -128,12 +136,40 @@ async function shouldFail(mode,payload,match) {
   await shouldFail(mode,futureVersion,/未対応の形式/);
 
   const missingAlleles=structuredClone(payload);
-  delete missingAlleles.stores.meta[1].value.modules.band.alleles;
+  delete missingAlleles.stores.meta[1].value.modules.central_blotch.alleles;
   await shouldFail(mode,missingAlleles,/対立遺伝子/);
 
   const invalidNumber=structuredClone(payload);
   invalidNumber.stores.meta[1].value.baseHue=null;
   await shouldFail(mode,invalidNumber,/数値が不正/);
+
+  const missingLocus=structuredClone(payload);
+  delete missingLocus.stores.meta[1].value.modules.central_blotch;
+  await shouldFail(mode,missingLocus,/必須模様遺伝子/);
+
+  const unknownLocus=structuredClone(payload);
+  unknownLocus.stores.meta[1].value.modules.unknown_module=
+    unknownLocus.stores.meta[1].value.modules.central_blotch;
+  delete unknownLocus.stores.meta[1].value.modules.central_blotch;
+  await shouldFail(mode,unknownLocus,/必須模様遺伝子/);
+
+  const invalidEffect=structuredClone(payload);
+  invalidEffect.stores.meta[1].value.modules.central_blotch.valueEffect='not-a-number';
+  await shouldFail(mode,invalidEffect,/模様遺伝子の数値が不正/);
+
+  const missingLegacyPigment=structuredClone(payload);
+  // Previous schema-1 genomes may lack newly introduced local pigment fields.
+  delete missingLegacyPigment.stores.meta[1].value.modules.central_blotch.pigmentHue;
+  const legacyRaw=await exportJson(missingLegacyPigment);
+  await harness().validate(legacyRaw,mode);
+
+  const invalidSaturation=structuredClone(payload);
+  invalidSaturation.stores.meta[1].value.baseSaturation=40;
+  await shouldFail(mode,invalidSaturation,/数値が不正/);
+
+  const invalidGeometry=structuredClone(payload);
+  invalidGeometry.stores.meta[1].value.modules.central_blotch.rx=-3;
+  await shouldFail(mode,invalidGeometry,/模様遺伝子の数値が不正/);
   if(mode==='warning'){
    const swapped=structuredClone(payload);
    swapped.stores.meta[1].value.lineage='harmless';
