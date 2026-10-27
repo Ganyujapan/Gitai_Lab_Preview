@@ -159,6 +159,22 @@ function fakeDatabase({hasStage=true}={}) {
           v.__key[0]===id&&v.__key[1]==='meta'&&v.__key[2]==='current_generation_id');
         if(!row)throw Error('pointer not found');
         row[1].value.value=OLD;
+      } else if(kind==='replaceRequiredImage'||kind==='replaceRequiredGenome'){
+        // Alter a required row to a plausible wrong suffix, retaining
+        // the exact same total count and per-store counts.
+        const store=kind==='replaceRequiredImage'?'images':'meta';
+        const oldKey=kind==='replaceRequiredImage'?
+          GEN+':01':'genome:'+GEN+':01';
+        const fakeKey=kind==='replaceRequiredImage'?
+          GEN+':61':'genome:'+GEN+':61';
+        const row=[...states.backup_v2_stage].find(([,v])=>
+          v.__key[0]===id&&v.__key[1]===store&&v.__key[2]===oldKey);
+        if(!row)throw Error('required stage row missing');
+        states.backup_v2_stage.delete(row[0]);
+        const newKey=[id,store,fakeKey];
+        states.backup_v2_stage.set(JSON.stringify(newKey),{
+          __key:newKey,value:{...row[1].value,key:fakeKey}
+        });
       }
     }
   };
@@ -298,6 +314,19 @@ async function errorMatching(p,pattern){await assert.rejects(p,pattern);}
   await errorMatching(restore.commitStagedRestore(envWrong.db,preparedWrong,{cryptoApi}),
     /Stage generation mismatch/);
   assert.deepEqual(envWrong.snapshot(),before);
+
+  // A forged suffix can preserve totals and still replace a
+  // REQUIRED 01..60 key. Never mistake genNNNNN:61 for genNNNNN:01.
+  for(const mutation of ['replaceRequiredImage','replaceRequiredGenome']){
+    const forged=fakeDatabase();
+    const checked=await stage(forged,files);
+    forged.mutateStage(stageId,mutation);
+    assert.equal(forged.getStageSize(stageId),122);
+    await errorMatching(restore.commitStagedRestore(forged.db,checked,{cryptoApi}),
+      /Incomplete staged genome\/images/);
+    assert.deepEqual(forged.snapshot(),before,
+      'a forged key with matching counts must preserve old data');
+  }
 
   // Retry the VALID fully staged state when quota is freed.
   env.setFailSwapAt(Infinity);
