@@ -21,7 +21,7 @@ def main() -> None:
         "gitailab_thumbnail_warning_960x300.webp",
     )
     for thumbnail in thumbnails:
-        path = root / "img" / "modeselect" / thumbnail
+        path = site / "img" / "modeselect" / thumbnail
         assert path.is_file(), "Missing exhibit mode thumbnail: " + str(path)
         # Real WebP (RIFF + WEBP), not a missing image or text placeholder.
         with path.open("rb") as fp:
