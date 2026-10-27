@@ -17,7 +17,7 @@ const db = 'gitai-exhibit-2026-test-cryptic';
 const generation = 'gen00035';
 const name = n => String(n).padStart(2, '0');
 const image = () => new Blob([Uint8Array.from([137,80,78,71,13,10,26,10])], {type:'image/png'});
-async function* records(diagnosticCount = 0, {badOrder=false, duplicate=false, noGenome=false, bigBlob=false} = {}) {
+async function* records(diagnosticCount = 0, {badOrder=false, duplicate=false, noGenome=false, bigBlob=false, denseDiagnostics=false} = {}) {
   for(let i=1;i<=60;i++) {
     const key = generation + ':' + name(i);
     yield {store:'images',key,value: i === 1 && bigBlob ?
@@ -27,7 +27,7 @@ async function* records(diagnosticCount = 0, {badOrder=false, duplicate=false, n
   yield {store:'meta',key:'current_generation_id',value:generation};
   for(let i=0;i<diagnosticCount;i++){
     const key='diagnostic:'+String(i).padStart(7,'0');
-    yield {store:'meta',key,value:{note:'sample ☘ 演算',point:i,arr:new Uint16Array([2,345]),t:new Date('2026-10-27T00:00:00Z')}};
+    yield {store:'meta',key,value:{note:'sample ☘ 演算',point:i,arr:new Uint16Array([2,345]),t:new Date('2026-10-27T00:00:00Z'), ...(denseDiagnostics ? {dense:Array.from({length:220}, (_,j)=>j)} : {})}};
   }
   for(let i=1;i<=60;i++){
     const key='genome:'+generation+':'+name(i);
@@ -110,6 +110,14 @@ async function produce(recordStream, opts={}) {
     }
   };
   await assert.rejects(produce(unsupported()),/復元未対応/);
+  // Counterexample to byte-only chunking: <8 MiB and <2,000 entries, but
+  // more than 350,000 JSON nodes. The writer must split by node count too.
+  const dense=await produce(records(1600,{denseDiagnostics:true}),
+    {maxPartBytes:MAX_PART_BYTES,maxPartEntries:2000});
+  const metaParts=dense.manifest.parts.filter(x=>x.store==='meta');
+  assert.ok(metaParts.length>=2, 'structure node budget forces additional meta part');
+  const denseRoundtrip=await verifyPartIntegrity(dense.manifestFile,dense.files,'cryptic',db);
+  assert.equal(denseRoundtrip.entries,1722);
   await assert.rejects(produce(records(0,{duplicate:true})),/重複|順序/);
   await assert.rejects(produce(records(0,{badOrder:true})),/順序/);
   await assert.rejects(produce(records(0,{noGenome:true})),/DNAが不足/);
