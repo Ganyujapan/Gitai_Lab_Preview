@@ -138,6 +138,12 @@
   let environmentConfig = null;
   let evolutionConfig = null;
   let currentGenerationId = 'gen00001';
+  // The epoch is captured once, before reading the first playable generation.
+  // Another tab's restore invalidates in-flight offspring, even if the restored
+  // backup happens to have exactly the same generation ID (ABA). Existing
+  // runs without this key use null and keep their original save namespace.
+  let loadedRestoreEpoch = null;
+  let restoreEpochCaptured = false;
   let currentObjectUrls = new Map();
   let mask = null;
   let templateAlpha = null;
@@ -303,6 +309,16 @@
       tx.onerror = () => {
         // The transaction automatically aborts, rolling back ALL writes.
       };
+      // Transaction-local epoch check prevents a restored genN backup from
+      // being overwritten by an older genN tab's already-rendered children.
+      const epochRequest = meta.get('restore_epoch');
+      epochRequest.onsuccess = () => {
+        const actual = epochRequest.result == null ? null : String(epochRequest.result);
+        if (actual !== loadedRestoreEpoch) {
+          abortWith('restore_epoch_mismatch',
+            '別の画面で実験が復元されました。元のデータを保持し保存を中止しました。');
+          return;
+        }
       const pointerRequest = meta.get('current_generation_id');
       pointerRequest.onsuccess = () => {
         if (pointerRequest.result !== sourceId) {
@@ -348,6 +364,7 @@
             queueCommit();
           }
         };
+      };
       };
     });
   }
@@ -1675,6 +1692,11 @@
 
   async function ensureCurrentGeneration() {
     await ensureConfig();
+    if (!restoreEpochCaptured) {
+      const epoch = await idbGet(META_STORE, 'restore_epoch');
+      loadedRestoreEpoch = epoch == null ? null : String(epoch);
+      restoreEpochCaptured = true;
+    }
     const stored = await idbGet(META_STORE, 'current_generation_id');
     const hasStoredGeneration = stored !== undefined && stored !== null;
     if (hasStoredGeneration) {
@@ -4828,6 +4850,13 @@
     }
 
     await ensureCurrentGeneration();
+    const nowEpoch = await idbGet(META_STORE, 'restore_epoch');
+    if ((nowEpoch == null ? null : String(nowEpoch)) !== loadedRestoreEpoch) {
+      return jsonResponse(409, {
+        error: 'restore_epoch_mismatch',
+        message: '別の画面でこの実験が復元されました。再読込してから続けてください。',
+      });
+    }
     let payload = {};
     try {
       payload = JSON.parse(init.body || '{}');
@@ -4909,6 +4938,12 @@
     try {
       nextId = await evolveGeneration(generationId, eaten, runId);
     } catch (error) {
+      if (error?.code === 'restore_epoch_mismatch') {
+        return jsonResponse(409, {
+          error: 'restore_epoch_mismatch',
+          message: 'この実験は別の画面で復元されました。再読込してください。',
+        });
+      }
       if (error?.code === 'generation_mismatch'
           || error?.code === 'run_already_completed') {
         // Another tab's fully atomic transaction was committed first.

@@ -77,7 +77,7 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   const saved = new Map([[lifeKey,'PREVIOUS_LIFE']]);
   const messages = [];
   const handlers = {};
-  let opened = 0, closed = 0, confirmations = 0;
+  let opened = 0, closed = 0, confirmations = 0, epochCounter = 0;
   const state = {
     images: new Map([['old-image','kept']]),
     meta: new Map([['current_generation_id','gen00010']]),
@@ -92,6 +92,7 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   const context = {
     MODES, STORES, BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
     Blob, Uint8Array, DataView, digest,
+    crypto:{getRandomValues(bytes) {bytes.fill((++epochCounter)%256);return bytes;}},
     selector:{value:mode}, unlocked:true,
     say(message) { messages.push(message); },
     confirm() {confirmations++;return confirmed;},
@@ -175,10 +176,15 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   const fullMessage = await full.restore(rawWarning);
   assert.match(fullMessage,/復元が完了/);
   assert.equal(full.state.meta.get('current_generation_id'),'gen00025');
+  const firstEpoch=full.state.meta.get('restore_epoch');
+  assert.match(firstEpoch,/^restore-[a-f0-9]{32}$/);
+  assert.match(await full.restore(rawWarning),/復元が完了/);
+  assert.notEqual(full.state.meta.get('restore_epoch'),firstEpoch,
+    'restoring the same backed-up generation MUST mint a fresh epoch');
   assert.equal(full.saved.get(lifeKey),savedLife);
   assert.equal(full.state.images.size,60);
-  assert.equal(full.opened,1);
-  assert.equal(full.closed,1);
+  assert.equal(full.opened,2);
+  assert.equal(full.closed,2);
 
   const cryptic = harness({mode:'cryptic'});
   assert.match(await cryptic.restore(await backup('cryptic',null)),/復元が完了/);

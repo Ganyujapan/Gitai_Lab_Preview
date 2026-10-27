@@ -26,6 +26,8 @@ assert.match(source,/const already = completedRuns\.get\(runId\)/);
 assert.match(source,/await persistedCompletedRun\(runId\)/);
 assert.match(source,/runId\.length > 128/);
 assert.match(source,/error\?\.code === 'generation_mismatch'/);
+assert.match(source,/restore_epoch_mismatch/);
+assert.match(source,/restoreEpochCaptured = true/);
 
 function dbFixture(sourceId='gen00021',failAt=Infinity) {
  const stores={images:new Map(),meta:new Map()};
@@ -102,7 +104,7 @@ function dbFixture(sourceId='gen00021',failAt=Infinity) {
   diagnosticKey:gen=>'diagnostic:'+gen,
   openDb:async()=>database,
   idbGet:async(store,key)=>stores[store].get(key),
-  console,Date,Error
+  console,Date,Error,loadedRestoreEpoch:null
  };
  vm.runInNewContext(fn+'\nglobalThis.commit=commitEvolutionGeneration;globalThis.replay=persistedCompletedRun;',
   context,{filename:'js/pages_preview.js:commitEvolutionGeneration',timeout:5000});
@@ -112,7 +114,8 @@ function dbFixture(sourceId='gen00021',failAt=Infinity) {
   return {blobs,dna,diag:{marker,offspring:[{marker}]}};
  };
  return {stores,txLog,make,commit:(from,to,data,runId)=>context.commit(
-  from,to,data.blobs,data.dna,data.diag,runId),replay:id=>context.replay(id)};
+  from,to,data.blobs,data.dna,data.diag,runId),replay:id=>context.replay(id),
+  loadEpoch:epoch=>{context.loadedRestoreEpoch=epoch;}};
 }
 (async()=>{
  const a=dbFixture();const first=a.make('first'),second=a.make('second');
@@ -143,6 +146,34 @@ function dbFixture(sourceId='gen00021',failAt=Infinity) {
  assert.equal(dupe.filter(x=>x.status==='fulfilled').length,1);
  assert.equal(same.stores.meta.get('completed_run:same-run').generation_id,'gen00021');
  assert.equal(same.stores.meta.get('completed_run:same-run').next_generation_id,'gen00022');
+
+ const restored=dbFixture('gen00021');
+ // ABA: another tab restores different DNA at exactly the same generation ID.
+ for(let i=1;i<=60;i++) {
+   const key='gen00021:'+String(i).padStart(2,'0');
+   restored.stores.images.set(key,new Blob(['restored-B']));
+   restored.stores.meta.set('genome:'+key,{marker:'restored-B'});
+ }
+ restored.stores.meta.set('restore_epoch','restore-B');
+ await assert.rejects(
+   restored.commit('gen00021','gen00022',restored.make('stale-A'),'old-tab-run'),
+   /復元されました/
+ );
+ assert.equal(restored.stores.meta.get('current_generation_id'),'gen00021');
+ assert.equal(restored.stores.meta.get('restore_epoch'),'restore-B');
+ assert.equal(restored.stores.meta.has('completed_run:old-tab-run'),false);
+ for(let i=1;i<=60;i++){
+   const key='gen00021:'+String(i).padStart(2,'0');
+   assert.equal(await restored.stores.images.get(key).text(),'restored-B');
+   assert.equal(restored.stores.meta.get('genome:'+key).marker,'restored-B');
+ }
+
+ // A new document loaded after restore B may commit normally.
+ restored.loadEpoch('restore-B');
+ await restored.commit('gen00021','gen00022',restored.make('new-B'),'new-tab-run');
+ assert.equal(restored.stores.meta.get('current_generation_id'),'gen00022');
+ assert.equal(restored.stores.meta.get('restore_epoch'),'restore-B');
+ assert.equal(restored.stores.meta.get('completed_run:new-tab-run').generation_id,'gen00021');
 
  const stale=dbFixture('gen00022');
  await assert.rejects(
