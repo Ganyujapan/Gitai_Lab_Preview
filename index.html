@@ -2218,6 +2218,10 @@
     roundRecords: [],
     roundTapEvents: [],
     roundStartedAt: 0,
+    // EV-08: only tap-enabled time belongs in capture diagnostic logs.
+    // Keep the existing roundStartedAt wall-clock for the timed countdown.
+    roundElapsedMs: 0,
+    roundElapsedResumedAt: null,
     roundActive: false,
     remainingSeconds: 0,
     countdownIntervalId: null,
@@ -3283,6 +3287,7 @@
   }
   function showWarningToxicDeath() {
     if (!WARNING_LIFE) return;
+    freezeRoundElapsedClock();
     state.roundActive = false;
     state.toxinPaused = false;
     state.soloPaused = false;
@@ -3319,6 +3324,29 @@
     }
   }
 
+  // EV-08: a separate monotonic stopwatch for capture diagnostics.
+  // The countdown still uses roundStartedAt; this clock explicitly excludes
+  // toxic-overlay and solo-menu pauses even in warning mode (no countdown).
+  function resetRoundElapsedClock(at = performance.now()) {
+    state.roundElapsedMs = 0;
+    state.roundElapsedResumedAt = at;
+  }
+  function freezeRoundElapsedClock(at = performance.now()) {
+    if (state.roundElapsedResumedAt === null) return;
+    state.roundElapsedMs += Math.max(0, at - state.roundElapsedResumedAt);
+    state.roundElapsedResumedAt = null;
+  }
+  function resumeRoundElapsedClock(at = performance.now()) {
+    if (state.roundElapsedResumedAt !== null || !state.roundActive
+        || state.soloPaused || state.toxinPaused) return;
+    state.roundElapsedResumedAt = at;
+  }
+  function currentRoundElapsedMs(at = performance.now()) {
+    const current = state.roundElapsedResumedAt === null ? 0
+      : Math.max(0, at - state.roundElapsedResumedAt);
+    return Math.max(0, Math.round(state.roundElapsedMs + current));
+  }
+
   // A return to the menu pauses the current 4-second round in memory.
   // It neither submits nor resets a generation; resume uses the same moths.
   function scheduleInterRound(delay) {
@@ -3337,6 +3365,7 @@
   function pauseSolo() {
     if (!isEntertainmentModel() || state.soloPaused) return;
     state.soloPaused = true;
+    freezeRoundElapsedClock();
     stopFogAnimation();
     if (state.toxinPaused) {
       // When leaving during the poison overlay, keep all captures intact.
@@ -3370,6 +3399,7 @@
   function resumeSolo() {
     if (!state.soloPaused) return;
     state.soloPaused = false;
+    resumeRoundElapsedClock();
     if (state.roundActive && state.pausedRoundRemainingMs !== null) {
       const remaining = state.pausedRoundRemainingMs;
       state.roundStartedAt = performance.now() - (CONFIG.ROUND_TIME_MS - remaining);
@@ -3881,6 +3911,7 @@
     state.comboCount = 0;
     state.lastHitAt = 0;
     state.roundStartedAt = performance.now();
+    resetRoundElapsedClock(state.roundStartedAt);
     state.roundActive = true;
     render();
     startFogAnimation();
@@ -3900,6 +3931,7 @@
     if (WARNING_MODE &&
         state.activeMoths.filter(m => m.clicked).length < CONFIG.CAPTURES_TO_FINISH_ROUND) return;
 
+    freezeRoundElapsedClock();
     clearTimers();
     state.roundActive = false;
     stopFogAnimation();
@@ -5467,6 +5499,7 @@
   function showPoisonPenalty() {
     if (!WARNING_MODE || !state.roundActive || state.toxinPaused) return;
     state.toxinPaused = true;
+    freezeRoundElapsedClock();
     stopFogAnimation();
     warningPoisonOverlay.hidden = false;
     state.toxinTimeoutId = setTimeout(() => {
@@ -5476,6 +5509,7 @@
       // The poison message is still shown for a sixth poisonous capture.
       // Leaving for the menu cannot finish a round in the background.
       if (state.soloPaused) return;
+      resumeRoundElapsedClock();
       if (state.activeMoths.filter(m => m.clicked).length
           >= CONFIG.CAPTURES_TO_FINISH_ROUND) {
         endRound();
@@ -5514,10 +5548,7 @@
         state.eatenIndices.add(moth.index);
         state.roundTapEvents.push({
           index: moth.index,
-          elapsed_ms: Math.max(
-            0,
-            Math.round(performance.now() - state.roundStartedAt),
-          ),
+          elapsed_ms: currentRoundElapsedMs(),
         });
 
         if (WARNING_MODE) {
