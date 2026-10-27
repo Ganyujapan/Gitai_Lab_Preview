@@ -183,8 +183,8 @@ function harness({mode='warning', confirmed=true, idbFail=false,
     'restoring the same backed-up generation MUST mint a fresh epoch');
   assert.equal(full.saved.get(lifeKey),savedLife);
   assert.equal(full.state.images.size,60);
-  assert.equal(full.opened,1);
-  assert.equal(full.closed,1);
+  assert.equal(full.opened,2);
+  assert.equal(full.closed,2);
 
   const cryptic = harness({mode:'cryptic'});
   assert.match(await cryptic.restore(await backup('cryptic',null)),/復元が完了/);
