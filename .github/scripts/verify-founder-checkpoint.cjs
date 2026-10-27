@@ -72,7 +72,8 @@ function fixture({warning=false,failPutAt=Infinity}={}){
   openDb:async()=>db,Blob,Error,TOTAL:60,
   IMAGE_STORE:'images',META_STORE:'meta',THEATER_STORE:'theater_frames',
   WARNING_EXPERIMENT:warning,
-  imageKey:toKey,genomeKey:toGenome
+  imageKey:(gen,i)=>{assert.equal(gen,'gen00001');return toKey(i);},
+  genomeKey:(gen,i)=>{assert.equal(gen,'gen00001');return toGenome(i);}
  };
  vm.runInNewContext(impl+'\nglobalThis.commit=commitFounderCheckpoint;',ctx,
    {filename:'js/pages_preview.js:founder-checkpoint',timeout:5000});
