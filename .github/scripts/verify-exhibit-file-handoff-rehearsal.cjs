@@ -28,7 +28,7 @@ assert.doesNotMatch(moduleText,/indexedDB\.open|localStorage\.|fetch\(/);
 const copy=async file=>new File([await file.arrayBuffer()],file.name,{type:file.type});
 const rejected=(p,pattern)=>assert.rejects(p,pattern);
 (async()=>{
-  await rejected(handoff.verifyReselected([],v2),/先にテストデータを生成/);
+  await rejected(handoff.verifyReselected([],v2),/このページで合成ファイルを生成/);
   assert.throws(()=>handoff.downloadFile('manifest.json'),/先にテストデータを生成/);
   const summary=await handoff.prepare(v2);
   assert.equal(summary.syntheticOnly,true);
