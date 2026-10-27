@@ -39,7 +39,7 @@ for(const token of [
  'data-view-theater="cryptic"','data-view-theater="warning"'
 ])assert.ok(html.includes(token),'mode destination or secondary action altered: '+token);
 function color(selector,key){
- const rx=new RegExp('(?:^|;)'+key+':(#[0-9a-fA-F]{6})');
+ const rx=new RegExp('(?:^|;)\\s*'+key+'\\s*:\\s*(#[0-9a-fA-F]{6})');
  const match=rule(selector).match(rx);
  assert.ok(match,selector+' '+key+' color');
  return match[1];
