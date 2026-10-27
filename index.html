@@ -5302,7 +5302,7 @@
               const outcome = await checked.json();
               if (outcome.status !== 'committed'
                   || outcome.generation_id !== state.currentGenerationId
-                  || !/^gen(?:\\d{5}|[1-9]\\d{5,})$/.test(String(outcome.next_generation_id))) {
+                  || !/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(outcome.next_generation_id))) {
                 return;
               }
               resolveDurableConfirmation(new Response(JSON.stringify({
