@@ -5248,10 +5248,25 @@
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        submitTimeoutMs,
-      );
+      // GitaiPagesPreview intercepts fetch in-page. Its async evolution/IDB
+      // commit cannot safely be cancelled once started. Observe a deadline
+      // separately from cancellation, and NEVER begin a second evolution
+      // while the same run's first request is still unresolved.
+      const localSubmit = Boolean(window.GitaiPagesPreview
+        && window.fetch === window.GitaiPagesPreview.fetch);
+      const timeoutId = setTimeout(() => {
+        if (localSubmit) {
+          state.submitStatus = 'pending_confirmation';
+          evolutionStatus.textContent =
+            '保存に時間がかかっています。保存中か完了済みか未確認のため、'
+            + '再送・初期化・画面の終了をせず、スタッフにお知らせください。';
+          continueButton.textContent = '保存結果を確認中…';
+          continueButton.disabled = true;
+          state.uiTransitionLocked = true;
+        } else {
+          controller.abort();
+        }
+      }, submitTimeoutMs);
 
       let res;
       try {
