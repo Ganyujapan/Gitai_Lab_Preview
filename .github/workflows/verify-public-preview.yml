@@ -96,6 +96,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-atomic-export.cjs
       - name: Prevent exporting exhibition backups that this release cannot import
         run: node .github/scripts/verify-exhibit-export-preflight.cjs
+      - name: Verify exporter refuses incomplete current PNG and DNA records
+        run: node .github/scripts/verify-exhibit-export-validates-current.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
