@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync('exhibit/admin.js','utf8');
-const start=source.indexOf('  function snapshotStores(');
+const start=source.indexOf('  function estimateSnapshotValue(');
 const end=source.indexOf('\n  function encode64(',start);
 const expStart=source.indexOf('  async function exportMode(');
 const expEnd=source.indexOf('\n  // Existing export encoding',expStart);
@@ -18,7 +18,9 @@ assert.ok(exportSource.indexOf('snapshot = await snapshotStores(db)') <
           exportSource.indexOf('await encode(item.value)'));
 assert.doesNotMatch(exportSource,/await readStore\(/);
 const STORES=['images','meta','theater_frames'];
-const ctx={STORES};
+const ctx={STORES,Blob,ArrayBuffer,Date,
+ MAX_BACKUP_NODES:350000,MAX_BACKUP_ENTRIES:20000,
+ MAX_BACKUP_BYTES:150*1024*1024};
 vm.runInNewContext(snapshotSource+'\nglobalThis.takeSnapshot=snapshotStores;',ctx,{
   filename:'exhibit/admin.js:EXH-F02',timeout:4000
 });
@@ -88,6 +90,11 @@ function fakeDb({abort=false,throwCursor=false}={}){
  assert.equal(result.theater_frames[0].value,'old-frame');
  const failed=fakeDb({abort:true});
  await assert.rejects(ctx.takeSnapshot(failed.db));
+ const large=fakeDb();
+ large.db.records.meta.set('diagnostic:huge',Array.from({length:350100},(_,i)=>i));
+ await assert.rejects(ctx.takeSnapshot(large.db),/保存履歴の構造/);
+ assert.equal(large.db.records.meta.get('current_generation_id'),'gen00042');
+ assert.equal(large.db.records.images.has('gen00042:01'),true);
  const synchronous=fakeDb({throwCursor:true});
  await assert.rejects(ctx.takeSnapshot(synchronous.db),/cursor unavailable/);
  // Does not rename databases, mutate records, or alter backup schema.

@@ -86,6 +86,43 @@
       };
     });
   }
+  // RE2-EXH-02: count the nodes that encode() would emit, without
+  // allocating Base64 strings or duplicating huge diagnostic arrays.
+  // This is a conservative early-rejection guard; final export/import
+  // shape and file-size checks remain authoritative.
+  function estimateSnapshotValue(value) {
+    const stack = [[value, 0]];
+    let nodes = 0;
+    let base64Bytes = 0;
+    while (stack.length) {
+      const [item, depth] = stack.pop();
+      if (++nodes > MAX_BACKUP_NODES || depth > 30) {
+        throw Error('保存履歴の構造がバックアップ上限を超えています。');
+      }
+      if (item instanceof Blob) {
+        // Encoded as {$type, mime, data}, not as raw PNG bytes.
+        nodes += 3;
+        base64Bytes += 4 * Math.ceil(item.size / 3);
+      } else if (item instanceof ArrayBuffer || ArrayBuffer.isView(item)) {
+        nodes += 2; // {$type, data}
+        const size = item instanceof ArrayBuffer ? item.byteLength : item.byteLength;
+        base64Bytes += 4 * Math.ceil(size / 3);
+      } else if (item instanceof Date) {
+        nodes += 2; // {$type, data}
+      } else if (item && typeof item === 'object') {
+        const children = Array.isArray(item) ? item : Object.values(item);
+        if (nodes + stack.length + children.length > MAX_BACKUP_NODES) {
+          throw Error('保存履歴の構造がバックアップ上限を超えています。');
+        }
+        for (const child of children) stack.push([child, depth + 1]);
+      }
+      if (nodes > MAX_BACKUP_NODES || base64Bytes > MAX_BACKUP_BYTES) {
+        throw Error('保存履歴の構造または画像容量がバックアップ上限を超えています。');
+      }
+    }
+    return {nodes, base64Bytes};
+  }
+
   function snapshotStores(db) {
     // Read all stores in ONE readonly transaction. A generation commit or
     // restore transaction can run before or after this snapshot, not between
@@ -95,9 +132,13 @@
     return new Promise((resolve, reject) => {
       const stores = Object.fromEntries(STORES.map(name => [name, []]));
       const tx = db.transaction(STORES, 'readonly');
+      let visitedNodes = 64; // Envelope, payload, all store arrays and metadata.
+      let encodedBinaryBytes = 0;
+      let entryCount = 0;
+      let earlyFailure = null;
       tx.oncomplete = () => resolve(stores);
-      tx.onerror = () => reject(tx.error || Error('バックアップの読込みに失敗しました。'));
-      tx.onabort = () => reject(tx.error || Error('バックアップの読込みが中断されました。'));
+      tx.onerror = () => reject(earlyFailure || tx.error || Error('バックアップの読込みに失敗しました。'));
+      tx.onabort = () => reject(earlyFailure || tx.error || Error('バックアップの読込みが中断されました。'));
       try {
         for (const store of STORES) {
           const output = stores[store];
@@ -105,8 +146,26 @@
           request.onsuccess = () => {
             const cursor = request.result;
             if (!cursor) return;
-            output.push({key: cursor.key, value: cursor.value});
-            cursor.continue();
+            try {
+              const size = estimateSnapshotValue(cursor.value);
+              // Encoded store entry is {key, value}: two extra node visits
+              // in addition to the entire encoded value tree.
+              visitedNodes += size.nodes + 2;
+              encodedBinaryBytes += size.base64Bytes;
+              entryCount += 1;
+              if (visitedNodes > MAX_BACKUP_NODES
+                  || entryCount > MAX_BACKUP_ENTRIES
+                  || encodedBinaryBytes > MAX_BACKUP_BYTES) {
+                throw Error('保存履歴がバックアップ上限を超えています。'
+                  + '元の進化データは変更していません。');
+              }
+              output.push({key: cursor.key, value: cursor.value});
+              cursor.continue();
+            } catch (error) {
+              earlyFailure = error;
+              try { tx.abort(); } catch (_) {}
+              reject(error);
+            }
           };
         }
       } catch (error) {
