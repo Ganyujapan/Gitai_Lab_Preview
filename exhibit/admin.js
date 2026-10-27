@@ -769,6 +769,7 @@
       say('バックアップ失敗：' + (error?.message || String(error)));
     }
   });
+  const input = document.getElementById('exhibitBackupFile');
   document.getElementById('exhibitBackupLifeRetry').addEventListener('click',async()=>{
     if(!unlocked)return;
     if(selector.value!=='warning'){
@@ -792,7 +793,7 @@
         +(error?.message||String(error)));
     }
   });
-  const input = document.getElementById('exhibitBackupFile');
+
   document.getElementById('exhibitBackupRestore').addEventListener('click', () => {
     if (unlocked) { input.value = ''; input.click(); }
   });
