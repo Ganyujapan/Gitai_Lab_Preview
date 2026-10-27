@@ -75,10 +75,22 @@
         });
         if(outcome?.success!==true)
           throw Error('テストが成功を返しませんでした。');
+        const summary=selectSummary(test.id,outcome);
+        if((test.id==='migration' &&
+            (!summary.blocked||!summary.downgradeError||
+             summary.copiedEntries!==122||summary.verifiedEntries!==122))||
+           (test.id==='atomic_restore' &&
+            (!summary.forcedAbortPreservedOriginals||
+             !summary.normalRestore||summary.checkedEntries!==122))||
+           (test.id==='warning_life' &&
+            (!summary.partialErrorDetected||!summary.retrySucceeded||
+             !summary.staleEpochRejected))) {
+          throw Error('重要な安全検査が未達成です。');
+        }
         tests.push(Object.freeze({
           id:test.id,label:test.label,status:'passed',
           durationMs:Math.max(0,Math.floor(now()-started)),
-          summary:Object.freeze(selectSummary(test.id,outcome))
+          summary:Object.freeze(summary)
         }));
         onUpdate({id:test.id,status:'passed',label:test.label});
       }catch(error){
