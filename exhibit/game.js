@@ -114,7 +114,7 @@
       for (let i = 0; i < 180; i += 1) {
         await delay(500);
         const next = await savedGeneration();
-        if (/^gen\d{5}$/.test(String(next)) && Number(next.slice(3)) > completed
+        if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(next)) && Number(next.slice(3)) > completed
           && next !== previous) {
           committed = true;
           break;
