@@ -194,7 +194,7 @@
       }
     }
     const current = stores.meta.find(item => item.key === 'current_generation_id')?.value;
-    if (!/^gen\d{5}$/.test(String(current))) {
+    if (!/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(current))) {
       throw Error('このモードには保存済みの進化データがまだありません。');
     }
     const lifeKey = 'gitai-warning-life-v1:' + mode.db;
@@ -439,7 +439,7 @@
     }
     countBackupEntries(body.stores);
     const current = body.stores.meta.find(item => item?.key === 'current_generation_id')?.value;
-    if (!/^gen\d{5}$/.test(String(current)) || current !== body.currentGeneration) {
+    if (!/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(current)) || current !== body.currentGeneration) {
       throw Error('世代番号が不正です。');
     }
     if (selected === 'warning') checkWarningLife(body.warningLife, current);
