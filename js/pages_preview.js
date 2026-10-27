@@ -189,6 +189,18 @@
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
+      // STO-04: onblocked can wait indefinitely when another tab retains an
+      // older version. Reject now rather than leaving the game hung. IndexedDB
+      // provides no cancel() for open(); close any late success immediately.
+      let blocked = false;
+      req.onblocked = () => {
+        blocked = true;
+        const message = '別のタブが進化データベースの更新を妨げています。'
+          + '他のゲーム画面を閉じてから、もう一度試してください。'
+          + '現在の進化データは削除していません。';
+        showStorageConflictNotice(message);
+        reject(new Error(message));
+      };
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(IMAGE_STORE)) {
@@ -203,6 +215,12 @@
       };
       req.onsuccess = () => {
         const db = req.result;
+        if (blocked) {
+          // The blocked request may finish after another tab closes, even
+          // though this attempt already failed. Don't leak a connection.
+          db.close();
+          return;
+        }
         db.onversionchange = () => {
           // Another tab may request an upgrade or deletion. Do not close
           // automatically mid-generation or give the deletion a false success.
