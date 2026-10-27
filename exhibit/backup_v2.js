@@ -209,6 +209,12 @@
         data: bytesToBase64(new Uint8Array(await value.arrayBuffer()))};
     }
     if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+      if (ArrayBuffer.isView(value) &&
+          !['Uint8Array', 'Uint8ClampedArray', 'Uint16Array', 'Uint32Array',
+            'Int8Array', 'Int16Array', 'Int32Array', 'Float32Array', 'Float64Array']
+            .includes(value.constructor?.name)) {
+        fail('復元未対応のバイナリ形式が含まれています。');
+      }
       const view = value instanceof ArrayBuffer ?
         new Uint8Array(value) :
         new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
