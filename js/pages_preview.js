@@ -3205,32 +3205,20 @@
       const step = Number(
         genetics.base_value_global_mutation_step ?? 0.24
       );
-      const darkBiasP = Number(genetics.base_value_dark_bias_p || 0);
-      const darkExtraStep = Number(
-        genetics.base_value_dark_bias_extra_step ?? 0.10
-      );
-      let darkBias = false;
-
+      // MODEL-01: One symmetric signed step. No extra dark-only lottery.
+      // The existing [minV,maxV] clamp still applies at the boundaries.
       baseValue = clamp(
         baseValue + (rng() * 2 - 1) * step,
         minV,
         maxV,
       );
 
-      if (rng() < darkBiasP) {
-        darkBias = true;
-        baseValue = clamp(
-          baseValue - rng() * darkExtraStep,
-          minV,
-          maxV,
-        );
-      }
-
       diagnostic.mutations.push({
         type: 'base_value_major',
         before: diagnosticNumber(before, 4),
         after: diagnosticNumber(baseValue, 4),
-        dark_bias_branch: darkBias,
+        dark_bias_branch: false,
+        sampling: 'symmetric_clamped',
       });
     }
 
