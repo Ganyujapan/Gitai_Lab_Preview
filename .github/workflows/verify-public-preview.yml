@@ -121,6 +121,8 @@ jobs:
         run: node .github/scripts/verify-long-generation-ids.cjs
       - name: Verify local evolution submission timeout does not cancel or replay uncertain commits
         run: node .github/scripts/verify-local-submit-timeout.cjs
+      - name: Verify static backgrounds share one in-flight and decoded image per tab
+        run: node .github/scripts/verify-static-background-cache.cjs
       - name: Reject aborted evolution and specimen transactions without hanging
         run: node .github/scripts/verify-indexeddb-aborts.cjs
       - name: Verify blocked experiment deletions settle only after actual result
