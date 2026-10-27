@@ -78,11 +78,12 @@ function harness() {
   openDb:async()=>{openCalls++;throw Error('Should never touch user data for a failed backup')},
   confirm:()=>{confirmCalls++;return true}
  };
- vm.runInNewContext(body+'\nglobalThis.validate=validateBackup;globalThis.restore=restoreMode;globalThis.loci=EXPECTED_PATTERN_LOCI;',
+ vm.runInNewContext(body+'\nglobalThis.validate=validateBackup;globalThis.restore=restoreMode;globalThis.verifySaved=verifySavedBackupFile;globalThis.loci=EXPECTED_PATTERN_LOCI;',
    context,{filename:'exhibit/admin.js:EXH-02',timeout:5000});
  assert.deepEqual(Array.from(context.loci),MODEL_LOCI,'validator must match frozen model loci');
  return {validate:(raw,mode)=>context.validate(raw,mode),
   restore:(mode,file)=>context.restore(mode,file),
+  verifySaved:(file,mode)=>context.verifySaved(file,mode),
   get openCalls(){return openCalls},get confirmCalls(){return confirmCalls}};
 }
 async function shouldFail(mode,payload,match) {
@@ -105,6 +106,31 @@ async function shouldFail(mode,payload,match) {
   assert.equal(prepared.images.length,60);
   assert.equal(prepared.meta.length,61);
   assert.ok(prepared.images[0].value instanceof Blob);
+  assert.equal(valid.openCalls,0);
+  // A backup selected AGAIN from Files must validate independently without
+  // touching a live DB or invoking the destructive restore confirmation.
+  let verifiedFileReads=0;
+  const reselected={
+    name:'gitailab_2026_'+mode+'_'+gen+'.json',
+    size:Buffer.byteLength(raw,'utf8'),
+    async text(){verifiedFileReads++;return raw;}
+  };
+  const verified=await valid.verifySaved(reselected,mode);
+  assert.equal(verifiedFileReads,1);
+  assert.equal(verified.generation,gen);
+  assert.equal(verified.mode,mode);
+  assert.equal(verified.count,121);
+  assert.equal(verified.bytes,reselected.size);
+  assert.equal(verified.integrity,'sha256-and-current-generation-shape');
+  assert.equal(valid.openCalls,0);
+  assert.equal(valid.confirmCalls,0);
+  // Bad checksum, wrong mode and missing current DNA must FAIL verification
+  // while preserving any saved experiment data.
+  const forgedChecksum=JSON.parse(raw);forgedChecksum.checksum='0'.repeat(64);
+  await assert.rejects(valid.verifySaved({
+    name:'broken.json',size:raw.length,
+    async text(){return JSON.stringify(forgedChecksum);}
+  },mode),/整合性検証/);
   assert.equal(valid.openCalls,0);
   // Supported and exported current schema v1 stays intact.
   const wrongKey=structuredClone(payload);
@@ -189,6 +215,23 @@ async function shouldFail(mode,payload,match) {
  }),/容量が上限/);
  assert.equal(textRead,0,'File.size guard must precede file.text()');
  assert.equal(huge.openCalls,0);
+ let didRead=0;
+ await assert.rejects(huge.verifySaved({
+   name:'oversized.json',size:151*1024*1024,
+   async text(){didRead++;return '';}
+ },'cryptic'),/容量/);
+ assert.equal(didRead,0,'Size limit must reject BEFORE allocating file text');
+ await assert.rejects(huge.verifySaved(null,'cryptic'),/容量/);
+ await assert.rejects(huge.verifySaved({
+   name:'empty.json',size:0,
+   async text(){didRead++;return '';}
+ },'cryptic'),/容量/);
+ assert.equal(didRead,0);
+ await assert.rejects(huge.verifySaved({
+   name:'synthetic.json',size:4,
+   async text(){return '{}';}
+ },'unexpected'),/選び直して/);
+ assert.equal(huge.openCalls,0);
 
  const wrongMode=createPayload('warning','gen00021');
  await shouldFail('cryptic',wrongMode,/このモード用/);
@@ -199,5 +242,16 @@ async function shouldFail(mode,payload,match) {
  const many=createPayload('cryptic','gen00035');
  many.stores.theater_frames=Array.from({length:20001},(_,i)=>({key:'x'+i,value:{}}));
  await shouldFail('cryptic',many,/保存項目が多すぎ/);
- console.log('EXH-02: Valid exports accepted; malformed images/genomes/lineages and huge backups rejected BEFORE destructive IndexedDB restore.');
+ const modes=fs.readFileSync('exhibit/modes.html','utf8');
+ const admin=fs.readFileSync('exhibit/admin.js','utf8');
+ const css=fs.readFileSync('exhibit/admin.css','utf8');
+ assert.match(modes,/id="exhibitBackupVerify"/);
+ assert.match(modes,/id="exhibitBackupVerifyFile"/);
+ assert.match(css,/#exhibitBackupVerifyFile\{display:none\}/);
+ assert.match(admin,/verifyBackupInput\.addEventListener\('change'/);
+ assert.match(admin,/await verifySavedBackupFile\(file,requestedMode\)/);
+ assert.doesNotMatch(body.slice(body.indexOf('  async function verifySavedBackupFile(')),
+   /\bopenDb\(|db\.transaction\(|localStorage\.|\brestoreMode\(/,
+   'Saved backup verification MUST NOT open DB, write to life or trigger restore');
+ console.log('EXH-F01: Re-selected v1 backup checksum, all 60 images/DNA, byte limits and wrong-mode guards verified without any IndexedDB or localStorage access.');
 })().catch(e=>{console.error(e);process.exitCode=1});
