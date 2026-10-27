@@ -2,7 +2,7 @@
 // RE2-EXH-02 (foundation only). Pure in-memory files; NEVER access IndexedDB.
 const assert = require('node:assert/strict');
 const cryptoNode = require('node:crypto');
-globalThis.crypto = cryptoNode.webcrypto;
+// Node 22+ exposes globalThis.crypto as a read-only WebCrypto getter.
 globalThis.indexedDB = {open() { throw Error('Data must never be opened'); }};
 const {SCHEMA, PART_SCHEMA, MAX_PART_BYTES, validateManifest, verifyPartIntegrity} =
   require('../../exhibit/backup_v2.js');
