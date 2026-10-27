@@ -59,6 +59,7 @@ function harness(initial,mode='cryptic'){
   Blob,File:TestFile,Uint8Array,Uint8ClampedArray,Uint16Array,Uint32Array,
   Int8Array,Int16Array,Int32Array,Float32Array,Float64Array,ArrayBuffer,
   DataView,Date,Object,Map,Set,TextEncoder,btoa,atob,crypto:webcrypto,
+  hex:bytes=>[...bytes].map(x=>x.toString(16).padStart(2,'0')).join(''),
   STORES:['images','meta','theater_frames'],BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
   MODES:{cryptic:{db:'db-cryptic'},warning:{db:'db-warning'}},
   snapshotStores:async()=>initial,
