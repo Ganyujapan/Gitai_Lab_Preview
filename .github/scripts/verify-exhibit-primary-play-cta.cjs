@@ -36,6 +36,10 @@ assert.match(theater,/flex:0 0 var\(--exhibit-action-width\)/,
  'flex layout must not shrink only the lower button');
 assert.match(theater,/margin-inline-start:auto/,
  'theater button aligns to right edge even on narrow screens');
+assert.match(primary,/justify-content:center/,
+ 'start label is horizontally centered INSIDE the button');
+assert.match(primary,/text-align:center/,
+ 'start text is centered inside the button');
 assert.match(primary,/justify-self:end/,
  'start button stays right aligned');
 assert.match(primary,/white-space:nowrap/);
@@ -44,9 +48,10 @@ assert.match(theater,/background:transparent/);
 assert.match(theaterWarning,/background:transparent/);
 assert.match(base,/\.mode\{display:grid/);
 assert.equal((html.match(/class="mode-play"/g)||[]).length,2);
-assert.equal((html.match(/class="arrow">実験開始 →/g)||[]).length,2);
+assert.equal((html.match(/class="arrow">実験開始<\/span>/g)||[]).length,2);
+assert.ok(!html.includes("実験開始 →"),"start CTA arrow must be absent");
 assert.equal((html.match(/class="mode-theater-button"/g)||[]).length,2);
-assert.ok(html.indexOf('実験開始 →')<html.indexOf('進化シアターを見る ▶'),
+assert.ok(html.indexOf('実験開始</span>')<html.indexOf('進化シアターを見る ▶'),
   'start action must precede theater within each card');
 for(const token of [
  'game.html?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1',
