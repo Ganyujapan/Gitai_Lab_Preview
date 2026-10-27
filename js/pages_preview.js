@@ -4362,9 +4362,11 @@
         plans.push(...buildPairingPlan(parents, eligible, rng));
       }
 
-      const mutatedChildIndex = rng() < specialP
-        ? 1 + Math.floor(rng() * TOTAL)
-        : null;
+      // Neutral headstart is also two independent lineages, not one
+      // shared lottery or one mutation among all 60 offspring.
+      const specialMutationChildIndices = new Set(
+        WARNING.independentSpecialMutationIndices(specialP, rng),
+      );
       const nextPopulation = new Map();
       for (const item of plans) {
         const result = makeChildGenome(
@@ -4378,7 +4380,7 @@
         );
         const genome = result.genome;
         genome.lineage = WARNING.lineage(item.childIndex);
-        if (item.childIndex === mutatedChildIndex) {
+        if (specialMutationChildIndices.has(item.childIndex)) {
           applyEntertainmentSpecialMutation(
             genome,
             result.diagnostic,
@@ -4716,11 +4718,11 @@
     const specialMutationGenerationP = clamp01(
       Number(genetics.special_mutation_generation_p || 0)
     );
-    // One generation-level lottery at the existing probability.
-    // Warning-color wins produce one mutant in EACH lineage; ordinary
-    // camouflage keeps its original single-mutant behavior.
+    // Warning-color draws two independent lineage-level lotteries.
+    // Both lineages may mutate in one generation, but neither is forced
+    // to mutate when the other does. Cryptic mode is unchanged.
     const specialMutationChildIndices = WARNING_EXPERIMENT
-      ? WARNING.synchronizedSpecialMutationIndices(
+      ? WARNING.independentSpecialMutationIndices(
         specialMutationGenerationP,
       )
       : (
