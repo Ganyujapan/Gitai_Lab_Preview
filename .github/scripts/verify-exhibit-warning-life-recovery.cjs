@@ -147,8 +147,6 @@ const resultWith=(env,plan,store)=>life.applyPendingLife({db:env.db,plan,storage
   removalDenied.removeFailure(false);
   assert.equal((await resultWith(remove,nullPlan,removalDenied)).status,'life-complete');
 
-  await assert.rejects(pending(makeDb(),mf,{status:'partial',...commit()}),
-    /確定が確認できません/).catch(()=>{}); // overwritten by spread, tested below
   await assert.rejects(pending(makeDb(),mf,{...commit(),status:'failed'}),
     /確定が確認できません/);
   await assert.rejects(pending(makeDb(),mf,{...commit(),lifeRestored:true}),
