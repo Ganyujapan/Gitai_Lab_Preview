@@ -130,7 +130,8 @@
     "latent_hue_mode": "uniform_generation1",
     "founder_set_id": "standard_white_001",
     "founder_seed": "gitailab-standard-white-001",
-    "deterministic_generation_1": true
+    "deterministic_generation_1": true,
+    "warning_latent_hue_mode": "uniform_generation1_seeded_per_individual"
   },
   "parent_selection": "random_pool",
   "design_targets": {
@@ -160,7 +161,8 @@
     "playful_environment_goal": "May be used with biologically playful environments such as fried rice; environment still never directs mutation.",
     "special_mutation_goal": "about once every five generations, redraw one offspring across hue, saturation, value, texture and pattern traits; only this event receives the special reveal",
     "entertainment_event_goal": "ordinary mutations and large mutations remain unannounced; only the dedicated sudden mutation triggers anticipation and post-play reveal",
-    "mutation_policy_revision": "model01-neutral-value-step-20261027; historical genotypes and diagnostic events remain unchanged"
+    "mutation_policy_revision": "model01-neutral-value-step-20261027; historical genotypes and diagnostic events remain unchanged",
+    "warning_founder_hue_goal": "warning and cryptic share per-individual latent hue diversity while remaining visually white (S=0); retain existing mutation probabilities"
   },
   "color_inheritance": "single_parent_haplotype",
   "parent_pool_size": 12,
