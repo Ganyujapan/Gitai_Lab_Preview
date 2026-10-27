@@ -149,7 +149,7 @@ def main() -> None:
                  "backup_restore_preflight_v2.js", "backup_restore_atomic_v2.js",
                  "backup_atomic_rehearsal.js",
                  "backup_warning_life_recovery_v2.js", "backup_warning_life_rehearsal.js",
-                 "backup_rehearsal_report.js"):
+                 "backup_rehearsal_report.js", "backup_file_handoff_rehearsal.js"):
         shutil.copy2(root / name, exhibit / name)
     worker = (root / "sw.template.js").read_text(encoding="utf-8")
     (exhibit / "sw.js").write_text(
@@ -197,7 +197,7 @@ def main() -> None:
                    "backup_restore_preflight_v2.js", "backup_restore_atomic_v2.js",
                    "backup_atomic_rehearsal.js",
                    "backup_warning_life_recovery_v2.js", "backup_warning_life_rehearsal.js",
-                   "backup_rehearsal_report.js"):
+                   "backup_rehearsal_report.js", "backup_file_handoff_rehearsal.js"):
         assert needed in runtime_files
     for entry in ("game.html", "modes.html", "index.html"):
         page_source = (exhibit / entry).read_text(encoding="utf-8")
@@ -208,10 +208,13 @@ def main() -> None:
         assert "backup_warning_life_recovery_v2.js" not in page_source
         assert "backup_warning_life_rehearsal.js" not in page_source
         assert "backup_rehearsal_report.js" not in page_source
+        assert "backup_file_handoff_rehearsal.js" not in page_source
     assert "backup_schema_rehearsal.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
     assert "backup_restore_atomic_v2.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
     assert "backup_warning_life_recovery_v2.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
     assert "backup_rehearsal_report.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
+    assert "backup_file_handoff_rehearsal.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
+    assert '<script src="backup_file_handoff_rehearsal.js"></script>' in (exhibit / "backup_rehearsal.html").read_text(encoding="utf-8")
     assert (exhibit / "title.css").is_file()
     print("Exhibition PWA:", len(runtime_files), "offline files; build", build)
 
