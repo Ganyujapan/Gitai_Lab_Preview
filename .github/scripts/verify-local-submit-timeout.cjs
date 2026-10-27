@@ -19,7 +19,7 @@ assert.match(source,/continueButton\.disabled = true/);
 assert.match(api,/rejectCancelledBeforeStart\(\)/);
 function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}}
 function fixture(local){
- let requests=0;const pending=deferred(),timer=[];
+ let requests=0,probes=0;const pending=deferred(),status=deferred(),timer=[];
  const sent=[];
  const state={
   submitStatus:'idle',uiTransitionLocked:true,runId:'run-keep',
@@ -27,7 +27,7 @@ function fixture(local){
   roundRecords:[{round_index:1}],nextGenerationId:null
  };
  const ctx={
-  state,window:{},fetch:null,AbortController,Set,Promise,JSON,Math,
+  state,window:{},fetch:null,AbortController,Set,Promise,JSON,Math,Response,encodeURIComponent,
   submitTimeoutMs:120000,
   setTimeout(fn){timer.push(fn);return timer.length;},
   clearTimeout(){},
@@ -44,15 +44,20 @@ function fixture(local){
   async showGenerationReady(event){sent.push(event);},
   console
  };
- const action=(_url,init)=>{requests++;assert.equal(init.method,'POST');
-   assert.equal(JSON.parse(init.body).run_id,'run-keep');return pending.promise};
+ const action=(url,init)=>{
+   if(String(url).startsWith('/api/run_status?run_id=')){
+     probes++;assert.equal(init.cache,'no-store');return status.promise;
+   }
+   requests++;assert.equal(init.method,'POST');
+   assert.equal(JSON.parse(init.body).run_id,'run-keep');return pending.promise;
+ };
  if(local){ctx.window.fetch=action;ctx.window.GitaiPagesPreview={fetch:action};}
  else {ctx.window.fetch=action;ctx.window.GitaiPagesPreview=null;}
  ctx.fetch=action;
  vm.runInNewContext(source+'\nglobalThis.submit=sendEvolutionData;',ctx,
    {filename:'index.html:STO-04',timeout:5000});
- return {ctx,pending,timer,sent,state,
-  get requests(){return requests},start:()=>ctx.submit()};
+ return {ctx,pending,status,timer,sent,state,
+  get requests(){return requests},get probes(){return probes},start:()=>ctx.submit()};
 }
 (async()=>{
  const local=fixture(true);
@@ -65,9 +70,10 @@ function fixture(local){
  assert.equal(local.state.submitStatus,'pending_confirmation');
  assert.equal(local.state.uiTransitionLocked,true);
  assert.equal(local.ctx.continueButton.disabled,true);
- assert.match(local.ctx.evolutionStatus.textContent,/保存中か完了済みか未確認/);
+ assert.match(local.ctx.evolutionStatus.textContent,/保存済みか読み取り専用で確認/);
  assert.equal(local.state.runId,'run-keep');
  assert.equal(local.requests,1,'timeout cannot resubmit while first is alive');
+ assert.equal(local.probes,1,'one read-only status check on local timeout');
  local.pending.resolve({
    ok:true,status:200,
    async json(){return {next_generation_id:'gen00022',
@@ -79,6 +85,38 @@ function fixture(local){
  assert.equal(local.state.uiTransitionLocked,false);
  assert.equal(local.sent.length,1);
  assert.equal(local.requests,1);
+ const recovered=fixture(true);
+ const recoveredWait=recovered.start();
+ assert.equal(recovered.requests,1);
+ recovered.timer[0]();
+ assert.equal(recovered.state.submitStatus,'pending_confirmation');
+ recovered.status.resolve({ok:true,status:200,async json(){return {
+    status:'committed',generation_id:'gen00021',
+    next_generation_id:'gen00022',entertainment_event:null,
+    current_generation_id:'gen00022'}}});
+ await recoveredWait;
+ assert.equal(recovered.state.submitStatus,'success');
+ assert.equal(recovered.state.nextGenerationId,'gen00022');
+ assert.equal(recovered.requests,1,'durable replay cannot send second evolution');
+ assert.equal(recovered.probes,1);
+ assert.equal(recovered.sent.length,1);
+
+ const unconfirmed=fixture(true);
+ const unresolved=unconfirmed.start();
+ unconfirmed.timer[0]();
+ unconfirmed.status.resolve({ok:true,status:200,async json(){return {
+   status:'unconfirmed',current_generation_id:'gen00021'
+ }}});
+ await Promise.resolve();await Promise.resolve();await Promise.resolve();
+ assert.equal(unconfirmed.state.submitStatus,'pending_confirmation',
+   'unknown result must remain locked');
+ assert.equal(unconfirmed.ctx.continueButton.disabled,true);
+ assert.equal(unconfirmed.requests,1);
+ unconfirmed.pending.resolve({ok:true,status:200,async json(){
+   return {next_generation_id:'gen00022',entertainment_event:null};
+ }});
+ await unresolved;
+ assert.equal(unconfirmed.state.submitStatus,'success');
 
  const cancelled=fixture(true);
  const ctrl=new AbortController();ctrl.abort();

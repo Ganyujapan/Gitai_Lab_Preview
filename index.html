@@ -5274,15 +5274,49 @@
       // while the same run's first request is still unresolved.
       const localSubmit = Boolean(window.GitaiPagesPreview
         && window.fetch === window.GitaiPagesPreview.fetch);
+      let resolveDurableConfirmation;
+      const durableConfirmation = new Promise(resolve => {
+        resolveDurableConfirmation = resolve;
+      });
       const timeoutId = setTimeout(() => {
         if (localSubmit) {
           state.submitStatus = 'pending_confirmation';
           evolutionStatus.textContent =
-            '保存に時間がかかっています。保存中か完了済みか未確認のため、'
+            '保存に時間がかかっています。保存済みか読み取り専用で確認します。'
             + '再送・初期化・画面の終了をせず、スタッフにお知らせください。';
           continueButton.textContent = '保存結果を確認中…';
           continueButton.disabled = true;
           state.uiTransitionLocked = true;
+          // A separate read-only IDB request can prove an earlier generation
+          // commit completed, even if its original response was lost.
+          // "unconfirmed" does NOT mean safe to retry or roll back.
+          void (async () => {
+            const probeController = new AbortController();
+            const deadline = setTimeout(() => probeController.abort(), 10000);
+            try {
+              const checked = await fetch(
+                '/api/run_status?run_id=' + encodeURIComponent(runId),
+                {cache: 'no-store', signal: probeController.signal},
+              );
+              if (!checked.ok) return;
+              const outcome = await checked.json();
+              if (outcome.status !== 'committed'
+                  || outcome.generation_id !== state.currentGenerationId
+                  || !/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(outcome.next_generation_id))) {
+                return;
+              }
+              resolveDurableConfirmation(new Response(JSON.stringify({
+                next_generation_id: outcome.next_generation_id,
+                entertainment_event: outcome.entertainment_event || null,
+                replayed: true,
+                recovered_by_status: true,
+              }), {status: 200, headers: {'Content-Type': 'application/json'}}));
+            } catch (error) {
+              console.warn('保存結果の照会に失敗しました。未確定のまま保持します。', error);
+            } finally {
+              clearTimeout(deadline);
+            }
+          })();
         } else {
           controller.abort();
         }
@@ -5290,7 +5324,7 @@
 
       let res;
       try {
-        res = await fetch('/api/submit_run', {
+        const pendingSubmission = fetch('/api/submit_run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
@@ -5302,6 +5336,9 @@
             round_records: state.roundRecords,
           }),
         });
+        res = localSubmit
+          ? await Promise.race([pendingSubmission, durableConfirmation])
+          : await pendingSubmission;
       } finally {
         clearTimeout(timeoutId);
       }
