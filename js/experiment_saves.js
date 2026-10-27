@@ -85,7 +85,7 @@
     return 'exp_' + Array.from(bytes, x => x.toString(16).padStart(2, '0')).join('');
   }
   function displayGeneration(id) {
-    return /^gen\d{5}$/.test(String(id)) ? '第' + Number(id.slice(3)) + '世代' : '世代不明';
+    return /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(id)) ? '第' + Number(id.slice(3)) + '世代' : '世代不明';
   }
   function openDatabase(name) {
     return new Promise((resolve, reject) => {
@@ -108,7 +108,7 @@
       return await new Promise((resolve, reject) => {
         const tx = db.transaction('meta', 'readonly');
         const req = tx.objectStore('meta').get('current_generation_id');
-        req.onsuccess = () => /^gen\d{5}$/.test(String(req.result))
+        req.onsuccess = () => /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(req.result))
           ? resolve(req.result) : reject(Error('世代情報がありません。'));
         req.onerror = () => reject(req.error);
       });
