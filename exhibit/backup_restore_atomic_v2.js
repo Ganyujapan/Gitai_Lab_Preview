@@ -172,7 +172,13 @@
       let tx,early=null;
       let seen=0,pointer=false;
       const counts={images:0,meta:0,theater_frames:0};
-      const images=new Set(),genomes=new Set();
+      // Count-only/prefix-only checks are unsafe: gen00035:61 must not
+      // substitute for a missing required gen00035:01 record, even if the
+      // total row count and both store counts remain unchanged.
+      const requiredImages=new Set(Array.from({length:60},(_,i)=>
+        prepared.generation+':'+String(i+1).padStart(2,'0')));
+      const requiredGenomes=new Set(Array.from({length:60},(_,i)=>
+        'genome:'+prepared.generation+':'+String(i+1).padStart(2,'0')));
       function abort(error){
         if(!early)early=error;
         try{tx.abort();}catch(_){}
@@ -199,7 +205,7 @@
               if(!cursor) {
                 if(seen!==prepared.entries||!pointer||
                    STORES.some(s=>counts[s]!==prepared.byStore[s])||
-                   images.size!==60||genomes.size!==60) {
+                   requiredImages.size!==0||requiredGenomes.size!==0) {
                   abort(Error('Incomplete staged genome/images; originals preserved'));
                   return;
                 }
@@ -229,12 +235,8 @@
                   }
                   pointer=true;
                 }
-                if(rec.store==='images'&&typeof rec.key==='string'&&
-                   rec.key.startsWith(prepared.generation+':'))
-                  images.add(rec.key);
-                if(rec.store==='meta'&&typeof rec.key==='string'&&
-                   rec.key.startsWith('genome:'+prepared.generation+':'))
-                  genomes.add(rec.key);
+                if(rec.store==='images') requiredImages.delete(rec.key);
+                if(rec.store==='meta') requiredGenomes.delete(rec.key);
                 if(seen>prepared.entries) {
                   abort(Error('Unexpected extra stage record'));return;
                 }
