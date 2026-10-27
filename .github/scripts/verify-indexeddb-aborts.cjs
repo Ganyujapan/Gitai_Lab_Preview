@@ -23,8 +23,10 @@ assert.match(html,/送信の確認がタイムアウトしました。世代が�
 assert.match(html,/const runId = ensureRunId\(\)/);
 
 function simulate(source,isSpecimen=false) {
-  const requests=[],transactions=[],openRequests=[],records=new Map(),state={failOpen:false};
+  const requests=[],transactions=[],openRequests=[],records=new Map();
+  const state={failOpen:false,lateCloses:0,storageConflicts:[]};
   const db={
+    close(){state.lateCloses++},
     objectStoreNames:{contains:()=>true},
     transaction(name,mode) {
       const tx={name,mode,oncomplete:null,onerror:null,onabort:null,error:null,requests:[],
@@ -57,7 +59,8 @@ function simulate(source,isSpecimen=false) {
   }};
   const ctx={indexedDB,dbPromise:null,specimenDbPromise:null,
     DB_NAME:'test-evolution',DB_VERSION:2,IMAGE_STORE:'images',META_STORE:'meta',THEATER_STORE:'theater_frames',
-    SPECIMEN_DB_NAME:'test-specimen',SPECIMEN_STORE:'specimens',console,Error};
+    SPECIMEN_DB_NAME:'test-specimen',SPECIMEN_STORE:'specimens',console,Error,
+    showStorageConflictNotice:message=>state.storageConflicts.push(message)};
   vm.runInNewContext(source,ctx,{filename:isSpecimen?'index.html:specimen':'pages_preview.js:indexeddb',timeout:1000});
   const nextTx=async operation=>{
     const old=transactions.length;
@@ -121,6 +124,26 @@ async function rejects(p,pattern) {
   assert.strictEqual(await other.ctx.openDb(),other.db);
   assert.equal(other.requests.length,2);
 
+  // A blocked IndexedDB version upgrade is not an open failure event:
+  // without onblocked, game/collection calls remain pending indefinitely.
+  // onblocked must reject promptly, reset memoization and warn the player.
+  const blockedEvolution=simulate(evolution);
+  const blockedPromise=blockedEvolution.ctx.openDb();
+  assert.equal(blockedEvolution.requests.length,1);
+  blockedEvolution.requests[0].onblocked();
+  await rejects(blockedPromise,/別のタブが進化データベースの更新を妨げています/);
+  assert.equal(blockedEvolution.ctx.dbPromise,null);
+  assert.equal(blockedEvolution.state.storageConflicts.length,1);
+  // IDB has no cancel() for a queued open. In this mock it opens on the
+  // next microtask and MUST be closed without resolving the old promise.
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(blockedEvolution.state.lateCloses,1);
+  assert.ok(await blockedEvolution.ctx.openDb(),
+    'game DB can retry after another tab releases its lock');
+  assert.equal(blockedEvolution.requests.length,2);
+  assert.equal(blockedEvolution.state.lateCloses,1,
+    'retry connection must not be closed as an orphan');
+
   const s=simulate(specimen,true);
   ({tx,p}=await s.nextTx(()=>s.ctx.specimenPut({id:'moth-1',rank:'S'})));
   tx.onabort();await rejects(p,/標本の保存が中断/);
@@ -138,5 +161,24 @@ async function rejects(p,pattern) {
   await rejects(retry.ctx.openSpecimenDb(),/TransientInvalidState/);
   assert.equal(retry.ctx.specimenDbPromise,null);
   await retry.ctx.openSpecimenDb();assert.equal(retry.requests.length,2);
-  console.log('STO-04: evolution+specimens abort-only, error/abort, read-after-transaction, successful commits and failed DB open retry verified.');
+  const blockedSpecimen=simulate(specimen,true);
+  const pendingSpecimen=blockedSpecimen.ctx.openSpecimenDb();
+  assert.equal(blockedSpecimen.requests.length,1);
+  blockedSpecimen.requests[0].onblocked();
+  await rejects(pendingSpecimen,/標本箱のデータベースが別のタブによって使用/);
+  assert.equal(blockedSpecimen.ctx.specimenDbPromise,null);
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(blockedSpecimen.state.lateCloses,1);
+  await blockedSpecimen.ctx.openSpecimenDb();
+  assert.equal(blockedSpecimen.requests.length,2,
+    'specimen retry must start a fresh IndexedDB open request');
+  assert.equal(blockedSpecimen.state.lateCloses,1,
+    'new specimen DB connection must not inherit prior blocked state');
+
+  // Sanity: data records and object stores are never cleared or deleted.
+  assert.match(engine,/req\.onblocked = \(\) => \{/);
+  assert.match(html,/req\.onblocked = \(\) => \{/);
+  assert.match(engine,/if \(blocked\) \{[\s\S]*?db\.close\(\)/);
+  assert.match(html,/if \(blocked\) \{\s*req\.result\.close\(\)/);
+  console.log('STO-04: evolution+specimens abort/error cases, blocked open prompt rejection, late connection close, memoized retry, no user data mutation verified.');
 })().catch(err=>{console.error(err);process.exitCode=1});
