@@ -28,12 +28,19 @@
   <button type="button" id="runRestore">隔離DBの復元テストを実行</button>
   <p id="restoreState" role="status" aria-live="polite">未実行</p>
   <pre id="restoreLog" aria-label="復元テストの詳細"></pre>
+  <h2>3. 目立つギタイのライフ整合性テスト（追加）</h2>
+  <p>ライフの保存だけが失敗した場合、古い世代へ戻すことなく未完了を検出し、同じ復元世代なら再試行できるか試します。合成ライフは専用キーで扱い、終了時に削除します。<strong>本物の進化データやゲームのライフには触れません。</strong></p>
+  <button type="button" id="runLife">隔離ライフ復元テストを実行</button>
+  <p id="lifeState" role="status" aria-live="polite">未実行</p>
+  <pre id="lifeLog" aria-label="ライフ整合性テストの詳細"></pre>
   <script src="backup_v2.js"></script>
   <script src="backup_checkpoint_v2.js"></script>
   <script src="backup_schema_rehearsal.js"></script>
   <script src="backup_restore_preflight_v2.js"></script>
   <script src="backup_restore_atomic_v2.js"></script>
   <script src="backup_atomic_rehearsal.js"></script>
+  <script src="backup_warning_life_recovery_v2.js"></script>
+  <script src="backup_warning_life_rehearsal.js"></script>
   <script>
   (() => {
     'use strict';
@@ -73,6 +80,24 @@
         restoreState.textContent='テスト失敗：ログを確認してください';
         restoreLog.textContent+=(error?.stack||error?.message||String(error));
       }finally{restoreButton.disabled=false;}
+    });
+    const lifeButton=document.getElementById('runLife');
+    const lifeState=document.getElementById('lifeState');
+    const lifeLog=document.getElementById('lifeLog');
+    lifeButton.addEventListener('click',async()=>{
+      lifeButton.disabled=true;
+      lifeLog.textContent='';
+      lifeState.textContent='隔離ライフ検証中…';
+      try{
+        const result=await GitaiWarningLifeRehearsal.runRehearsal({
+          onPhase:message=>{lifeLog.textContent+=message+String.fromCharCode(10);}
+        });
+        lifeLog.textContent+=JSON.stringify(result,null,2);
+        lifeState.textContent='成功：保存失敗・安全な再試行・古い世代の拒否を確認';
+      }catch(error){
+        lifeState.textContent='テスト失敗：ログを確認してください';
+        lifeLog.textContent+=(error?.stack||error?.message||String(error));
+      }finally{lifeButton.disabled=false;}
     });
   })();
   </script>
