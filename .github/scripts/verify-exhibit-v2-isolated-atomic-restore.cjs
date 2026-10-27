@@ -234,8 +234,10 @@ async function errorMatching(p,pattern){await assert.rejects(p,pattern);}
 
   // A second-pass SHA failure happens AFTER earlier stage batches; cleanup
   // must erase only those temporary rows and leave old data untouched.
+  let verifyPass=0;
   const changingApi={...partApi,
     async verifyPartIntegrity(...args){
+      if(++verifyPass===1) return verifyPartIntegrity(...args);
       const badFiles=args[1].slice();
       const f=badFiles[badFiles.length-1];
       badFiles[badFiles.length-1]=new File(['!' +(await f.text()).slice(1)],
