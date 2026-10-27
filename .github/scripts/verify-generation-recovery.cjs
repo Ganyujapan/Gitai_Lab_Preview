@@ -30,6 +30,7 @@ function fixture({stored, missing = [], warning = false, newRun = false, bootstr
   const context = {
     META_STORE:'meta', WARNING_EXPERIMENT:warning, console:{error(){}},
     currentGenerationId:'gen00001',
+    restoreEpochCaptured:false,loadedRestoreEpoch:null,
     ensureConfig:async()=>{},
     idbGet:async(store,key)=>meta.get(key),
     idbPut:async(store,key,value)=>{events.writes.push({store,key,value});meta.set(key,value)},
