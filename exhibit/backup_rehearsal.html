@@ -33,6 +33,14 @@
   <button type="button" id="runLife">隔離ライフ復元テストを実行</button>
   <p id="lifeState" role="status" aria-live="polite">未実行</p>
   <pre id="lifeLog" aria-label="ライフ整合性テストの詳細"></pre>
+  <h2>4. 3項目まとめてテスト・結果レポート</h2>
+  <p>iPad実機の検証結果をまとめます。各テストは毎回別の隔離DBで実行し、失敗した項目があっても次へ進みます。レポートには<strong>結果とエラー概要だけ</strong>を記録し、進化データ・画像・DNA・ライフの実データや端末情報は含めません。外部への自動送信はありません。</p>
+  <button type="button" id="runAll">3つをまとめて実行</button>
+  <p id="allState" role="status" aria-live="polite">未実行</p>
+  <pre id="allLog" aria-label="3項目のテスト結果"></pre>
+  <button type="button" id="copyReport" disabled>結果レポートをコピー</button>
+  <button type="button" id="saveReport" disabled>結果レポートを保存</button>
+  <p id="reportStatus" role="status" aria-live="polite"></p>
   <script src="backup_v2.js"></script>
   <script src="backup_checkpoint_v2.js"></script>
   <script src="backup_schema_rehearsal.js"></script>
@@ -41,6 +49,7 @@
   <script src="backup_atomic_rehearsal.js"></script>
   <script src="backup_warning_life_recovery_v2.js"></script>
   <script src="backup_warning_life_rehearsal.js"></script>
+  <script src="backup_rehearsal_report.js"></script>
   <script>
   (() => {
     'use strict';
@@ -98,6 +107,78 @@
         lifeState.textContent='テスト失敗：ログを確認してください';
         lifeLog.textContent+=(error?.stack||error?.message||String(error));
       }finally{lifeButton.disabled=false;}
+    });
+    const allButton=document.getElementById('runAll');
+    const allState=document.getElementById('allState');
+    const allLog=document.getElementById('allLog');
+    const reportStatus=document.getElementById('reportStatus');
+    const copyButton=document.getElementById('copyReport');
+    const saveButton=document.getElementById('saveReport');
+    let latestReportText='';
+    let suiteRunning=false;
+    const runButtons=[button,restoreButton,lifeButton,allButton];
+    allButton.addEventListener('click',async()=>{
+      if(suiteRunning)return;
+      suiteRunning=true;
+      latestReportText='';
+      runButtons.forEach(b=>b.disabled=true);
+      copyButton.disabled=true;saveButton.disabled=true;
+      allState.textContent='3項目を順番にテスト中…';
+      allLog.textContent='';
+      reportStatus.textContent='';
+      try{
+        const checks={
+          migration:args=>GitaiBackupSchemaRehearsal.runRehearsal(args),
+          atomic_restore:args=>GitaiAtomicRestoreRehearsal.runRehearsal(args),
+          warning_life:args=>GitaiWarningLifeRehearsal.runRehearsal(args)
+        };
+        const report=await GitaiBackupRehearsalReport.runSuite(checks,{
+          onUpdate:item=>{
+            allLog.textContent+=item.label+'：'+item.status+String.fromCharCode(10);
+          }
+        });
+        latestReportText=JSON.stringify(report,null,2);
+        allLog.textContent+=String.fromCharCode(10)+latestReportText;
+        allState.textContent=report.allPassed
+          ?'3項目とも成功（隔離DBでの模擬テスト）'
+          :'一部に失敗があります。レポートを保存して確認してください。';
+        copyButton.disabled=false;saveButton.disabled=false;
+      }catch(error){
+        allState.textContent='レポート生成に失敗しました。';
+        allLog.textContent+=(error?.message||String(error));
+      }finally{
+        suiteRunning=false;
+        runButtons.forEach(b=>b.disabled=false);
+      }
+    });
+    copyButton.addEventListener('click',async()=>{
+      if(!latestReportText)return;
+      try{
+        if(!navigator.clipboard?.writeText)throw Error('コピーAPIが利用できません。');
+        await navigator.clipboard.writeText(latestReportText);
+        reportStatus.textContent='結果レポートをコピーしました。';
+      }catch(error){
+        reportStatus.textContent='直接コピーできませんでした。「保存」を試すか、画面のレポートを選択してコピーしてください。';
+      }
+    });
+    saveButton.addEventListener('click',()=>{
+      if(!latestReportText)return;
+      try{
+        const blob=new Blob([latestReportText],{type:'application/json'});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;
+        a.download='gitailab-isolated-test-report.json';
+        a.hidden=true;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        // Delay URL cleanup to allow Safari's download/share sheet to read it.
+        setTimeout(()=>URL.revokeObjectURL(url),30000);
+        reportStatus.textContent='保存操作を開始しました。「ファイル」アプリ等に保存されたことを確認してください。';
+      }catch(error){
+        reportStatus.textContent='保存を開始できませんでした：'+(error?.message||String(error));
+      }
     });
   })();
   </script>
