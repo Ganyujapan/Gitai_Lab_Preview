@@ -206,10 +206,14 @@
       stores
     };
     const checksum = await digest(JSON.stringify(payload));
-    const file = new File([JSON.stringify({checksum, payload})],
+    const envelope = {checksum, payload};
+    const file = new File([JSON.stringify(envelope)],
       'gitailab_2026_' + modeId + '_' + current + '_' +
       new Date().toISOString().slice(0, 10) + '.json',
       {type: 'application/json'});
+    // Never announce a successful export that the same release's import
+    // rejects on byte, entry, node or nesting limits. Preserve original DB.
+    checkBackupExportLimits(envelope, file.size);
     if (navigator.canShare?.({files: [file]}) && navigator.share) {
       await navigator.share({title: 'ギタイラボ 進化バックアップ', files: [file]});
     } else {
@@ -246,6 +250,36 @@
         }
         for (const item of children) pending.push([item, depth + 1]);
       }
+    }
+  }
+
+  function countBackupEntries(stores) {
+    let count = 0;
+    for (const store of STORES) {
+      if (!Array.isArray(stores?.[store])) {
+        throw Error('必須の保存データが不足しています。');
+      }
+      count += stores[store].length;
+    }
+    if (count > MAX_BACKUP_ENTRIES) {
+      throw Error('バックアップの保存項目が多すぎます。');
+    }
+    return count;
+  }
+  function checkBackupExportLimits(envelope, bytes) {
+    if (bytes > MAX_BACKUP_BYTES) {
+      throw Error('この実験はバックアップ復元の容量上限を超えています。' +
+        '既存データは保持しています。履歴を削除せず管理者へお知らせください。');
+    }
+    // Must traverse the exact envelope accepted by validateBackup, including
+    // encoded historical diagnostics, not just a file's byte count.
+    try {
+      validateTreeShape(envelope);
+      countBackupEntries(envelope?.payload?.stores);
+    } catch (error) {
+      throw Error('この実験は現在のバックアップ復元上限を超えています。' +
+        '既存データは保持しています。履歴を削除せず管理者へお知らせください。' +
+        ' 詳細：' + (error?.message || String(error)));
     }
   }
 
@@ -343,14 +377,7 @@
     if (await digest(JSON.stringify(body)) !== doc.checksum) {
       throw Error('バックアップの整合性検証に失敗しました。');
     }
-    let totalEntries = 0;
-    for (const store of STORES) {
-      if (!Array.isArray(body.stores?.[store])) throw Error('必須の保存データが不足しています。');
-      totalEntries += body.stores[store].length;
-    }
-    if (totalEntries > MAX_BACKUP_ENTRIES) {
-      throw Error('バックアップの保存項目が多すぎます。');
-    }
+    countBackupEntries(body.stores);
     const current = body.stores.meta.find(item => item?.key === 'current_generation_id')?.value;
     if (!/^gen\d{5}$/.test(String(current)) || current !== body.currentGeneration) {
       throw Error('世代番号が不正です。');

@@ -86,6 +86,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-restore-result.cjs
       - name: Verify exhibition backup reads all stores in one atomic snapshot
         run: node .github/scripts/verify-exhibit-atomic-export.cjs
+      - name: Prevent exporting exhibition backups that this release cannot import
+        run: node .github/scripts/verify-exhibit-export-preflight.cjs
       - name: Verify public battle and hide-and-seek removal
         run: node .github/scripts/verify-battle-seal.cjs
       - name: Check JavaScript syntax
