@@ -46,6 +46,9 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
     STORES:stores,BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
     openDb:async()=>({close(){dbClosed=true}}),
     snapshotStores:async()=>sharedSnapshot,
+    // This test isolates byte/node preflight; full image/DNA checks have a
+    // dedicated regression invoking the real verification routine.
+    verifyExportCurrentSnapshot:async()=>current,
     digest:async text=>{
       const hashed=await webcrypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
       return Buffer.from(hashed).toString('hex');
