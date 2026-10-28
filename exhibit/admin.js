@@ -838,22 +838,6 @@
       db.close();
     }
     if(selected==='warning') {
-                objectStore.put({
-                  epoch,generation_id:body.currentGeneration,
-                  value:body.warningLife??null
-                },PENDING_WARNING_LIFE_KEY);
-              }
-            }
-          }
-        } catch (error) {
-          // Synchronous put errors must not leave queued clear() operations
-          // free to commit without the replacement records.
-          tx.abort();
-          reject(error);
-        }
-      });
-    } finally { db.close(); }
-    if(selected==='warning') {
       // The IndexedDB swap has ALREADY committed at this point. A failure in
       // localStorage, re-opening IDB or clearing the intent is PARTIAL, never
       // a rolled-back restore. A later explicit click retries only life.
