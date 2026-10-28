@@ -26,6 +26,9 @@
     ? 'warning' : 'cryptic';
   let firstGeneration = null;
   let handoverPending = false;
+  // If offspring have committed but a later life/session write fails,
+  // a handover retry must NEVER call the evolution submit button again.
+  let committedOffspringForHandover = null;
   try {
     const saved = JSON.parse(sessionStorage.getItem(VISIT_KEY) || 'null');
     if (saved?.mode === mode && Number.isInteger(saved.start) && saved.start > 0) {
@@ -153,29 +156,36 @@
     try {
       // In the real simulator, the offspring generation is written only AFTER
       // the result's "next generation" action. Do not hand over incomplete data.
-      const previous = await savedGeneration();
-      continueButton.click();
-      let committedGeneration = null;
-      for (let i = 0; i < 180; i += 1) {
-        await delay(500);
-        const next = await savedGeneration();
-        if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(next)) && Number(next.slice(3)) > completed
-          && next !== previous) {
-          committedGeneration = next;
-          break;
+      if (committedOffspringForHandover) {
+        // A previous attempt already advanced the generation. This retry
+        // only completes its post-commit life/handover metadata.
+        if (await savedGeneration() !== committedOffspringForHandover) {
+          throw Error('別の画面で世代が変更されました。交代は再試行できません。');
         }
-        // A failed/invalid mutation returns to the result panel; do not
-        // navigate away or claim its uncommitted generation succeeded.
-        if (reviewOverlay.classList.contains('visible')
-            && /^(同じ世代|最新世代|もう一度送信|容量確認)/.test(continueButton.textContent)) {
-          break;
+      } else {
+        const previous = await savedGeneration();
+        continueButton.click();
+        for (let i = 0; i < 180; i += 1) {
+          await delay(500);
+          const next = await savedGeneration();
+          if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(next)) && Number(next.slice(3)) > completed
+            && next !== previous) {
+            committedOffspringForHandover = next;
+            break;
+          }
+          // A failed/invalid mutation returns to the result panel; do not
+          // navigate away or claim its uncommitted generation succeeded.
+          if (reviewOverlay.classList.contains('visible')
+              && /^(同じ世代|最新世代|もう一度送信|容量確認)/.test(continueButton.textContent)) {
+            break;
+          }
         }
       }
-      if (!committedGeneration) throw Error('世代の保存完了を確認できませんでした。スタッフへお知らせください。');
+      if (!committedOffspringForHandover) throw Error('世代の保存完了を確認できませんでした。スタッフへお知らせください。');
       // Visitor-specific lives reset ONLY for a completed handover. The
       // evolution DB, genomes, images, history and ordinary continuous play
       // remain unchanged. Never reset on unsuccessful evolution or retry.
-      await resetWarningLifeForNextVisitor(committedGeneration);
+      await resetWarningLifeForNextVisitor(committedOffspringForHandover);
       sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
         mode, start: firstGeneration, end: completed
       }));
@@ -190,9 +200,18 @@
       location.assign(nextPage.href);
     } catch (error) {
       console.error(error);
+      // The original result is ordinarily covered by the generation-ready
+      // overlay after a successful offspring commit. If only the life or
+      // session storage failed, show the result again so the administrator
+      // can retry WITHOUT starting another evolution/offspring generation.
+      if (committedOffspringForHandover) {
+        document.getElementById('generationOverlay')?.classList.remove('visible');
+        reviewOverlay.classList.add('visible');
+      }
       alert(String(error?.message || error));
       button.disabled = false;
-      button.textContent = '次の人へ変わる';
+      button.textContent = committedOffspringForHandover
+        ? '次の人へ変わる（保存の再試行）' : '次の人へ変わる';
       handoverPending = false;
       sync();
     }

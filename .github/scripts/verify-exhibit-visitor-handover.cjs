@@ -24,7 +24,7 @@ function element(text='',visible=false){
       return event;
     }};
 }
-function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false,sessionStash=null}={}){
+function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false,lifeSaveFailures=0,sessionStash=null}={}){
   let pointer='gen'+String(end).padStart(5,'0');
   let clicks=0;const errors=[],navigations=[],stash=sessionStash||new Map();
   const life=new Map();
@@ -32,10 +32,11 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   if(mode==='warning')life.set(lifeKey,JSON.stringify({
     generation_id:pointer,thirds:12 // previous visitor's remaining 4 hearts
   }));
-  let lifeWrites=0;
+  let lifeWrites=0,lifeFailuresRemaining=lifeSaveFailures;
   const startGeneration=element('GENERATION '+String(start).padStart(5,'0'));
   const reviewGeneration=element('GENERATION '+String(end).padStart(5,'0'));
   const startOverlay=element('',!review),reviewOverlay=element('',review);
+  const generationOverlay=element('',false);
   reviewOverlay.querySelector=()=>({insertAdjacentElement(){}});
   const continueButton=element('次の世代を生成');
   const generationContinueButton=element('次へ');
@@ -44,6 +45,8 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   continueButton.onNext=()=>{
     clicks++;
     if(behavior==='commit'){
+      reviewOverlay.classList.remove('visible');
+      generationOverlay.classList.add('visible');
       pointer='gen'+String(end+1).padStart(5,'0');
       if(mode==='warning')queueMicrotask(()=>{
         // Same order as the game: child DB pointer commits, then the main
@@ -55,8 +58,8 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
     if(behavior==='invalid')pointer='bad-pointer';
     if(behavior==='fail')continueButton.textContent='もう一度送信';
   };
-  const nodes={startGeneration,reviewGeneration,startOverlay,reviewOverlay,continueButton,
-    generationContinueButton};
+  const nodes={startGeneration,reviewGeneration,startOverlay,reviewOverlay,generationOverlay,
+    continueButton,generationContinueButton};
   const doc={body:{},getElementById:id=>nodes[id]||null,
     createElement:()=>element(),addEventListener(){}};
   const indexedDB = {
@@ -92,7 +95,14 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   };
   const localStorage={
     getItem:k=>life.get(k)??null,
-    setItem(k,v){lifeWrites++;if(lifeSaveError)throw Error('QuotaExceededError');life.set(k,v);}
+    setItem(k,v){
+      lifeWrites++;
+      if(lifeSaveError||lifeFailuresRemaining>0){
+        if(lifeFailuresRemaining>0)lifeFailuresRemaining--;
+        throw Error('QuotaExceededError');
+      }
+      life.set(k,v);
+    }
   };
   const context={document:doc,indexedDB,sessionStorage,localStorage,URL,
     window:{
@@ -108,7 +118,8 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   vm.runInNewContext(injected,context,{filename:'exhibit/game.js',timeout:5000});
   return {api:context.__test,nodes,navigations,stash,errors,
     get pointer(){return pointer},get clicks(){return clicks},
-    get life(){return life.get(lifeKey)||null},get lifeWrites(){return lifeWrites}};
+    get life(){return life.get(lifeKey)||null},get lifeWrites(){return lifeWrites},
+    set pointer(next){pointer=next}};
 }
 async function waitFor(fn){
   for(let i=0;i<500;i++){if(fn())return;await new Promise(r=>setImmediate(r));}
@@ -205,6 +216,42 @@ async function waitFor(fn){
   assert.equal(JSON.parse(failedLife.life).thirds,6,
     'failed reset must leave the actual saved life intact');
 
+  // A temporary localStorage failure occurs AFTER the only evolution DB
+  // commit. The retry must never submit again or skip an additional
+  // generation; the UI must expose the retry instead of remaining covered
+  // by the generation-ready overlay.
+  const retry=fixture({mode:'warning',lifeSaveFailures:1});
+  await retry.api.safelyHandover();
+  assert.equal(retry.pointer,'gen00022');
+  assert.equal(retry.clicks,1);
+  assert.equal(retry.navigations.length,0);
+  assert.equal(retry.api.pending(),false);
+  assert.equal(retry.nodes.reviewOverlay.classList.contains('visible'),true);
+  assert.equal(retry.nodes.generationOverlay.classList.contains('visible'),false);
+  assert.equal(retry.api.button.hidden,false);
+  assert.match(retry.api.button.textContent,/保存の再試行/);
+  assert.equal(retry.stash.has('gitai-exhibit-visit-start-v1'),true);
+  assert.equal(JSON.parse(retry.life).thirds,6,'the primary game life save is preserved');
+  await retry.api.safelyHandover();
+  assert.equal(retry.pointer,'gen00022','retry must not advance an extra generation');
+  assert.equal(retry.clicks,1,'retry must NOT call original evolve button twice');
+  assert.equal(retry.navigations.length,1);
+  assert.deepEqual(JSON.parse(retry.life),{generation_id:'gen00022',thirds:30});
+  assert.equal(retry.lifeWrites,2);
+  assert.equal(retry.stash.has('gitai-exhibit-visit-start-v1'),false);
+  assert.equal(JSON.parse(retry.stash.get('gitai-exhibit-handover-v1')).end,21);
+
+  const staleAfterCommit=fixture({mode:'warning',lifeSaveError:true});
+  await staleAfterCommit.api.safelyHandover();
+  staleAfterCommit.pointer='gen00023'; // Another tab progressed.
+  await staleAfterCommit.api.safelyHandover();
+  assert.equal(staleAfterCommit.clicks,1,
+    'changed generation must not be evolved again');
+  assert.equal(staleAfterCommit.navigations.length,0);
+  assert.equal(staleAfterCommit.lifeWrites,1,
+    'changed generation must not receive a stale life reset');
+  assert.match(staleAfterCommit.errors.join(' '),/別の画面/);
+
   const disabled=fixture({disabled:true});
   assert.equal(disabled.api.button.hidden,true);
   await disabled.api.safelyHandover();
@@ -212,5 +259,5 @@ async function waitFor(fn){
   const playing=fixture({review:false});
   await playing.api.safelyHandover();
   assert.equal(playing.clicks,0);
-  console.log('RE2-EXH-01: completed visitor counter clears before theater; next visitor gets new 5-gen allowance, recap survives, warning life10 and failed handovers are safe.');
+  console.log('EXH: both visitor handovers reset count after saved offspring; warning-life failures are safely retryable without second evolution, and stale generations fail closed.');
 })().catch(e=>{console.error(e);process.exitCode=1});
