@@ -426,7 +426,13 @@
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
       const out = [];
-      const req = store.openCursor();
+      // PF06: use IndexedDB's key ordering instead of loading every genome /
+      // unrelated metadata record when requesting diagnostic or theater keys.
+      // The explicit startsWith guard keeps the legacy prefix semantics.
+      const range = prefix
+        ? IDBKeyRange.bound(prefix, prefix + '\uffff')
+        : null;
+      const req = store.openCursor(range);
       req.onsuccess = () => {
         const cursor = req.result;
         if (!cursor) return;
