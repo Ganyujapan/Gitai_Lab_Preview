@@ -246,6 +246,21 @@
       }
     });
     player.addEventListener('error', () => {
+      // Two independent native players share the same recorded rainforest
+      // source. A stale/standby player's decoder can fail during an iPad
+      // media interruption even while the CURRENT player remains audible.
+      // An error from the inactive player is not evidence that the active
+      // ambience is unavailable: never turn off sound for the whole visit.
+      if (index !== active) {
+        secondElementPrimed = false;
+        if (secondElementPriming) {
+          secondElementPriming = false;
+          player.muted = false;
+        }
+        console.warn('Inactive ambient audio element failed; keeping active playback');
+        return;
+      }
+      // Only the currently active media element may disable ambience.
       errorReason = 'unavailable';
       stop();
     });
