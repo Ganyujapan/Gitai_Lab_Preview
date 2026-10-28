@@ -73,7 +73,8 @@ function backup(mode, warningLife) {
   return digest(JSON.stringify(body)).then(checksum => JSON.stringify({checksum,payload:body}));
 }
 function harness({mode='warning', confirmed=true, idbFail=false,
-                  lifeSetFail=false, lifeRemoveFail=false}={}) {
+                  lifeSetFail=false, lifeRemoveFail=false,
+                  onConfirm=null}={}) {
   const saved = new Map([[lifeKey,'PREVIOUS_LIFE']]);
   const messages = [], handlers = {};
   let opened = 0, closed = 0, confirmations = 0, epochCounter = 0;
@@ -102,7 +103,11 @@ function harness({mode='warning', confirmed=true, idbFail=false,
     crypto:{getRandomValues(bytes){bytes.fill((++epochCounter)%256);return bytes;}},
     selector:{value:mode},unlocked:true,
     say(message){messages.push(message);},
-    confirm(){confirmations++;return confirmed;},
+    confirm(){
+      confirmations++;
+      if(onConfirm)onConfirm(state,saved);
+      return confirmed;
+    },
     decode(value){
       if(value && value.$blob) return new Blob(
         [Uint8Array.from(value.$blob)],{type:value.mime});
@@ -309,9 +314,52 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   const cancelledThenRetry=harness({confirmed:false});
   assert.match(await cancelledThenRetry.restore(rawWarning),/復元をキャンセル/);
   assert.match(await cancelledThenRetry.restore(rawWarning),/復元をキャンセル/);
-  assert.equal(cancelledThenRetry.opened,0);
+  assert.equal(cancelledThenRetry.opened,2,
+    'A valid current-state snapshot is read before asking for confirmation');
   assert.match(source,/if\(restoreMutationBusy\)\{\s*setUpdate\('復元処理中のため、更新の適用を中止/);
   assert.match(source,/restoreMutationBusy = false;\s*}\s*}\s*\/\/ EXH-F01/);
+
+  // AUD-RST-02: another tab may commit a new generation WHILE the
+  // confirmation dialog is open. The restore must not erase that generation.
+  const advancedDuringConfirm=harness({onConfirm(state){
+    state.meta.set('current_generation_id','gen00011');
+    state.images.set('gen00011:01','newer-tab-image');
+  }});
+  const advancedResult=await advancedDuringConfirm.restore(rawWarning);
+  assert.match(advancedResult,/復元失敗/);
+  assert.match(advancedResult,/別の画面で世代または復元履歴が変更/);
+  assert.equal(advancedDuringConfirm.state.meta.get('current_generation_id'),'gen00011');
+  assert.equal(advancedDuringConfirm.state.images.get('gen00011:01'),
+    'newer-tab-image','New generation image must not be cleared');
+  assert.equal(advancedDuringConfirm.state.images.get('old-image'),'kept',
+    'Failed restore must roll back ALL object store changes');
+  assert.equal(advancedDuringConfirm.saved.get(lifeKey),'PREVIOUS_LIFE',
+    'No stale warning life may be applied');
+  assert.equal(advancedDuringConfirm.opened,1);
+  assert.equal(advancedDuringConfirm.closed,1);
+  // A second admin tab can restore the SAME generation while the first
+  // confirmation is open. Generation IDs match, but restore epochs do not.
+  const newEpochDuringConfirm=harness({onConfirm(state){
+    state.meta.set('restore_epoch','restore-'+'a'.repeat(32));
+    state.meta.set('separate-restore','this newer restoration must survive');
+  }});
+  const epochResult=await newEpochDuringConfirm.restore(rawWarning);
+  assert.match(epochResult,/復元失敗/);
+  assert.match(epochResult,/別の画面で世代または復元履歴が変更/);
+  assert.equal(newEpochDuringConfirm.state.meta.get('restore_epoch'),
+    'restore-'+'a'.repeat(32));
+  assert.equal(newEpochDuringConfirm.state.meta.get('separate-restore'),
+    'this newer restoration must survive');
+  assert.equal(newEpochDuringConfirm.saved.get(lifeKey),'PREVIOUS_LIFE');
+  // Distinct tab can advance with no epoch key: undefined/null is a valid
+  // original fence, and the changed generation ID still rejects the write.
+  const crypticAdvanced=harness({mode:'cryptic',onConfirm(state){
+    state.meta.set('current_generation_id','gen00012');
+  }});
+  const cResult=await crypticAdvanced.restore(await backup('cryptic',null));
+  assert.match(cResult,/復元失敗/);
+  assert.equal(crypticAdvanced.state.meta.get('current_generation_id'),'gen00012');
+  assert.equal(crypticAdvanced.state.images.get('old-image'),'kept');
 
   const full = harness();
   const fullMessage = await full.restore(rawWarning);
@@ -334,7 +382,8 @@ function harness({mode='warning', confirmed=true, idbFail=false,
 
   const cancelled = harness({confirmed:false});
   assert.match(await cancelled.restore(rawWarning),/キャンセル/);
-  assert.equal(cancelled.opened,0);
+  assert.equal(cancelled.opened,1);
+  assert.equal(cancelled.closed,1);
   assert.equal(cancelled.state.meta.get('current_generation_id'),'gen00010');
   assert.equal(cancelled.saved.get(lifeKey),'PREVIOUS_LIFE');
 
