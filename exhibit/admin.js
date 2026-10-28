@@ -759,9 +759,37 @@
     const db = await openDb(mode.db);
     try {
       const fence = await readWarningLifeState(db);
-      if (!confirm(mode.label + 'を' + body.currentGeneration +
-        'に復元します。現在の同モードのデータは置き換えられます。実行しますか？'))
+      // AUD-RST-03: a valid older backup silently replaces ALL three
+      // history stores. Show the existing and imported generations BEFORE
+      // any writes, and require a second explicit confirmation for rollback.
+      // Never coerce generation IDs to Number: long-running experiments may
+      // exceed Number.MAX_SAFE_INTEGER. Comparison uses BigInt.
+      const importedGeneration = body.currentGeneration;
+      const existingGeneration = typeof fence.generation === 'string'
+        ? fence.generation : null;
+      const validGeneration = /^gen(?:\d{5}|[1-9]\d{5,})$/;
+      const knownExisting = existingGeneration !== null
+        && validGeneration.test(existingGeneration);
+      const backwards = knownExisting
+        && BigInt(importedGeneration.slice(3)) < BigInt(existingGeneration.slice(3));
+      const currentLabel = existingGeneration === null
+        ? '未開始または世代情報なし'
+        : knownExisting ? existingGeneration : '世代情報が不正（既存データあり）';
+      const summary = mode.label
+        + '\n現在の実験：' + currentLabel
+        + '\n復元するデータ：' + importedGeneration
+        + '\n現在の画像・DNA・履歴をすべて置き換えます。'
+        + ' 必要な場合は先にバックアップを保存してください。';
+      if (!confirm(summary + '\n復元を実行しますか？'))
         return {status: 'cancelled'};
+      if (backwards && !confirm(
+        '【進化履歴の巻き戻し】' + mode.label
+        + '\n現在：' + existingGeneration
+        + '\n復元後：' + importedGeneration
+        + '\n古い世代への復元により、それ以降に進んだ実験の保存履歴が'
+        + '失われる可能性があります。'
+        + '\n本当にこのバックアップで上書きしますか？'
+      )) return {status: 'cancelled'};
       // Unique restore epoch: never reuse a value from an imported backup.
       // Browser cryptographic randomness is separate from evolution RNG.
       const entropy = crypto.getRandomValues(new Uint8Array(16));
