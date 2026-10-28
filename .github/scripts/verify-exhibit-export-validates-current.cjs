@@ -76,8 +76,11 @@ function harness(initial,mode='cryptic'){
  };
  vm.runInNewContext(functions+'\nglobalThis.exportBackup=exportMode;',ctx,{
   filename:'exhibit/admin.js:export',timeout:4000});
- return {run:()=>ctx.exportBackup(mode),files,
-  get shares(){return shareCalls},get opened(){return open},
+ return {run:async()=>{
+    const archive=await ctx.exportBackup(mode);
+    files.push(archive.file); // artifact prepared, NOT shared yet
+    return archive.generation;
+  },files,get shares(){return shareCalls},get opened(){return open},
   get closed(){return closed},data:initial};
 }
 async function assertBad(mutator,error,mode='cryptic'){
@@ -98,7 +101,8 @@ async function assertBad(mutator,error,mode='cryptic'){
   const h=harness(snapshot(mode==='warning'),mode);
   const gen=await h.run();
   assert.equal(gen,'gen00021');
-  assert.equal(h.shares,1);
+  assert.equal(h.shares,0,'Preparing a backup must not open share UI after async awaits');
+  assert.equal(h.files.length,1);
   assert.equal(h.closed,1);
   const parsed=JSON.parse(await h.files[0].text());
   assert.equal(parsed.payload.currentGeneration,'gen00021');
