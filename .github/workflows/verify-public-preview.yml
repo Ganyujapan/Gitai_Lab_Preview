@@ -122,6 +122,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-manual-backup-handoff.cjs
       - name: Verify exporter refuses incomplete current PNG and DNA records
         run: node .github/scripts/verify-exhibit-export-validates-current.cjs
+      - name: RE3-EXH-01 prevent warning-life backup while restore is pending
+        run: node .github/scripts/verify-re3-exh01-pending-life-export.cjs
       - name: Preflight experimental split-backup manifest and parts (read-only)
         run: node .github/scripts/verify-exhibit-backup-v2-preflight.cjs
       - name: Verify synthetic iPad multipart file downloads and reselected SHA-256 integrity
