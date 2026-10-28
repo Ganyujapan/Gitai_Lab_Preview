@@ -122,6 +122,39 @@ async function produce(recordStream, opts={}) {
   await assert.rejects(produce(records(0,{badOrder:true})),/順序/);
   await assert.rejects(produce(records(0,{noGenome:true})),/DNAが不足/);
   await assert.rejects(produce(records(0,{bigBlob:true})),/単一画像|分割上限/);
+
+  // An exporter must NEVER quietly change user data to match JSON rules.
+  // JSON.stringify would turn NaN/Infinity/undefined into null or omit
+  // unsafe object keys; the strict restore preflight would reject some
+  // of those keys anyway. Reject before returning any manifest.
+  async function* corruptNested(unsupported) {
+    for await (const row of records(0)) {
+      if (row.store === 'meta' && row.key === 'genome:'+generation+':20') {
+        yield {...row,value:{...row.value,extra:{nested:unsupported}}};
+      } else yield row;
+    }
+  }
+  const unsafeObject=JSON.parse('{"__proto__":{"unsafe":true}}');
+  for(const [invalid,expected] of [
+    [NaN,/不正な数値/],[Infinity,/不正な数値/],
+    [-Infinity,/不正な数値/],[undefined,/未定義/],
+    [unsafeObject,/安全でない保存キー/],
+    [{constructor:1},/安全でない保存キー/],
+    [{prototype:1},/安全でない保存キー/]
+  ]){
+    let savedPartCount=0,returnedManifest=false;
+    await assert.rejects((async()=>{
+      const result=await writePartsFromRecords(corruptNested(invalid),
+        {mode:'cryptic',database:db,currentGeneration:generation,
+          maxPartEntries:3,maxPartBytes:4096},
+        async()=>{savedPartCount++;});
+      returnedManifest=Boolean(result.manifestFile);
+    })(),expected);
+    assert.equal(returnedManifest,false,
+      'a failed export must not return a success-looking manifest');
+    assert.ok(savedPartCount>0,
+      'this test must exercise error discovered after parts were already prepared');
+  }
   await assert.rejects(produce(records(0),{failAfterParts:1,maxPartEntries:3}),/simulated full disk/);
   await assert.rejects(writePartsFromRecords(records(0),
     {mode:'cryptic',database:db,currentGeneration:generation},

@@ -235,10 +235,22 @@
         }
         const result = Object.create(null);
         for (const [key, item] of Object.entries(value)) {
+          // The v2 restore decoder deliberately rejects dangerous property
+          // names. Reject them during export too; never issue a manifest
+          // describing a backup that our own importer cannot decode.
+          if (key === '__proto__' || key === 'prototype' || key === 'constructor') {
+            fail('安全でない保存キーが含まれています。');
+          }
           result[key] = await encodeRecordValue(item, depth + 1, parents);
         }
         return result;
       } finally { parents.delete(value); }
+    }
+    // JSON.stringify silently serializes NaN/Infinity to null, undefined
+    // array values to null and undefined object properties to nothing.
+    // This would change recorded DNA/diagnostics without any warning.
+    if (value === undefined || (typeof value === 'number' && !Number.isFinite(value))) {
+      fail('不正な数値または未定義の値が含まれているため、元データを変えずに書き出しを中止しました。');
     }
     if (typeof value === 'bigint' || typeof value === 'function' || typeof value === 'symbol') {
       fail('保存できないデータ型が含まれています。');
