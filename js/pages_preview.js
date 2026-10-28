@@ -12,6 +12,14 @@
   const EVOLUTION_MODEL_ID = safeNamespaceId(
     PREVIEW_QUERY.get('model'), 'continuous_v1',
   );
+  // RE3-MODEL-01: A semantic rules revision is distinct from the legacy
+  // model/config IDs. Each deployed engine also carries its exact build SHA.
+  // Never infer a revision for generations written before this feature.
+  const EVOLUTION_RULE_REVISIONS = Object.freeze({
+    continuous_v1: 'continuous_v1_rules_20261028_01',
+    morph_v1: 'morph_v1_rules_20261028_01',
+  });
+  const EVOLUTION_BUILD_COMMIT = '__GITAI_BUILD__';
   const WARNING_EXPERIMENT = (
     EVOLUTION_MODEL_ID === 'continuous_v1'
     && PREVIEW_QUERY.get('experiment') === 'warning_color'
@@ -452,6 +460,26 @@
     return `diagnostic:${generationId}`;
   }
 
+  // Diagnostic metadata only. No use in parent selection, genotype changes,
+  // mutation lotteries, RNG, game outcome or generation identity.
+  function ruleProvenanceForGeneration() {
+    const exhibitionFactor = typeof EXHIBIT_MUTATION_RATE_FACTOR === 'number'
+      ? EXHIBIT_MUTATION_RATE_FACTOR : 1;
+    return {
+      status: 'recorded',
+      schema_version: 1,
+      rule_revision: EVOLUTION_RULE_REVISIONS[EVOLUTION_MODEL_ID] || 'unknown',
+      build_commit: /^[0-9a-f]{40}$/.test(EVOLUTION_BUILD_COMMIT)
+        ? EVOLUTION_BUILD_COMMIT : null,
+      model_id: EVOLUTION_MODEL_ID,
+      config_id: evolutionConfig?.config_id || null,
+      engine_version: evolutionConfig?.engine_version ?? null,
+      mutation_profile: exhibitionFactor === 1
+        ? 'normal' : 'exhibit_probability_scaled',
+      mutation_probability_factor: exhibitionFactor,
+    };
+  }
+
   function diagnosticNumber(value, digits = 5) {
     const n = Number(value);
     if (!Number.isFinite(n)) return null;
@@ -521,6 +549,13 @@
     const generations = entries
       .map((item) => item.value)
       .filter((item) => item && typeof item === 'object')
+      // Export-only annotation: do not silently rewrite old IndexedDB records.
+      .map((record) => ({
+        ...record,
+        rule_provenance: record.rule_provenance && typeof record.rule_provenance === 'object'
+          && record.rule_provenance.status === 'recorded'
+          ? record.rule_provenance : {status:'legacy_unknown'},
+      }))
       .sort((a, b) => (
         generationNumber(a.generation_id)
         - generationNumber(b.generation_id)
@@ -909,6 +944,15 @@
     for (const record of generations) {
       const generationId = String(record.generation_id || '-');
       const nextId = String(record.next_generation_id || '-');
+      const provenance = record.rule_provenance;
+      lines.push('rules=' + (
+        provenance?.status === 'recorded'
+          ? String(provenance.rule_revision || 'unknown')
+            + ' profile=' + String(provenance.mutation_profile || 'unknown')
+            + ' factor=' + String(provenance.mutation_probability_factor ?? '-')
+            + ' build=' + String(provenance.build_commit || 'unversioned')
+          : 'legacy_unknown'
+      ));
       const selectedParents = (record.selected_parent_pool || [])
         .map((value) => Number(value))
         .join(',');
@@ -4149,6 +4193,7 @@
       founder_set_id:
         evolutionConfig?.founder_model?.founder_set_id || null,
       evolution_config_id: evolutionConfig?.config_id || null,
+      rule_provenance: ruleProvenanceForGeneration(),
       eaten_indices: [...eatenIndices],
       survivor_indices: survivors,
       survivor_count: survivors.length,
@@ -5029,6 +5074,7 @@
       founder_set_id:
         evolutionConfig?.founder_model?.founder_set_id || null,
       evolution_config_id: evolutionConfig?.config_id || null,
+      rule_provenance: ruleProvenanceForGeneration(),
       eaten_indices: [...eatenIndices],
       survivor_indices: survivors,
       survivor_count: survivors.length,
