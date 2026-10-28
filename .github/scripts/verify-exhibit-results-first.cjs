@@ -36,7 +36,7 @@ assert.match(generated,/compareButton\.addEventListener\('click',[\s\S]*?showEvo
 assert.match(generated,/src="game\.js"/);
 assert.match(controller,/button\.textContent = '次の人へ変わる'/);
 assert.match(controller,/reviewOverlay\?\.querySelector\('\.review-actions'\)\?\.insertAdjacentElement\('afterend', button\)/);
-assert.match(controller,/if \(!committedGeneration\) throw Error\(/,
+assert.match(controller,/if \(!committedOffspringForHandover\) throw Error\(/,
   'handover must still confirm the saved offspring before navigation');
 assert.match(build,/page\.replace\(auto_gallery, review_first, 1\)/);
 assert.match(build,/page\.replace\(rank_auto_gallery, rank_to_review, 1\)/);
