@@ -1411,6 +1411,21 @@
       -webkit-overflow-scrolling: touch;
     }
 
+    .specimen-load-more {
+      flex: 0 0 auto;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: 1px solid rgba(220,175,108,0.65);
+      border-radius: 4px;
+      color: #eee3cd;
+      background: #262019;
+      font: inherit;
+      cursor: pointer;
+    }
+    .specimen-load-more[hidden] { display: none; }
+
     .specimen-card {
       display: flex;
       flex-direction: column;
@@ -1899,6 +1914,7 @@
           <button id="specimenBackgroundToggle" class="specimen-bg-toggle" type="button" aria-label="生息環境の背景に切り替える" aria-pressed="false"><span class="specimen-bg-icon" aria-hidden="true"></span></button>
         </div>
         <div id="specimenGrid" class="specimen-grid"></div>
+        <button id="specimenLoadMoreButton" class="specimen-load-more" type="button" hidden>さらに30件表示</button>
       </div>
     </section>
 
@@ -2130,6 +2146,7 @@
   const specimenBoxCloseButton = document.getElementById('specimenBoxCloseButton');
   const specimenBackgroundToggle = document.getElementById('specimenBackgroundToggle');
   const specimenGrid = document.getElementById('specimenGrid');
+  const specimenLoadMoreButton = document.getElementById('specimenLoadMoreButton');
 
   const evolutionOverlay = document.getElementById('evolutionOverlay');
   const evolutionCloseButton = document.getElementById('evolutionCloseButton');
@@ -2624,33 +2641,23 @@
       enabled ? 'アイボリー背景に切り替える' : '生息環境の背景に切り替える');
   }
 
+  // PF06: the DB format and saved_at order remain unchanged. Only materialize
+  // cards and Blob URLs for the visible batch; a user click adds the next 30.
+  // Keep the original records for this open session, and drop them on close.
+  const SPECIMEN_BATCH_SIZE = 30;
+  let specimenDisplayRecords = null;
+  let specimenDisplayOffset = 0;
   // An obsolete IndexedDB request must never append cards or retain blob URLs
   // after a newer open or close of the specimen overlay.
   let specimenDisplayRequest = 0;
-  async function showSpecimenBox() {
-    const requestId = ++specimenDisplayRequest;
-    releaseSpecimenObjectUrls();
-    specimenGrid.innerHTML = '';
-    setSpecimenHabitatView(false);
-    specimenBoxOverlay.classList.add('visible');
-
-    try {
-      const records = await specimenAll();
-      if (requestId !== specimenDisplayRequest
-          || !specimenBoxOverlay.classList.contains('visible')) return;
-      records.sort(
-        (a, b) => String(b.saved_at || '').localeCompare(String(a.saved_at || ''))
-      );
-
-      if (!records.length) {
-        const empty = document.createElement('div');
-        empty.className = 'specimen-empty';
-        empty.textContent = 'まだ標本はありません。世代一覧から気に入った個体を保存できます。';
-        specimenGrid.appendChild(empty);
-        return;
-      }
-
-      for (const record of records) {
+  function appendSpecimenBatch(requestId) {
+    if (requestId !== specimenDisplayRequest
+        || !specimenBoxOverlay.classList.contains('visible')
+        || !specimenDisplayRecords) return;
+    const records = specimenDisplayRecords;
+    const end = Math.min(records.length, specimenDisplayOffset + SPECIMEN_BATCH_SIZE);
+    for (; specimenDisplayOffset < end; specimenDisplayOffset += 1) {
+      const record = records[specimenDisplayOffset];
         if (!(record.image_blob instanceof Blob)) continue;
         const url = URL.createObjectURL(record.image_blob);
         state.specimenObjectUrls.push(url);
@@ -2701,9 +2708,53 @@
         });
         specimenGrid.appendChild(card);
       }
+    const remaining = specimenDisplayRecords.length - specimenDisplayOffset;
+    specimenLoadMoreButton.hidden = remaining <= 0;
+    if (remaining > 0) {
+      specimenLoadMoreButton.textContent =
+        'さらに' + Math.min(SPECIMEN_BATCH_SIZE, remaining) + '件表示'
+        + '（' + specimenDisplayOffset + ' / ' + specimenDisplayRecords.length + '件）';
+    }
+  }
+
+  specimenLoadMoreButton.addEventListener('click', () => {
+    appendSpecimenBatch(specimenDisplayRequest);
+  });
+
+  async function showSpecimenBox() {
+    const requestId = ++specimenDisplayRequest;
+    releaseSpecimenObjectUrls();
+    specimenDisplayRecords = null;
+    specimenDisplayOffset = 0;
+    specimenLoadMoreButton.hidden = true;
+    specimenGrid.innerHTML = '';
+    setSpecimenHabitatView(false);
+    specimenBoxOverlay.classList.add('visible');
+
+    try {
+      const records = await specimenAll();
+      if (requestId !== specimenDisplayRequest
+          || !specimenBoxOverlay.classList.contains('visible')) return;
+      records.sort(
+        (a, b) => String(b.saved_at || '').localeCompare(String(a.saved_at || ''))
+      );
+
+      if (!records.length) {
+        const empty = document.createElement('div');
+        empty.className = 'specimen-empty';
+        empty.textContent = 'まだ標本はありません。世代一覧から気に入った個体を保存できます。';
+        specimenGrid.appendChild(empty);
+        return;
+      }
+
+      specimenDisplayRecords = records;
+      appendSpecimenBatch(requestId);
     } catch (error) {
       if (requestId !== specimenDisplayRequest
           || !specimenBoxOverlay.classList.contains('visible')) return;
+      specimenDisplayRecords = null;
+      specimenDisplayOffset = 0;
+      specimenLoadMoreButton.hidden = true;
       releaseSpecimenObjectUrls();
       specimenGrid.innerHTML = '';
       const empty = document.createElement('div');
@@ -5846,6 +5897,9 @@
 
   specimenBoxCloseButton.addEventListener('click', () => {
     specimenDisplayRequest += 1;
+    specimenDisplayRecords = null;
+    specimenDisplayOffset = 0;
+    specimenLoadMoreButton.hidden = true;
     specimenBoxOverlay.classList.remove('visible');
     releaseSpecimenObjectUrls();
     specimenGrid.innerHTML = '';
