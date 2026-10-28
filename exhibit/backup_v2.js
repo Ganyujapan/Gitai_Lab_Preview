@@ -267,6 +267,12 @@
         return result;
       } finally { parents.delete(value); }
     }
+    // JSON.stringify(-0) is "0", which loses the sign even though
+    // IndexedDB preserves negative zero. Refuse a lossy v2 export rather
+    // than silently changing stored numeric values.
+    if (typeof value === 'number' && Object.is(value, -0)) {
+      fail('負のゼロはJSON化で符号が失われるため、元データを変えずに書き出しを中止しました。');
+    }
     // JSON.stringify silently serializes NaN/Infinity to null, undefined
     // array values to null and undefined object properties to nothing.
     // This would change recorded DNA/diagnostics without any warning.
