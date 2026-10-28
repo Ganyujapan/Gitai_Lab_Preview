@@ -66,7 +66,7 @@ function setup({entertainment,error='restore_epoch_mismatch',status=409,message}
  vm.runInNewContext(submitSource+'\n'+clickSource+'\n  });\nglobalThis.submit=sendEvolutionData;',
   ctx,{filename:'index.html:RE3-STO-01',timeout:3000});
  return {ctx,state,location,continueButton,reviewOverlay,generationOverlay,
-  reviewTitle,reviewMessage,evolutionStatus,requests};
+  reviewTitle,reviewMessage,evolutionStatus,authorNewsTeaser,compareButton,requests};
 }
 (async()=>{
  const malicious='<img src=x onerror=alert(1)>';
