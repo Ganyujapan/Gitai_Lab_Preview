@@ -4374,6 +4374,7 @@
   // Replay images are cache only; the original generation and moth PNGs stay put.
   let theaterRenderTicket = 0;
   let theaterSession = 0;
+  let theaterLoadingButtonLabel = null;
   const theaterFrameJobs = new Map();
 
   async function refreshSavedTheaterFrame(frame) {
@@ -4397,14 +4398,19 @@
     ) return false;
 
     const oldUrl = frame.object_url;
-    const nextUrl = URL.createObjectURL(result.image_blob);
-    frame.object_url = nextUrl;
+    // Refresh the original in-memory Blob as well as the render version:
+    // offscreen frames have no object URL to replace, but must use the new
+    // snapshot when navigated to later.
+    frame.image_blob = result.image_blob;
     frame.render_version = result.render_version;
-    state.theaterObjectUrls.push(nextUrl);
-    const ix = state.theaterObjectUrls.indexOf(oldUrl);
-    if (ix !== -1) state.theaterObjectUrls.splice(ix, 1);
-    // The previous blob URL is not used after this cache upgrade.
-    if (oldUrl) URL.revokeObjectURL(oldUrl);
+    if (oldUrl) {
+      const nextUrl = URL.createObjectURL(result.image_blob);
+      frame.object_url = nextUrl;
+      state.theaterObjectUrls.push(nextUrl);
+      const ix = state.theaterObjectUrls.indexOf(oldUrl);
+      if (ix !== -1) state.theaterObjectUrls.splice(ix, 1);
+      URL.revokeObjectURL(oldUrl);
+    }
     return true;
   }
 
@@ -4430,11 +4436,43 @@
     }
   }
 
+  // PF06: keep object URLs for only the selected frame and two neighboring
+  // frames on each side. The frame Blob records remain unchanged for seeking.
+  const THEATER_URL_RADIUS = 2;
+  function syncTheaterObjectUrls() {
+    const frames = state.theaterFrames;
+    const selected = state.theaterFrameIndex;
+    const first = Math.max(0, selected - THEATER_URL_RADIUS);
+    const last = Math.min(frames.length - 1, selected + THEATER_URL_RADIUS);
+
+    for (let i = 0; i < frames.length; i += 1) {
+      const frame = frames[i];
+      if (i >= first && i <= last) continue;
+      if (!frame.object_url) continue;
+      const oldUrl = frame.object_url;
+      frame.object_url = null;
+      const tracked = state.theaterObjectUrls.indexOf(oldUrl);
+      if (tracked !== -1) state.theaterObjectUrls.splice(tracked, 1);
+      URL.revokeObjectURL(oldUrl);
+    }
+
+    for (let i = first; i <= last; i += 1) {
+      const frame = frames[i];
+      if (frame?.image_blob instanceof Blob && !frame.object_url) {
+        frame.object_url = URL.createObjectURL(frame.image_blob);
+        state.theaterObjectUrls.push(frame.object_url);
+      }
+    }
+  }
+
   function releaseTheaterObjectUrls() {
     for (const url of state.theaterObjectUrls) {
       try { URL.revokeObjectURL(url); } catch (_) {}
     }
     state.theaterObjectUrls = [];
+    for (const frame of state.theaterFrames) {
+      frame.object_url = null;
+    }
   }
 
   function pauseEvolutionTheater() {
@@ -4463,6 +4501,7 @@
       Math.min(frames.length - 1, state.theaterFrameIndex),
     );
     state.theaterFrameIndex = index;
+    syncTheaterObjectUrls();
     const frame = frames[index];
     const requestId = ++theaterRenderTicket;
 
@@ -4537,25 +4576,23 @@
 
   async function showEvolutionTheater() {
     pauseEvolutionTheater();
-    ++theaterSession;
+    const session = ++theaterSession;
     ++theaterRenderTicket;
     releaseTheaterObjectUrls();
     theaterButton.disabled = true;
-    const originalText = theaterButton.textContent;
+    const originalText = theaterLoadingButtonLabel ?? theaterButton.textContent;
+    theaterLoadingButtonLabel = originalText;
     theaterButton.textContent = '読み込み中…';
 
     try {
       const rawFrames =
         await window.GitaiPagesPreview.getEvolutionTheaterFrames();
-
-      state.theaterFrames = rawFrames.map((frame) => {
-        const objectUrl = URL.createObjectURL(frame.image_blob);
-        state.theaterObjectUrls.push(objectUrl);
-        return {
-          ...frame,
-          object_url: objectUrl,
-        };
-      });
+      // A previous open may finish after close/reopen. Never install its URLs.
+      if (session !== theaterSession) return;
+      state.theaterFrames = rawFrames.map((frame) => ({
+        ...frame,
+        object_url: null,
+      }));
       state.theaterFrameIndex = 0;
 
       if (!state.theaterFrames.length) {
@@ -4582,11 +4619,16 @@
       renderEvolutionTheaterFrame();
       void upgradeSavedTheaterFramesInBackground(theaterSession);
     } catch (error) {
-      console.error(error);
-      alert('進化シアターを読み込めませんでした。');
+      if (session === theaterSession) {
+        console.error(error);
+        alert('進化シアターを読み込めませんでした。');
+      }
     } finally {
-      theaterButton.disabled = false;
-      theaterButton.textContent = originalText;
+      if (session === theaterSession) {
+        theaterButton.disabled = false;
+        theaterButton.textContent = originalText;
+        theaterLoadingButtonLabel = null;
+      }
     }
   }
 
@@ -4594,10 +4636,16 @@
     pauseEvolutionTheater();
     ++theaterSession;
     ++theaterRenderTicket;
+    // Closing while an IDB read is in flight must not strand the entry button.
+    if (theaterLoadingButtonLabel !== null) {
+      theaterButton.textContent = theaterLoadingButtonLabel;
+      theaterButton.disabled = false;
+      theaterLoadingButtonLabel = null;
+    }
     theaterOverlay.classList.remove('visible');
     theaterFrameImage.removeAttribute('src');
-    state.theaterFrames = [];
     releaseTheaterObjectUrls();
+    state.theaterFrames = [];
   }
 
   function shareNameStorageKey() {

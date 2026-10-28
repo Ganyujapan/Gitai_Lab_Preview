@@ -55,6 +55,7 @@ function harness({id,oldVersion,resultVersion,missing=false,delay=false}){
     const h=harness({id,oldVersion,resultVersion:nextVersion});
     assert.equal(await h.refresh(),true);
     assert.equal(h.frame.render_version,nextVersion);
+    assert.ok(h.frame.image_blob instanceof Blob,'refreshed PNG retained for future lazy URLs');
     assert.deepEqual(h.revoked,['blob:previous']);
     assert.equal(h.state.theaterObjectUrls.length,1);
     assert.equal(h.frame.object_url,h.created[0]);
@@ -62,6 +63,16 @@ function harness({id,oldVersion,resultVersion,missing=false,delay=false}){
     assert.equal(await h.refresh(),true,'current frame not rebuilt twice');
     assert.equal(h.attempts,1);
   }
+  // Offscreen image upgrades must not allocate an object URL, but the newly
+  // regenerated Blob must be available when the frame becomes visible.
+  const offscreen=harness({id:'warning_color_fog_v2',oldVersion:1,resultVersion:3});
+  offscreen.frame.object_url=null;
+  offscreen.state.theaterObjectUrls=[];
+  assert.equal(await offscreen.refresh(),true);
+  assert.equal(offscreen.created.length,0);
+  assert.equal(offscreen.frame.object_url,null);
+  assert.ok(offscreen.frame.image_blob instanceof Blob);
+  assert.equal(offscreen.frame.render_version,3);
   const current=harness({id:'warning_color_fog_v2',oldVersion:3,resultVersion:3});
   assert.equal(await current.refresh(),true);
   assert.equal(current.attempts,0);
