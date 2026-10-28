@@ -56,6 +56,39 @@ def main() -> None:
     page = page.replace("</head>", '<link rel="stylesheet" href="game.css">\n</head>', 1)
     assert "</body>" in page and "js/pages_preview.js" in page
     page = page.replace("</body>", '<script src="game.js"></script>\n</body>', 1)
+
+    # RE2-EXH-01 / iPad 2026-10-28: the ordinary entertainment game
+    # immediately opens its full-screen moth gallery from showResults().
+    # Its review panel (and exhibition-only "次の人へ変わる") stays underneath.
+    # In the exhibition build ONLY, keep the review visible after the
+    # shutter/mutation/rank announcements. The visitor may explicitly open
+    # the existing gallery via "プレイした世代を見る". No changes to the
+    # public site, genetics, next-generation commit, or DB namespace.
+    auto_gallery = """  function showRankMilestoneOrGallery() {
+    if (!state.pendingRankMilestone) {
+      showEvolutionComparison();
+      return;
+    }"""
+    review_first = """  function showRankMilestoneOrGallery() {
+    if (!state.pendingRankMilestone) {
+      // Exhibition: results and visitor handover must be visible first.
+      return;
+    }"""
+    assert page.count(auto_gallery) == 1, "Missing normal auto-gallery hook"
+    page = page.replace(auto_gallery, review_first, 1)
+    rank_auto_gallery = """    acknowledgeRankMilestone();
+    showEvolutionComparison();
+  }
+
+  function revealEvolutionTheaterAtBottom()"""
+    rank_to_review = """    acknowledgeRankMilestone();
+    // Exhibition: after the rare-rank notice, reveal the existing results.
+  }
+
+  function revealEvolutionTheaterAtBottom()"""
+    assert page.count(rank_auto_gallery) == 1, "Missing rare-rank gallery hook"
+    page = page.replace(rank_auto_gallery, rank_to_review, 1)
+
     (exhibit / "game.html").write_text(page, encoding="utf-8")
 
     # Namespace the complete IndexedDB database without modifying the shared
