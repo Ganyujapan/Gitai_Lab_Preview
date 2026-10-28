@@ -142,7 +142,8 @@
         return;
       }
       const recover = () => {
-        if (ctx !== context || document.hidden || epoch !== audioVisibilityEpoch) {
+        if (ctx !== context || document.hidden || epoch !== audioVisibilityEpoch
+            || (ticket && !valid())) {
           finish();
           return;
         }
@@ -170,15 +171,15 @@
           const attempt = ctx.resume();
           if (attempt && typeof attempt.then === 'function') {
             attempt.then(recover).catch(() => {
-              if (ctx === context && epoch === audioVisibilityEpoch)
-                fastUnlocked = false;
+              if (ctx === context && epoch === audioVisibilityEpoch
+                  && (!ticket || valid())) fastUnlocked = false;
               playOnce(() => playNative(sound.kind, sound.number));
               finish();
             });
           } else recover();
         } catch (_) {
-          if (ctx === context && epoch === audioVisibilityEpoch)
-            fastUnlocked = false;
+          if (ctx === context && epoch === audioVisibilityEpoch
+              && (!ticket || valid())) fastUnlocked = false;
           playOnce(() => playNative(sound.kind, sound.number));
           finish();
         }
