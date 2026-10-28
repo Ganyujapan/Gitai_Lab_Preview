@@ -25,13 +25,14 @@ assert.match(src,/const MAX_BACKUP_BYTES = 150 \* 1024 \* 1024/);
 class TestFile extends Blob {
   constructor(parts,name,opts){super(parts,opts);this.name=name;}
 }
-function harness({mode='cryptic',entries={},maxBytes=null}={}){
+function harness({mode='cryptic',entries={},maxBytes=null,
+  afterGeneration=null,afterEpoch=null,firstLife=null,secondLife=null}={}){
   const current='gen00021',shared={},sharedSnapshot={
     images:entries.images||[],meta:entries.meta||[{key:'current_generation_id',value:current}],
     theater_frames:entries.theater_frames||[]
   };
   const stores=['images','meta','theater_frames'];
-  let dbClosed=false;
+  let dbClosed=false,openCount=0,closeCount=0,lifeReads=0;
   const downloads=[];
   const textSource=codecs+'\n'+exported+'\n'+bounds+'\n'+lifeCheck+
     '\nglobalThis.__audit={exportMode,validateTreeShape,countBackupEntries,checkBackupExportLimits};';
@@ -44,10 +45,13 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
     crypto:webcrypto,
     MODES:{cryptic:{db:'db-cryptic'},warning:{db:'db-warning'}},
     STORES:stores,BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
-    openDb:async()=>({close(){dbClosed=true}}),
+    openDb:async()=>{openCount++;return {close(){dbClosed=true;closeCount++}};},
     preflightExportEntryCount:async()=>sharedSnapshot.images.length+sharedSnapshot.meta.length+sharedSnapshot.theater_frames.length,
     snapshotStores:async()=>sharedSnapshot,
-    readWarningLifeState:async()=>({generation:current,epoch:undefined}),
+    readWarningLifeState:async()=>({
+      generation:afterGeneration||current,
+      epoch:afterEpoch===null ? sharedSnapshot.meta.find(x=>x.key==='restore_epoch')?.value : afterEpoch
+    }),
     // This test isolates byte/node preflight; full image/DNA checks have a
     // dedicated regression invoking the real verification routine.
     verifyExportCurrentSnapshot:async()=>current,
@@ -57,12 +61,16 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
     },
     fetch:async()=>({json:async()=>({build:'test-build'})}),
     navigator:{canShare:()=>true,share:async opts=>{downloads.push(opts.files[0]);}},
-    localStorage:{getItem:()=>null},
+    localStorage:{getItem:()=>{
+      lifeReads++;
+      return lifeReads===1?firstLife:(secondLife===null?firstLife:secondLife);
+    }},
     setTimeout(){},URL:{createObjectURL(){throw Error('not expected')}},
     document:{}
   };
   vm.runInNewContext(limitSource,ctx,{filename:'exhibit/admin.js:export',timeout:5000});
   return {ctx,downloads,sharedSnapshot,closed:()=>dbClosed,
+    get openCount(){return openCount},get closeCount(){return closeCount},get lifeReads(){return lifeReads},
     run:async()=>{
       const archive=await ctx.__audit.exportMode(mode);
       downloads.push(archive.file); // save later via a separate user gesture
@@ -93,6 +101,39 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
     assert.equal(parsed.checksum,Buffer.from(actual).toString('hex'));
     assert.equal(parsed.payload.stores.images[0].value.$type,'Blob');
   }
+  // AUD-EXP-01: production exporter reopens IDB and verifies that the
+  // saved generation and restore epoch still match the snapshot before
+  // exposing the prepared File to the UI. A failed check never downloads.
+  const advanced=harness({afterGeneration:'gen00022'});
+  await assert.rejects(advanced.run(),/世代または復元履歴が変更/);
+  assert.equal(advanced.downloads.length,0);
+  assert.equal(advanced.openCount,2);
+  assert.equal(advanced.closeCount,2);
+  const swapped=harness({entries:{meta:[
+    {key:'current_generation_id',value:'gen00021'},
+    {key:'restore_epoch',value:'restore-'+'a'.repeat(32)}
+  ]},afterEpoch:'restore-'+'b'.repeat(32)});
+  await assert.rejects(swapped.run(),/世代または復元履歴が変更/);
+  assert.equal(swapped.downloads.length,0);
+  assert.equal(swapped.openCount,2);
+  assert.equal(swapped.closeCount,2);
+  const life1=JSON.stringify({generation_id:'gen00021',thirds:24});
+  const life2=JSON.stringify({generation_id:'gen00021',thirds:21});
+  const changedLife=harness({mode:'warning',firstLife:life1,secondLife:life2});
+  await assert.rejects(changedLife.run(),/ライフ情報が更新されました/);
+  assert.equal(changedLife.downloads.length,0);
+  assert.equal(changedLife.lifeReads,2);
+  assert.equal(changedLife.closeCount,2);
+  const stableLife=harness({mode:'warning',firstLife:life1});
+  assert.equal(await stableLife.run(),'gen00021');
+  assert.equal(stableLife.downloads.length,1);
+  const stableDoc=JSON.parse(await stableLife.downloads[0].text());
+  assert.equal(stableDoc.payload.warningLife,life1);
+  assert.equal(stableLife.closeCount,2);
+  assert.match(exported,/await readWarningLifeState\(currentDb\)/);
+  assert.match(exported,/latest\.generation !== current \|\| latest\.epoch !== snapshotEpoch/);
+  assert.match(exported,/localStorage\.getItem\(lifeKey\) !== baselineLife/);
+
   // Audit reproduction: a modest JSON (~few MB) with >350k nested nodes
   // must fail before navigator.share, preserving every old record.
   const enormous=Array.from({length:350100},(_,i)=>i);
