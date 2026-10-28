@@ -208,6 +208,37 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
     for await(const x of readCheckpoint(f.db,ID,cp.entries+1))void x;
   })(),/不足/);
 
+  // Cooperative cancellation leaves the committed checkpoint and all
+  // original records untouched; no new read transaction starts if aborted.
+  const alreadyCancelled=new AbortController();
+  alreadyCancelled.abort();
+  const txBeforeCancel=f.log.length;
+  await assert.rejects((async()=>{
+    for await(const item of readCheckpoint(f.db,ID,cp.entries,
+      {batchSize:7,signal:alreadyCancelled.signal})) void item;
+  })(),/中断/);
+  assert.equal(f.log.length,txBeforeCancel,
+    'pre-cancelled checkpoint read must not start an IDB transaction');
+
+  const cancelMidRead=new AbortController();
+  const iter=readCheckpoint(f.db,ID,cp.entries,
+    {batchSize:7,signal:cancelMidRead.signal});
+  const firstRow=await iter.next();
+  assert.equal(firstRow.done,false);
+  const afterFirstRow=f.log.length;
+  cancelMidRead.abort();
+  await assert.rejects(iter.next(),/中断/);
+  assert.equal(f.log.length,afterFirstRow,
+    'abort must stop reading before the next batch');
+  assert.equal(f.getStage(ID),cp.entries);
+  assert.equal(f.getActive(),0);
+  assert.deepEqual(f.data.meta.get('current_generation_id'),'gen00043');
+
+  await assert.rejects((async()=>{
+    for await(const item of readCheckpoint(f.db,ID,cp.entries,
+      {signal:{aborted:'invalid'}})) void item;
+  })(),/中断通知/);
+
   // Snapshot A and B coexist; cancelling A deletes ONLY A's temporary keys.
   f.data.meta.set('current_generation_id',GEN);
   const cp2=await makeCheckpoint(f.db,OTHER);

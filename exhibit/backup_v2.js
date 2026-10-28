@@ -295,6 +295,18 @@
         !records || typeof records[Symbol.asyncIterator] !== 'function') {
       fail('書き出しパラメーターまたは逐次入力が不正です。');
     }
+    // Cancellation is advisory while savePart is awaiting an external file
+    // handoff. Once the callback settles, refuse to issue a success manifest
+    // if the caller cancelled. Previously saved parts must be discarded by
+    // the caller; this writer never reports partial success.
+    const signal = options.signal;
+    if (signal != null && typeof signal.aborted !== 'boolean') {
+      fail('中断通知の形式が不正です。');
+    }
+    const checkCancelled = () => {
+      if (signal?.aborted) fail('書き出しが中断されました。');
+    };
+    checkCancelled();
     const maxPartBytes = options.maxPartBytes ?? MAX_PART_BYTES;
     const maxPartEntries = options.maxPartEntries ?? MAX_PART_ENTRIES;
     if (!integer(maxPartBytes, 1024, MAX_PART_BYTES) ||
@@ -333,6 +345,7 @@
       size = utf8(prefix + ']}');
     }
     async function flush() {
+      checkCancelled();
       if (!count) return;
       if (parts.length >= MAX_PARTS) fail('分割ファイルの上限を超えました。');
       const filename = 'part-' + String(parts.length).padStart(5, '0') + '.json';
@@ -347,12 +360,14 @@
         sha256: await sha256(await file.arrayBuffer())
       };
       await savePart(file, desc);
+      checkCancelled();
       parts.push(desc);
       chunks = [];
       count = 0;
     }
 
     for await (const record of records) {
+      checkCancelled();
       const store = record?.store;
       const nextIndex = STORES.indexOf(store);
       if (nextIndex < 0 || nextIndex < storeIndex) {
@@ -382,6 +397,7 @@
       // encoded byte ceiling remains authoritative after serialization.
       checkDepthAndNodes(record.value);
       const encoded = await encodeRecordValue(record.value);
+      checkCancelled();
       const entryText = JSON.stringify({key: record.key, value: encoded});
       if (!entryText) fail('保存項目がJSON化できません。');
       const entryBytes = utf8(entryText);
@@ -407,6 +423,7 @@
       byStore[store]++;
     }
     await flush();
+    checkCancelled();
     if (!pointerFound || requiredImages.size || requiredGenomes.size) {
       fail('現在世代の参照情報・60匹の画像・DNAが不足しています。');
     }
@@ -428,6 +445,7 @@
     if (manifestFile.size > MAX_MANIFEST_BYTES) {
       fail('索引ファイルが大きすぎます。');
     }
+    checkCancelled();
     return {manifest, manifestFile};
   }
 
