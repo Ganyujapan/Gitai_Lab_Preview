@@ -57,7 +57,7 @@ const current={generation_id:'gen00022',next_generation_id:'gen00023',
   rule_provenance:revB,eaten_indices:[]};
 const original=JSON.stringify([old,current]);
 const ctx={
-  ensureConfig:async()=>{},
+  ensureConfig:async()=>{},META_STORE:'meta',
   idbEntriesByPrefix:async()=>[{value:current},{value:old}],
   generationNumber:v=>Number(v.slice(3)),
   WARNING_EXPERIMENT:false,PREVIEW_ENV:'leaf',PREVIEW_ENV_ID:'kusagi_001',
