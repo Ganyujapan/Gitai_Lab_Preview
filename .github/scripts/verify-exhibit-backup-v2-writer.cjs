@@ -143,6 +143,9 @@ async function produce(recordStream, opts={}) {
   for(const [invalid,expected] of [
     [NaN,/不正な数値/],[Infinity,/不正な数値/],
     [-Infinity,/不正な数値/],[undefined,/未定義/],
+    // IndexedDB retains the -0 sign, while JSON.stringify(-0) emits "0".
+    [-0,/負のゼロ/],[[1,-0,2],/負のゼロ/],
+    [{inside:{value:-0}},/負のゼロ/],
     [unsafeObject,/安全でない保存キー/],
     [{constructor:1},/安全でない保存キー/],
     [{prototype:1},/安全でない保存キー/],
