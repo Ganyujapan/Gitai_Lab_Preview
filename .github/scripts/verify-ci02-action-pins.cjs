@@ -35,7 +35,22 @@ assert.deepEqual([...seen].sort(),Object.keys(pins).sort(),
 const deploy=fs.readFileSync('.github/workflows/deploy-pages.yml','utf8');
 const validate=fs.readFileSync('.github/workflows/verify-public-preview.yml','utf8');
 assert.match(deploy,/verify:\s*\n[\s\S]*?permissions:\s*\n\s+contents: read\s*\n\s+uses: \.\/\.github\/workflows\/verify-public-preview\.yml/);
-assert.match(deploy,/deploy:\s*\n\s+needs: verify/);
+assert.match(deploy,/build:\s*\n\s+needs: verify/);
+assert.match(deploy,/deploy:\s*\n(?:\s+#[^\n]*\n)*\s+needs: \[verify, build\]/);
+const buildStart=deploy.indexOf('\n  build:\n');
+const deployStart=deploy.indexOf('\n  deploy:\n',buildStart);
+assert.ok(buildStart>0&&deployStart>buildStart,
+  'Pages artifact build and privileged deploy must be separate jobs');
+const buildJob=deploy.slice(buildStart,deployStart);
+const publishJob=deploy.slice(deployStart);
+assert.match(buildJob,/permissions:\s*\n      contents: read/,
+  'build job requires only repository read access');
+assert.doesNotMatch(buildJob,/\bpages: write\b|\bid-token: write\b/,
+  'build job must not inherit Pages write or OIDC permissions');
+assert.match(publishJob,/permissions:\s*\n      pages: write\s*\n      id-token: write/,
+  'publish job requires only Pages and OIDC permissions');
+assert.doesNotMatch(publishJob,/actions\/checkout@|actions\/upload-pages-artifact@|\brun:/,
+  'publish job must not execute repository code or build artifacts');
 assert.match(validate,/permissions:\s*\n\s+contents: read/);
 assert.doesNotMatch(validate,/pull_request_target:/);
-console.log('CI-02: all external Actions pinned to verified upstream commit SHAs; PR and predeploy validation stay read-only.');
+console.log('CI-02: official Actions immutable; verification and artifact build read-only; privileged job deploy-only.');
