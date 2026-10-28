@@ -169,6 +169,8 @@ jobs:
         run: node .github/scripts/verify-warning-independent-mutations.cjs
       - name: Verify white warning founders inherit unbiased per-individual latent hues
         run: node .github/scripts/verify-warning-latent-founder-hues.cjs
+      - name: RE3-EV-02 neutral seed and gen21 commit reject restore races atomically
+        run: node .github/scripts/verify-warning-neutral-restore-cas.cjs
       - name: Reject concurrent or partial generation commits
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Verify long-running generation IDs remain valid after generation 99999
