@@ -307,6 +307,16 @@
     // memory on a JSON artifact that this exact release could never restore.
     // The snapshot is read-only and represents one consistent IDB point.
     await verifyExportCurrentSnapshot(snapshot, modeId);
+    // RE3-EXH-01: An IDB restore may have committed the images/DNA while
+    // its separate localStorage warning-life write is still pending.
+    // Never export a generation with a potentially stale life value.
+    // Inspect the same atomic snapshot BEFORE allocating the large JSON.
+    if (modeId === 'warning' &&
+        snapshot.meta.some(item => item.key === PENDING_WARNING_LIFE_KEY)) {
+      throw Error('ライフ情報の復元が完了していないためバックアップを作成できません。'
+        + '管理画面の「ライフ情報だけ再試行」を完了してから作成してください。'
+        + '進化データは変更していません。');
+    }
     // Encode only AFTER the complete, transactionally consistent snapshot.
     const stores = {};
     for (const store of STORES) {
@@ -353,6 +363,13 @@
     if (latest.generation !== current || latest.epoch !== snapshotEpoch) {
       throw Error('バックアップ生成中に別の画面で世代または復元履歴が変更されました。'
         + '準備したファイルは破棄しました。ほかのゲーム画面を閉じて再試行してください。');
+    }
+    // A second admin tab can begin a restore AFTER the snapshot is taken.
+    // A pending intent is unsafe even when generation/epoch appear stable.
+    if (modeId === 'warning' && latest.pending !== undefined) {
+      throw Error('バックアップ生成中にライフ情報の復元未完了を検出しました。'
+        + '準備したファイルは破棄しました。'
+        + '「ライフ情報だけ再試行」を完了してから作成してください。');
     }
     if (modeId === 'warning' && localStorage.getItem(lifeKey) !== baselineLife) {
       throw Error('バックアップ生成中にライフ情報が更新されました。'
