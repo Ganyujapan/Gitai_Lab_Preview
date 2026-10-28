@@ -86,6 +86,8 @@ jobs:
         run: node .github/scripts/verify-specimen-async-display.cjs
       - name: Verify exhibition offline directory startup and handover navigation
         run: node .github/scripts/verify-exhibit-offline-navigation.cjs
+      - name: Reject PWA reload while backup is unsaved or still preparing
+        run: node .github/scripts/verify-exhibit-update-unsaved-backup.cjs
       - name: Verify exhibition Service Worker update lifecycle and offline cache safety
         run: node .github/scripts/verify-exhibit-update-lifecycle.cjs
       - name: Verify exhibition return-button IDs and paused-state escape
