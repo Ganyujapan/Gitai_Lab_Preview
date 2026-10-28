@@ -2278,6 +2278,17 @@
     wakeLock: null,
   };
 
+  // SEC-F01: bundled labels are currently trusted, but must never be
+  // interpreted as HTML if future modes load custom species names.
+  // Preserve the same single deliberate line break in all tutorials.
+  function setIntroLines(element, first, second) {
+    element.replaceChildren(
+      document.createTextNode(String(first)),
+      document.createElement('br'),
+      document.createTextNode(String(second)),
+    );
+  }
+
   function applyAppConfig(appConfig) {
     if (!appConfig || !appConfig.game || !appConfig.species || !appConfig.environment) {
       throw new Error('アプリ設定が不正です');
@@ -2373,12 +2384,21 @@
 
     const label = String(speciesConfig.display_name_ja || '生き物');
     document.title = appConfig.title || 'ギタイラボ';
-    introLead.innerHTML = WARNING_MODE
-      ? '毒蛾と無毒蛾が混ざっています。<br>見つけた蛾をタップしてください。'
-      : `見つけた${label}を<br>タップしてください。`;
-    introSubtle.innerHTML = WARNING_MODE
-      ? '時間制限はありません。蛾を5匹食べると次のラウンドへ。<br>毒蛾を食べると1秒間「毒」と表示されます。'
-      : `見つからなかった${label}が生き残り、<br>次の世代へ子孫を残します。`;
+    if (WARNING_MODE) {
+      setIntroLines(introLead,
+        '毒蛾と無毒蛾が混ざっています。',
+        '見つけた蛾をタップしてください。');
+      setIntroLines(introSubtle,
+        '時間制限はありません。蛾を5匹食べると次のラウンドへ。',
+        '毒蛾を食べると1秒間「毒」と表示されます。');
+    } else {
+      setIntroLines(introLead,
+        `見つけた${label}を`,
+        'タップしてください。');
+      setIntroLines(introSubtle,
+        `見つからなかった${label}が生き残り、`,
+        '次の世代へ子孫を残します。');
+    }
 
     compareButton.textContent = 'プレイした世代を見る';
   }

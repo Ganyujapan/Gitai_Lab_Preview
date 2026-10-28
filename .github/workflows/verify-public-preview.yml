@@ -58,6 +58,8 @@ jobs:
           PY
       - name: Verify author-news copy and fixed menu footer
         run: node .github/scripts/verify-author-news.cjs
+      - name: SEC-F01 species labels render as text, not HTML
+        run: node .github/scripts/verify-sec-f01-intro-labels.cjs
       - name: Verify warning tutorial copy and annotated screenshot-style frames
         run: node .github/scripts/verify-tutorial.cjs
       - name: Check recorded SFX content and playback logic
