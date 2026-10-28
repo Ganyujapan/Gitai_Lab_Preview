@@ -761,8 +761,13 @@
       if(after.generation!==intent.generation_id||after.epoch!==intent.epoch){
         // localStorage cannot be atomic with IDB. Never claim success if
         // another tab advanced the game while the life write was performed.
-        return {status:'stale',detail:'ライフの書込み中に世代が変更されました。'
-          +'ゲーム画面を閉じた状態で管理者に確認してください。'};
+        // RE3-EXH-02: localStorage was already written (or removed) before
+        // observing this race. The write cannot be rolled back together with
+        // IndexedDB, so never tell the administrator life was unchanged.
+        return {status:'stale',lifeMayHaveChanged:true,
+          detail:'ライフ情報の書込み後に世代または復元履歴が変更されました。'
+            +'現在のライフ値が変更されている可能性があります。'
+            +'ゲーム画面を閉じた状態で管理者に確認してください。'};
       }
       try{await clearCompletedWarningLifeIntent(db,intent);}
       catch(error){
@@ -1109,7 +1114,10 @@
       else if(result.status==='none')
         say('再試行が必要なライフ情報はありません。');
       else if(result.status==='stale')
-        say('ライフ情報は変更していません：'+result.detail);
+        say(result.lifeMayHaveChanged
+          ? 'ライフ情報を書き込んだ後に競合を検出しました。'
+            +'ライフが変更されている可能性があります：'+result.detail
+          : 'ライフ情報は変更していません：'+result.detail);
       else
         say('進化データは保存済みですが、ライフ情報が未完了です：'
           +result.detail+'。他のゲーム画面を閉じて再試行してください。');
@@ -1176,8 +1184,11 @@
           '以前のライフ情報が残っている可能性があります。保存エラー：' + result.detail +
           '。全データを復元し直さず「ライフ情報だけ再試行」を押してください。');
       } else if(result.status==='stale'){
-        say('進化データの復元後に世代変更を検出しました。ライフは安全のため確定していません：'
-          +result.detail);
+        say(result.lifeMayHaveChanged
+          ? '進化データの復元後に競合を検出しました。'
+            +'ライフ情報が変更されている可能性があります：'+result.detail
+          : '進化データの復元後に世代変更を検出しました。'
+            +'ライフは安全のため確定していません：'+result.detail);
       } else if(result.status==='none'){
         say('進化データを復元しましたが、ライフ復元の完了情報が見つかりません。管理者へ確認してください。');
       } else {
