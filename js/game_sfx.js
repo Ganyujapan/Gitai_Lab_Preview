@@ -211,12 +211,16 @@
     activate();
     pendingTouchSound = null;
     if (pending) {
-      if (instantNativeIOS && pending.voice
-          && liveNative.includes(pending.voice)) {
-        // Same element, same sound, no currentTime reset and no second voice:
-        // iOS may require pointerup activation despite the earlier request.
-        pending.voice.retry();
-      } else if (!instantNativeIOS || !pending.voice) {
+      if (instantNativeIOS && pending.voice) {
+        if (liveNative.includes(pending.voice)) {
+          // Same element, same sound, no currentTime reset or second voice.
+          pending.voice.retry();
+        } else if (pending.voice.failed) {
+          // Browser rejected pointerdown activation: retry only on this
+          // gesture's matching trusted pointerup (or legacy touchend).
+          playNative(pending.kind, pending.number);
+        }
+      } else {
         playNative(pending.kind, pending.number);
       }
     }
@@ -367,9 +371,10 @@
         try { oldest.player.pause(); } catch (_) {}
       }
       try { player.pause(); player.currentTime = 0; } catch (_) {}
-      const item = { player, kind, onEnded: null, requestId: 0, retry: null };
+      const item = { player, kind, onEnded: null, requestId: 0,
+        retry: null, failed: false, ended: false };
       const done = () => releaseNative(item);
-      item.onEnded = done;
+      item.onEnded = () => { item.ended = true; done(); };
       // The first play() call is made immediately on pointerdown. On iPad,
       // a second request on the SAME element at pointerup is an activation
       // fallback, not a new sound or a seek to the beginning.
@@ -379,11 +384,17 @@
           const attempt = player.play();
           if (attempt && typeof attempt.catch === 'function') {
             attempt.catch(() => {
-              if (item.requestId === requestId) done();
+              if (item.requestId === requestId) {
+                item.failed = true;
+                done();
+              }
             });
           }
         } catch (_) {
-          if (item.requestId === requestId) done();
+          if (item.requestId === requestId) {
+            item.failed = true;
+            done();
+          }
         }
       };
       liveNative.push(item);
