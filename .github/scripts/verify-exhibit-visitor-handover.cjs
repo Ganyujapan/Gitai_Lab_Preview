@@ -24,22 +24,39 @@ function element(text='',visible=false){
       return event;
     }};
 }
-function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false}={}){
+function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false}={}){
   let pointer='gen'+String(end).padStart(5,'0');
   let clicks=0;const errors=[],navigations=[],stash=new Map();
+  const life=new Map();
+  const lifeKey='gitai-warning-life-v1:gitai-exhibit-test';
+  if(mode==='warning')life.set(lifeKey,JSON.stringify({
+    generation_id:pointer,thirds:12 // previous visitor's remaining 4 hearts
+  }));
+  let lifeWrites=0;
   const startGeneration=element('GENERATION '+String(start).padStart(5,'0'));
   const reviewGeneration=element('GENERATION '+String(end).padStart(5,'0'));
   const startOverlay=element('',!review),reviewOverlay=element('',review);
   reviewOverlay.querySelector=()=>({insertAdjacentElement(){}});
   const continueButton=element('次の世代を生成');
+  const generationContinueButton=element('次へ');
+  generationContinueButton.hidden=true;
   continueButton.disabled=disabled;
   continueButton.onNext=()=>{
     clicks++;
-    if(behavior==='commit')pointer='gen'+String(end+1).padStart(5,'0');
+    if(behavior==='commit'){
+      pointer='gen'+String(end+1).padStart(5,'0');
+      if(mode==='warning')queueMicrotask(()=>{
+        // Same order as the game: child DB pointer commits, then the main
+        // game persists remaining lives, then the ready UI is shown.
+        life.set(lifeKey,JSON.stringify({generation_id:pointer,thirds:6}));
+        generationContinueButton.hidden=false;
+      });
+    }
     if(behavior==='invalid')pointer='bad-pointer';
     if(behavior==='fail')continueButton.textContent='もう一度送信';
   };
-  const nodes={startGeneration,reviewGeneration,startOverlay,reviewOverlay,continueButton};
+  const nodes={startGeneration,reviewGeneration,startOverlay,reviewOverlay,continueButton,
+    generationContinueButton};
   const doc={body:{},getElementById:id=>nodes[id]||null,
     createElement:()=>element(),addEventListener(){}};
   const indexedDB = {
@@ -69,8 +86,14 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
     }
   };
   const sessionStorage={getItem:k=>stash.get(k)||null,setItem:(k,v)=>stash.set(k,v)};
-  const context={document:doc,indexedDB,sessionStorage,URL,
-    window:{GitaiPagesPreview:{context:{storageNamespace:'gitai-exhibit-test'}},
+  const localStorage={
+    getItem:k=>life.get(k)??null,
+    setItem(k,v){lifeWrites++;if(lifeSaveError)throw Error('QuotaExceededError');life.set(k,v);}
+  };
+  const context={document:doc,indexedDB,sessionStorage,localStorage,URL,
+    window:{
+      GitaiPagesPreview:{context:{storageNamespace:'gitai-exhibit-test'}},
+      GitaiWarningColor:{LIFE_INITIAL_THIRDS:30},
       addEventListener(){}},
     location:{href:'https://example.test/Gitai_Lab_Preview/exhibit/game.html'
       +(mode==='warning'?'?experiment=warning_color':''),
@@ -80,7 +103,8 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
     alert:s=>errors.push(s),console:{error:e=>errors.push(String(e?.message||e))}};
   vm.runInNewContext(injected,context,{filename:'exhibit/game.js',timeout:5000});
   return {api:context.__test,nodes,navigations,stash,errors,
-    get pointer(){return pointer},get clicks(){return clicks}};
+    get pointer(){return pointer},get clicks(){return clicks},
+    get life(){return life.get(lifeKey)||null},get lifeWrites(){return lifeWrites}};
 }
 async function waitFor(fn){
   for(let i=0;i<500;i++){if(fn())return;await new Promise(r=>setImmediate(r));}
@@ -101,12 +125,18 @@ async function waitFor(fn){
   assert.equal(p.navigations.length,1);
   assert.match(p.navigations[0],/modes\.html\?handover=1$/);
   assert.equal(JSON.parse(p.stash.get('gitai-exhibit-handover-v1')).end,21);
+  assert.equal(p.lifeWrites,0,'cryptic handover must NEVER touch warning-life storage');
   for(const mode of ['cryptic','warning']){
     const mid=fixture({mode,start:21,end:24});
     assert.equal(mid.api.button.hidden,false,'1-4 generation manual swap');
     await mid.api.safelyHandover();
     assert.equal(mid.pointer,'gen00025');
     assert.equal(JSON.parse(mid.stash.get('gitai-exhibit-handover-v1')).mode,mode);
+    if(mode==='warning') {
+      assert.deepEqual(JSON.parse(mid.life),{generation_id:'gen00025',thirds:30},
+        'next visitor gets 10 full hearts without resetting moth evolution');
+      assert.equal(mid.lifeWrites,1,'warning handover writes one life reset');
+    }else assert.equal(mid.lifeWrites,0,'cryptic handover must not write life');
     const fifth=fixture({mode,start:21,end:25});
     assert.equal(fifth.api.button.hidden,true);
     assert.equal(fifth.api.notice.hidden,false);
@@ -118,6 +148,9 @@ async function waitFor(fn){
     assert.equal(fifth.pointer,'gen00026');
     assert.equal(fifth.clicks,1);
     assert.equal(JSON.parse(fifth.stash.get('gitai-exhibit-handover-v1')).end,25);
+    if(mode==='warning')assert.deepEqual(JSON.parse(fifth.life),{
+      generation_id:'gen00026',thirds:30
+    },'fifth-generation handover also resets only life');
   }
   const nextVisitor=fixture({start:26,end:26});
   assert.equal(nextVisitor.api.start(),26);
@@ -129,6 +162,20 @@ async function waitFor(fn){
     assert.equal(failed.api.button.disabled,false);
     assert.equal(failed.stash.has('gitai-exhibit-handover-v1'),false);
   }
+  const failedLife=fixture({mode:'warning',lifeSaveError:true});
+  assert.equal(JSON.parse(failedLife.life).thirds,12,
+    'ordinary warning game starts with the previous visitor life before handover');
+  await failedLife.api.safelyHandover();
+  assert.equal(failedLife.pointer,'gen00022',
+    'failed localStorage does NOT rollback a successfully committed generation');
+  assert.equal(failedLife.navigations.length,0,
+    'never claim handover complete if the next visitor life reset failed');
+  assert.equal(failedLife.stash.has('gitai-exhibit-handover-v1'),false);
+  assert.match(failedLife.errors.join(' '),/ライフ10/);
+  assert.equal(failedLife.lifeWrites,1);
+  assert.equal(JSON.parse(failedLife.life).thirds,6,
+    'failed reset must leave the actual saved life intact');
+
   const disabled=fixture({disabled:true});
   assert.equal(disabled.api.button.hidden,true);
   await disabled.api.safelyHandover();
@@ -136,5 +183,5 @@ async function waitFor(fn){
   const playing=fixture({review:false});
   await playing.api.safelyHandover();
   assert.equal(playing.clicks,0);
-  console.log('RE2-EXH-01: actual exhibition controller parsed generations and safely handed over both modes.');
+  console.log('RE2-EXH-01: both modes hand over only after committed generations; warning life resets to 10 after ordinary save, cryptic untouched, errors fail closed.');
 })().catch(e=>{console.error(e);process.exitCode=1});

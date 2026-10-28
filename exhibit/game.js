@@ -94,6 +94,51 @@
     });
   }
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // In the warning experiment, the main game writes its remaining life only
+  // AFTER the offspring's IndexedDB transaction commits. Resetting at the
+  // first sight of the new DB pointer would race with that ordinary write
+  // and could leave the next visitor with the previous visitor's low life.
+  // The generation-ready button becomes unhidden only after the game's
+  // life-saving step has completed. This waits for BOTH, not just the DB.
+  async function resetWarningLifeForNextVisitor(nextGenerationId) {
+    if (mode !== 'warning') return;
+    const initial = window.GitaiWarningColor?.LIFE_INITIAL_THIRDS;
+    if (initial !== 30) {
+      throw Error('ライフ初期値を確認できません。スタッフにお知らせください。');
+    }
+    const readyButton = document.getElementById('generationContinueButton');
+    let gameReady = false;
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      if (readyButton?.hidden === false) {
+        gameReady = true;
+        break;
+      }
+      await delay(500);
+    }
+    if (!gameReady) {
+      throw Error('次世代のライフ保存完了を確認できませんでした。スタッフにお知らせください。');
+    }
+    const namespace = window.GitaiPagesPreview?.context?.storageNamespace;
+    if (!namespace || await savedGeneration() !== nextGenerationId) {
+      throw Error('交代前に世代番号が変更されました。ライフは変更していません。');
+    }
+    const key = 'gitai-warning-life-v1:' + namespace;
+    const freshLife = JSON.stringify({
+      generation_id: nextGenerationId,
+      thirds: initial
+    });
+    try {
+      localStorage.setItem(key, freshLife);
+      if (localStorage.getItem(key) !== freshLife) {
+        throw Error('保存結果が一致しません。');
+      }
+    } catch (error) {
+      throw Error('次の来場者のライフ10を保存できませんでした。'
+        + '進化データは保存済みの可能性があります。スタッフにお知らせください。');
+    }
+  }
+
   async function safelyHandover() {
     if (handoverPending || !reviewOverlay?.classList.contains('visible')) return;
     ensureVisitorStart();
@@ -110,13 +155,13 @@
       // the result's "next generation" action. Do not hand over incomplete data.
       const previous = await savedGeneration();
       continueButton.click();
-      let committed = false;
+      let committedGeneration = null;
       for (let i = 0; i < 180; i += 1) {
         await delay(500);
         const next = await savedGeneration();
         if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(next)) && Number(next.slice(3)) > completed
           && next !== previous) {
-          committed = true;
+          committedGeneration = next;
           break;
         }
         // A failed/invalid mutation returns to the result panel; do not
@@ -126,7 +171,11 @@
           break;
         }
       }
-      if (!committed) throw Error('世代の保存完了を確認できませんでした。スタッフへお知らせください。');
+      if (!committedGeneration) throw Error('世代の保存完了を確認できませんでした。スタッフへお知らせください。');
+      // Visitor-specific lives reset ONLY for a completed handover. The
+      // evolution DB, genomes, images, history and ordinary continuous play
+      // remain unchanged. Never reset on unsuccessful evolution or retry.
+      await resetWarningLifeForNextVisitor(committedGeneration);
       sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
         mode, start: firstGeneration, end: completed
       }));
