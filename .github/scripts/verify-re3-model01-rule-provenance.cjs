@@ -81,7 +81,8 @@ vm.runInNewContext(source.slice(begin,end)+'\nglobalThis.getReport=collectDiagno
  // Both model pathways use the single already-atomic commit, and the
  // recorded provenance lives IN the same generationDiagnostic payload.
  assert.equal((source.match(/rule_provenance: ruleProvenanceForGeneration\(\)/g)||[]).length,2);
- assert.equal((source.match(/await commitEvolutionGeneration\(/g)||[]).length,2);
+ assert.equal((source.match(/await commitEvolutionGeneration\(/g)||[]).length,3,
+   'legacy, morph and genome branches keep the same atomic transaction');
  assert.match(source,/if \(diagnostic\) meta\.put\(diagnostic, diagnosticKey\(sourceId\)\)/);
  assert.match(source,/meta\.put\(nextId, 'current_generation_id'\)/);
  assert.match(source,/rules=' \+ \(/);
