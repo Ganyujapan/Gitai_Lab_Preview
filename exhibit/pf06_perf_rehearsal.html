@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ギタイラボ PF06 性能検証（合成データのみ）</title>
+<style>
+:root { color-scheme: light; }
+body { max-width: 730px; margin: auto; padding: 22px 16px 44px;
+  font: 16px/1.6 system-ui,-apple-system,sans-serif; color: #202421; background: #f7f8f5; }
+h1 { font-size: 1.4rem; line-height: 1.4; }
+.notice { padding: 12px; border-left: 5px solid #886429; background: #fff6df; }
+label { display: block; margin: 16px 0 8px; font-weight: 600; }
+select { padding: 12px; font: inherit; min-height: 48px; max-width: 100%; }
+button { font: inherit; min-height: 48px; background: #154d3b; color: white; border: 0;
+  border-radius: 6px; padding: 12px 16px; margin: 8px 8px 8px 0; cursor: pointer; }
+button.secondary { background: #3b4750; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+pre { overflow-wrap: anywhere; white-space: pre-wrap; background: white; padding: 12px;
+  border: 1px solid #d6ddd3; border-radius: 5px; font: 13px/1.65 ui-monospace,monospace; }
+small { color: #505a54; }
+</style>
+</head>
+<body>
+<h1>ギタイラボ PF06：iPad性能検証</h1>
+<p class="notice"><strong>実際の進化データや標本を読み書きしません。</strong>
+開始ボタンを押した場合だけ、名前をランダム生成した専用データベースに合成データを作成し、計測後に削除します。
+ゲーム本体の保存先・バックアップ・ライフには触れません。</p>
+<p>目的は、長期間プレイした場合の <strong>履歴の読み込み・標本一覧読み込み・画像URLの管理・標本30枚のDOM生成</strong> の計測です。
+本物の蛾のPNG描画・再生フレームレート・メモリ使用量・進化処理そのものは測りません。
+計測結果は、機器のブラウザ・空き容量・負荷によって変わります。</p>
+<p>合成データは1件8KiBで、100世代の場合はシアターと標本を合計約1.6MiB、
+1,000世代の場合は約15.6MiBのバイナリを使用します（DBの管理情報などは別）。
+容量不足なら失敗する場合があります。Safariや端末を強制終了すると試験DBが残る場合があるため、
+下の「残留試験DBを削除」も用意しています。</p>
+<label for="count">合成テストの件数</label>
+<select id="count">
+  <option value="100">100世代＋標本100件（約1.6MiB）</option>
+  <option value="1000">1,000世代＋標本1,000件（約15.6MiB）</option>
+</select>
+<div>
+  <button id="run" type="button">合成データで性能テストを実行</button>
+  <button id="purge" class="secondary" type="button">残留試験DBを削除</button>
+</div>
+<p id="status" role="status" aria-live="polite">未実行</p>
+<pre id="log" aria-label="試験進行状況">ボタンを押すまでIndexedDBを使用しません。</pre>
+<h2>計測結果</h2>
+<pre id="report" aria-label="計測結果JSON">未計測</pre>
+<button id="copy" class="secondary" type="button" disabled>計測結果をコピー</button>
+<p id="copyStatus" role="status" aria-live="polite"></p>
+<p><small>結果には、実験世代の記録・DNA・蛾の画像・位置情報・端末の識別番号は含みません。
+外部への自動送信もしません。表示される時間は合成データの計測値であり、
+実際の1,000世代の所要時間を保証するものではありません。</small></p>
+<script src="pf06_perf_rehearsal.js"></script>
+<script>
+(() => {
+  'use strict';
+  const run = document.getElementById('run');
+  const purge = document.getElementById('purge');
+  const count = document.getElementById('count');
+  const status = document.getElementById('status');
+  const log = document.getElementById('log');
+  const report = document.getElementById('report');
+  const copy = document.getElementById('copy');
+  const copyStatus = document.getElementById('copyStatus');
+  let reportText = '';
+  let busy = false;
+  function setBusy(value) {
+    busy = value;
+    run.disabled = value;
+    purge.disabled = value;
+    count.disabled = value;
+  }
+  run.addEventListener('click', async () => {
+    if (busy) return;
+    setBusy(true);
+    reportText = '';
+    copy.disabled = true;
+    report.textContent = '計測中…';
+    log.textContent = '';
+    copyStatus.textContent = '';
+    status.textContent = '隔離した試験データを準備中…';
+    try {
+      const result = await GitaiPF06PerfRehearsal.run({
+        count: Number(count.value),
+        indexedDB: window.indexedDB,
+        IDBKeyRange: window.IDBKeyRange,
+        crypto: window.crypto,
+        now: () => performance.now(),
+        urlApi: URL,
+        document,
+        onPhase: message => {log.textContent += message + '\n';}
+      });
+      reportText = JSON.stringify(result, null, 2);
+      report.textContent = reportText;
+      copy.disabled = false;
+      status.textContent = '成功：合成データ計測と試験DB削除を確認しました。';
+    } catch (error) {
+      report.textContent = '試験失敗（未計測）：' + String(error?.message || error)
+        + '\n実データに影響はありません。試験DBの削除状況はログも確認してください。';
+      status.textContent = '検証失敗：内容を確認してください。';
+    } finally {
+      setBusy(false);
+    }
+  });
+  purge.addEventListener('click', async () => {
+    if (busy) return;
+    setBusy(true);
+    status.textContent = '過去のPF06試験DBだけを調べています…';
+    try {
+      const total = await GitaiPF06PerfRehearsal.purgeOrphans(window.indexedDB);
+      status.textContent = 'PF06専用の残留試験DBを ' + total + ' 件削除しました。';
+    } catch (error) {
+      status.textContent = '確認できませんでした：' + String(error?.message || error);
+    } finally {
+      setBusy(false);
+    }
+  });
+  copy.addEventListener('click', async () => {
+    if (!reportText) return;
+    try {
+      await navigator.clipboard.writeText(reportText);
+      copyStatus.textContent = '計測結果をコピーしました。';
+    } catch (_) {
+      copyStatus.textContent = 'コピーできませんでした。上の計測結果を手動で選択してコピーしてください。';
+    }
+  });
+})();
+</script>
+</body>
+</html>

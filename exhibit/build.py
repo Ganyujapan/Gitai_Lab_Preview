@@ -145,6 +145,7 @@ def main() -> None:
                  "backup_readiness.js",
                  # Optional diagnostics: NEVER loaded by index/modes/game/admin.
                  "backup_rehearsal.html", "backup_schema_rehearsal.js",
+                 "pf06_perf_rehearsal.html", "pf06_perf_rehearsal.js",
                  "backup_checkpoint_v2.js", "backup_v2.js",
                  "backup_restore_preflight_v2.js", "backup_restore_atomic_v2.js",
                  "backup_atomic_rehearsal.js",
@@ -192,7 +193,8 @@ def main() -> None:
     assert 'id="portalArt"' in (exhibit / "index.html").read_text(encoding="utf-8")
     # Real-browser rehearsal stays isolated; production entry points don't
     # import or execute diagnostic database upgrade code.
-    for needed in ("backup_rehearsal.html", "backup_schema_rehearsal.js",
+    for needed in ("pf06_perf_rehearsal.html", "pf06_perf_rehearsal.js",
+                   "backup_rehearsal.html", "backup_schema_rehearsal.js",
                    "backup_checkpoint_v2.js", "backup_v2.js",
                    "backup_restore_preflight_v2.js", "backup_restore_atomic_v2.js",
                    "backup_atomic_rehearsal.js",
@@ -201,6 +203,8 @@ def main() -> None:
         assert needed in runtime_files
     for entry in ("game.html", "modes.html", "index.html"):
         page_source = (exhibit / entry).read_text(encoding="utf-8")
+        assert "pf06_perf_rehearsal.js" not in page_source
+        assert "pf06_perf_rehearsal.html" not in page_source
         assert "backup_schema_rehearsal.js" not in page_source
         assert "backup_checkpoint_v2.js" not in page_source
         assert "backup_atomic_rehearsal.js" not in page_source
@@ -209,6 +213,8 @@ def main() -> None:
         assert "backup_warning_life_rehearsal.js" not in page_source
         assert "backup_rehearsal_report.js" not in page_source
         assert "backup_file_handoff_rehearsal.js" not in page_source
+    assert "pf06_perf_rehearsal.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
+    assert '<script src="pf06_perf_rehearsal.js"></script>' in (exhibit / "pf06_perf_rehearsal.html").read_text(encoding="utf-8")
     assert "backup_schema_rehearsal.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
     assert "backup_restore_atomic_v2.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
     assert "backup_warning_life_recovery_v2.js" not in (exhibit / "admin.js").read_text(encoding="utf-8")
