@@ -103,7 +103,7 @@ function harness({canShare=true,shareError=null}={}){
   ctx.inGesture=false;
   vm.runInNewContext(handoff,ctx,{filename:'admin.js:handoff',timeout:1500});
   function click(id){
-    const cb=listeners[id+':click];assert.equal(typeof cb,'function');
+    const cb=listeners[id+':click'];assert.equal(typeof cb,'function');
     ctx.inGesture=true;
     try{return cb();}
     finally{ctx.inGesture=false;}
