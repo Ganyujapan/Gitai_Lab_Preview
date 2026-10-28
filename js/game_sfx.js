@@ -71,6 +71,12 @@
   // interrupted or frozen context falls back to AAC on pointerup.
   // Never alter the rainforest BGM's independent native media elements.
   const lowLatencyIOS = iosDevice && /(?:^|[?&])sfx=fast(?:&|$)/.test(w.location?.search || '');
+  // SFX-L03: the capture itself happens on pointerdown, so ask the native
+  // AAC player to start at that instant. Keep an explicit opt-out for Safari
+  // devices where BGM + native audio behaves differently (?sfx=release).
+  // This does NOT enable mixed WebAudio/BGM on every iPad.
+  const instantNativeIOS = iosDevice && !lowLatencyIOS
+    && !/(?:^|[?&])sfx=release(?:&|$)/.test(w.location?.search || '');
   function contextHealthy() {
     const ctx = getContext();
     if (!ctx || ctx.state !== 'running' || preferNative) return false;
@@ -204,7 +210,16 @@
         && typeof w.PointerEvent !== 'undefined') return;
     activate();
     pendingTouchSound = null;
-    if (pending) playNative(pending.kind, pending.number);
+    if (pending) {
+      if (instantNativeIOS && pending.voice
+          && liveNative.includes(pending.voice)) {
+        // Same element, same sound, no currentTime reset and no second voice:
+        // iOS may require pointerup activation despite the earlier request.
+        pending.voice.retry();
+      } else if (!instantNativeIOS || !pending.voice) {
+        playNative(pending.kind, pending.number);
+      }
+    }
   }
 
   function key(kind, number) { return kind + '_' + number; }
@@ -352,18 +367,31 @@
         try { oldest.player.pause(); } catch (_) {}
       }
       try { player.pause(); player.currentTime = 0; } catch (_) {}
-      const item = { player, kind, onEnded: null };
+      const item = { player, kind, onEnded: null, requestId: 0, retry: null };
       const done = () => releaseNative(item);
       item.onEnded = done;
+      // The first play() call is made immediately on pointerdown. On iPad,
+      // a second request on the SAME element at pointerup is an activation
+      // fallback, not a new sound or a seek to the beginning.
+      item.retry = () => {
+        const requestId = ++item.requestId;
+        try {
+          const attempt = player.play();
+          if (attempt && typeof attempt.catch === 'function') {
+            attempt.catch(() => {
+              if (item.requestId === requestId) done();
+            });
+          }
+        } catch (_) {
+          if (item.requestId === requestId) done();
+        }
+      };
       liveNative.push(item);
       player.addEventListener('ended', done, { once: true });
-      try {
-        const attempt = player.play(); // Directly inside the caller's user gesture.
-        if (attempt && typeof attempt.catch === 'function') attempt.catch(done);
-      } catch (_) {
-        releaseNative(item);
-      }
+      item.retry();
+      return item;
     } catch (_) { /* Sound must never interrupt gameplay. */ }
+    return null;
   }
 
   function play(kind) {
@@ -373,8 +401,18 @@
       if (kind === 'death') stopKind('poison'); // Avoid overlap at lethal capture.
       const number = variantIndex(GROUPS[kind]) + 1;
       if (iosDevice && !lowLatencyIOS) {
-        // The next pointerup/touchend is the real Safari media gesture.
-        nativeOnNextGesture(kind, number);
+        if (instantNativeIOS) {
+          // The game's successful hit callback already runs on pointerdown.
+          // Make the first audio request *now*, instead of waiting for release.
+          const voice = playNative(kind, number);
+          if (touchDevice) pendingTouchSound = {
+            kind, number, voice, pointerId: lastPointer?.id ?? null,
+            createdAt: Date.now()
+          };
+        } else {
+          // Explicit compatibility route: original pointerup-only AAC.
+          nativeOnNextGesture(kind, number);
+        }
         return;
       }
       if (lowLatencyIOS && !fastUnlocked) {
