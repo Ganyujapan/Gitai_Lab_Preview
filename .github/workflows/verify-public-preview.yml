@@ -138,6 +138,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-isolated-upgrade-rehearsal.cjs
       - name: Validate multipart semantic restore preflight using shipped genome and PNG checks
         run: node .github/scripts/verify-exhibit-v2-semantic-restore-preflight.cjs
+      - name: EXH-F01 exercise admin's PIN-gated read-only multipart saved file check
+        run: node .github/scripts/verify-exh-f01-v2-readonly-ui.cjs
       - name: Verify isolated multipart restore with atomic rollback under quota failure
         run: node .github/scripts/verify-exhibit-v2-isolated-atomic-restore.cjs
       - name: Verify opt-in Safari atomic restore rehearsal cannot reach production DB
@@ -232,6 +234,9 @@ jobs:
           node --check _site/exhibit/admin.js
           node --check _site/exhibit/landing.js
           node --check _site/exhibit/js/pages_preview.js
+          node --check _site/exhibit/backup_v2.js
+          node --check _site/exhibit/backup_restore_preflight_v2.js
+          node .github/scripts/verify-exh-f01-v2-readonly-ui.cjs
           node --check _site/exhibit/js/entertainment_portal.js
           node --check _site/exhibit/sw.js
           node exhibit/verify_mutation_profile.cjs _site

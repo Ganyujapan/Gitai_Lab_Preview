@@ -98,6 +98,15 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
     addEventListener(event,cb){handlers['verify:'+event]=cb;}
   };
   const verifyButton={addEventListener(event,cb){handlers['verify-button:'+event]=cb;}};
+  // EXH-F01's read-only multipart picker is new, but this test only
+  // exercises the existing v1 restore UI; keep its synthetic DOM complete.
+  const v2FilesInput={
+    value:'',files:[],click(){},
+    addEventListener(event,cb){handlers['v2:'+event]=cb;}
+  };
+  const v2VerifyButton={
+    disabled:false,addEventListener(event,cb){handlers['v2-button:'+event]=cb;}
+  };
   const context = {
     MODES,STORES,BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
     Blob,Uint8Array,DataView,digest,
@@ -207,6 +216,8 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
         if(id==='exhibitBackupLifeRetry')return lifeRetryButton;
         if(id==='exhibitBackupVerifyFile')return verifyFileInput;
         if(id==='exhibitBackupVerify')return verifyButton;
+        if(id==='exhibitBackupV2Verify')return v2VerifyButton;
+        if(id==='exhibitBackupV2Files')return v2FilesInput;
         throw Error('Unexpected DOM lookup: '+id);
       }
     }

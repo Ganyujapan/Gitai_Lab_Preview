@@ -953,6 +953,57 @@
     });
   }
 
+  // EXH-F01 / RE2-EXH-02: one-way file inspection only. This code NEVER
+  // opens a source/stage DB, upgrades schema, restores life, or persists a
+  // selected archive. Both checks use the SAME strict PNG/genome validators
+  // as the shipped v1 importer. A passing check is NOT restore authorization.
+  async function verifySavedMultipartFiles(files, selected) {
+    const partApi = window.GitaiBackupV2;
+    const semanticApi = window.GitaiBackupRestorePreflightV2;
+    const mode = MODES[selected];
+    if (!mode) throw Error('検証対象のモードを選択し直してください。');
+    if (!partApi || typeof partApi.validateManifest !== 'function'
+        || !semanticApi || typeof semanticApi.preflightRestore !== 'function') {
+      throw Error('分割ファイル検証器を利用できません。管理画面を再読み込みしてください。');
+    }
+    // Check FileList count BEFORE duplicating the list. Multi-select is
+    // required; a single JSON is not a complete split backup.
+    if (!files || !Number.isSafeInteger(files.length)
+        || files.length < 2 || files.length > 8193) {
+      throw Error('索引ファイルと全分割ファイルをまとめて選択してください（最大8193ファイル）。');
+    }
+    const selectedFiles = Array.from(files);
+    const manifests = selectedFiles.filter(file => file?.name === 'manifest.json');
+    if (manifests.length !== 1) {
+      throw Error('manifest.json が1件必要です。ほかのバックアップと混ぜないでください。');
+    }
+    const manifestFile = manifests[0];
+    if (!Number.isSafeInteger(manifestFile.size) || manifestFile.size < 1
+        || manifestFile.size > partApi.MAX_MANIFEST_BYTES) {
+      throw Error('索引ファイルが大きすぎるか読み取れません。');
+    }
+    const partFiles = selectedFiles.filter(file => file !== manifestFile);
+    if (partFiles.some(file => !file || typeof file.name !== 'string'
+        || !/^part-\d{5}\.json$/.test(file.name)
+        || !Number.isSafeInteger(file.size) || file.size < 1
+        || file.size > partApi.MAX_PART_BYTES)) {
+      throw Error('分割ファイルの名前・容量に異常があります。');
+    }
+    const result = await semanticApi.preflightRestore({
+      manifestFile, partFiles, mode: selected, database: mode.db, partApi,
+      checkGenome, checkMothPng
+    });
+    if (!result || result.semanticChecked !== true || result.safeToRestore !== false
+        || result.checkedPngs !== 60 || result.checkedGenomes !== 60) {
+      throw Error('分割ファイルの内容検証が完了していません。');
+    }
+    return Object.freeze({
+      mode: selected, generation: result.generation, entries: result.entries,
+      partCount: partFiles.length, integrity: 'sha256-and-strict-current-png-genome',
+      safeToRestore: false
+    });
+  }
+
   const button = document.getElementById('exhibitAdminOpen');
   button.addEventListener('click', async () => {
     try { await unlock(); } catch (error) { alert(error.message); }
@@ -1157,6 +1208,49 @@
         +'。ゲームの進化データは変更していません。'
         +'元のバックアップや保存済み実験を削除しないでください。');
     }finally{verifyBackupInput.value='';}
+  });
+
+  // Explicitly re-select files from iPad Files; do not trust the source
+  // writer's in-memory File objects or an unconfirmed Share sheet operation.
+  const v2VerifyButton = document.getElementById('exhibitBackupV2Verify');
+  const v2FilesInput = document.getElementById('exhibitBackupV2Files');
+  let v2Selection = null;
+  v2VerifyButton.addEventListener('click', () => {
+    if (!unlocked || preparingBackup || restoreMutationBusy) {
+      say('バックアップの別操作が進行中です。完了後に検証してください。');
+      return;
+    }
+    v2Selection = {mode: selector.value, request: preparationId};
+    v2FilesInput.value = '';
+    v2FilesInput.click();
+  });
+  v2FilesInput.addEventListener('change', async () => {
+    const selection = v2Selection;
+    v2Selection = null;
+    if (!unlocked || !selection || !v2FilesInput.files?.length) return;
+    v2VerifyButton.disabled = true;
+    say('選択された分割ファイルのSHA-256と現在世代のPNG・DNAを読み取り専用で検証中…');
+    try {
+      const result = await verifySavedMultipartFiles(v2FilesInput.files, selection.mode);
+      if (!unlocked || selection.request !== preparationId
+          || selector.value !== selection.mode) return;
+      say('分割ファイルの検証成功：' + MODES[result.mode].label + '／'
+        + result.generation + '／' + result.partCount + '分割／'
+        + result.entries + '件。全ファイルのSHA-256と現在世代の画像60匹・DNA60匹を検査しました。'
+        + '実験データは読み書きしていません。'
+        + 'これは選択されたファイル群の検証であり、復元の成功や将来の保存は保証しません。'
+        + '現在の管理画面から分割ファイルを復元することはできません。');
+    } catch (error) {
+      if (unlocked && selection.request === preparationId
+          && selector.value === selection.mode) {
+        say('分割ファイルの検証失敗：' + (error?.message || String(error))
+          + '。元の分割ファイルと実験データは削除しないでください。'
+          + 'ゲームの保存データへの変更は行っていません。');
+      }
+    } finally {
+      v2VerifyButton.disabled = false;
+      v2FilesInput.value = '';
+    }
   });
 
   document.getElementById('exhibitBackupRestore').addEventListener('click', () => {
