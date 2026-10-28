@@ -16,7 +16,8 @@ function harness({pointerSupport=true}={}){
       handlers:new Map(),load(){},pause(){this.paused=true;},
       addEventListener(k,fn){this.handlers.set(k,fn);},
       removeEventListener(k,fn){if(this.handlers.get(k)===fn)this.handlers.delete(k);},
-      play(){nativePlays.push(this.src);this.paused=false;return Promise.resolve();}
+      play(){if(this.paused)nativePlays.push(this.src);
+        this.paused=false;return Promise.resolve();}
     };
     allPlayers.push(p);return p;
   },
@@ -52,30 +53,30 @@ function harness({pointerSupport=true}={}){
  cancelled.emit('click',{pointerId:11});
  cancelled.emit('pointerdown',{pointerId:22});
  cancelled.emit('pointerup',{pointerId:22});
- assert.equal(cancelled.nativePlays.length,0,'cancelled sound never reappears');
+ assert.equal(cancelled.nativePlays.length,1,'pointerdown capture plays immediately, cancelled release cannot replay it');
 
  const invisible=harness();
  invisible.emit('pointerdown',{pointerId:3});invisible.play();
  invisible.document.hidden=true;invisible.emit('visibilitychange');
  invisible.document.hidden=false;invisible.emit('pointerup',{pointerId:3});
- assert.equal(invisible.nativePlays.length,0,'hidden PWA discards pending touch');
+ assert.equal(invisible.nativePlays.length,1,'hidden PWA discards release retry, not the original capture');
 
  const held=harness();
  held.emit('pointerdown',{pointerId:4});held.play();
  held.advance(700);held.emit('pointerup',{pointerId:4});
- assert.equal(held.nativePlays.length,1,'normal long press still plays on release');
+ assert.equal(held.nativePlays.length,1,'long press plays at pointerdown, not on release');
 
  const expired=harness();
  expired.emit('pointerdown',{pointerId:5});expired.play();
  expired.advance(2700);expired.emit('pointerup',{pointerId:5});
  expired.emit('click',{pointerId:5});
- assert.equal(expired.nativePlays.length,0,'stale long press never plays later');
+ assert.equal(expired.nativePlays.length,1,'stale long press cannot replay initial capture later');
 
  const multitouch=harness();
  multitouch.emit('pointerdown',{pointerId:6});multitouch.play();
  multitouch.emit('pointerdown',{pointerId:7}); // second finger, no moth capture
  multitouch.emit('pointerup',{pointerId:7});
- assert.equal(multitouch.nativePlays.length,0,'other finger cannot flush first hit');
+ assert.equal(multitouch.nativePlays.length,1,'another finger cannot replay the already-started hit');
  multitouch.emit('pointerup',{pointerId:6});
  assert.equal(multitouch.nativePlays.length,1);
  multitouch.emit('touchend',{pointerId:6});
@@ -84,7 +85,7 @@ function harness({pointerSupport=true}={}){
  const synthetic=harness();
  synthetic.emit('pointerdown',{pointerId:8});synthetic.play();
  synthetic.emit('click',{pointerId:8,isTrusted:false});
- assert.equal(synthetic.nativePlays.length,0);
+ assert.equal(synthetic.nativePlays.length,1,'synthetic click cannot add a new sound');
  synthetic.emit('pointerup',{pointerId:8,isTrusted:true});
  assert.equal(synthetic.nativePlays.length,1);
 
@@ -93,5 +94,5 @@ function harness({pointerSupport=true}={}){
  fallback.emit('touchend',{pointerId:9});
  assert.equal(fallback.nativePlays.length,1,'legacy touchend remains fallback');
 
- console.log('PF02: native iOS normal/cancel/hidden/long/expired/multitouch/synthetic/double event paths OK.');
+ console.log('PF02 + SFX-L03: native iOS starts at capture; cancel/hidden/long/expired/multitouch/synthetic events cannot replay.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

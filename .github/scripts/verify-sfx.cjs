@@ -98,7 +98,8 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
       load(){},
       addEventListener(){},
       pause(){this.paused=true;},
-      play(){this.paused=false;nativePlays.push(this.src);
+      play(){if(this.paused)nativePlays.push(this.src);
+        this.paused=false;
         if(failNative)throw Error('Playback denied');
         return Promise.resolve();}};
   }
@@ -137,14 +138,16 @@ async function mock({ webaudio=true, ogg=true, failDecodeOgg=false, failNative=f
   const c=await mock({webaudio:false,ogg:false});
   c.api.play('capture');
   assert.ok(c.nativePlays[0].includes('/aac/capture_'),'iOS native AAC fallback');
-  // Safari touch needs a real pointerup/touchend for native AAC media.
+  // SFX-L03: native AAC gets its first play request on successful
+  // pointerdown; repeating play() on the SAME element at pointerup must not
+  // add a second audible start in the synthetic player.
   const ipad=await mock({webaudio:true,ogg:true,touch:true,ios:true});
   assert.equal(ipad.fetches.length,0,'iOS must avoid eager Web Audio decoding');
   ipad.api.play('poison');
   assert.equal(ipad.starts.length,0,'iOS must not switch to Web Audio');
-  assert.equal(ipad.nativePlays.length,0,'No premature native play on touch pointerdown');
+  assert.equal(ipad.nativePlays.length,1,'Native AAC starts on capture pointerdown');
   ipad.listeners.find(e=>e[0]==='pointerup')[1]();
-  assert.equal(ipad.nativePlays.length,1);
+  assert.equal(ipad.nativePlays.length,1,'Pointerup same-element retry adds no new sound');
   assert.ok(ipad.nativePlays[0].includes('/aac/poison_'));
   ipad.api.play('capture');
   ipad.listeners.find(e=>e[0]==='pointerup')[1]();
