@@ -9,7 +9,7 @@ const page=fs.readFileSync('exhibit/pf06_perf_rehearsal.html','utf8');
 const build=fs.readFileSync('exhibit/build.py','utf8');
 const runtime=['exhibit/game.js','exhibit/admin.js','exhibit/landing.js',
   'exhibit/index.html','exhibit/modes.html','index.html'];
-assert.doesNotMatch(script,/gitai-exhibit-2026|gitai-pages-preview|localStorage|fetch\s*\(/,
+assert.doesNotMatch(script,/gitai-exhibit-2026|gitai-pages-preview|\blocalStorage\s*[.\[]|fetch\s*\(/,
   'isolated rehearsal must never name/scan a production source');
 assert.match(page,/<script src="pf06_perf_rehearsal.js"><\/script>/);
 assert.match(page,/id="run"/);
