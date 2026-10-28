@@ -13,8 +13,33 @@ assert.match(deploy, /^  push:\s*\n    branches: \[main\]/m, 'Main push deploy m
 assert.match(deploy, /^  workflow_dispatch:/m, 'Manual releases must be gated too');
 assert.match(deploy, /^  verify:\s*\n(?:[^\n]*\n)*?    uses: \.\/\.github\/workflows\/verify-public-preview\.yml/m,
   'Production must call the same full PR validation workflow');
-assert.match(deploy, /^  deploy:\s*\n    needs: verify\s*$/m,
-  'Pages deploy must depend on full verification success');
+assert.match(deploy, /^  build:\s*\n    needs: verify\s*$/m,
+  'Read-only artifact build must depend on the PR validation gate');
+assert.match(deploy, /^  deploy:\s*\n(?:    #[^\n]*\n)*    needs: \[verify, build\]\s*$/m,
+  'Privileged Pages deployment must depend on both validation and artifact build');
+const jobsStart=deploy.indexOf('\njobs:\n');
+const verifyStart=deploy.indexOf('\n  verify:\n',jobsStart);
+const buildStart=deploy.indexOf('\n  build:\n',verifyStart);
+const deployStart=deploy.indexOf('\n  deploy:\n',buildStart);
+assert.ok(jobsStart>=0&&verifyStart>jobsStart&&buildStart>verifyStart&&deployStart>buildStart,
+  'Verification, build, deploy jobs must be separate');
+const verificationJob=deploy.slice(verifyStart,buildStart);
+const buildJob=deploy.slice(buildStart,deployStart);
+const publishJob=deploy.slice(deployStart);
+assert.match(verificationJob,/permissions:\s*\n      contents: read\s*\n/,
+  'Validation must remain read-only');
+assert.match(buildJob,/permissions:\s*\n      contents: read\s*\n/,
+  'Artifact build must remain read-only');
+assert.doesNotMatch(verificationJob+buildJob,/\bpages: write\b|\bid-token: write\b/,
+  'Validation and build must not have Pages or OIDC publishing permissions');
+assert.match(publishJob,/permissions:\s*\n      pages: write\s*\n      id-token: write\s*\n/,
+  'Publish job must carry the scoped Pages and OIDC permissions');
+assert.doesNotMatch(publishJob,/actions\/checkout@|\brun:|actions\/upload-pages-artifact@/,
+  'Privileged publish job must not checkout, run scripts, or build/upload');
+assert.match(buildJob,/actions\/upload-pages-artifact@/,
+  'Unprivileged build must upload the Pages artifact');
+assert.match(publishJob,/actions\/deploy-pages@/,
+  'Privileged deploy job must publish the Pages artifact');
 assert.match(deploy, /^  verify:\s*\n(?:[^\n]*\n)*?    permissions:\s*\n      contents: read/m,
   'Full validation job must not have Pages/write credentials');
 // CI-02: the release gate must accept ONLY verified immutable Action SHAs.
