@@ -137,7 +137,7 @@ function harness({canShare=true,shareError=null}={}){
   assert.match(h.msgs.at(-1),/まだiPadには保存されていません/);
   h.click('exhibitBackupShare');
   assert.equal(h.counts.share,1);
-  await Promise.resolve();await Promise.resolve();
+  await new Promise(resolve=>setImmediate(resolve));
   assert.match(h.msgs.at(-1),/保存が完了したとは限りません/);
   h.click('exhibitBackupDownload');
   assert.equal(h.counts.download,1);
@@ -159,7 +159,7 @@ function harness({canShare=true,shareError=null}={}){
   const cancel=harness({shareError:Object.assign(new Error('cancel'),{name:'AbortError'})});
   const cp=cancel.click('exhibitBackupExport');cancel.resolve();await cp;
   cancel.click('exhibitBackupShare');
-  await Promise.resolve();await Promise.resolve();
+  await new Promise(resolve=>setImmediate(resolve));
   assert.match(cancel.msgs.at(-1),/共有をキャンセル/);
   assert.equal(cancel.controls.exhibitBackupDownload.hidden,false);
 
