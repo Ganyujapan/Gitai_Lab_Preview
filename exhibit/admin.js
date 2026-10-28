@@ -337,16 +337,11 @@
     // rejects on byte, entry, node or nesting limits. Preserve original DB.
     checkBackupExportLimits(envelope, file.size);
     if (modeId === 'warning') checkWarningLife(payload.warningLife, current);
-    if (navigator.canShare?.({files: [file]}) && navigator.share) {
-      await navigator.share({title: 'ギタイラボ 進化バックアップ', files: [file]});
-    } else {
-      const url = URL.createObjectURL(file);
-      const link = document.createElement('a');
-      link.href = url; link.download = file.name; document.body.append(link);
-      link.click(); link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 20000);
-    }
-    return current;
+    // EXH-F03: export takes multiple async steps and may consume Safari's
+    // user activation. Return the validated File in memory; the administrator
+    // must tap a SECOND button before invoking share() or a download.
+    // A started share/download is NOT evidence that Files saved the result.
+    return Object.freeze({generation: current, mode: modeId, file});
   }
 
   // Existing export encoding and IndexedDB schemas are unchanged.
@@ -835,6 +830,9 @@
   });
   document.getElementById('exhibitAdminClose').addEventListener('click', () => {
     unlocked = false; panel.hidden = true;
+    // Pending asynchronous preparation cannot be handed off after locking.
+    preparationId++;
+    clearPreparedBackup();
   });
   // Read-only capacity preflight: neither uses openDb(name, 2), which can
   // initialize an empty database, nor loads image blobs / whole history.
@@ -864,14 +862,107 @@
     }finally{readinessButton.disabled=false;}
   });
 
-  document.getElementById('exhibitBackupExport').addEventListener('click', async () => {
-    if (!unlocked) return;
-    say('JSONバックアップを作成中…');
-    try {
-      const generation = await exportMode(selector.value);
-      say(generation + 'のバックアップを生成しました。必ずiPadの「ファイル」アプリ等に保存されたことを確認してください。');
-    } catch (error) {
-      say('バックアップ失敗：' + (error?.message || String(error)));
+  // Prepared archives are TEMPORARY in-memory objects, not saved files.
+  // Keep at most one; clear it on a new request, mode change or admin lock.
+  // The share/download MUST start directly inside its own user gesture.
+  const exportButton=document.getElementById('exhibitBackupExport');
+  const shareButton=document.getElementById('exhibitBackupShare');
+  const downloadButton=document.getElementById('exhibitBackupDownload');
+  let preparedBackup=null;
+  let preparingBackup=false;
+  let preparationId=0;
+  function clearPreparedBackup() {
+    preparedBackup=null;
+    shareButton.hidden=true;
+    downloadButton.hidden=true;
+  }
+  selector.addEventListener('change',()=>{
+    preparationId++;
+    clearPreparedBackup();
+    if(!preparingBackup)say('モードを変更しました。バックアップを準備し直してください。');
+  });
+  exportButton.addEventListener('click',async()=>{
+    if(!unlocked||preparingBackup)return;
+    const modeId=selector.value;
+    const id=++preparationId;
+    clearPreparedBackup();
+    preparingBackup=true;
+    exportButton.disabled=true;
+    say('バックアップを準備中…ファイルはまだ保存されていません。');
+    try{
+      const prepared=await exportMode(modeId);
+      // Never expose a stale copy after selection changed, lock or retry.
+      if(!unlocked||id!==preparationId||selector.value!==modeId)return;
+      preparedBackup=prepared;
+      shareButton.hidden=false;
+      downloadButton.hidden=false;
+      say(MODES[modeId].label+' '+prepared.generation+'のJSONを準備しました（'
+        +Math.ceil(prepared.file.size/1024)+' KiB）。'
+        +'続いて「共有シートで保存」または「JSONをダウンロード」を'
+        +'もう一度タップしてください。まだiPadには保存されていません。');
+    }catch(error){
+      if(id===preparationId)
+        say('バックアップの準備に失敗：'+(error?.message||String(error))
+          +'。元の進化データは変更していません。');
+    }finally{
+      preparingBackup=false;
+      exportButton.disabled=false;
+    }
+  });
+  shareButton.addEventListener('click',()=>{
+    if(!unlocked||!preparedBackup)return;
+    const file=preparedBackup.file;
+    // No await, callback, timer, or other task before the share() invocation.
+    try{
+      if(typeof navigator.share!=='function'||
+         (typeof navigator.canShare==='function'&&!navigator.canShare({files:[file]}))){
+        say('この環境ではファイル共有を利用できません。'
+          +'「JSONをダウンロード」をお試しください。');
+        return;
+      }
+      const handoff=navigator.share({
+        title:'ギタイラボ 進化バックアップ',files:[file]
+      });
+      say('共有操作を開始しました。「ファイル」に保存し、'
+        +'保存済みJSONを選び直して検証してください。');
+      Promise.resolve(handoff).then(()=>{
+        say('共有操作が終了しました。保存が完了したとは限りません。'
+          +'「ファイル」で確認後、「保存したJSONを検証する」を実行してください。');
+      }).catch(error=>{
+        if(error?.name==='AbortError'){
+          say('共有をキャンセルしました。準備したJSONはまだ残っています。'
+            +'再度タップするか「JSONをダウンロード」をご利用ください。');
+        }else{
+          say('共有できませんでした：'+(error?.message||String(error))
+            +'。「JSONをダウンロード」をお試しください。');
+        }
+      });
+    }catch(error){
+      say('共有を開始できませんでした：'+(error?.message||String(error))
+        +'。「JSONをダウンロード」をお試しください。');
+    }
+  });
+  downloadButton.addEventListener('click',()=>{
+    if(!unlocked||!preparedBackup)return;
+    const file=preparedBackup.file;
+    let url=null;
+    try{
+      // Called synchronously from the direct click; not after async export.
+      url=URL.createObjectURL(file);
+      const link=document.createElement('a');
+      link.href=url;
+      link.download=file.name;
+      link.hidden=true;
+      document.body.appendChild(link);
+      try{link.click();}
+      finally{link.remove();}
+      say('JSONのダウンロード操作を開始しました。保存完了の保証ではありません。'
+        +'「ファイル」で確認後、保存済みJSONを再選択して検証してください。');
+    }catch(error){
+      say('ダウンロードを開始できませんでした：'
+        +(error?.message||String(error)));
+    }finally{
+      if(url)setTimeout(()=>URL.revokeObjectURL(url),60000);
     }
   });
   const input = document.getElementById('exhibitBackupFile');
