@@ -913,13 +913,13 @@
     if(!unlocked||!preparedBackup)return;
     const file=preparedBackup.file;
     // No await, callback, timer, or other task before the share() invocation.
-    if(typeof navigator.share!=='function'||
-       (typeof navigator.canShare==='function'&&!navigator.canShare({files:[file]}))){
-      say('この環境ではファイル共有を利用できません。'
-        +'「JSONをダウンロード」をお試しください。');
-      return;
-    }
     try{
+      if(typeof navigator.share!=='function'||
+         (typeof navigator.canShare==='function'&&!navigator.canShare({files:[file]}))){
+        say('この環境ではファイル共有を利用できません。'
+          +'「JSONをダウンロード」をお試しください。');
+        return;
+      }
       const handoff=navigator.share({
         title:'ギタイラボ 進化バックアップ',files:[file]
       });
