@@ -56,6 +56,12 @@
 <button type="button" id="exhibitBackupDownload" hidden>準備したJSONをダウンロード</button>
 <button type="button" id="exhibitBackupVerify">保存したJSONを検証する（読み取り専用）</button>
 <input type="file" id="exhibitBackupVerifyFile" accept=".json,application/json">
+<hr>
+<p>分割バックアップ（試験形式v2）：保存済みの索引 `manifest.json` と全ての `part-*.json` を一度に選択して内容を検証します。<strong>検証だけ</strong>を行い、実験データは変更・復元しません。大容量の本番書き出し・復元はまだ有効になっていません。</p>
+<button type="button" id="exhibitBackupV2Verify">保存済み分割ファイルを検証する（読み取り専用）</button>
+<input type="file" id="exhibitBackupV2Files" accept=".json,application/json" multiple>
+<p><a href="backup_rehearsal.html" id="exhibitBackupRehearsalLink">iPadで分割バックアップの隔離テストを開く（実験データは使わない）</a></p>
+<hr>
 <button type="button" id="exhibitBackupRestore">JSONから復元する</button>
 <button type="button" id="exhibitBackupLifeRetry">ライフ情報だけ再試行（進化データは変更しない）</button>
 <input type="file" id="exhibitBackupFile" accept=".json,application/json">
@@ -67,4 +73,4 @@
 <p id="exhibitAdminMessage" role="status" aria-live="polite"></p>
 <button type="button" id="exhibitAdminClose">管理画面を閉じる・ロックする</button>
 </section>
-</main><script src="landing.js" defer></script><script src="theater_canvas_20261026.js" defer></script><script src="backup_readiness.js" defer></script><script src="admin.js" defer></script></body></html>
+</main><script src="landing.js" defer></script><script src="theater_canvas_20261026.js" defer></script><script src="backup_readiness.js" defer></script><script src="backup_v2.js" defer></script><script src="backup_restore_preflight_v2.js" defer></script><script src="admin.js" defer></script></body></html>
