@@ -320,11 +320,17 @@
       throw Error('このモードには保存済みの進化データがまだありません。');
     }
     const lifeKey = 'gitai-warning-life-v1:' + mode.db;
+    // AUD-EXP-01: Capture the life value before costly JSON serialization.
+    // The initial snapshot already contains current_generation_id and the
+    // restore_epoch. Check both again once the file is prepared: a different
+    // game tab may progress or another admin tab may restore during export.
+    const baselineLife = modeId === 'warning' ? localStorage.getItem(lifeKey) : null;
+    const snapshotEpoch = snapshot.meta.find(item => item.key === 'restore_epoch')?.value;
     const payload = {
       schema: BACKUP_SCHEMA, mode: modeId, database: mode.db, databaseVersion: 2,
       createdAt: new Date().toISOString(), currentGeneration: current,
       gameBuild: await fetch('version.json').then(r => r.json()).then(x => x.build).catch(() => null),
-      warningLife: modeId === 'warning' ? localStorage.getItem(lifeKey) : null,
+      warningLife: baselineLife,
       stores
     };
     const checksum = await digest(JSON.stringify(payload));
@@ -337,6 +343,21 @@
     // rejects on byte, entry, node or nesting limits. Preserve original DB.
     checkBackupExportLimits(envelope, file.size);
     if (modeId === 'warning') checkWarningLife(payload.warningLife, current);
+    // AUD-EXP-01: never present a backup as current if the generation,
+    // restore epoch or warning-life data changed during expensive encoding.
+    // Re-open only to READ the current meta state, not modify the game DB.
+    const currentDb = await openDb(mode.db);
+    let latest;
+    try { latest = await readWarningLifeState(currentDb); }
+    finally { currentDb.close(); }
+    if (latest.generation !== current || latest.epoch !== snapshotEpoch) {
+      throw Error('バックアップ生成中に別の画面で世代または復元履歴が変更されました。'
+        + '準備したファイルは破棄しました。ほかのゲーム画面を閉じて再試行してください。');
+    }
+    if (modeId === 'warning' && localStorage.getItem(lifeKey) !== baselineLife) {
+      throw Error('バックアップ生成中にライフ情報が更新されました。'
+        + '準備したファイルは破棄しました。ゲーム画面を閉じて再試行してください。');
+    }
     // EXH-F03: export takes multiple async steps and may consume Safari's
     // user activation. Return the validated File in memory; the administrator
     // must tap a SECOND button before invoking share() or a download.
