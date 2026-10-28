@@ -91,13 +91,28 @@
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(name);
       let absent = false;
+      let blocked = false;
       req.onupgradeneeded = () => {
         absent = true;
         req.transaction.abort(); // Never create a blank saved experiment.
       };
       req.onerror = () => reject(absent ? Error('保存された実験データが見つかりません。') : req.error);
-      req.onblocked = () => reject(Error('別のタブで使用中です。'));
-      req.onsuccess = () => resolve(req.result);
+      req.onblocked = () => {
+        // STO-04: an IndexedDB open cannot be cancelled after onblocked.
+        // The request can still succeed when another tab closes. In that
+        // case, close the late connection; otherwise it leaks a connection
+        // that can block future experiment deletion/reset.
+        blocked = true;
+        reject(Error('別のタブで使用中です。ゲーム画面を閉じて再試行してください。'));
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        if (blocked) {
+          db.close();
+          return;
+        }
+        resolve(db);
+      };
     });
   }
   async function storedGeneration(name) {
