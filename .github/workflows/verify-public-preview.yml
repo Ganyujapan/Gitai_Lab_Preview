@@ -171,6 +171,8 @@ jobs:
         run: node .github/scripts/verify-local-run-status.cjs
       - name: Verify static backgrounds share one in-flight and decoded image per tab
         run: node .github/scripts/verify-static-background-cache.cjs
+      - name: Verify static config cache is safe and live API uncached
+        run: node .github/scripts/verify-static-config-cache.cjs
       - name: Reject aborted evolution and specimen transactions without hanging
         run: node .github/scripts/verify-indexeddb-aborts.cjs
       - name: Verify blocked experiment deletions settle only after actual result

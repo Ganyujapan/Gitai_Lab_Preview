@@ -19,7 +19,7 @@ function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve
 const calls=[],requests=[];
 const ctx={
  Map,Error,Promise,
- cacheBustUrl:path=>path+'?v=timestamp_'+(calls.length+1),
+ cacheBustUrl:()=>{throw Error('PF05 static image MUST NOT use time-based URL')},
  loadImage:url=>{calls.push(url);const d=deferred();requests.push(d);return d.promise}
 };
 vm.runInNewContext(actual+'\nglobalThis.readBackground=loadStaticBackground;globalThis.cache=backgroundImageRequests;',
@@ -29,6 +29,7 @@ vm.runInNewContext(actual+'\nglobalThis.readBackground=loadStaticBackground;glob
  const same=ctx.readBackground('environments/kusagi/background.png');
  assert.equal(first,same,'share exactly one pending Promise, not separate loads');
  assert.equal(calls.length,1);
+ assert.equal(calls[0],'environments/kusagi/background.png','stable static URL');
  const image={naturalWidth:720,naturalHeight:1280,src:'same-image'};
  requests[0].resolve(image);
  assert.equal(await first,image);
@@ -36,6 +37,7 @@ vm.runInNewContext(actual+'\nglobalThis.readBackground=loadStaticBackground;glob
  assert.equal(calls.length,1,'multiple score generations reuse same Image');
  const second=ctx.readBackground('environments/ginkgo/background.png');
  assert.equal(calls.length,2,'different background is a distinct asset');
+ assert.equal(calls[1],'environments/ginkgo/background.png');
  requests[1].resolve({naturalWidth:720,src:'ginkgo'});
  assert.equal((await second).src,'ginkgo');
 
@@ -53,5 +55,5 @@ vm.runInNewContext(actual+'\nglobalThis.readBackground=loadStaticBackground;glob
  assert.equal(ctx.cache.size,3);
  await assert.rejects(ctx.readBackground(''),/背景画像が指定/);
  assert.equal(calls.length,4);
- console.log('PF05: one in-flight request per static background, reused decoded image, distinct environments and safe failure retry OK.');
+ console.log('PF05: stable cacheable URLs, shared decoded images, distinct environments and safe failure retry OK.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
