@@ -176,6 +176,54 @@ async function produce(recordStream, opts={}) {
     assert.ok(savedPartCount>0,
       'this test must exercise error discovered after parts were already prepared');
   }
+  // A user may cancel while a file is being saved, even when that callback
+  // resolves successfully. Never hand back a manifest for partial output.
+  const beforeStart=new AbortController();
+  beforeStart.abort();
+  let initialSaves=0;
+  await assert.rejects(writePartsFromRecords(records(0),
+    {mode:'cryptic',database:db,currentGeneration:generation,signal:beforeStart.signal},
+    async()=>{initialSaves++;}),/中断/);
+  assert.equal(initialSaves,0,'already cancelled work must not begin saving');
+
+  const midway=new AbortController();
+  let midwaySaves=0,midwayManifest=false,consumed=0;
+  async function* observedRecords() {
+    for await (const row of records(0)) {consumed++;yield row;}
+  }
+  await assert.rejects((async()=>{
+    const result=await writePartsFromRecords(observedRecords(),
+      {mode:'cryptic',database:db,currentGeneration:generation,
+        maxPartEntries:3,maxPartBytes:4096,signal:midway.signal},
+      async()=>{midwaySaves++;midway.abort();});
+    midwayManifest=Boolean(result.manifestFile);
+  })(),/中断/);
+  assert.equal(midwaySaves,1,'save callback executes once before abort');
+  assert.equal(midwayManifest,false,'cancelled partial export must not succeed');
+  assert.ok(consumed < 123,'cancellation stops consuming the source');
+
+  // Even cancellation as the FINAL part is handed off must reject before
+  // producing a success-looking manifest.
+  const atFinalPart=new AbortController();
+  let finalPartSaved=false,finalManifest=false;
+  await assert.rejects((async()=>{
+    const result=await writePartsFromRecords(records(0),
+      {mode:'cryptic',database:db,currentGeneration:generation,
+        maxPartEntries:13,maxPartBytes:4096,signal:atFinalPart.signal},
+      async (_file,descriptor)=>{
+        if(descriptor.store==='theater_frames') {
+          finalPartSaved=true;
+          atFinalPart.abort();
+        }
+      });
+    finalManifest=Boolean(result.manifestFile);
+  })(),/中断/);
+  assert.equal(finalPartSaved,true);
+  assert.equal(finalManifest,false);
+
+  await assert.rejects(writePartsFromRecords(records(0),
+    {mode:'cryptic',database:db,currentGeneration:generation,signal:{aborted:'no'}},
+    async()=>{}),/中断通知/);
   await assert.rejects(produce(records(0),{failAfterParts:1,maxPartEntries:3}),/simulated full disk/);
   await assert.rejects(writePartsFromRecords(records(0),
     {mode:'cryptic',database:db,currentGeneration:generation},
