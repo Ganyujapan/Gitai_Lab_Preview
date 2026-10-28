@@ -135,12 +135,24 @@ async function produce(recordStream, opts={}) {
     }
   }
   const unsafeObject=JSON.parse('{"__proto__":{"unsafe":true}}');
+  const arrayWithExtra=[1,2];
+  arrayWithExtra.note='would be lost';
+  const sparseArray=[1,,3];
+  // Structured-clone values supported by IndexedDB are not necessarily
+  // round-trippable through our JSON v2 format. Never serialize them as {}.
   for(const [invalid,expected] of [
     [NaN,/不正な数値/],[Infinity,/不正な数値/],
     [-Infinity,/不正な数値/],[undefined,/未定義/],
     [unsafeObject,/安全でない保存キー/],
     [{constructor:1},/安全でない保存キー/],
-    [{prototype:1},/安全でない保存キー/]
+    [{prototype:1},/安全でない保存キー/],
+    [new Map([['genome',1]]),/復元未対応のオブジェクト/],
+    [new Set([1,2]),/復元未対応のオブジェクト/],
+    [/moth/i,/復元未対応のオブジェクト/],
+    [new Number(7),/復元未対応のオブジェクト/],
+    [new Error('lost message'),/復元未対応のオブジェクト/],
+    [arrayWithExtra,/復元未対応の配列/],
+    [sparseArray,/復元未対応の配列/]
   ]){
     let savedPartCount=0,returnedManifest=false;
     await assert.rejects((async()=>{

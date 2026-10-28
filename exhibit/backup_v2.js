@@ -229,9 +229,23 @@
       parents.add(value);
       try {
         if (Array.isArray(value)) {
+          // JSON arrays cannot preserve sparse slots or custom enumerable
+          // properties. Refuse to silently change a saved structured clone.
+          const keys = Object.keys(value);
+          if (keys.length !== value.length ||
+              keys.some((key, index) => key !== String(index))) {
+            fail('復元未対応の配列構造が含まれています。');
+          }
           const result = [];
           for (const item of value) result.push(await encodeRecordValue(item, depth + 1, parents));
           return result;
+        }
+        // IndexedDB can store Map, Set, RegExp and other structured-clone
+        // objects, but this JSON v2 format cannot reconstruct them. Without
+        // this guard Object.entries() could silently turn such values into {}.
+        const prototype = Object.getPrototypeOf(value);
+        if (prototype !== Object.prototype && prototype !== null) {
+          fail('復元未対応のオブジェクト形式が含まれています。');
         }
         const result = Object.create(null);
         for (const [key, item] of Object.entries(value)) {
