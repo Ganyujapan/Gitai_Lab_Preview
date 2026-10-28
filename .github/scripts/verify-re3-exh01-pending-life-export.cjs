@@ -10,7 +10,7 @@ const begin = source.indexOf('  async function exportMode(');
 const end = source.indexOf('  // Existing export encoding', begin);
 assert.ok(begin > 0 && end > begin);
 const exported = source.slice(begin, end);
-assert.match(exported, /snapshot\.meta\.some\(item => item\.key === PENDING_WARNING_LIFE_KEY\)/);
+assert.match(exported, /snapshot\.meta\.some\(item => item\.key === 'pending_warning_life_restore_v1'\)/);
 assert.match(exported, /latest\.pending !== undefined/);
 assert.ok(exported.indexOf('snapshot.meta.some') < exported.indexOf('await encode(item.value)'),
   'pending restore must be rejected before allocating encoded JSON');
