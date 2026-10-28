@@ -64,6 +64,10 @@ function harness(initial,mode='cryptic'){
   MODES:{cryptic:{db:'db-cryptic'},warning:{db:'db-warning'}},
   preflightExportEntryCount:async()=>initial.images.length+initial.meta.length+initial.theater_frames.length,
   snapshotStores:async()=>initial,
+  readWarningLifeState:async()=>({
+    generation:initial.meta.find(x=>x.key==='current_generation_id')?.value,
+    epoch:initial.meta.find(x=>x.key==='restore_epoch')?.value
+  }),
   openDb:async()=>{open++;return {close(){closed++}};},
   fetch:async()=>({json:async()=>({build:'unit-test'})}),
   localStorage:{getItem:()=>null},
@@ -103,7 +107,8 @@ async function assertBad(mutator,error,mode='cryptic'){
   assert.equal(gen,'gen00021');
   assert.equal(h.shares,0,'Preparing a backup must not open share UI after async awaits');
   assert.equal(h.files.length,1);
-  assert.equal(h.closed,1);
+  assert.equal(h.closed,2,'export reopens DB to verify no generation has changed');
+  assert.equal(h.opened,2);
   const parsed=JSON.parse(await h.files[0].text());
   assert.equal(parsed.payload.currentGeneration,'gen00021');
   assert.equal(parsed.payload.stores.images.length,60);
