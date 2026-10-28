@@ -177,6 +177,8 @@ jobs:
         run: node .github/scripts/verify-warning-neutral-restore-cas.cjs
       - name: RE3-EV-01 reject invalid founder DNA before warning neutral evolution
         run: node .github/scripts/verify-warning-neutral-genome-validation.cjs
+      - name: RE3-STO-01 restore epoch mismatch requires reload, never resubmit
+        run: node .github/scripts/verify-re3-sto01-restore-reload.cjs
       - name: Reject concurrent or partial generation commits
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Verify long-running generation IDs remain valid after generation 99999
