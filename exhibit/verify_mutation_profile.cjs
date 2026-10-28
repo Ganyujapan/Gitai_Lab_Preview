@@ -17,8 +17,10 @@ const exhibit = fs.readFileSync(
 const start = exhibit.indexOf('  const EXHIBIT_MUTATION_RATE_FACTOR = 0.5;');
 const end = exhibit.indexOf('  function makeChildGenome(', start);
 assert(start >= 0 && end > start, 'Only the exhibit must contain the 50% helper');
-assert(!normal.includes('EXHIBIT_MUTATION_RATE_FACTOR'),
-  'Normal public engine must not include exhibition slow-down');
+// The normal engine may safely *inspect* the optional exhibit factor via
+// typeof for diagnostics. It must never define or activate the slowdown.
+assert(!normal.includes('const EXHIBIT_MUTATION_RATE_FACTOR = 0.5;'),
+  'Normal public engine must not define exhibition slow-down');
 
 const helper = exhibit.slice(start, end);
 const getSlowed = new Function(helper + '\nreturn exhibitionMutationGenetics;')();

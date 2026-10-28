@@ -33,6 +33,21 @@ def main() -> None:
     for folder in ("audio", "config", "css", "data", "environments", "img", "js", "species"):
         shutil.copytree(site / folder, exhibit / folder, dirs_exist_ok=True)
 
+    # RE3-MODEL-01: embed the build that ACTUALLY supplies each engine script.
+    # The normal preview and the PWA get the same source provenance; their
+    # mutation profile is recorded separately. Rebuilding never edits user DBs.
+    source_marker = "const EVOLUTION_BUILD_COMMIT = '__GITAI_BUILD__';"
+    build_label = build if re.fullmatch(r"[0-9a-f]{40}", build) else "local"
+    for engine_file in (site / "js" / "pages_preview.js",
+                        exhibit / "js" / "pages_preview.js"):
+        source = engine_file.read_text(encoding="utf-8")
+        assert source.count(source_marker) == 1, "Missing build marker"
+        engine_file.write_text(
+            source.replace(source_marker,
+                           "const EVOLUTION_BUILD_COMMIT = '" + build_label + "';", 1),
+            encoding="utf-8"
+        )
+
     page = (site / "index.html").read_text(encoding="utf-8")
     page = re.sub(
         r'\s*<link rel="stylesheet" href="https://fonts\.googleapis\.com/[^"]*">',
@@ -119,8 +134,10 @@ def main() -> None:
     assert engine_js.count(generation_marker) == 1
     before_live, live = engine_js.split(generation_marker, 1)
     diagnostic_before = """      evolution_config_id: evolutionConfig?.config_id || null,
+      rule_provenance: ruleProvenanceForGeneration(),
       eaten_indices:"""
     diagnostic_after = """      evolution_config_id: evolutionConfig?.config_id || null,
+      rule_provenance: ruleProvenanceForGeneration(),
       exhibit_mutation_rate_factor: EXHIBIT_MUTATION_RATE_FACTOR,
       eaten_indices:"""
     assert live.count(diagnostic_before) == 1
