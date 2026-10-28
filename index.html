@@ -3206,15 +3206,16 @@
 
   // PF05: a static background image is immutable within one loaded game.
   // Share both an in-flight decode and the resolved Image across generation
-  // reloads, warning backgrounds and per-moth score calculations. Retry after
-  // a real image error; never cache dynamic per-generation PNGs here.
+  // reloads, warning backgrounds and per-moth score calculations. Use the
+  // stable static URL so browser HTTP cache and exhibit SW precache can work.
+  // Retry on real image errors; dynamic per-generation PNGs keep cache busting.
   const backgroundImageRequests = new Map();
   function loadStaticBackground(src) {
     const key = String(src || '');
     if (!key) return Promise.reject(new Error('背景画像が指定されていません。'));
     const cached = backgroundImageRequests.get(key);
     if (cached) return cached;
-    const pending = loadImage(cacheBustUrl(key)).catch(error => {
+    const pending = loadImage(key).catch(error => {
       if (backgroundImageRequests.get(key) === pending) {
         backgroundImageRequests.delete(key);
       }
@@ -4630,7 +4631,7 @@
     }
     const res = await fetch(
       `environments/${safeId}/environment.json`,
-      { cache: 'no-store' },
+      { cache: 'default' },
     );
     if (!res.ok) {
       throw new Error('標本の背景設定を読み込めませんでした');
