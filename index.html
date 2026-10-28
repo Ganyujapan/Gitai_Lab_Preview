@@ -5546,6 +5546,31 @@
         return;
       }
 
+      // RE3-STO-01: the saved experiment was restored in another tab.
+      // The document still holds its original restore_epoch, so resending
+      // the same run can only repeat this 409. Do not touch the saved data.
+      if (
+        res.status === 409 &&
+        data.error === 'restore_epoch_mismatch'
+      ) {
+        state.submitStatus = 'stale_restore';
+        returnEntertainmentToReview();
+        authorNewsTeaser.hidden = true;
+        state.nextGenerationId = null;
+
+        reviewTitle.textContent = '実験が別の画面で復元されました';
+        reviewMessage.textContent = typeof data.message === 'string'
+          ? data.message
+          : '別の画面で実験が復元されました。元データを保持して再読み込みしてください。';
+        evolutionStatus.textContent =
+          'この画面から再送せず、復元済みの最新世代を読み込んでください。';
+        state.uiTransitionLocked = false;
+        continueButton.textContent = '復元後の世代を読み込む';
+        continueButton.disabled = false;
+        compareButton.hidden = false;
+        return;
+      }
+
       if (
         res.status === 409 &&
         data.error === 'generation_mismatch'
@@ -5794,7 +5819,10 @@
       return;
     }
 
-    if (state.submitStatus === 'stale_generation') {
+    if (state.submitStatus === 'stale_generation'
+        || state.submitStatus === 'stale_restore') {
+      // Both stale states need a new document. Only the restore case has
+      // an invalidated epoch; never call sendEvolutionData() again for it.
       const u = new URL(location.href);
       u.searchParams.set('v', String(Date.now()));
       if (isEntertainmentModel()) u.searchParams.set('play', '1');
