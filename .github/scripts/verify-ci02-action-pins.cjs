@@ -17,7 +17,7 @@ const seen=new Set();
 for(const file of workflows){
  const source=fs.readFileSync(path.join('.github/workflows',file),'utf8');
  for(const line of source.split(/\r?\n/)){
-   const match=line.match(/^\s*-\s*uses:\s*([^\s#]+)/);
+   const match=line.match(/^\s*(?:-\s*)?uses:\s*([^\s#]+)/);
    if(!match)continue;
    const ref=match[1];
    if(ref.startsWith('./'))continue; // vetted, exact local reusable workflow
