@@ -17,6 +17,7 @@ function extract(start,end){
 }
 const code=[
  extract('  function hashString32(', '\n  function inheritLinear('),
+ extract('  function validateLoadedGenome(', '\n  async function loadGenomeOrInfer('),
  extract('  async function reserveWarningNeutralSeed(', '\n  function moduleMaskValue(')
 ].join('\n');
 const startAlgo=source.indexOf('    const genetics = evolutionConfig.trait_genetics || {};',
@@ -40,8 +41,16 @@ function founders(fixture,oldH0=false){
  const {meta,images}=fixture.stores;
  meta.set('current_generation_id','gen00001');
  for(let i=1;i<=60;i++){
+  const modules={};
+  for(const locus of conf.trait_genetics.pattern_loci){
+   modules[locus.id]={alleles:[0,0],cx:0.5,cy:0.5,rx:0.2,ry:0.2,
+    valueEffect:-0.2,hueEffect:0,saturationEffect:0,phase:0,
+    angle:0,frequency:1,roughness:0};
+  }
   const g={schema_version:1,lineage:WARNING.lineage(i),
-   baseHue:oldH0?0:i*3,baseValue:1,baseSaturation:0,trace:0};
+   baseHue:oldH0?0:i*3,baseValue:1,baseSaturation:0,
+   patternContrast:0.44,textureStrength:0,textureSeed:100+i,
+   modules,trace:0};
   meta.set(dnaKey('gen00001',i),g);
   images.set(key('gen00001',i),new Blob(['original-founder-'+i]));
  }
