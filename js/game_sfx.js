@@ -398,7 +398,7 @@
         }
       };
       liveNative.push(item);
-      player.addEventListener('ended', done, { once: true });
+      player.addEventListener('ended', item.onEnded, { once: true });
       item.retry();
       return item;
     } catch (_) { /* Sound must never interrupt gameplay. */ }
