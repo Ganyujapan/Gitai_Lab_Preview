@@ -104,6 +104,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-atomic-export.cjs
       - name: Prevent exporting exhibition backups that this release cannot import
         run: node .github/scripts/verify-exhibit-export-preflight.cjs
+      - name: Verify iPad manual backup share/download requires separate tap after preparation
+        run: node .github/scripts/verify-exhibit-manual-backup-handoff.cjs
       - name: Verify exporter refuses incomplete current PNG and DNA records
         run: node .github/scripts/verify-exhibit-export-validates-current.cjs
       - name: Preflight experimental split-backup manifest and parts (read-only)
