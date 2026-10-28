@@ -4374,6 +4374,7 @@
   // Replay images are cache only; the original generation and moth PNGs stay put.
   let theaterRenderTicket = 0;
   let theaterSession = 0;
+  let theaterLoadingButtonLabel = null;
   const theaterFrameJobs = new Map();
 
   async function refreshSavedTheaterFrame(frame) {
@@ -4579,7 +4580,8 @@
     ++theaterRenderTicket;
     releaseTheaterObjectUrls();
     theaterButton.disabled = true;
-    const originalText = theaterButton.textContent;
+    const originalText = theaterLoadingButtonLabel ?? theaterButton.textContent;
+    theaterLoadingButtonLabel = originalText;
     theaterButton.textContent = '読み込み中…';
 
     try {
@@ -4625,6 +4627,7 @@
       if (session === theaterSession) {
         theaterButton.disabled = false;
         theaterButton.textContent = originalText;
+        theaterLoadingButtonLabel = null;
       }
     }
   }
@@ -4633,6 +4636,12 @@
     pauseEvolutionTheater();
     ++theaterSession;
     ++theaterRenderTicket;
+    // Closing while an IDB read is in flight must not strand the entry button.
+    if (theaterLoadingButtonLabel !== null) {
+      theaterButton.textContent = theaterLoadingButtonLabel;
+      theaterButton.disabled = false;
+      theaterLoadingButtonLabel = null;
+    }
     theaterOverlay.classList.remove('visible');
     theaterFrameImage.removeAttribute('src');
     releaseTheaterObjectUrls();
