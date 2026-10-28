@@ -247,6 +247,13 @@
         if (prototype !== Object.prototype && prototype !== null) {
           fail('復元未対応のオブジェクト形式が含まれています。');
         }
+        // The v2 decoder uses $type to turn JSON wrappers back into Blob,
+        // Date or typed arrays. A real plain object's own $type property
+        // would collide with that marker and could silently change its type
+        // on restore (or make the backup impossible to import).
+        if (Object.hasOwn(value, '$type')) {
+          fail('復元用の予約済み型識別子を持つ保存項目は書き出せません。');
+        }
         const result = Object.create(null);
         for (const [key, item] of Object.entries(value)) {
           // The v2 restore decoder deliberately rejects dangerous property
