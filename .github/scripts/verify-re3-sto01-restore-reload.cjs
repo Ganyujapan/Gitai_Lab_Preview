@@ -47,7 +47,7 @@ function setup({entertainment,error='restore_epoch_mismatch',status=409,message}
  const ctx={
   state,location,window:{GitaiPagesPreview:null},URL,Date,Math,Array,Set,
   Promise,AbortController,Response,
-  setTimeout,clearTimeout,
+  setTimeout,clearTimeout,submitTimeoutMs:30000,
   continueButton,reviewOverlay,generationOverlay,
   reviewTitle,reviewMessage,evolutionStatus,authorNewsTeaser,compareButton,
   ensureRunId:()=>state.runId,isEntertainmentModel:()=>Boolean(entertainment),
