@@ -63,7 +63,7 @@ function setup({entertainment,error='restore_epoch_mismatch',status=409,message}
   showGenerationGenerating(){throw Error('unexpected generation request')},
   console
  };
- vm.runInNewContext(submitSource+'\n'+clickSource+'\nglobalThis.submit=sendEvolutionData;',
+ vm.runInNewContext(submitSource+'\n'+clickSource+'\n  });\nglobalThis.submit=sendEvolutionData;',
   ctx,{filename:'index.html:RE3-STO-01',timeout:3000});
  return {ctx,state,location,continueButton,reviewOverlay,generationOverlay,
   reviewTitle,reviewMessage,evolutionStatus,requests};
