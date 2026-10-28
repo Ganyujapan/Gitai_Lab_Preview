@@ -72,11 +72,11 @@ function backup(mode, warningLife) {
   };
   return digest(JSON.stringify(body)).then(checksum => JSON.stringify({checksum,payload:body}));
 }
-function harness({mode='warning', confirmed=true, idbFail=false,
+function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=false,
                   lifeSetFail=false, lifeRemoveFail=false,
                   onConfirm=null}={}) {
   const saved = new Map([[lifeKey,'PREVIOUS_LIFE']]);
-  const messages = [], handlers = {};
+  const messages = [], handlers = {}, prompts = [];
   let opened = 0, closed = 0, confirmations = 0, epochCounter = 0;
   let failSet=lifeSetFail,failRemove=lifeRemoveFail;
   let stallOneOpen=false,releaseOpen=null;
@@ -103,10 +103,12 @@ function harness({mode='warning', confirmed=true, idbFail=false,
     crypto:{getRandomValues(bytes){bytes.fill((++epochCounter)%256);return bytes;}},
     selector:{value:mode},unlocked:true,
     say(message){messages.push(message);},
-    confirm(){
+    confirm(prompt){
       confirmations++;
-      if(onConfirm)onConfirm(state,saved);
-      return confirmed;
+      prompts.push(prompt);
+      if(onConfirm)onConfirm(state,saved,confirmations);
+      return Array.isArray(confirmAnswers)
+        ? confirmAnswers[confirmations-1] !== false : confirmed;
     },
     decode(value){
       if(value && value.$blob) return new Blob(
@@ -210,7 +212,7 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   assert.equal(typeof handlers['verify:change'],'function');
   assert.equal(typeof handlers['verify-button:click'],'function');
   return {
-    messages,state,saved,
+    messages,state,saved,prompts,
     setLifeFailure(value){failSet=value;},
     setRemoveFailure(value){failRemove=value;},
     setGeneration(value){state.meta.set('current_generation_id',value);},
@@ -360,6 +362,56 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   assert.match(cResult,/復元失敗/);
   assert.equal(crypticAdvanced.state.meta.get('current_generation_id'),'gen00012');
   assert.equal(crypticAdvanced.state.images.get('old-image'),'kept');
+
+  // AUD-RST-03: before any destructive restore, identify stored and
+  // imported generations and require an extra tap for rollback.
+  const cautious=harness({confirmAnswers:[true,false]});
+  cautious.setGeneration('gen00044');
+  assert.match(await cautious.restore(rawWarning),/復元をキャンセル/);
+  assert.equal(cautious.confirmations,2);
+  assert.match(cautious.prompts[0],/現在の実験：gen00044/);
+  assert.match(cautious.prompts[0],/復元するデータ：gen00025/);
+  assert.match(cautious.prompts[0],/画像・DNA・履歴をすべて置き換え/);
+  assert.match(cautious.prompts[1],/進化履歴の巻き戻し/);
+  assert.match(cautious.prompts[1],/現在：gen00044/);
+  assert.match(cautious.prompts[1],/復元後：gen00025/);
+  assert.equal(cautious.state.meta.get('current_generation_id'),'gen00044');
+  assert.equal(cautious.state.images.get('old-image'),'kept');
+  assert.equal(cautious.saved.get(lifeKey),'PREVIOUS_LIFE');
+  assert.equal(cautious.opened,1);assert.equal(cautious.closed,1);
+  // Cancelling an older-generation restore releases the local mutex.
+  assert.match(await cautious.restore(rawWarning),/復元が完了/);
+  assert.equal(cautious.state.meta.get('current_generation_id'),'gen00025');
+  const deliberate=harness();
+  deliberate.setGeneration('gen00044');
+  assert.match(await deliberate.restore(rawWarning),/復元が完了/);
+  assert.equal(deliberate.confirmations,2);
+  assert.equal(deliberate.saved.get(lifeKey),savedLife);
+  // Same-generation restore requires only one confirmation.
+  const same=harness();
+  same.setGeneration('gen00025');
+  assert.match(await same.restore(rawWarning),/復元が完了/);
+  assert.equal(same.confirmations,1);
+  assert.match(same.prompts[0],/現在の実験：gen00025/);
+  // Generation comparisons must not round long integer IDs via Number().
+  const huge=harness();
+  huge.setGeneration('gen999999999999999999999');
+  assert.match(await huge.restore(rawWarning),/復元が完了/);
+  assert.equal(huge.confirmations,2);
+  // A competing game tab can advance during the SECOND warning. CAS must
+  // still abort atomically and leave both its images and life untouched.
+  const changedOnSecond=harness({onConfirm(state,saved,n){
+    if(n===2){
+      state.meta.set('current_generation_id','gen00045');
+      state.images.set('gen00045:01','concurrent-image');
+    }
+  }});
+  changedOnSecond.setGeneration('gen00044');
+  assert.match(await changedOnSecond.restore(rawWarning),/復元失敗/);
+  assert.equal(changedOnSecond.confirmations,2);
+  assert.equal(changedOnSecond.state.meta.get('current_generation_id'),'gen00045');
+  assert.equal(changedOnSecond.state.images.get('gen00045:01'),'concurrent-image');
+  assert.equal(changedOnSecond.saved.get(lifeKey),'PREVIOUS_LIFE');
 
   const full = harness();
   const fullMessage = await full.restore(rawWarning);
