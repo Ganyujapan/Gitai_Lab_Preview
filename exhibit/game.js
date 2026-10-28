@@ -155,13 +155,13 @@
       // the result's "next generation" action. Do not hand over incomplete data.
       const previous = await savedGeneration();
       continueButton.click();
-      let committed = false;
+      let committedGeneration = null;
       for (let i = 0; i < 180; i += 1) {
         await delay(500);
         const next = await savedGeneration();
         if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(next)) && Number(next.slice(3)) > completed
           && next !== previous) {
-          committed = true;
+          committedGeneration = next;
           break;
         }
         // A failed/invalid mutation returns to the result panel; do not
@@ -171,11 +171,10 @@
           break;
         }
       }
-      if (!committed) throw Error('世代の保存完了を確認できませんでした。スタッフへお知らせください。');
+      if (!committedGeneration) throw Error('世代の保存完了を確認できませんでした。スタッフへお知らせください。');
       // Visitor-specific lives reset ONLY for a completed handover. The
       // evolution DB, genomes, images, history and ordinary continuous play
       // remain unchanged. Never reset on unsuccessful evolution or retry.
-      const committedGeneration = await savedGeneration();
       await resetWarningLifeForNextVisitor(committedGeneration);
       sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
         mode, start: firstGeneration, end: completed
