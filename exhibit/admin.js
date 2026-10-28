@@ -312,7 +312,7 @@
     // Never export a generation with a potentially stale life value.
     // Inspect the same atomic snapshot BEFORE allocating the large JSON.
     if (modeId === 'warning' &&
-        snapshot.meta.some(item => item.key === PENDING_WARNING_LIFE_KEY)) {
+        snapshot.meta.some(item => item.key === 'pending_warning_life_restore_v1')) {
       throw Error('ライフ情報の復元が完了していないためバックアップを作成できません。'
         + '管理画面の「ライフ情報だけ再試行」を完了してから作成してください。'
         + '進化データは変更していません。');
