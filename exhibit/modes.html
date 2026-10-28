@@ -51,7 +51,9 @@
 <select id="exhibitBackupMode"><option value="cryptic">隠れるギタイ</option><option value="warning">目立つギタイ</option></select>
 <button type="button" id="exhibitBackupReadiness">保存状況を診断（読み取り専用）</button>
 <pre id="exhibitBackupReadinessResult" role="status" aria-live="polite" hidden></pre>
-<button type="button" id="exhibitBackupExport">JSONバックアップを書き出す</button>
+<button type="button" id="exhibitBackupExport">JSONバックアップを準備する</button>
+<button type="button" id="exhibitBackupShare" hidden>準備したJSONを共有シートで保存</button>
+<button type="button" id="exhibitBackupDownload" hidden>準備したJSONをダウンロード</button>
 <button type="button" id="exhibitBackupVerify">保存したJSONを検証する（読み取り専用）</button>
 <input type="file" id="exhibitBackupVerifyFile" accept=".json,application/json">
 <button type="button" id="exhibitBackupRestore">JSONから復元する</button>
