@@ -48,6 +48,12 @@
   let pendingFastSound = null;
   let lastPointer = null;
   const TOUCH_SOUND_MAX_AGE_MS = 2500;
+  // PF02 / SFX-L02: gesture expiry and async resume expiry are separate.
+  // A valid long press can reach pointerup, but a resume that resolves
+  // seconds later must never emit a surprise delayed capture.
+  const RESUME_SOUND_MAX_AGE_MS = 450;
+  let audioVisibilityEpoch = 0;
+  const pendingResumes = new Set();
   // A new document gets a NEW AudioContext. In iOS, auto-start's synthetic
   // click after a generation reload does not grant playback activation.
   // Arm the fast audio graph from a *trusted* pointerup/touchend before
@@ -91,12 +97,10 @@
     };
   }
   function flushTouchSound(event) {
-    // Never treat an auto-start script's synthetic click as an iOS audio
-    // gesture. The pointerup of a real tap can unlock a fresh AudioContext.
-    if (lowLatencyIOS && event?.isTrusted !== false) {
-      // Fast mode must obey the same tap identity, age and cancellation
-      // rules as the native fallback. A later click cannot flush an old tap.
-      if (event?.type === 'click') return;
+    // Do not treat a synthetic click or an unrelated input as permission
+    // to play an old hit. The default native iOS path remains unchanged.
+    if (event?.type === 'click' || event?.isTrusted === false) return;
+    if (lowLatencyIOS) {
       const sound = pendingFastSound;
       if (sound && (document.hidden
           || Date.now() - sound.createdAt > TOUCH_SOUND_MAX_AGE_MS)) {
@@ -107,50 +111,85 @@
           && event.pointerId !== sound.pointerId) return;
       if (sound?.pointerId != null && event?.type === 'touchend'
           && typeof w.PointerEvent !== 'undefined') return;
+
       pendingFastSound = null;
+      const startedAt = Date.now();
+      const epoch = audioVisibilityEpoch;
+      const ticket = sound
+        ? { ...sound, startedAt, epoch, cancelled: false, played: false }
+        : null;
+      if (ticket) pendingResumes.add(ticket);
+      const valid = () => ticket
+        && !ticket.cancelled && !ticket.played
+        && !document.hidden && epoch === audioVisibilityEpoch
+        && Date.now() - startedAt <= RESUME_SOUND_MAX_AGE_MS
+        && Date.now() - ticket.createdAt <= TOUCH_SOUND_MAX_AGE_MS;
+      const playOnce = callback => {
+        if (!valid()) return;
+        ticket.played = true;
+        pendingResumes.delete(ticket);
+        callback();
+      };
+      const finish = () => {
+        if (ticket) pendingResumes.delete(ticket);
+      };
       const ctx = getContext();
       if (!ctx) {
-        if (sound) playNative(sound.kind, sound.number);
+        playOnce(() => playNative(sound.kind, sound.number));
+        finish();
         return;
       }
       const recover = () => {
-        if (ctx !== context || document.hidden) return;
+        if (ctx !== context || document.hidden || epoch !== audioVisibilityEpoch) {
+          finish();
+          return;
+        }
         if (ctx.state !== 'running') {
-          if (sound) playNative(sound.kind, sound.number);
+          playOnce(() => playNative(sound.kind, sound.number));
+          finish();
           return;
         }
         fastUnlocked = true;
-        // A temporary iOS interruption is not a permanent native-only mode.
         preferNative = false;
         previousClockMs = 0;
         previousClockSec = 0;
-        if (sound && !playBuffer(sound.kind, decoded.get(key(sound.kind, sound.number)))) {
-          playNative(sound.kind, sound.number);
-        }
+        playOnce(() => {
+          if (!playBuffer(sound.kind, decoded.get(key(sound.kind, sound.number)))) {
+            playNative(sound.kind, sound.number);
+          }
+        });
+        finish();
       };
-      // Call resume synchronously WITH user activation, including when Safari
-      // claims "running" before the first audible user-gesture activation.
+      // Continue to resume synchronously inside the real user gesture.
+      // Its asynchronous result may unlock the graph, but only a still
+      // valid ticket may play the sound once.
       if (!fastUnlocked || preferNative || ctx.state !== 'running') {
         try {
           const attempt = ctx.resume();
           if (attempt && typeof attempt.then === 'function') {
             attempt.then(recover).catch(() => {
-              fastUnlocked = false;
-              if (sound) playNative(sound.kind, sound.number);
+              if (ctx === context && epoch === audioVisibilityEpoch)
+                fastUnlocked = false;
+              playOnce(() => playNative(sound.kind, sound.number));
+              finish();
             });
           } else recover();
         } catch (_) {
-          fastUnlocked = false;
-          if (sound) playNative(sound.kind, sound.number);
+          if (ctx === context && epoch === audioVisibilityEpoch)
+            fastUnlocked = false;
+          playOnce(() => playNative(sound.kind, sound.number));
+          finish();
         }
-      } else if (sound && !playBuffer(sound.kind, decoded.get(key(sound.kind, sound.number)))) {
-        playNative(sound.kind, sound.number);
+      } else {
+        playOnce(() => {
+          if (!playBuffer(sound.kind, decoded.get(key(sound.kind, sound.number)))) {
+            playNative(sound.kind, sound.number);
+          }
+        });
+        finish();
       }
       return;
     }
-    // A cancelled/stale touch must never play during a later unrelated click.
-    // Native Safari AAC still starts inside its ORIGINAL trusted pointerup.
-    if (event?.type === 'click' || event?.isTrusted === false) return;
     const pending = pendingTouchSound;
     if (pending && (document.hidden || Date.now() - pending.createdAt > TOUCH_SOUND_MAX_AGE_MS)) {
       pendingTouchSound = null;
@@ -365,11 +404,21 @@
         || pendingTouchSound.pointerId === event.pointerId)) pendingTouchSound = null;
     if (pendingFastSound && (pendingFastSound.pointerId == null
         || pendingFastSound.pointerId === event.pointerId)) pendingFastSound = null;
+    for (const ticket of pendingResumes) {
+      if (ticket.pointerId == null || ticket.pointerId === event.pointerId) {
+        ticket.cancelled = true;
+        pendingResumes.delete(ticket);
+      }
+    }
   }, { capture: true, passive: true });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
+      audioVisibilityEpoch += 1;
       pendingTouchSound = null;
       pendingFastSound = null;
+      fastUnlocked = false;
+      for (const ticket of pendingResumes) ticket.cancelled = true;
+      pendingResumes.clear();
     }
   });
   document.addEventListener('pointerup', flushTouchSound, { capture: true, passive: true });
