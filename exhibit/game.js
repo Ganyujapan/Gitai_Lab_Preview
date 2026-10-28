@@ -179,6 +179,12 @@
       sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
         mode, start: firstGeneration, end: completed
       }));
+      // This visitor has now finished. Do NOT wait until they watch the
+      // closing theater and press its final Next button to reset the visit
+      // counter: Safari may be closed or backgrounded during playback.
+      // The independent HANDOVER_KEY still lets the next page show this
+      // visitor's generations without reopening or modifying their data.
+      sessionStorage.removeItem(VISIT_KEY);
       const nextPage = new URL('modes.html', home.href);
       nextPage.searchParams.set('handover', '1');
       location.assign(nextPage.href);
