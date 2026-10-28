@@ -72,6 +72,8 @@ jobs:
         run: node .github/scripts/verify-sfx-native-pointerdown.cjs
       - name: Verify native audio ended-listener cleanup and voice cap
         run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
+      - name: Keep rainforest BGM alive on inactive iPad decoder failures
+        run: node .github/scripts/verify-ambient-standby-error.cjs
       - name: Verify native audio cannot replay cancelled pointer sounds
         run: node .github/scripts/verify-cancelled-tap-sfx.cjs
       - name: Verify fast iOS audio does not replay cancelled or stale pointer sounds
