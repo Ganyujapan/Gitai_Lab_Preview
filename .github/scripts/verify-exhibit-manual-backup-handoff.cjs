@@ -33,7 +33,7 @@ assert.doesNotMatch(handoff.slice(
   handoff.indexOf('downloadButton.addEventListener(\'click\'')),
   /await /,'Share must be called without an await in user click handler');
 
-function harness({canShare=true,shareError=null}={}){
+function harness({canShare=true,shareError=null,canShareError=null}={}){
   const listeners={};
   const counts={export:0,share:0,download:0,revoke:0,anchors:0,createUrl:0};
   const msgs=[],links=[];
@@ -61,7 +61,10 @@ function harness({canShare=true,shareError=null}={}){
       body
     },
     navigator:{
-      canShare({files}){return allowShare&&files.length===1},
+      canShare({files}){
+        if(canShareError)throw canShareError;
+        return allowShare&&files.length===1;
+      },
       share({files,title}){
         counts.share++;
         assert.equal(ctx.inGesture,true,
@@ -155,6 +158,17 @@ function harness({canShare=true,shareError=null}={}){
   assert.match(deny.msgs.at(-1),/JSONをダウンロード/);
   deny.click('exhibitBackupDownload');
   assert.equal(deny.counts.download,1);
+
+  const deniedBySafari=harness({
+    canShareError:Object.assign(new Error('canShare forbidden'),{name:'NotAllowedError'})
+  });
+  const ds=deniedBySafari.click('exhibitBackupExport');
+  deniedBySafari.resolve();await ds;
+  deniedBySafari.click('exhibitBackupShare');
+  assert.equal(deniedBySafari.counts.share,0);
+  assert.match(deniedBySafari.msgs.at(-1),/JSONをダウンロード/);
+  deniedBySafari.click('exhibitBackupDownload');
+  assert.equal(deniedBySafari.counts.download,1);
 
   const cancel=harness({shareError:Object.assign(new Error('cancel'),{name:'AbortError'})});
   const cp=cancel.click('exhibitBackupExport');cancel.resolve();await cp;
