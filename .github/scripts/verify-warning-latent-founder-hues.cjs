@@ -17,6 +17,7 @@ const begin=(start,end)=>{
 const actual=[
  begin('  function hashString32(', '\n  function inheritLinear('),
  begin('  function makePureWhiteFounderGenome(', '\n  function randomRange('),
+ begin('  function validateLoadedGenome(', '\n  async function loadGenomeOrInfer('),
  begin('  async function reserveWarningNeutralSeed(', '\n  function moduleMaskValue(')
 ].join('\n');
 assert.match(actual,/makeWarningWhiteFounderGenome\(index\)/);
@@ -113,7 +114,7 @@ async function doHeadstart(founders){
  for(let i=1;i<=60;i++)data.set(globals.genomeKey('gen00001',i),generated[i-1]);
  data.delete(globals.genomeKey('gen00001',42));
  data.set('warning_neutral_run_seed_v1','0123456789abcdef0123456789abcdef');
- await assert.rejects(globals.__test.headstart(),/創始者の遺伝情報が不足/);
+ await assert.rejects(globals.__test.headstart(),/42番の蛾の遺伝情報が不正/);
  assert.equal(data.get('current_generation_id'),'gen00001');
  assert.equal(data.has(globals.genomeKey('gen00021',1)),false);
  assert.equal(JSON.stringify(mutedConfig.trait_genetics),probabilities,
