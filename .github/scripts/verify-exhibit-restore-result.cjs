@@ -79,6 +79,7 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
   const messages = [], handlers = {}, prompts = [];
   let opened = 0, closed = 0, confirmations = 0, epochCounter = 0;
   let failSet=lifeSetFail,failRemove=lifeRemoveFail;
+  let raceOnNextLifeWrite=false;
   let stallOneOpen=false,releaseOpen=null;
   const state = {
     images: new Map([['old-image','kept']]),
@@ -121,6 +122,10 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
       setItem(key,value){
         if(failSet)throw Error('TEST_QUOTA_FAILURE');
         saved.set(key,String(value));
+        if(raceOnNextLifeWrite){
+          raceOnNextLifeWrite=false;
+          state.meta.set('current_generation_id','gen00026');
+        }
       },
       removeItem(key){
         if(failRemove)throw Error('TEST_REMOVE_FAILURE');
@@ -215,6 +220,7 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
     messages,state,saved,prompts,
     setLifeFailure(value){failSet=value;},
     setRemoveFailure(value){failRemove=value;},
+    raceNextLifeWrite(){raceOnNextLifeWrite=true;},
     setGeneration(value){state.meta.set('current_generation_id',value);},
     setEpoch(value){state.meta.set('restore_epoch',value);},
     get opened(){return opened;},
@@ -521,6 +527,29 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
   sameGenNewEpoch.setEpoch('restore-'+'f'.repeat(32));
   assert.match(await sameGenNewEpoch.retry(),/ライフ情報は変更していません/);
   assert.equal(sameGenNewEpoch.saved.get(lifeKey),'PREVIOUS_LIFE');
+
+  // RE3-EXH-02: a competing generation may commit AFTER the warning-life
+  // localStorage write. We cannot truthfully say life was unchanged.
+  const raceOnRetry=harness({lifeSetFail:true});
+  await raceOnRetry.restore(rawWarning);
+  raceOnRetry.setLifeFailure(false);
+  raceOnRetry.raceNextLifeWrite();
+  const retryMessage=await raceOnRetry.retry();
+  assert.match(retryMessage,/ライフが変更されている可能性/);
+  assert.doesNotMatch(retryMessage,/ライフ情報は変更していません/);
+  assert.equal(raceOnRetry.saved.get(lifeKey),savedLife);
+  assert.equal(raceOnRetry.state.meta.get('current_generation_id'),'gen00026');
+  assert.ok(raceOnRetry.state.meta.has('pending_warning_life_restore_v1'),
+    'uncertain life may not clear the pending restore intent');
+
+  const raceOnRestore=harness();
+  raceOnRestore.raceNextLifeWrite();
+  const restoreMessage=await raceOnRestore.restore(rawWarning);
+  assert.match(restoreMessage,/ライフ情報が変更されている可能性/);
+  assert.doesNotMatch(restoreMessage,/ライフは安全のため確定していません/);
+  assert.equal(raceOnRestore.saved.get(lifeKey),savedLife);
+  assert.ok(raceOnRestore.state.meta.has('pending_warning_life_restore_v1'));
+
   // A retry with no intent never creates new records or alters storage.
   const empty=harness();
   assert.match(await empty.retry(),/再試行が必要なライフ情報はありません/);
