@@ -736,7 +736,17 @@
     }finally{db.close();}
   }
 
+  // AUD-RST-01: Serialize destructive restore and manual warning-life retry
+  // in this admin page. IndexedDB transactions protect their own stores, but
+  // the separate localStorage life write can otherwise race a second restore.
+  // This is a LOCAL UI mutex: never claim cross-tab/OS-level exclusion.
+  let restoreMutationBusy = false;
   async function restoreMode(selected, file) {
+    if (restoreMutationBusy) {
+      throw Error('別の復元処理が実行中です。完了してから再試行してください。');
+    }
+    restoreMutationBusy = true;
+    try {
     // Reject a large import BEFORE allocating an equally large UTF-8 string.
     if (!file || !Number.isFinite(file.size) || file.size > MAX_BACKUP_BYTES) {
       throw Error('バックアップファイルの容量が上限を超えています。');
@@ -793,6 +803,11 @@
         detail:error?.message||String(error)};}
     }
     return {status:'complete',generation:body.currentGeneration};
+    } finally {
+      // Always unlock after a cancelled picker, checksum error, IDB abort,
+      // quota denial or partial life restore. Never remain busy forever.
+      restoreMutationBusy = false;
+    }
   }
 
   // EXH-F01: verify bytes selected BACK FROM iPad Files, without using
@@ -968,10 +983,15 @@
   const input = document.getElementById('exhibitBackupFile');
   document.getElementById('exhibitBackupLifeRetry').addEventListener('click',async()=>{
     if(!unlocked)return;
+    if(restoreMutationBusy){
+      say('復元操作が実行中です。完了してからライフ情報を再試行してください。');
+      return;
+    }
     if(selector.value!=='warning'){
       say('ライフ情報の再試行は「目立つギタイ」を選択してください。');
       return;
     }
+    restoreMutationBusy = true;
     say('保存済みの世代とライフ復元情報を確認中…');
     try{
       const result=await retryPendingWarningLife();
@@ -987,6 +1007,8 @@
     }catch(error){
       say('ライフ情報の再試行に失敗しました。進化データは変更していません：'
         +(error?.message||String(error)));
+    }finally{
+      restoreMutationBusy = false;
     }
   });
 
@@ -1021,10 +1043,20 @@
   });
 
   document.getElementById('exhibitBackupRestore').addEventListener('click', () => {
-    if (unlocked) { input.value = ''; input.click(); }
+    if (!unlocked)return;
+    if(restoreMutationBusy){
+      say('復元操作が実行中です。前の操作が完了するまでお待ちください。');
+      return;
+    }
+    input.value='';
+    input.click();
   });
   input.addEventListener('change', async () => {
     if (!unlocked || !input.files?.[0]) return;
+    if(restoreMutationBusy){
+      say('復元操作が実行中です。前の操作が完了してから再試行してください。');
+      return;
+    }
     say('バックアップを検証中…');
     try {
       const result = await restoreMode(selector.value, input.files[0]);
@@ -1092,6 +1124,10 @@
   });
   updateApply.addEventListener('click', async () => {
     if (!unlocked || !pendingWorker || updateApply.hidden) return;
+    if(restoreMutationBusy){
+      setUpdate('復元処理中のため、更新の適用を中止しました。完了後に再実行してください。');
+      return;
+    }
     if (!confirm('今すぐ更新を適用し、展示トップを再読み込みしますか？')) return;
     updateApply.disabled = true;
     setUpdate('最新版を適用中…');
