@@ -6,6 +6,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const WARNING=require('../../js/warning_color.js');
+const {createFixture}=require('./warning-headstart-idb-fixture.cjs');
 const source=fs.readFileSync('js/pages_preview.js','utf8');
 const config=JSON.parse(fs.readFileSync('data/evolution_models/continuous_v1/config.json','utf8'));
 const begin=(start,end)=>{
@@ -16,14 +17,16 @@ const begin=(start,end)=>{
 const actual=[
  begin('  function hashString32(', '\n  function inheritLinear('),
  begin('  function makePureWhiteFounderGenome(', '\n  function randomRange('),
- begin('  async function ensureWarningNeutralHeadstart()', '\n  function moduleMaskValue(')
+ begin('  async function reserveWarningNeutralSeed(', '\n  function moduleMaskValue(')
 ].join('\n');
 assert.match(actual,/makeWarningWhiteFounderGenome\(index\)/);
 assert.match(actual,/genome\.baseHue = makeSeededRng\(/);
 assert.match(actual,/genomeKey\('gen00001', i\)/);
 assert.match(source,/genome = makeWarningWhiteFounderGenome\(i\)/);
 const mutedConfig=JSON.parse(JSON.stringify(config));
-const data=new Map();
+const fixture=createFixture();
+const data=fixture.stores.meta;
+const images=fixture.stores.images;
 let writes=[];
 const globals={
  WARNING,Math,Number,Map,Set,Blob,Array,Uint8Array,Promise,
@@ -33,8 +36,8 @@ const globals={
  defaultModuleParams:()=>({cx:0.5,cy:0.5,rx:0.2,ry:0.2,valueEffect:-0.2}),
  genomeKey:(generation,index)=>'genome:'+generation+':'+String(index).padStart(2,'0'),
  imageKey:(generation,index)=>generation+':'+String(index).padStart(2,'0'),
- idbGet:async(_store,key)=>data.get(key),
- idbPut:async(_store,key,value)=>{writes.push(key);data.set(key,value)},
+ idbGet:fixture.idbGet,openDb:fixture.openDb,
+ loadedRestoreEpoch:null,restoreEpochCaptured:true,
  ensureConfig:async()=>{},ensureMask:async()=>{},ensureTemplateAlpha:async()=>{},
  makeWarningNeutralRunSeed:()=>{throw Error('unexpected new seed draw')},
  clamp01:x=>Math.min(1,Math.max(0,x)),
@@ -77,7 +80,8 @@ assert.ok(generated.slice(30).some(g=>g.baseHue>120&&g.baseHue<240),
 
 const probabilities=JSON.stringify(mutedConfig.trait_genetics);
 async function doHeadstart(founders){
- data.clear();writes=[];
+ data.clear();images.clear();writes=[];
+ data.set('current_generation_id','gen00001');
  for(let i=1;i<=60;i++)data.set(globals.genomeKey('gen00001',i),founders[i-1]);
  data.set('warning_neutral_run_seed_v1','0123456789abcdef0123456789abcdef');
  assert.equal(await globals.__test.headstart(),true);
@@ -90,13 +94,13 @@ async function doHeadstart(founders){
    assert.equal(savedFounder,founders[i-1],'gen1 DNA is never overwritten');
    assert.equal(evolved.baseHue,savedFounder.baseHue,
      'neutral headstart starts from actual saved gen1 DNA');
-   assert.ok(data.get(globals.imageKey('gen00021',i)) instanceof Blob);
+   assert.ok(images.get(globals.imageKey('gen00021',i)) instanceof Blob);
  }
- assert.ok(!writes.some(key=>key.startsWith('genome:gen00001:')),
+ assert.ok(![...data.keys()].some(key=>key.startsWith('genome:gen00001:') && !founders.some((g,j)=> j+1===Number(key.slice(-2)) && data.get(key)===g)),
    'never write to existing first-generation genomes');
- const previous=writes.length;
+ const previous=fixture.txLog.length;
  assert.equal(await globals.__test.headstart(),true,'reload existing gen21');
- assert.equal(writes.length,previous,'gen21+ should not be recomputed on reload');
+ assert.equal(fixture.txLog.length,previous,'gen21+ should not be recomputed on reload');
 }
 (async()=>{
  await doHeadstart(generated);
@@ -104,12 +108,13 @@ async function doHeadstart(founders){
  await doHeadstart(old);
  for(let i=1;i<=60;i++)assert.equal(data.get(globals.genomeKey('gen00021',i)).baseHue,0,
   'interrupted old H=0 run cannot be secretly changed to new hue policy');
- data.clear();writes=[];
+ data.clear();images.clear();writes=[];
+ data.set('current_generation_id','gen00001');
  for(let i=1;i<=60;i++)data.set(globals.genomeKey('gen00001',i),generated[i-1]);
  data.delete(globals.genomeKey('gen00001',42));
  data.set('warning_neutral_run_seed_v1','0123456789abcdef0123456789abcdef');
  await assert.rejects(globals.__test.headstart(),/創始者の遺伝情報が不足/);
- assert.equal(data.has('current_generation_id'),false);
+ assert.equal(data.get('current_generation_id'),'gen00001');
  assert.equal(data.has(globals.genomeKey('gen00021',1)),false);
  assert.equal(JSON.stringify(mutedConfig.trait_genetics),probabilities,
    'mutation probability and range settings unchanged');
