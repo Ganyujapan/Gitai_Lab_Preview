@@ -65,7 +65,9 @@ for(const opts of [
 }
 
 assert.match(game,/const DB_VERSION = 2/);
-assert.match(admin,/indexedDB\.open\(name, 2\)/);
+assert.match(admin,/indexedDB\.open\(name\)/);
+assert.doesNotMatch(admin,/indexedDB\.open\(name, 2\)/);
+assert.match(admin,/db\.version !== 2/);
 assert.match(rehearsal,/idb\.open\(name, version\)/);
 assert.match(rehearsal,/idb\.deleteDatabase\(name\)/);
 assert.match(rehearsal,/assertSandboxName\(name\)/);

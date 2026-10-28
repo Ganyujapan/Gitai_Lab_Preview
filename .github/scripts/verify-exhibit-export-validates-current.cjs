@@ -62,6 +62,7 @@ function harness(initial,mode='cryptic'){
   hex:bytes=>[...bytes].map(x=>x.toString(16).padStart(2,'0')).join(''),
   STORES:['images','meta','theater_frames'],BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
   MODES:{cryptic:{db:'db-cryptic'},warning:{db:'db-warning'}},
+  preflightExportEntryCount:async()=>initial.images.length+initial.meta.length+initial.theater_frames.length,
   snapshotStores:async()=>initial,
   openDb:async()=>{open++;return {close(){closed++}};},
   fetch:async()=>({json:async()=>({build:'unit-test'})}),

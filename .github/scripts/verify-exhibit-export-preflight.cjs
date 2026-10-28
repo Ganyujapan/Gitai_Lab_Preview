@@ -45,6 +45,7 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
     MODES:{cryptic:{db:'db-cryptic'},warning:{db:'db-warning'}},
     STORES:stores,BACKUP_SCHEMA:'gitai-exhibit-backup-v1',
     openDb:async()=>({close(){dbClosed=true}}),
+    preflightExportEntryCount:async()=>sharedSnapshot.images.length+sharedSnapshot.meta.length+sharedSnapshot.theater_frames.length,
     snapshotStores:async()=>sharedSnapshot,
     // This test isolates byte/node preflight; full image/DNA checks have a
     // dedicated regression invoking the real verification routine.

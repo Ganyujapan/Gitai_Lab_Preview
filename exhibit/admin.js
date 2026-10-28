@@ -64,20 +64,23 @@
 
   async function openDb(name) {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(name, 2);
-      // STO-04: onblocked already rejects the administrator operation.
-      // The request itself cannot be cancelled and may open much later;
-      // close that stale connection to avoid holding a versionchange lock.
+      // AUD-DB-01: A backup admin must NEVER create or upgrade game data.
+      // A versionless open reads an existing DB at its current version.
+      // On a non-existent DB, Safari would implicitly create v1; abort its
+      // versionchange transaction before anything is persisted.
+      const request = indexedDB.open(name);
+      // STO-04: a blocked request cannot be cancelled. Reject immediately
+      // and close any connection that arrives after the rejection.
       let blocked = false;
-      request.onupgradeneeded = () => {
-        // Never create a version-2 DB without the game engine's stores.
-        // An admin backup attempt before the first play must be harmless.
-        const db = request.result;
-        for (const store of STORES) {
-          if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
-        }
+      let missing = false;
+      request.onupgradeneeded = event => {
+        missing = true;
+        try { event.target.transaction.abort(); }
+        catch (error) { reject(error); }
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(missing
+        ? new Error('まだ実験データがありません。モードを一度プレイしてから操作してください。')
+        : request.error || new Error('保存データベースを開けませんでした。'));
       request.onblocked = () => {
         blocked = true;
         reject(new Error('データベースが使用中です。ゲーム画面を閉じてください。'));
@@ -88,9 +91,10 @@
           db.close();
           return;
         }
-        if (STORES.some(s => !db.objectStoreNames.contains(s))) {
+        if (db.version !== 2 || STORES.some(s => !db.objectStoreNames.contains(s))) {
           db.close();
-          reject(new Error('保存データの形式が想定と異なります。'));
+          reject(new Error('保存DBのバージョンまたは形式が想定と異なります。'
+            + '管理画面では変更しません。実験データは保持しています。'));
           return;
         }
         resolve(db);
@@ -132,6 +136,49 @@
       }
     }
     return {nodes, base64Bytes};
+  }
+
+  // AUD-DB-01: refuse huge v1 exports BEFORE cursor-reading binary data.
+  // One cheap readonly count transaction checks all stores. A later
+  // snapshotStores() transaction still enforces the same entry/node/byte
+  // limits if game progress changes between these two snapshots.
+  function preflightExportEntryCount(db) {
+    return new Promise((resolve,reject)=>{
+      let tx;
+      try{
+        tx=db.transaction(STORES,'readonly');
+        const counts=Object.create(null);
+        let failure=null;
+        tx.oncomplete=()=>{
+          if(failure){reject(failure);return;}
+          const total=STORES.reduce((n,store)=>n+counts[store],0);
+          if(!Number.isSafeInteger(total)||total<0)
+            reject(new Error('保存データの件数を検証できませんでした。'));
+          else if(total>MAX_BACKUP_ENTRIES)
+            reject(new Error('保存履歴がJSONバックアップ上限20,000件を超えています。'
+              +'画像データは読み込まず、元の進化データは変更していません。'));
+          else resolve(total);
+        };
+        tx.onerror=()=>{};
+        tx.onabort=()=>reject(failure||tx.error
+          ||new Error('保存項目数の確認が中断されました。'));
+        for(const store of STORES){
+          const req=tx.objectStore(store).count();
+          req.onsuccess=()=>{
+            if(!Number.isSafeInteger(req.result)||req.result<0)
+              failure=new Error('保存データの件数が不正です。');
+            else counts[store]=req.result;
+          };
+          req.onerror=()=>{
+            failure=req.error||new Error('保存項目数を読み込めませんでした。');
+            try{tx.abort();}catch(_){reject(failure);}
+          };
+        }
+      }catch(error){
+        if(tx){try{tx.abort();}catch(_){}}
+        reject(error);
+      }
+    });
   }
 
   function snapshotStores(db) {
@@ -253,6 +300,7 @@
     const db = await openDb(mode.db);
     let snapshot;
     try {
+      await preflightExportEntryCount(db);
       snapshot = await snapshotStores(db);
     } finally { db.close(); }
     // Reject corrupt or incomplete current-generation records before spending

@@ -28,6 +28,7 @@ function simulate(source,isSpecimen=false) {
   const requests=[],transactions=[],openRequests=[],records=new Map();
   const state={failOpen:false,lateCloses:0,storageConflicts:[]};
   const db={
+    version:2,
     close(){state.lateCloses++},
     objectStoreNames:{contains:()=>true},
     transaction(name,mode) {
