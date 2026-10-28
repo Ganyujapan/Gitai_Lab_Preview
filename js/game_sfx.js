@@ -53,6 +53,7 @@
   // seconds later must never emit a surprise delayed capture.
   const RESUME_SOUND_MAX_AGE_MS = 450;
   let audioVisibilityEpoch = 0;
+  let gestureSerial = 0;
   const pendingResumes = new Set();
   // A new document gets a NEW AudioContext. In iOS, auto-start's synthetic
   // click after a generation reload does not grant playback activation.
@@ -116,12 +117,13 @@
       const startedAt = Date.now();
       const epoch = audioVisibilityEpoch;
       const ticket = sound
-        ? { ...sound, startedAt, epoch, cancelled: false, played: false }
+        ? { ...sound, startedAt, epoch, gestureSerial, cancelled: false, played: false }
         : null;
       if (ticket) pendingResumes.add(ticket);
       const valid = () => ticket
         && !ticket.cancelled && !ticket.played
         && !document.hidden && epoch === audioVisibilityEpoch
+        && ticket.gestureSerial === gestureSerial
         && Date.now() - startedAt <= RESUME_SOUND_MAX_AGE_MS
         && Date.now() - ticket.createdAt <= TOUCH_SOUND_MAX_AGE_MS;
       const playOnce = callback => {
@@ -394,6 +396,10 @@
   }
 
   document.addEventListener('pointerdown', event => {
+    gestureSerial += 1;
+    // New gesture supersedes any delayed resume from the prior tap.
+    for (const ticket of pendingResumes) ticket.cancelled = true;
+    pendingResumes.clear();
     lastPointer = event?.isTrusted === false ? null : {
       id: event?.pointerId ?? null, createdAt: Date.now()
     };
