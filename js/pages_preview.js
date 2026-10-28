@@ -4377,6 +4377,146 @@
     return true;
   }
 
+  // RE3-EV-02: reserve the neutral seed only while the same founder epoch
+  // and generation are current. The read and optional seed write share a
+  // transaction, so a simultaneous restore or second tab cannot race it.
+  // No image conversion or evolution takes place inside this transaction.
+  async function reserveWarningNeutralSeed(seedKey, markerKey) {
+    const observed = await idbGet(META_STORE, seedKey);
+    const candidate = observed == null ? makeWarningNeutralRunSeed() : null;
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(META_STORE, 'readwrite');
+      const meta = tx.objectStore(META_STORE);
+      let seed = null;
+      let failure = null;
+      const abortWith = (code, message) => {
+        failure = new Error(message);
+        failure.code = code;
+        try { tx.abort(); } catch (_) { reject(failure); }
+      };
+      tx.oncomplete = () => resolve(seed);
+      tx.onabort = () => reject(failure || tx.error
+        || new Error('中立準備の開始を中断しました。元の実験は保持しました。'));
+      tx.onerror = () => { /* IDB abort handles rollback */ };
+      const epochReq = meta.get('restore_epoch');
+      epochReq.onsuccess = () => {
+        const epoch = epochReq.result == null ? null : String(epochReq.result);
+        if (!restoreEpochCaptured || epoch !== loadedRestoreEpoch) {
+          abortWith('restore_epoch_mismatch',
+            '別の画面で実験が復元されました。元のデータを変更せず停止しました。再読み込みしてください。');
+          return;
+        }
+        const pointerReq = meta.get('current_generation_id');
+        pointerReq.onsuccess = () => {
+          if (pointerReq.result !== 'gen00001') {
+            abortWith('generation_mismatch',
+              '中立準備中に世代が変更されました。元のデータを保持しました。再読み込みしてください。');
+            return;
+          }
+          const markerReq = meta.get(markerKey);
+          markerReq.onsuccess = () => {
+            if (markerReq.result !== undefined) {
+              abortWith('generation_mismatch',
+                '中立準備の記録が変更されました。再読み込みしてください。');
+              return;
+            }
+            const seedReq = meta.get(seedKey);
+            seedReq.onsuccess = () => {
+              const existing = seedReq.result;
+              if (existing == null) {
+                seed = candidate || makeWarningNeutralRunSeed();
+                meta.put(seed, seedKey);
+              } else if (typeof existing === 'string'
+                  && /^[0-9a-f]{32}$/.test(existing)) {
+                seed = existing;
+              } else {
+                abortWith('invalid_neutral_seed',
+                  '中立準備のシードが不正です。元データを変更せず停止しました。');
+              }
+            };
+          };
+        };
+      };
+    });
+  }
+
+  // RE3-EV-02: gen21 PNGs, genomes, marker and pointer are ONE durable
+  // commit. A restore_epoch CAS catches even same-generation (ABA) restores.
+  // The seed and pointer must still match the bootstrap's initial snapshot.
+  async function commitWarningNeutralHeadstart(firstPlayableId, markerKey,
+                                                markerValue, seedKey, seed,
+                                                blobs, genomes) {
+    if (blobs.size !== TOTAL || genomes.size !== TOTAL) {
+      throw new Error('中立準備の画像・DNAが60匹分揃っていません。保存しませんでした。');
+    }
+    for (let i = 1; i <= TOTAL; i += 1) {
+      if (!(blobs.get(i) instanceof Blob) || !genomes.has(i)) {
+        throw new Error('中立準備の画像またはDNAが不足しています。保存しませんでした。');
+      }
+    }
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([IMAGE_STORE, META_STORE], 'readwrite');
+      const images = tx.objectStore(IMAGE_STORE);
+      const meta = tx.objectStore(META_STORE);
+      let failure = null;
+      const abortWith = (code, message) => {
+        failure = new Error(message);
+        failure.code = code;
+        try { tx.abort(); } catch (_) { reject(failure); }
+      };
+      tx.oncomplete = () => resolve(true);
+      tx.onabort = () => reject(failure || tx.error
+        || new Error('中立準備の保存を中断しました。元データは保持しました。'));
+      tx.onerror = () => { /* IDB abort handles rollback */ };
+      const epochReq = meta.get('restore_epoch');
+      epochReq.onsuccess = () => {
+        const epoch = epochReq.result == null ? null : String(epochReq.result);
+        if (!restoreEpochCaptured || epoch !== loadedRestoreEpoch) {
+          abortWith('restore_epoch_mismatch',
+            '別の画面で実験が復元されました。元のデータを変更せず停止しました。再読み込みしてください。');
+          return;
+        }
+        const pointerReq = meta.get('current_generation_id');
+        pointerReq.onsuccess = () => {
+          if (pointerReq.result !== 'gen00001') {
+            abortWith('generation_mismatch',
+              '中立準備中に世代が変更されました。元データを保持しました。再読み込みしてください。');
+            return;
+          }
+          const seedReq = meta.get(seedKey);
+          seedReq.onsuccess = () => {
+            if (seedReq.result !== seed) {
+              abortWith('neutral_seed_mismatch',
+                '中立準備のシードが変更されました。元データを保持しました。再読み込みしてください。');
+              return;
+            }
+            const markerReq = meta.get(markerKey);
+            markerReq.onsuccess = () => {
+              if (markerReq.result !== undefined) {
+                abortWith('generation_mismatch',
+                  '中立準備の記録がすでに存在します。再読み込みしてください。');
+                return;
+              }
+              try {
+                for (let i = 1; i <= TOTAL; i += 1) {
+                  images.put(blobs.get(i), imageKey(firstPlayableId, i));
+                  meta.put(genomes.get(i), genomeKey(firstPlayableId, i));
+                }
+                meta.put(markerValue, markerKey);
+                meta.put(firstPlayableId, 'current_generation_id');
+              } catch (error) {
+                failure = error;
+                try { tx.abort(); } catch (_) { reject(error); }
+              }
+            };
+          };
+        };
+      };
+    });
+  }
+
   // Warning-color experiment: poison and harmless each evolve separately.
   // Both begin with 30 white moths and undergo 20 neutral generations.
   // All 60 moths survive every pre-play generation; there is no crossing.
@@ -4403,14 +4543,11 @@
       }
     }
 
-    // Generate a new random stream for each reset, but never on reload.
-    // Write the seed BEFORE simulating so a partial run repeats exactly.
+    // Keep the original seed/RNG sequence across interrupted preparations.
+    // This reservation is guarded against any concurrent restore, including
+    // a restore to the same gen1 pointer.
     const seedKey = 'warning_neutral_run_seed_v1';
-    let runSeed = await idbGet(META_STORE, seedKey);
-    if (typeof runSeed !== 'string' || !/^[0-9a-f]{32}$/.test(runSeed)) {
-      runSeed = makeWarningNeutralRunSeed();
-      await idbPut(META_STORE, seedKey, runSeed);
-    }
+    const runSeed = await reserveWarningNeutralSeed(seedKey, markerKey);
 
     let population = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
@@ -4481,18 +4618,19 @@
       await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    // Persist only the first playable generation (gen21). Commit the marker
-    // last, so interrupted writes are rebuilt from the white founders.
+    // Generate all PNGs in memory BEFORE opening a write transaction.
+    // Atomic commit rejects a restored run or competing tab without writing
+    // even one gen21 image, DNA, marker or pointer.
+    const preparedBlobs = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
       const genome = population.get(i);
       const blob = await imageDataToBlob(renderGenome(genome));
-      await idbPut(IMAGE_STORE, imageKey(firstPlayableId, i), blob);
-      await idbPut(META_STORE, genomeKey(firstPlayableId, i), genome);
+      preparedBlobs.set(i, blob);
       if (i % 8 === 0) await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    await idbPut(META_STORE, markerKey, markerValue);
-    await idbPut(META_STORE, 'current_generation_id', firstPlayableId);
+    await commitWarningNeutralHeadstart(firstPlayableId, markerKey,
+      markerValue, seedKey, runSeed, preparedBlobs, population);
     currentGenerationId = firstPlayableId;
     return true;
   }
