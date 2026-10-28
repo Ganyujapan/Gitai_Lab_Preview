@@ -78,6 +78,7 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   const messages = [], handlers = {};
   let opened = 0, closed = 0, confirmations = 0, epochCounter = 0;
   let failSet=lifeSetFail,failRemove=lifeRemoveFail;
+  let stallOneOpen=false,releaseOpen=null;
   const state = {
     images: new Map([['old-image','kept']]),
     meta: new Map([['current_generation_id','gen00010']]),
@@ -121,6 +122,10 @@ function harness({mode='warning', confirmed=true, idbFail=false,
     },
     openDb:async()=>{
       opened++;
+      if(stallOneOpen){
+        stallOneOpen=false;
+        await new Promise(resolve=>{releaseOpen=resolve;});
+      }
       return {
         close(){closed++;},
         transaction(stores,mode){
@@ -208,6 +213,24 @@ function harness({mode='warning', confirmed=true, idbFail=false,
     get opened(){return opened;},
     get closed(){return closed;},
     get confirmations(){return confirmations;},
+    stallNextOpen(){stallOneOpen=true;},
+    releaseStalledOpen(){
+      assert.equal(typeof releaseOpen,'function');
+      releaseOpen();releaseOpen=null;
+    },
+    restoreDeferred(raw){
+      let finishRead=null;
+      input.files=[{size:raw.length,text(){return new Promise(resolve=>{
+        finishRead=()=>resolve(raw);
+      });}}];
+      const pending=handlers['file:change']();
+      return {pending,
+        release(){
+          assert.equal(typeof finishRead,'function');
+          finishRead();
+        }
+      };
+    },
     async verifySaved(raw) {
       handlers['verify-button:click']();
       verifyFileInput.files=[{
@@ -244,6 +267,51 @@ function harness({mode='warning', confirmed=true, idbFail=false,
   assert.match(await verifiedFirst.verifySaved(JSON.stringify(damagedCopy)),
     /保存済みJSONの検証失敗/);
   assert.equal(verifiedFirst.opened,0);
+
+  // AUD-RST-01: a duplicate restore (same file, different generation, or
+  // life retry) cannot start while a restore is reading its JSON. The first
+  // restore must be allowed to finish, and the local busy state must clear.
+  const overlapping=harness();
+  const pendingFirst=overlapping.restoreDeferred(rawWarning);
+  assert.equal(overlapping.opened,0);
+  assert.match(await overlapping.restore(rawWarning),/復元操作が実行中/);
+  assert.equal(overlapping.opened,0,'no second DB restore may begin');
+  assert.equal(overlapping.confirmations,0,'no second confirmation');
+  assert.match(await overlapping.retry(),/復元操作が実行中/);
+  assert.equal(overlapping.opened,0,'manual life retry must not race restore');
+  pendingFirst.release();
+  await pendingFirst.pending;
+  assert.match(overlapping.messages.at(-1),/復元が完了/);
+  assert.equal(overlapping.state.meta.get('current_generation_id'),'gen00025');
+  assert.equal(overlapping.opened,2,'one restore and one internal life finalize');
+  assert.equal(overlapping.saved.get(lifeKey),savedLife);
+  // Once completed, both new restore and retry are available again.
+  assert.match(await overlapping.restore(rawWarning),/復元が完了/);
+  assert.equal(overlapping.opened,4);
+  assert.match(await overlapping.retry(),/再試行が必要なライフ情報はありません/);
+
+  // Reverse order: while manual life retry is stalled at IDB open, restoring
+  // a full backup must be rejected without ever overwriting any stores.
+  const retryFirst=harness({lifeSetFail:true});
+  assert.match(await retryFirst.restore(rawWarning),/ライフ情報を復元できませんでした/);
+  retryFirst.stallNextOpen();
+  const pendingRetry=retryFirst.retry();
+  assert.equal(retryFirst.opened,3,'retry should be waiting at DB open');
+  assert.match(await retryFirst.restore(rawWarning),/復元操作が実行中/);
+  assert.equal(retryFirst.opened,3,'concurrent restore must not open DB');
+  retryFirst.setLifeFailure(false);
+  retryFirst.releaseStalledOpen();
+  assert.match(await pendingRetry,/ライフ情報だけ復元しました/);
+  assert.equal(retryFirst.opened,3);
+  assert.equal(retryFirst.state.meta.get('current_generation_id'),'gen00025');
+  // Cancelled/failed restores must release the mutex (previous tests cover
+  // checksum failure and IDB abort; assert retry after a deliberate cancel).
+  const cancelledThenRetry=harness({confirmed:false});
+  assert.match(await cancelledThenRetry.restore(rawWarning),/復元をキャンセル/);
+  assert.match(await cancelledThenRetry.restore(rawWarning),/復元をキャンセル/);
+  assert.equal(cancelledThenRetry.opened,0);
+  assert.match(source,/if\(restoreMutationBusy\)\{\s*setUpdate\('復元処理中のため、更新の適用を中止/);
+  assert.match(source,/restoreMutationBusy = false;\s*}\s*}\s*\/\/ EXH-F01/);
 
   const full = harness();
   const fullMessage = await full.restore(rawWarning);
