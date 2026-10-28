@@ -17,8 +17,9 @@ assert.match(deploy, /^  deploy:\s*\n    needs: verify\s*$/m,
   'Pages deploy must depend on full verification success');
 assert.match(deploy, /^  verify:\s*\n(?:[^\n]*\n)*?    permissions:\s*\n      contents: read/m,
   'Full validation job must not have Pages/write credentials');
-assert.match(deploy, /actions\/upload-pages-artifact@v4/, 'Pages upload preserved');
-assert.match(deploy, /actions\/deploy-pages@v4/, 'Pages deployment preserved');
+// CI-02: the release gate must accept ONLY verified immutable Action SHAs.
+assert.match(deploy, /actions\/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b/, 'Pages upload preserved');
+assert.match(deploy, /actions\/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e/, 'Pages deployment preserved');
 const required = [
   'verify-author-news.cjs',
   'verify-tutorial.cjs',

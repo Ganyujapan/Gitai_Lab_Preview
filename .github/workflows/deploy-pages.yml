@@ -28,7 +28,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate preview contract
         run: |
           python - <<'PY'
@@ -203,7 +203,7 @@ jobs:
           node --check js/portal_trophies.js
           node --check js/entertainment_portal.js
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
         with:
           enablement: true
       - name: Assemble runtime-only Pages artifact
@@ -234,8 +234,8 @@ jobs:
           test -f _site/exhibit/audio/gitailab_rainforest_soft_48k.ogg
           test -f _site/exhibit/game.html
           test -f _site/exhibit/precache.json
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: _site
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
