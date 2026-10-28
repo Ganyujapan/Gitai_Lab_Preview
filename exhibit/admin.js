@@ -767,7 +767,7 @@
       const importedGeneration = body.currentGeneration;
       const existingGeneration = typeof fence.generation === 'string'
         ? fence.generation : null;
-      const validGeneration = /^gen(?:\\d{5}|[1-9]\\d{5,})$/;
+      const validGeneration = /^gen(?:\d{5}|[1-9]\d{5,})$/;
       const knownExisting = existingGeneration !== null
         && validGeneration.test(existingGeneration);
       const backwards = knownExisting
@@ -776,19 +776,19 @@
         ? '未開始または世代情報なし'
         : knownExisting ? existingGeneration : '世代情報が不正（既存データあり）';
       const summary = mode.label
-        + '\\n現在の実験：' + currentLabel
-        + '\\n復元するデータ：' + importedGeneration
-        + '\\n現在の画像・DNA・履歴をすべて置き換えます。'
+        + '\n現在の実験：' + currentLabel
+        + '\n復元するデータ：' + importedGeneration
+        + '\n現在の画像・DNA・履歴をすべて置き換えます。'
         + ' 必要な場合は先にバックアップを保存してください。';
-      if (!confirm(summary + '\\n復元を実行しますか？'))
+      if (!confirm(summary + '\n復元を実行しますか？'))
         return {status: 'cancelled'};
       if (backwards && !confirm(
         '【進化履歴の巻き戻し】' + mode.label
-        + '\\n現在：' + existingGeneration
-        + '\\n復元後：' + importedGeneration
-        + '\\n古い世代への復元により、それ以降に進んだ実験の保存履歴が'
+        + '\n現在：' + existingGeneration
+        + '\n復元後：' + importedGeneration
+        + '\n古い世代への復元により、それ以降に進んだ実験の保存履歴が'
         + '失われる可能性があります。'
-        + '\\n本当にこのバックアップで上書きしますか？'
+        + '\n本当にこのバックアップで上書きしますか？'
       )) return {status: 'cancelled'};
       // Unique restore epoch: never reuse a value from an imported backup.
       // Browser cryptographic randomness is separate from evolution RNG.
