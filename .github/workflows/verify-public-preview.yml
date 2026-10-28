@@ -173,6 +173,8 @@ jobs:
         run: node .github/scripts/verify-static-background-cache.cjs
       - name: Verify static config cache is safe and live API uncached
         run: node .github/scripts/verify-static-config-cache.cjs
+      - name: PF06 prefix queries scan only relevant IndexedDB keys
+        run: node .github/scripts/verify-pf06-prefix-cursor.cjs
       - name: Reject aborted evolution and specimen transactions without hanging
         run: node .github/scripts/verify-indexeddb-aborts.cjs
       - name: Verify blocked experiment deletions settle only after actual result

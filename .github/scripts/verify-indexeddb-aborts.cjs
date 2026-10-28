@@ -39,8 +39,8 @@ function simulate(source,isSpecimen=false) {
               tx.requests.push({op:'get',key,req:q});return q},
             put(value,key){tx.requests.push({op:'put',key,value})},
             delete(key){tx.requests.push({op:'delete',key})},
-            openCursor(){const q={result:null,error:null,onsuccess:null,onerror:null};
-              tx.requests.push({op:'cursor',req:q});return q}
+            openCursor(range){const q={result:null,error:null,onsuccess:null,onerror:null};
+              tx.requests.push({op:'cursor',range,req:q});return q}
           };
         }
       };
@@ -63,6 +63,8 @@ function simulate(source,isSpecimen=false) {
   const ctx={indexedDB,dbPromise:null,specimenDbPromise:null,
     DB_NAME:'test-evolution',DB_VERSION:2,IMAGE_STORE:'images',META_STORE:'meta',THEATER_STORE:'theater_frames',
     SPECIMEN_DB_NAME:'test-specimen',SPECIMEN_STORE:'specimens',STORES:['images','meta','theater_frames'],console,Error,
+    // IndexedDB key range exists in Safari/Chrome; model it for PF06 queries.
+    IDBKeyRange: {bound:(lower,upper)=>({lower,upper})},
     showStorageConflictNotice:message=>state.storageConflicts.push(message)};
   vm.runInNewContext(source,ctx,{filename:isSpecimen?'index.html:specimen':'pages_preview.js:indexeddb',timeout:1000});
   const nextTx=async operation=>{
@@ -108,6 +110,8 @@ async function rejects(p,pattern) {
   tx.oncomplete();assert.equal(await p,'gen00022');
   // Cursor exhaustion is not proof the readonly transaction committed.
   ({tx,p}=await e.nextTx(()=>e.ctx.idbEntriesByPrefix('images','gen00022:')));
+  assert.equal(tx.requests[0].range.lower,'gen00022:');
+  assert.equal(tx.requests[0].range.upper,'gen00022:\uffff');
   const cursor=tx.requests[0].req;
   cursor.result={key:'gen00022:01',value:'moth',continue(){cursor.result=null;cursor.onsuccess()}};
   cursor.onsuccess();tx.onabort();await rejects(p,/一覧の読み込みを中断/);
