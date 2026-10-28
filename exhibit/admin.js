@@ -753,32 +753,91 @@
     }
     const {body, prepared} = await validateBackup(await file.text(), selected);
     const mode = MODES[selected];
-    if (!confirm(mode.label + 'を' + body.currentGeneration +
-      'に復元します。現在の同モードのデータは置き換えられます。実行しますか？')) return {status: 'cancelled'};
-    // Unique restore epoch: never reuse a value from an imported backup.
-    // Browser cryptographic randomness is separate from evolution RNG.
-    const entropy = crypto.getRandomValues(new Uint8Array(16));
-    const epoch = 'restore-' + [...entropy]
-      .map(value => value.toString(16).padStart(2, '0')).join('');
+    // AUD-RST-02: capture the currently persisted generation AND restore
+    // epoch before the irreversible confirmation. A different game tab or
+    // admin tab may save a new generation while the dialog remains open.
     const db = await openDb(mode.db);
     try {
-      // Atomic across ALL object stores. On quota/write errors, IDB rolls
-      // back the entire transaction, preserving the old generation.
+      const fence = await readWarningLifeState(db);
+      if (!confirm(mode.label + 'を' + body.currentGeneration +
+        'に復元します。現在の同モードのデータは置き換えられます。実行しますか？'))
+        return {status: 'cancelled'};
+      // Unique restore epoch: never reuse a value from an imported backup.
+      // Browser cryptographic randomness is separate from evolution RNG.
+      const entropy = crypto.getRandomValues(new Uint8Array(16));
+      const epoch = 'restore-' + [...entropy]
+        .map(value => value.toString(16).padStart(2, '0')).join('');
       await new Promise((resolve, reject) => {
+        // The same readwrite transaction checks the fence AND clears/replaces
+        // all 3 stores. IDB serializes this with generation commits across
+        // tabs, so no other commit can slip between the check and the swap.
         const tx = db.transaction(STORES, 'readwrite');
-        tx.oncomplete = resolve;
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
+        const meta = tx.objectStore('meta');
+        let failure = null;
+        const abort = message => {
+          failure = new Error(message);
+          try { tx.abort(); } catch (_) { reject(failure); }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => {};
+        tx.onabort = () => reject(failure || tx.error ||
+          new Error('復元が中断されました。元の進化データは保持されています。'));
+        const observed = {};
+        let checksLeft = 2;
+        const checkThenWrite = () => {
+          if (--checksLeft > 0) return;
+          if (observed.generation !== fence.generation ||
+              observed.epoch !== fence.epoch) {
+            abort('復元確認後に別の画面で世代または復元履歴が変更されました。'
+              + '復元を中止し、元の進化データを保持しました。'
+              + '他のゲーム画面を閉じ、バックアップを再確認してください。');
+            return;
+          }
+          try {
+            for (const store of STORES) {
+              const objectStore = tx.objectStore(store);
+              objectStore.clear();
+              for (const {key, value} of prepared[store])
+                objectStore.put(value, key);
+              // Ignore imported restore epochs: a fresh epoch invalidates
+              // stale in-flight children in other game tabs (STO-01).
+              if (store === 'meta') {
+                objectStore.put(epoch, 'restore_epoch');
+                if (selected === 'warning') {
+                  objectStore.put({
+                    epoch, generation_id: body.currentGeneration,
+                    value: body.warningLife ?? null
+                  }, PENDING_WARNING_LIFE_KEY);
+                }
+              }
+            }
+          } catch (error) {
+            // A synchronous put/clear error may leave queued clears alive.
+            // Abort, NEVER allow a partial replacement to commit.
+            failure = error;
+            try { tx.abort(); } catch (_) { reject(error); }
+          }
+        };
         try {
-          for (const store of STORES) {
-            const objectStore = tx.objectStore(store);
-            objectStore.clear();
-            for (const {key, value} of prepared[store]) objectStore.put(value, key);
-            // Same transaction as every other restored store. Any historic
-            // restore_epoch in the backup is intentionally replaced.
-            if (store === 'meta') {
-              objectStore.put(epoch, 'restore_epoch');
-              if(selected==='warning') {
+          for (const [field, key] of [
+            ['generation','current_generation_id'],
+            ['epoch','restore_epoch']
+          ]) {
+            const request = meta.get(key);
+            request.onsuccess = () => {
+              observed[field] = request.result;
+              checkThenWrite();
+            };
+          }
+        } catch (error) {
+          failure = error;
+          try { tx.abort(); } catch (_) { reject(error); }
+        }
+      });
+    } finally {
+      db.close();
+    }
+    if(selected==='warning') {
                 objectStore.put({
                   epoch,generation_id:body.currentGeneration,
                   value:body.warningLife??null
