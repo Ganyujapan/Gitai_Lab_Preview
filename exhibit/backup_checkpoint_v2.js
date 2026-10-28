@@ -102,15 +102,22 @@
   // transactions. It is safe to await Blob conversion BETWEEN these reads.
   // expectedEntries must be the value returned by makeCheckpoint, so a
   // missing/partially cleaned stage can never appear to be a complete backup.
-  async function* readCheckpoint(db,snapshotId,expectedEntries,{batchSize=8}={}) {
+  async function* readCheckpoint(db,snapshotId,expectedEntries,{batchSize=8,signal=null}={}) {
     checkPrerequisites(db,snapshotId);
     if(!Number.isSafeInteger(expectedEntries)||expectedEntries<=0 ||
        !Number.isSafeInteger(batchSize)||batchSize<1||batchSize>64) {
       throw failure('読込み件数またはバッチサイズが不正です。');
     }
+    if(signal!==null && typeof signal.aborted!=='boolean')
+      throw failure('中断通知が不正です。');
+    const checkCancelled=()=>{
+      if(signal?.aborted) throw failure('読込みが中断されました。');
+    };
+    checkCancelled();
     const upper=[snapshotId,'\uffff'];
     let previous=null,finished=false,seen=0;
     while(!finished) {
+      checkCancelled();
       const batch=await new Promise((resolve,reject)=>{
         const collected=[];
         let tx,done=false,error=null,last=null;
@@ -140,7 +147,9 @@
           };
         }catch(e){if(tx){try{tx.abort();}catch(_){reject(e);}}else reject(e);}
       });
+      checkCancelled();
       for(const record of batch.collected) {
+        checkCancelled();
         seen++;
         if(seen>expectedEntries) throw failure('一時保存の項目数が多すぎます。');
         yield record;
@@ -148,6 +157,7 @@
       if(batch.done||!batch.collected.length) finished=true;
       else previous=batch.last;
     }
+    checkCancelled();
     if(seen!==expectedEntries) throw failure('一時保存の項目数が不足しています。');
   }
 
