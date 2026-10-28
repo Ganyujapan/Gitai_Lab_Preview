@@ -24,9 +24,9 @@ function element(text='',visible=false){
       return event;
     }};
 }
-function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false}={}){
+function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false,sessionStash=null}={}){
   let pointer='gen'+String(end).padStart(5,'0');
-  let clicks=0;const errors=[],navigations=[],stash=new Map();
+  let clicks=0;const errors=[],navigations=[],stash=sessionStash||new Map();
   const life=new Map();
   const lifeKey='gitai-warning-life-v1:gitai-exhibit-test';
   if(mode==='warning')life.set(lifeKey,JSON.stringify({
@@ -85,7 +85,11 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
       return req;
     }
   };
-  const sessionStorage={getItem:k=>stash.get(k)||null,setItem:(k,v)=>stash.set(k,v)};
+  const sessionStorage={
+    getItem:k=>stash.get(k)||null,
+    setItem:(k,v)=>stash.set(k,v),
+    removeItem:k=>stash.delete(k)
+  };
   const localStorage={
     getItem:k=>life.get(k)??null,
     setItem(k,v){lifeWrites++;if(lifeSaveError)throw Error('QuotaExceededError');life.set(k,v);}
@@ -125,6 +129,19 @@ async function waitFor(fn){
   assert.equal(p.navigations.length,1);
   assert.match(p.navigations[0],/modes\.html\?handover=1$/);
   assert.equal(JSON.parse(p.stash.get('gitai-exhibit-handover-v1')).end,21);
+  // This visitor counter must be cleared on success, BEFORE any theater
+  // playback. Otherwise interrupting Safari's closing movie causes the
+  // next visitor to inherit their predecessor's 5-generation allowance.
+  assert.equal(p.stash.has('gitai-exhibit-visit-start-v1'),false,
+    'successful handover clears old visitor count before theater playback');
+  assert.deepEqual(JSON.parse(p.stash.get('gitai-exhibit-handover-v1')),
+    {mode:'cryptic',start:21,end:21},
+    'theater must still have the exact previous visitor replay range');
+  const nextSession=fixture({start:22,end:22,sessionStash:p.stash});
+  assert.equal(nextSession.api.start(),22,'next visitor restarts count from offspring');
+  assert.equal(nextSession.api.notice.hidden,true,
+    'next visitor must not immediately hit the previous 5-gen limit');
+  assert.equal(nextSession.api.button.hidden,false);
   assert.equal(p.lifeWrites,0,'cryptic handover must NEVER touch warning-life storage');
   for(const mode of ['cryptic','warning']){
     const mid=fixture({mode,start:21,end:24});
@@ -132,6 +149,12 @@ async function waitFor(fn){
     await mid.api.safelyHandover();
     assert.equal(mid.pointer,'gen00025');
     assert.equal(JSON.parse(mid.stash.get('gitai-exhibit-handover-v1')).mode,mode);
+    assert.equal(mid.stash.has('gitai-exhibit-visit-start-v1'),false,
+      'both exhibition modes reset the visitor counter after a saved handover');
+    const successor=fixture({mode,start:25,end:25,sessionStash:mid.stash});
+    assert.equal(successor.api.start(),25,'the next visitor begins counting at new generation');
+    assert.equal(successor.api.notice.hidden,true);
+    assert.equal(successor.api.button.hidden,false);
     if(mode==='warning') {
       assert.deepEqual(JSON.parse(mid.life),{generation_id:'gen00025',thirds:30},
         'next visitor gets 10 full hearts without resetting moth evolution');
@@ -148,6 +171,8 @@ async function waitFor(fn){
     assert.equal(fifth.pointer,'gen00026');
     assert.equal(fifth.clicks,1);
     assert.equal(JSON.parse(fifth.stash.get('gitai-exhibit-handover-v1')).end,25);
+    assert.equal(fifth.stash.has('gitai-exhibit-visit-start-v1'),false,
+      'the forced fifth generation handover clears the visitor counter');
     if(mode==='warning')assert.deepEqual(JSON.parse(fifth.life),{
       generation_id:'gen00026',thirds:30
     },'fifth-generation handover also resets only life');
@@ -161,6 +186,8 @@ async function waitFor(fn){
     assert.equal(failed.api.pending(),false);
     assert.equal(failed.api.button.disabled,false);
     assert.equal(failed.stash.has('gitai-exhibit-handover-v1'),false);
+    assert.equal(failed.stash.has('gitai-exhibit-visit-start-v1'),true,
+      'failed evolution cannot erase the original visitor count');
   }
   const failedLife=fixture({mode:'warning',lifeSaveError:true});
   assert.equal(JSON.parse(failedLife.life).thirds,12,
@@ -171,6 +198,8 @@ async function waitFor(fn){
   assert.equal(failedLife.navigations.length,0,
     'never claim handover complete if the next visitor life reset failed');
   assert.equal(failedLife.stash.has('gitai-exhibit-handover-v1'),false);
+  assert.equal(failedLife.stash.has('gitai-exhibit-visit-start-v1'),true,
+    'failed life reset cannot finish the visitor handover');
   assert.match(failedLife.errors.join(' '),/ライフ10/);
   assert.equal(failedLife.lifeWrites,1);
   assert.equal(JSON.parse(failedLife.life).thirds,6,
@@ -183,5 +212,5 @@ async function waitFor(fn){
   const playing=fixture({review:false});
   await playing.api.safelyHandover();
   assert.equal(playing.clicks,0);
-  console.log('RE2-EXH-01: both modes hand over only after committed generations; warning life resets to 10 after ordinary save, cryptic untouched, errors fail closed.');
+  console.log('RE2-EXH-01: completed visitor counter clears before theater; next visitor gets new 5-gen allowance, recap survives, warning life10 and failed handovers are safe.');
 })().catch(e=>{console.error(e);process.exitCode=1});
