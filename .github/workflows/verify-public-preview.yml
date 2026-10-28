@@ -201,6 +201,8 @@ jobs:
         run: node .github/scripts/verify-indexeddb-aborts.cjs
       - name: Verify blocked experiment deletions settle only after actual result
         run: node .github/scripts/verify-blocked-experiment-deletion.cjs
+      - name: STO-04 close late saved experiment database connections after blocked open
+        run: node .github/scripts/verify-sto04-blocked-saved-open.cjs
       - name: Prevent missing DNA from being rewritten by image inference
         run: node .github/scripts/verify-genome-integrity.cjs
       - name: Build and validate Pages artifact
