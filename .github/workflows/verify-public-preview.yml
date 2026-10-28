@@ -181,6 +181,8 @@ jobs:
         run: node .github/scripts/verify-warning-neutral-genome-validation.cjs
       - name: RE3-STO-01 restore epoch mismatch requires reload, never resubmit
         run: node .github/scripts/verify-re3-sto01-restore-reload.cjs
+      - name: RE3-MODEL-01 rule provenance is generation-bound and legacy diagnostics remain untouched
+        run: node .github/scripts/verify-re3-model01-rule-provenance.cjs
       - name: Reject concurrent or partial generation commits
         run: node .github/scripts/verify-atomic-generation-commit.cjs
       - name: Verify long-running generation IDs remain valid after generation 99999
@@ -231,6 +233,7 @@ jobs:
           node --check _site/exhibit/js/entertainment_portal.js
           node --check _site/exhibit/sw.js
           node exhibit/verify_mutation_profile.cjs _site
+          node .github/scripts/verify-re3-model01-rule-provenance.cjs _site
           test -f _site/exhibit/audio/gitailab_rainforest_soft_48k.ogg
           python3 - <<'PY'
           from pathlib import Path
