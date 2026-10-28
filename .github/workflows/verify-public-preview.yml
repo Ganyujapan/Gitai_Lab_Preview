@@ -66,6 +66,8 @@ jobs:
         run: node .github/scripts/verify-tutorial.cjs
       - name: Check recorded SFX content and playback logic
         run: node .github/scripts/verify-sfx.cjs
+      - name: SFX-L02 reject stale and out-of-order audio resume after touch
+        run: node .github/scripts/verify-sfx-stale-resume.cjs
       - name: Verify native audio ended-listener cleanup and voice cap
         run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
       - name: Verify native audio cannot replay cancelled pointer sounds
