@@ -84,6 +84,8 @@ jobs:
         run: node .github/scripts/verify-theater-version-upgrade.cjs
       - name: PF06 theater uses bounded Blob URLs and rejects obsolete sessions
         run: node .github/scripts/verify-pf06-theater-url-window.cjs
+      - name: PF06 synthetic performance rehearsal is safely isolated and URL bounded
+        run: node .github/scripts/verify-pf06-perf-rehearsal.cjs
       - name: Verify specimen box ignores stale async reads and releases object URLs
         run: node .github/scripts/verify-specimen-async-display.cjs
       - name: Verify exhibition offline directory startup and handover navigation
