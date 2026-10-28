@@ -146,6 +146,12 @@ async function produce(recordStream, opts={}) {
     [unsafeObject,/安全でない保存キー/],
     [{constructor:1},/安全でない保存キー/],
     [{prototype:1},/安全でない保存キー/],
+    // These are valid ordinary IndexedDB objects, not serializer wrappers.
+    // A matching binary-shaped object would otherwise decode as a Blob.
+    [{$type:'Blob',mime:'image/png',data:'iVBORw0KGgo='},/予約済み型識別子/],
+    [{$type:'Date',data:'2026-10-27T00:00:00.000Z'},/予約済み型識別子/],
+    [{$type:'Custom',data:'plain metadata'},/予約済み型識別子/],
+    [Object.assign(Object.create(null),{$type:'Blob',data:'AA==',mime:'image/png'}),/予約済み型識別子/],
     [new Map([['genome',1]]),/復元未対応のオブジェクト/],
     [new Set([1,2]),/復元未対応のオブジェクト/],
     [/moth/i,/復元未対応のオブジェクト/],
