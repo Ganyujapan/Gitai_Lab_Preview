@@ -1625,7 +1625,9 @@
   }
 
   async function loadJson(path) {
-    const res = await nativeFetch(baseUrl(path), { cache: 'no-store' });
+    // These are bundled, immutable-for-this-build JSON assets (not live APIs).
+    // Let HTTP cache reuse them; the exhibit SW serves a versioned precache.
+    const res = await nativeFetch(baseUrl(path), { cache: 'default' });
     if (!res.ok) {
       throw new Error(`${path} を取得できません (HTTP ${res.status})`);
     }
