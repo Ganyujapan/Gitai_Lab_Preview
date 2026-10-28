@@ -1220,6 +1220,26 @@
       setUpdate('復元処理中のため、更新の適用を中止しました。完了後に再実行してください。');
       return;
     }
+    // AUD-UPD-01: The v1 JSON export is built asynchronously and kept ONLY
+    // in memory until the administrator manually saves it. Reloading during
+    // preparation discards the result; after preparation it discards the
+    // only copy unless it was actually saved through Files/Downloads.
+    if(preparingBackup){
+      setUpdate('JSONバックアップを準備中です。'
+        +'更新を適用せず、準備とファイル保存を終えてから再実行してください。');
+      return;
+    }
+    if(preparedBackup && !confirm(
+      '準備済みのバックアップJSONがあります（'
+      +MODES[preparedBackup.mode].label+' '+preparedBackup.generation+'）。'
+      +'\nこのページを更新すると、メモリ内のファイルは消えます。'
+      +'\n保存済みJSONをiPadの「ファイル」から再選択して検証しましたか？'
+      +'\nまだ保存・検証していない場合は「キャンセル」を押してください。'
+    )){
+      setUpdate('更新を中止しました。準備済みのJSONは保持しています。'
+        +'保存・検証した後、改めて更新してください。');
+      return;
+    }
     if (!confirm('今すぐ更新を適用し、展示トップを再読み込みしますか？')) return;
     updateApply.disabled = true;
     setUpdate('最新版を適用中…');
@@ -1232,6 +1252,14 @@
       });
       pendingWorker.postMessage({type: 'APPLY_EXHIBIT_UPDATE'});
       await newControl;
+      // A new backup preparation or restore may have started while the
+      // browser was switching Service Workers. Never force-reload it.
+      if(restoreMutationBusy || preparingBackup){
+        setUpdate('更新は切り替わりましたが、バックアップ準備または復元が'
+          +'開始されたため自動再読み込みを控えました。'
+          +'操作完了後に管理画面を閉じて再度開いてください。');
+        return;
+      }
       setUpdate('更新の適用が完了しました。再起動します。');
       location.reload();
     } catch (error) {
