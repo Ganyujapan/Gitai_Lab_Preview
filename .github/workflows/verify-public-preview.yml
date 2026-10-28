@@ -226,6 +226,7 @@ jobs:
           test ! -e _site/docs
           test ! -e _site/tests
           python3 exhibit/build.py _site "${GITHUB_SHA}"
+          node .github/scripts/verify-exhibit-results-first.cjs
           node .github/scripts/verify-battle-seal.cjs _site
           test -f _site/exhibit/theater_canvas_20261026.js
           test -f _site/exhibit/theater_canvas_20261026.css
