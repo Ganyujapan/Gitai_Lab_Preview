@@ -4543,12 +4543,6 @@
       }
     }
 
-    // Keep the original seed/RNG sequence across interrupted preparations.
-    // This reservation is guarded against any concurrent restore, including
-    // a restore to the same gen1 pointer.
-    const seedKey = 'warning_neutral_run_seed_v1';
-    const runSeed = await reserveWarningNeutralSeed(seedKey, markerKey);
-
     let population = new Map();
     for (let i = 1; i <= TOTAL; i += 1) {
       // Start the neutral 20 generations from the SAME saved founder
@@ -4557,14 +4551,19 @@
       const genome = await idbGet(
         META_STORE, genomeKey('gen00001', i),
       );
-      if (!genome || Number(genome.schema_version) !== 1
-          || genome.lineage !== WARNING.lineage(i)) {
-        throw new Error(
-          '創始者の遺伝情報が不足または不正です。元の実験を変更せず停止しました。'
-        );
-      }
-      population.set(i, genome);
+      // RE3-EV-01: apply the SAME schema-1 validation used by normal
+      // breeding, including all hidden loci and finite trait/module values.
+      // Never infer a missing genome from pixels or sanitize corrupt DNA.
+      // Check all 60 saved founders BEFORE reserving the neutral seed or
+      // consuming any neutral-generation inheritance/mutation RNG.
+      population.set(i, validateLoadedGenome(genome, 'gen00001', i));
     }
+
+    // Keep the original seed/RNG sequence across interrupted preparations.
+    // Reserve only after all 60 founders pass validation. The transaction
+    // still guards against same-generation restores and concurrent tabs.
+    const seedKey = 'warning_neutral_run_seed_v1';
+    const runSeed = await reserveWarningNeutralSeed(seedKey, markerKey);
 
     const genetics = evolutionConfig.trait_genetics || {};
     const specialP = clamp01(
