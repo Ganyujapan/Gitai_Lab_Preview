@@ -23,4 +23,11 @@ GitHub公式の `refs/tags/v4` / `refs/tags/v5` を、GitHub REST
 3. PR上で共通verify、Pages artifact内容、exhibitオフラインの検証を成功させる。
 4. `main` にマージ後、Pagesの実際のデプロイが成功したことを確認する。
 
-固定は更新不要を意味しない。現状は検証jobが `contents:read` に分離されているが、`deploy` job内でbuild/upload/deployとPages書込権限が共存するため、**CI-02全体としては未完了**。ジョブの分離は独立したPRとデプロイ再検証が必要です。
+固定は更新不要を意味しない。PR #151で公式ActionのSHA固定を実装し、CI-02残工程ではPagesのjobを次のように分離した。
+
+- `verify`：PRと同一の再利用検証workflow、`contents: read`のみ。
+- `build`：`verify`成功後、`contents: read`のみ。既存の公開契約検証、展示版オフラインPWA構築、バンドル照合、Pages artifact uploadを行う。
+- `deploy`：`needs: [verify, build]`。このjobのみ`pages: write`と`id-token: write`。リポジトリのcheckout、run、アセット組み立ては行わず、公式ActionによるPagesの初期設定・公開に限定。
+- ガード：`verify-release-gate.cjs`と`verify-ci02-action-pins.cjs`が権限/依存関係/公式Action pin/公開job内のコード実行禁止を検査。
+
+**この独立PRのGitHub Actions本番デプロイが成功するまではCI-02全体を完了扱いしない。**
