@@ -68,6 +68,8 @@ jobs:
         run: node .github/scripts/verify-sfx.cjs
       - name: SFX-L02 reject stale and out-of-order audio resume after touch
         run: node .github/scripts/verify-sfx-stale-resume.cjs
+      - name: SFX-L03 native AAC request is immediate on capture pointerdown
+        run: node .github/scripts/verify-sfx-native-pointerdown.cjs
       - name: Verify native audio ended-listener cleanup and voice cap
         run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
       - name: Verify native audio cannot replay cancelled pointer sounds
