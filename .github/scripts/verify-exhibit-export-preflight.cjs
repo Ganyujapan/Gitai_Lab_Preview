@@ -62,7 +62,11 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
   };
   vm.runInNewContext(limitSource,ctx,{filename:'exhibit/admin.js:export',timeout:5000});
   return {ctx,downloads,sharedSnapshot,closed:()=>dbClosed,
-    run:()=>ctx.__audit.exportMode(mode)};
+    run:async()=>{
+      const archive=await ctx.__audit.exportMode(mode);
+      downloads.push(archive.file); // save later via a separate user gesture
+      return archive.generation;
+    }};
 }
 (async()=>{
   // A regular export is sent unchanged (schema/checksum) and the DB stays untouched.
@@ -75,6 +79,7 @@ function harness({mode='cryptic',entries={},maxBytes=null}={}){
     }});
     assert.equal(await normal.run(),'gen00021');
     assert.equal(normal.downloads.length,1);
+    assert.equal(normal.downloads[0].name.endsWith('.json'),true);
     assert.equal(normal.closed(),true);
     const bytes=await normal.downloads[0].text();
     const parsed=JSON.parse(bytes);
