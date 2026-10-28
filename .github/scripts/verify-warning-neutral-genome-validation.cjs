@@ -140,7 +140,7 @@ const variants=[
  // Normal new and old-H=0 founders are still accepted and use same seed.
  const evolved=[];
  for(const old of [false,true]){
-  const {fixture,originals}=setup({old});
+  const {fixture,originals}=setup({old,seedPresent:true});
   const sess=makeSession(fixture);
   await sess.go();
   assert.equal(fixture.stores.meta.get('current_generation_id'),'gen00021');
@@ -159,6 +159,14 @@ const variants=[
   assert.equal(fixture.txLog.length,before,'reload should not write');
  }
  assert.notEqual(evolved[0],evolved[1]);
+ // An entirely new run reserves one fresh, finite seed after validation.
+ {
+  const {fixture}=setup();
+  const sess=makeSession(fixture);
+  await sess.go();
+  assert.match(fixture.stores.meta.get('warning_neutral_run_seed_v1'),/^[0-9a-f]{32}$/);
+  assert.equal(fixture.stores.meta.get('current_generation_id'),'gen00021');
+ }
  // Existing invalid and old optional pigment values are not normalized.
  {
   const {fixture,originals}=setup({seedPresent:true});
