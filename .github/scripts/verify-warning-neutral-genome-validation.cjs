@@ -118,7 +118,7 @@ const variants=[
    mutate(originals[index-1]);
    const session=makeSession(fixture);
    await assert.rejects(session.go(),
-    e=>e instanceof Error && e.message.includes(index+'番の蛾の遺伝情報が不正'),
+    e=>typeof e?.message==='string' && e.message.includes(index+'番の蛾の遺伝情報が不正'),
     kind+' index '+index);
    assertIntact(fixture,originals,{seedPresent:false});
    assert.deepEqual(session.calls,{seed:0,parents:0,offspring:0,render:0},
