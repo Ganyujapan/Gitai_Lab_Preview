@@ -70,6 +70,8 @@ jobs:
         run: node .github/scripts/verify-sfx-stale-resume.cjs
       - name: SFX-L03 native AAC request is immediate on capture pointerdown
         run: node .github/scripts/verify-sfx-native-pointerdown.cjs
+      - name: Verify isolated iPad SFX latency comparison page
+        run: node .github/scripts/verify-sfx-latency-rehearsal.cjs
       - name: Verify native audio ended-listener cleanup and voice cap
         run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
       - name: Keep rainforest BGM alive on inactive iPad decoder failures

@@ -196,6 +196,7 @@ def main() -> None:
                  # Optional diagnostics: NEVER loaded by index/modes/game/admin.
                  "backup_rehearsal.html", "backup_schema_rehearsal.js",
                  "pf06_perf_rehearsal.html", "pf06_perf_rehearsal.js",
+                 "sfx_latency_rehearsal.html", "sfx_latency_rehearsal.js",
                  "backup_checkpoint_v2.js", "backup_v2.js",
                  "backup_restore_preflight_v2.js", "backup_restore_atomic_v2.js",
                  "backup_atomic_rehearsal.js",
@@ -233,6 +234,13 @@ def main() -> None:
             for fmt, ext in (("opus", "ogg"), ("aac", "m4a")):
                 clip = f"audio/sfx/{fmt}/{kind}_{i:02d}.{ext}"
                 assert clip in runtime_files, clip
+    # Isolated listening-only test for iPad SFX lag. No production entry point
+    # imports it, and it never opens the actual evolution databases.
+    for sound_test in ("sfx_latency_rehearsal.html", "sfx_latency_rehearsal.js"):
+        assert sound_test in runtime_files
+    sound_html = (exhibit / "sfx_latency_rehearsal.html").read_text(encoding="utf-8")
+    assert 'src="js/game_sfx.js" defer' in sound_html
+    assert 'src="sfx_latency_rehearsal.js" defer' in sound_html
     assert "backup_readiness.js" in runtime_files
     assert 'src="backup_readiness.js"' in (exhibit / "modes.html").read_text(encoding="utf-8")
     assert "backup_readiness.js" not in (exhibit / "game.html").read_text(encoding="utf-8")
@@ -253,6 +261,8 @@ def main() -> None:
         assert needed in runtime_files
     for entry in ("game.html", "modes.html", "index.html"):
         page_source = (exhibit / entry).read_text(encoding="utf-8")
+        assert "sfx_latency_rehearsal.js" not in page_source
+        assert "sfx_latency_rehearsal.html" not in page_source
         assert "pf06_perf_rehearsal.js" not in page_source
         assert "pf06_perf_rehearsal.html" not in page_source
         assert "backup_schema_rehearsal.js" not in page_source
