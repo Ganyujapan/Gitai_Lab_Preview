@@ -2,7 +2,7 @@
 // RE2-EXH-02: exercise checkpoint against an isolated event/transaction
 // simulator. NEVER open real IndexedDB or touch exhibition player data.
 const assert=require('node:assert/strict');
-const {makeCheckpoint,readCheckpoint,inspectCheckpoint,discardCheckpoint,STAGE_STORE,SOURCE_STORES}=
+const {makeCheckpoint,readCheckpoint,listCheckpointIds,inspectCheckpoint,discardCheckpoint,STAGE_STORE,SOURCE_STORES}=
   require('../../exhibit/backup_checkpoint_v2.js');
 const {writePartsFromRecords,verifyPartIntegrity}=require('../../exhibit/backup_v2.js');
 const {webcrypto}=require('node:crypto');
@@ -53,7 +53,7 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
     ...(withStage?{[STAGE_STORE]:new Map()}: {})
   });
   const data=initialEntries();
-  let activeTx=0,putCount=0,deleteCount=0;
+  let activeTx=0,putCount=0,deleteCount=0,keyCursorVisited=0;
   const log=[];
   let concurrent=null;
   function mutateAfterCheckpoint(fn){concurrent=fn}
@@ -119,6 +119,28 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
             }
             enqueue(next);
             return req;
+          },
+          openKeyCursor(){
+            assert.equal(name,STAGE_STORE,'key-only discovery: stage only');
+            const keys=entriesOf(stage[name]).map(x=>x.key).sort(compareKey);
+            const req={result:null,error:null,onsuccess:null,onerror:null};
+            let at=0;
+            function deliver(){
+              const key=keys[at++];
+              req.result=key===undefined?null:{
+                key:cloneValue(key),
+                continue(target){
+                  enqueue(()=>{
+                    while(at<keys.length&&compareKey(keys[at],target)<0)at++;
+                    deliver();
+                  });
+                }
+              };
+              if(key!==undefined)keyCursorVisited++;
+              req.onsuccess?.();
+            }
+            enqueue(deliver);
+            return req;
           }
         }
       }
@@ -165,7 +187,8 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
     db:{objectStoreNames:{contains:name=>!!data[name]},transaction},
     getStage(id){return [...data[STAGE_STORE]?.values()||[]]
       .filter(x=>x.__key[0]===id).length},
-    getActive(){return activeTx}
+    getActive(){return activeTx},
+    getKeyCursorVisited(){return keyCursorVisited}
   };
 }
 (async()=>{
@@ -177,6 +200,9 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.deepEqual(legacy.data.meta.get('current_generation_id'),GEN);
   assert.throws(()=>makeCheckpoint(f.db,'../unsafe'),/識別子/);
   assert.equal(f.getStage(ID),0);
+  assert.deepEqual(await listCheckpointIds(f.db),[]);
+  assert.throws(()=>listCheckpointIds(legacy.db),/未準備/);
+  assert.throws(()=>listCheckpointIds(f.db,{maxIds:65}),/上限|指定/);
   // Simulate a competing generation commit blocked until checkpoint completes.
   f.mutateAfterCheckpoint(data=>{
     data.meta.set('current_generation_id','gen00043');
@@ -189,6 +215,12 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.match(cp.checkpointToken,/^[0-9a-f]{32}$/);
   assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
   assert.equal(f.getStage(ID),123);
+  const beforeDiscovery=f.log.length;
+  assert.deepEqual(await listCheckpointIds(f.db),[ID]);
+  assert.equal(f.getKeyCursorVisited(),1);
+  assert.equal(f.log.length,beforeDiscovery+1);
+  assert.deepEqual(f.log.at(-1).names,[STAGE_STORE]);
+  assert.equal(f.log.at(-1).mode,'readonly');
   // After an app restart the caller may have lost cp.checkpointToken.
   // A read-only inventory of a KNOWN ID recovers the exact token, without
   // reading values into a report or touching the original evolution stores.
@@ -204,8 +236,9 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.equal(f.getStage(ID),123);
   assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
   assert.equal(await inspectCheckpoint(f.db,OTHER),null);
-  assert.deepEqual(f.log[0].names,[...SOURCE_STORES,STAGE_STORE]);
-  assert.equal(f.log[0].mode,'readwrite');
+  const snapshotTx=f.log.find(tx=>tx.names.length===4);
+  assert.deepEqual(snapshotTx.names,[...SOURCE_STORES,STAGE_STORE]);
+  assert.equal(snapshotTx.mode,'readwrite');
   await assert.rejects(makeCheckpoint(f.db,ID),/上書きしません/);
   assert.equal(f.getStage(ID),123);
 
@@ -330,10 +363,17 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   // Snapshot A and B coexist; cancelling A deletes ONLY A's temporary keys.
   f.data.meta.set('current_generation_id',GEN);
   const cp2=await makeCheckpoint(f.db,OTHER);
+  const visitedBefore=f.getKeyCursorVisited();
+  assert.deepEqual(await listCheckpointIds(f.db),[ID,OTHER]);
+  assert.equal(f.getKeyCursorVisited()-visitedBefore,2);
+  await assert.rejects(listCheckpointIds(f.db,{maxIds:1}),/検索上限/);
+  assert.equal(f.getStage(ID),cp.entries);
+  assert.equal(f.getStage(OTHER),cp2.entries);
   assert.equal(cp2.entries,125); // the 2 newly added gen43 records remain.
   const removed=await discardCheckpoint(f.db,ID,cp.checkpointToken);
   assert.equal(removed,cp.entries);
   assert.equal(f.getStage(ID),0);
+  assert.deepEqual(await listCheckpointIds(f.db),[OTHER]);
   assert.equal(await inspectCheckpoint(f.db,ID),null);
   assert.equal(f.getStage(OTHER),cp2.entries);
   assert.equal(f.data.meta.get('current_generation_id'),GEN);
@@ -402,6 +442,17 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.equal(cleanupFail.data.meta.size,62);
   assert.equal(cleanupFail.data.theater_frames.size,1);
   assert.equal(cleanupFail.data.meta.get('current_generation_id'),GEN);
+
+  // A malformed staged key is not a candidate for automatic cleanup.
+  const bad=fakeDb();
+  bad.data[STAGE_STORE].set('invalid', {
+    __key:['invalid/id','images','frame'],
+    value:{store:'images',key:'frame',value:1,checkpointToken:'a'.repeat(32)}
+  });
+  await assert.rejects(listCheckpointIds(bad.db),/キー構造/);
+  assert.equal(bad.getActive(),0);
+  assert.equal(bad.data.images.size,60);
+  assert.equal(bad.data.meta.get('current_generation_id'),GEN);
 
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.
