@@ -182,6 +182,7 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   const cp=await makeCheckpoint(f.db,ID);
   assert.equal(cp.generation,GEN);
   assert.equal(cp.entries,123);
+  assert.match(cp.checkpointToken,/^[0-9a-f]{32}$/);
   assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
   assert.equal(f.getStage(ID),123);
   assert.deepEqual(f.log[0].names,[...SOURCE_STORES,STAGE_STORE]);
@@ -193,7 +194,8 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   // already finished; staged state remains immutable across many short reads.
   const files=[];
   const saved=await writePartsFromRecords(
-    readCheckpoint(f.db,ID,cp.entries,{batchSize:7}),
+    readCheckpoint(f.db,ID,cp.entries,
+      {batchSize:7,checkpointToken:cp.checkpointToken}),
     {mode:'cryptic',database:DBNAME,currentGeneration:GEN,maxPartBytes:2000,maxPartEntries:13},
     async file=>{files.push(file)}
   );
@@ -205,7 +207,8 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
   // A truncated/externally lost checkpoint must never look complete.
   await assert.rejects((async()=>{
-    for await(const x of readCheckpoint(f.db,ID,cp.entries+1))void x;
+    for await(const x of readCheckpoint(f.db,ID,cp.entries+1,
+      {checkpointToken:cp.checkpointToken}))void x;
   })(),/不足/);
 
   // Cooperative cancellation leaves the committed checkpoint and all
@@ -215,14 +218,16 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   const txBeforeCancel=f.log.length;
   await assert.rejects((async()=>{
     for await(const item of readCheckpoint(f.db,ID,cp.entries,
-      {batchSize:7,signal:alreadyCancelled.signal})) void item;
+      {batchSize:7,signal:alreadyCancelled.signal,
+        checkpointToken:cp.checkpointToken})) void item;
   })(),/中断/);
   assert.equal(f.log.length,txBeforeCancel,
     'pre-cancelled checkpoint read must not start an IDB transaction');
 
   const cancelMidRead=new AbortController();
   const iter=readCheckpoint(f.db,ID,cp.entries,
-    {batchSize:7,signal:cancelMidRead.signal});
+    {batchSize:7,signal:cancelMidRead.signal,
+      checkpointToken:cp.checkpointToken});
   const firstRow=await iter.next();
   assert.equal(firstRow.done,false);
   const afterFirstRow=f.log.length;
@@ -236,8 +241,66 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
 
   await assert.rejects((async()=>{
     for await(const item of readCheckpoint(f.db,ID,cp.entries,
-      {signal:{aborted:'invalid'}})) void item;
+      {signal:{aborted:'invalid'},
+        checkpointToken:cp.checkpointToken})) void item;
   })(),/中断通知/);
+
+  // The caller must pass the random token from makeCheckpoint, never just
+  // the reusable human-readable snapshot ID and total row count.
+  await assert.rejects((async()=>{
+    for await(const x of readCheckpoint(f.db,ID,cp.entries))void x;
+  })(),/一時保存識別子/);
+
+  // A competing tab may clean up A and start B under the same snapshot ID.
+  // The row count and keys can be IDENTICAL, but the old reader must refuse
+  // to blend rows from A and B into one successful manifest.
+  const race=fakeDb();
+  const old=await makeCheckpoint(race.db,ID);
+  const oldReader=readCheckpoint(race.db,ID,old.entries,
+    {batchSize:3,checkpointToken:old.checkpointToken});
+  assert.equal((await oldReader.next()).done,false);
+  const removedOld=await discardCheckpoint(race.db,ID);
+  assert.equal(removedOld,old.entries);
+  const replacement=await makeCheckpoint(race.db,ID);
+  assert.equal(replacement.entries,old.entries);
+  assert.notEqual(replacement.checkpointToken,old.checkpointToken);
+  await assert.rejects((async()=>{
+    for(;;) {
+      if((await oldReader.next()).done)break;
+    }
+  })(),/別のスナップショット/);
+  assert.equal(race.getStage(ID),replacement.entries);
+  let freshCount=0;
+  for await(const x of readCheckpoint(race.db,ID,replacement.entries,
+    {batchSize:3,checkpointToken:replacement.checkpointToken}))freshCount++;
+  assert.equal(freshCount,replacement.entries);
+  assert.equal(race.getActive(),0);
+  assert.equal(race.data.meta.get('current_generation_id'),GEN);
+
+  // A different tab can remove rows that were ALREADY yielded. Comparing
+  // only the yielded count misses this mutation: the final total count
+  // must be rechecked before the writer can return a complete manifest.
+  const lost=fakeDb();
+  const initial=await makeCheckpoint(lost.db,ID);
+  const lostReader=readCheckpoint(lost.db,ID,initial.entries,
+    {batchSize:2,checkpointToken:initial.checkpointToken});
+  assert.equal((await lostReader.next()).done,false);
+  const dropped=lost.data[STAGE_STORE].delete(JSON.stringify(
+    [ID,'images',GEN+':01']));
+  assert.equal(dropped,true);
+  let lostReadCount=1;
+  await assert.rejects((async()=>{
+    for(;;) {
+      const next=await lostReader.next();
+      if(next.done)break;
+      lostReadCount++;
+    }
+  })(),/読込み中に変更|不足/);
+  assert.equal(lostReadCount,initial.entries,
+    'all rows were read, so ONLY the final stage count finds prior removal');
+  assert.equal(lost.getStage(ID),initial.entries-1);
+  assert.equal(lost.getActive(),0);
+  assert.equal(lost.data.meta.get('current_generation_id'),GEN);
 
   // Snapshot A and B coexist; cancelling A deletes ONLY A's temporary keys.
   f.data.meta.set('current_generation_id',GEN);
@@ -249,7 +312,8 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   assert.equal(f.getStage(OTHER),cp2.entries);
   assert.equal(f.data.meta.get('current_generation_id'),GEN);
   await assert.rejects((async()=>{
-    for await(const x of readCheckpoint(f.db,ID,cp.entries))void x;
+    for await(const x of readCheckpoint(f.db,ID,cp.entries,
+      {checkpointToken:cp.checkpointToken}))void x;
   })(),/不足/);
 
   // Quota error must roll back 100% of temporary stage without modifying
