@@ -132,6 +132,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-file-handoff-rehearsal.cjs
       - name: Test bounded multipart export writer with 20k+ histories and broken-file rejection
         run: node .github/scripts/verify-exhibit-backup-v2-writer.cjs
+      - name: EXH-F01 kill a synthetic backup writer mid-export and before manifest
+        run: node .github/scripts/verify-exhibit-v2-process-crash.cjs
       - name: Verify isolated atomic checkpoint and bounded staged multipart export
         run: node .github/scripts/verify-exhibit-backup-v2-checkpoint.cjs
       - name: Ensure backup stage schema upgrade is gated by read-only runtime checks
