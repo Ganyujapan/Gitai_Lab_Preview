@@ -408,6 +408,11 @@
   function play(kind) {
     if (!Object.prototype.hasOwnProperty.call(GROUPS, kind)) return;
     try {
+      // iOS may reset its media category after an interruption or when the
+      // rainforest BGM is off. Reassert playback synchronously on this real
+      // capture/poison/death event, before native AAC play() is requested.
+      // The ambience module owns the session helper; sound remains optional.
+      if (iosDevice) w.GitaiAmbientAudio?.activatePlaybackSession?.();
       if (!preparing) prepare();
       if (kind === 'death') stopKind('poison'); // Avoid overlap at lethal capture.
       const number = variantIndex(GROUPS[kind]) + 1;
