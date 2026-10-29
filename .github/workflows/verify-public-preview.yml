@@ -78,6 +78,8 @@ jobs:
         run: node .github/scripts/verify-cancelled-tap-sfx.cjs
       - name: Verify fast iOS audio does not replay cancelled or stale pointer sounds
         run: node .github/scripts/verify-fast-sfx-cancelled-taps.cjs
+      - name: Verify iPad title moth and ripple geometry stays circular
+        run: node .github/scripts/verify-portal-intro-aspect.cjs
       - name: Verify offline exhibit mode thumbnails and responsive tap targets
         run: node .github/scripts/verify-exhibit-mode-thumbnails.cjs
       - name: Verify exhibition generation counters and read-only theater
