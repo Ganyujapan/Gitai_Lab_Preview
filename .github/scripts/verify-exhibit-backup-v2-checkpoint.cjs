@@ -2,7 +2,7 @@
 // RE2-EXH-02: exercise checkpoint against an isolated event/transaction
 // simulator. NEVER open real IndexedDB or touch exhibition player data.
 const assert=require('node:assert/strict');
-const {makeCheckpoint,readCheckpoint,inspectCheckpoint,discardCheckpoint,STAGE_STORE,SOURCE_STORES}=
+const {makeCheckpoint,readCheckpoint,listCheckpointIds,inspectCheckpoint,discardCheckpoint,STAGE_STORE,SOURCE_STORES}=
   require('../../exhibit/backup_checkpoint_v2.js');
 const {writePartsFromRecords,verifyPartIntegrity}=require('../../exhibit/backup_v2.js');
 const {webcrypto}=require('node:crypto');
@@ -53,7 +53,7 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
     ...(withStage?{[STAGE_STORE]:new Map()}: {})
   });
   const data=initialEntries();
-  let activeTx=0,putCount=0,deleteCount=0;
+  let activeTx=0,putCount=0,deleteCount=0,keyCursorVisited=0;
   const log=[];
   let concurrent=null;
   function mutateAfterCheckpoint(fn){concurrent=fn}
@@ -165,7 +165,8 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
     db:{objectStoreNames:{contains:name=>!!data[name]},transaction},
     getStage(id){return [...data[STAGE_STORE]?.values()||[]]
       .filter(x=>x.__key[0]===id).length},
-    getActive(){return activeTx}
+    getActive(){return activeTx},
+    getKeyCursorVisited(){return keyCursorVisited}
   };
 }
 (async()=>{
