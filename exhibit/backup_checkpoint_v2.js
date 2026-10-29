@@ -202,11 +202,17 @@
     }
   }
 
-  // Deletes only the selected temporary checkpoint ID, NEVER sources.
-  // Call only after durable output or explicit cancellation. Cleanup errors
-  // may leave temporary copies consuming quota, but never erase evolution.
-  function discardCheckpoint(db,snapshotId) {
+  // Deletes only rows belonging to the exact checkpoint incarnation.
+  // A stale tab may finish late, after another tab has reused snapshotId.
+  // Checking the token inside ONE readwrite transaction prevents it from
+  // deleting any part of the new checkpoint. On mismatch, abort rolls back
+  // even the deletes queued earlier in the same transaction.
+  // Cleanup errors may leave temporary copies consuming quota, but never
+  // erase source evolution data.
+  function discardCheckpoint(db,snapshotId,checkpointToken) {
     checkPrerequisites(db,snapshotId);
+    if(!TOKEN_RE.test(checkpointToken||''))
+      throw failure('後片付けには一時保存識別子が必要です。');
     return new Promise((resolve,reject)=>{
       let tx,removed=0,error=null;
       try {
@@ -220,6 +226,9 @@
           const cursor=req.result;
           if(!cursor)return;
           try {
+            if(cursor.value?.checkpointToken!==checkpointToken) {
+              throw failure('別のスナップショットを削除できません。');
+            }
             cursor.delete();
             removed++;
             cursor.continue();

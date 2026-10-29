@@ -259,11 +259,17 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   const oldReader=readCheckpoint(race.db,ID,old.entries,
     {batchSize:3,checkpointToken:old.checkpointToken});
   assert.equal((await oldReader.next()).done,false);
-  const removedOld=await discardCheckpoint(race.db,ID);
+  const removedOld=await discardCheckpoint(race.db,ID,old.checkpointToken);
   assert.equal(removedOld,old.entries);
   const replacement=await makeCheckpoint(race.db,ID);
   assert.equal(replacement.entries,old.entries);
   assert.notEqual(replacement.checkpointToken,old.checkpointToken);
+  // An old tab's cleanup arriving after ID reuse must not erase B.
+  await assert.rejects(discardCheckpoint(race.db,ID,old.checkpointToken),
+    /別のスナップショット/);
+  assert.equal(race.getStage(ID),replacement.entries);
+  assert.throws(()=>discardCheckpoint(race.db,ID),/一時保存識別子/);
+  assert.equal(race.getStage(ID),replacement.entries);
   await assert.rejects((async()=>{
     for(;;) {
       if((await oldReader.next()).done)break;
@@ -306,7 +312,7 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   f.data.meta.set('current_generation_id',GEN);
   const cp2=await makeCheckpoint(f.db,OTHER);
   assert.equal(cp2.entries,125); // the 2 newly added gen43 records remain.
-  const removed=await discardCheckpoint(f.db,ID);
+  const removed=await discardCheckpoint(f.db,ID,cp.checkpointToken);
   assert.equal(removed,cp.entries);
   assert.equal(f.getStage(ID),0);
   assert.equal(f.getStage(OTHER),cp2.entries);
@@ -315,6 +321,30 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
     for await(const x of readCheckpoint(f.db,ID,cp.entries,
       {checkpointToken:cp.checkpointToken}))void x;
   })(),/不足/);
+
+  // Corrupt one row near the END of a checkpoint. The cursor may have
+  // queued many deletes, but a mismatched token must abort the entire
+  // cleanup transaction and preserve all 123 staged records.
+  const mixed=fakeDb();
+  const owned=await makeCheckpoint(mixed.db,ID);
+  const frames=[...mixed.data[STAGE_STORE].values()]
+    .find(x=>x.__key[1]==='theater_frames');
+  assert.ok(frames);
+  frames.value.checkpointToken='f'.repeat(32)===owned.checkpointToken ?
+    'e'.repeat(32) : 'f'.repeat(32);
+  await assert.rejects(discardCheckpoint(mixed.db,ID,owned.checkpointToken),
+    /別のスナップショット/);
+  assert.equal(mixed.getStage(ID),owned.entries,
+    'rollback must undo earlier cursor deletes on token mismatch');
+  assert.equal(mixed.getActive(),0);
+  assert.equal(mixed.data.images.size,60);
+  assert.equal(mixed.data.meta.size,62);
+  assert.equal(mixed.data.theater_frames.size,1);
+  assert.equal(mixed.data.meta.get('current_generation_id'),GEN);
+  frames.value.checkpointToken=owned.checkpointToken;
+  assert.equal(await discardCheckpoint(mixed.db,ID,owned.checkpointToken),
+    owned.entries);
+  assert.equal(mixed.getStage(ID),0);
 
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.
@@ -331,7 +361,7 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   assert.equal(missing.getStage(ID),0);
 
   // Explicit cleanup never erases a single original record.
-  await discardCheckpoint(f.db,OTHER);
+  await discardCheckpoint(f.db,OTHER,cp2.checkpointToken);
   assert.equal(f.data.images.size,61);
   assert.equal(f.data.meta.size,63);
   assert.equal(f.data.theater_frames.size,1);
