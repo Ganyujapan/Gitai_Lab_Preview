@@ -381,10 +381,16 @@
   // even the deletes queued earlier in the same transaction.
   // Cleanup errors may leave temporary copies consuming quota, but never
   // erase source evolution data.
-  function discardCheckpoint(db,snapshotId,checkpointToken) {
+  function discardCheckpoint(db,snapshotId,checkpointToken,
+    {expectedEntries=null}={}) {
     checkPrerequisites(db,snapshotId);
     if(!TOKEN_RE.test(checkpointToken||''))
       throw failure('後片付けには一時保存識別子が必要です。');
+    if(expectedEntries!==null &&
+       (!Number.isSafeInteger(expectedEntries)||expectedEntries<1||
+        expectedEntries>MAX_CHECKPOINT_ENTRIES)) {
+      throw failure('後片付けの想定件数が不正です。');
+    }
     return new Promise((resolve,reject)=>{
       let tx,removed=0,error=null;
       try {
@@ -396,11 +402,20 @@
         req.onerror=()=>{error=req.error||failure('一時保存を列挙できません。');try{tx.abort();}catch(_){}};
         req.onsuccess=()=>{
           const cursor=req.result;
-          if(!cursor)return;
           try {
+            if(!cursor) {
+              // If another tab removed some stage records after inspection,
+              // do not call it a successful cleanup. Abort ALL earlier
+              // deletes in this single readwrite transaction.
+              if(expectedEntries!==null && removed!==expectedEntries)
+                throw failure('後片付けの件数が想定と一致しません。');
+              return;
+            }
             if(cursor.value?.checkpointToken!==checkpointToken) {
               throw failure('別のスナップショットを削除できません。');
             }
+            if(expectedEntries!==null && removed>=expectedEntries)
+              throw failure('後片付けの件数が想定を超えました。');
             cursor.delete();
             removed++;
             cursor.continue();
