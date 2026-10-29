@@ -200,6 +200,9 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.deepEqual(legacy.data.meta.get('current_generation_id'),GEN);
   assert.throws(()=>makeCheckpoint(f.db,'../unsafe'),/識別子/);
   assert.equal(f.getStage(ID),0);
+  assert.deepEqual(await listCheckpointIds(f.db),[]);
+  assert.throws(()=>listCheckpointIds(legacy.db),/未準備/);
+  assert.throws(()=>listCheckpointIds(f.db,{maxIds:65}),/上限|指定/);
   // Simulate a competing generation commit blocked until checkpoint completes.
   f.mutateAfterCheckpoint(data=>{
     data.meta.set('current_generation_id','gen00043');
@@ -212,6 +215,12 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.match(cp.checkpointToken,/^[0-9a-f]{32}$/);
   assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
   assert.equal(f.getStage(ID),123);
+  const beforeDiscovery=f.log.length;
+  assert.deepEqual(await listCheckpointIds(f.db),[ID]);
+  assert.equal(f.getKeyCursorVisited(),1);
+  assert.equal(f.log.length,beforeDiscovery+1);
+  assert.deepEqual(f.log.at(-1).names,[STAGE_STORE]);
+  assert.equal(f.log.at(-1).mode,'readonly');
   // After an app restart the caller may have lost cp.checkpointToken.
   // A read-only inventory of a KNOWN ID recovers the exact token, without
   // reading values into a report or touching the original evolution stores.
