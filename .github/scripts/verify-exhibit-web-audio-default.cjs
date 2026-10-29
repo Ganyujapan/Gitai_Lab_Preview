@@ -11,7 +11,7 @@ assert.match(mainHtml, /src="js\/game_sfx\.js\?v=20261029-exhibit-default-webaud
 assert.match(bench, /sfx_latency_rehearsal\.html\?sfx=native/);
 assert.match(bench, /sfx_latency_rehearsal\.html\?sfx=fast/);
 assert.match(bench, /sfx_latency_rehearsal\.html\?sfx=release/);
-assert.match(source, /\/exhibit\\?\/game/); // checked more strictly by actual route tests below
+assert.match(source, /const exhibitGame = /); // actual route behavior checked below
 
 function makeSession({pathname='/exhibit/game.html', search='', browser='iPad', ctxAvailable=true}={}) {
   let time=1000, rand=0;
