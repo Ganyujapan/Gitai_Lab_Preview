@@ -254,7 +254,7 @@
           try {
             // All source-store names are ASCII, strictly below U+FFFF.
             // The next key must belong to a different snapshot ID.
-            cursor.continue([key[0],'\\uffff']);
+            cursor.continue([key[0],'\uffff']);
           }catch(e){abort(e);}
         };
       }catch(e){if(tx){early=e;try{tx.abort();}catch(_){reject(e);}}
