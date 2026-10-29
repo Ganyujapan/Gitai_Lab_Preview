@@ -126,6 +126,32 @@ async function waitFor(fn){
   throw Error('Handover did not finish');
 }
 (async()=>{
+  // T-003 A-4/A-6: Execute the ACTUAL START click handler extracted from the
+  // exhibition title. Re-entering the title mid-visit must not silently
+  // grant five more generations or mutate the visitor's saved state.
+  const titleHtml=fs.readFileSync('exhibit/index.html','utf8');
+  const startMatch=titleHtml.match(
+    /document\.getElementById\('portalEnter'\)\.addEventListener\('click',event=>\{([\s\S]*?)\},true\);/
+  );
+  assert.ok(startMatch,'exhibition title START handler must be present');
+  const existingVisit=JSON.stringify({mode:'warning',start:26});
+  const titleStorage=new Map([['gitai-exhibit-visit-start-v1',existingVisit]]);
+  const titleNavigations=[];
+  const titleUrl='https://example.test/Gitai_Lab_Preview/exhibit/index.html';
+  const startAction=vm.runInNewContext('(event)=>{'+startMatch[1]+'}',{
+    URL, sessionStorage:{
+      getItem:key=>titleStorage.get(key)||null,
+      setItem:(key,value)=>titleStorage.set(key,value),
+      removeItem:key=>titleStorage.delete(key)
+    },
+    location:{href:titleUrl,assign:target=>titleNavigations.push(target)}
+  });
+  startAction({preventDefault(){},stopImmediatePropagation(){}});
+  assert.deepEqual(titleNavigations,[
+    'https://example.test/Gitai_Lab_Preview/exhibit/modes.html'
+  ]);
+  assert.equal(titleStorage.get('gitai-exhibit-visit-start-v1'),existingVisit,
+    'opening START mid-visit must not reset five-generation allowance');
   const p=fixture();
   for(const [label,num] of [
     ['GENERATION 00001',1],['GENERATION 00021',21],

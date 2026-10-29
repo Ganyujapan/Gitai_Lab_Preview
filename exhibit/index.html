@@ -106,7 +106,8 @@
 document.getElementById('portalEnter').addEventListener('click',event=>{
  event.preventDefault();
  event.stopImmediatePropagation();
- try {sessionStorage.removeItem('gitai-exhibit-visit-start-v1');} catch (_) {}
+ // A visitor's five-generation counter must survive reopening START.
+ // The game clears it only after a successfully saved visitor handover.
  location.assign(new URL('modes.html',location.href).href);
 },true);
 if('serviceWorker' in navigator){
