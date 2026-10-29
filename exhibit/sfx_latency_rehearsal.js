@@ -5,8 +5,8 @@
   const route = params.get('sfx') === 'fast' ? 'fast'
     : params.get('sfx') === 'release' ? 'release' : 'native';
   const labels = {
-    native: '標準AAC（タップ時に再生要求）',
-    fast: '低遅延Web Audio（最初のタップで準備）',
+    native: '旧標準AAC（タップ時に再生要求）',
+    fast: '展示版標準Web Audio（最初のタップで準備）',
     release: '比較AAC（指を離す時に要求）'
   };
   const ids = { native: 'routeNative', fast: 'routeFast', release: 'routeRelease' };
