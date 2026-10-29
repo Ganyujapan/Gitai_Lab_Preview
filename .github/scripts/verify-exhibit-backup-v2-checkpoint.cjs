@@ -365,6 +365,30 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
   assert.equal(lost.getActive(),0);
   assert.equal(lost.data.meta.get('current_generation_id'),GEN);
 
+  // ABA race after the LAST row has been returned: replacing A with B
+  // under the same ID and exact record count used to pass count-only
+  // final verification. The final witness must detect B's different token.
+  const aba=fakeDb();
+  const snapshotA=await makeCheckpoint(aba.db,ID);
+  const readerA=readCheckpoint(aba.db,ID,snapshotA.entries,
+    {batchSize:8,checkpointToken:snapshotA.checkpointToken});
+  for(let i=0;i<snapshotA.entries;i++)
+    assert.equal((await readerA.next()).done,false);
+  assert.equal(await discardCheckpoint(aba.db,ID,snapshotA.checkpointToken),
+    snapshotA.entries);
+  const snapshotB=await makeCheckpoint(aba.db,ID);
+  assert.equal(snapshotB.entries,snapshotA.entries);
+  assert.notEqual(snapshotB.checkpointToken,snapshotA.checkpointToken);
+  await assert.rejects(readerA.next(),/最終照合で別のスナップショット/);
+  assert.equal(aba.getStage(ID),snapshotB.entries);
+  assert.equal(aba.data.images.size,60);
+  assert.equal(aba.data.meta.get('current_generation_id'),GEN);
+  let verifiedB=0;
+  for await(const row of readCheckpoint(aba.db,ID,snapshotB.entries,
+    {checkpointToken:snapshotB.checkpointToken}))verifiedB++;
+  assert.equal(verifiedB,snapshotB.entries);
+  assert.equal(aba.getActive(),0);
+
   // Snapshot A and B coexist; cancelling A deletes ONLY A's temporary keys.
   f.data.meta.set('current_generation_id',GEN);
   const cp2=await makeCheckpoint(f.db,OTHER);
