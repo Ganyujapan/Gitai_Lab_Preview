@@ -33,7 +33,7 @@ globalThis.IDBKeyRange={
   }
 };
 const cloneValue=v=>structuredClone(v);
-function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
+function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAfterStagePut=Infinity,abortController=null}={}) {
   const source={
     images:new Map(),meta:new Map([['current_generation_id',GEN]]),
     theater_frames:new Map([['frame:'+GEN,{markers:[1,2]}]])
@@ -87,9 +87,11 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
             if(mode!=='readwrite')throw Error('ReadOnlyError');
             enqueue(()=>{
               if(++putCount===quotaAt)throw Error('QuotaExceededError');
-              if(name===STAGE_STORE)stage[name].set(JSON.stringify(key),
-                {__key:cloneValue(key),value:cloneValue(value)});
-              else stage[name].set(key,cloneValue(value));
+              if(name===STAGE_STORE) {
+                stage[name].set(JSON.stringify(key),
+                  {__key:cloneValue(key),value:cloneValue(value)});
+                if(putCount===abortAfterStagePut)abortController?.abort();
+              } else stage[name].set(key,cloneValue(value));
             });
           },
           openCursor(range) {
