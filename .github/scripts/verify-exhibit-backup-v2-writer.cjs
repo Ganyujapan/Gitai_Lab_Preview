@@ -138,6 +138,21 @@ async function produce(recordStream, opts={}) {
   const arrayWithExtra=[1,2];
   arrayWithExtra.note='would be lost';
   const sparseArray=[1,,3];
+  // Structured clone preserves graph identity, unlike JSON. Roundtripping
+  // aliased/cyclic objects (including shared Blob/ArrayBuffer objects) must
+  // fail, rather than duplicate the data into independent objects.
+  const child={pattern:'shared'};
+  const aliased={first:child,second:child};
+  const cyclic={pattern:'cycle'};
+  cyclic.self=cyclic;
+  const imageBlob=image();
+  const aliasedBlobs={first:imageBlob,second:imageBlob};
+  const buffer=new ArrayBuffer(8);
+  const aliasedBinaryViews={left:new Uint8Array(buffer,0,4),
+    right:new Uint8Array(buffer,4,4)};
+  const directBufferAndView={buffer,view:new Uint8Array(buffer)};
+  const slicedView=new Uint16Array(new ArrayBuffer(12),2,2);
+  const trimmedView=new Uint8Array(new ArrayBuffer(8),0,4);
   // Structured-clone values supported by IndexedDB are not necessarily
   // round-trippable through our JSON v2 format. Never serialize them as {}.
   for(const [invalid,expected] of [
@@ -160,6 +175,13 @@ async function produce(recordStream, opts={}) {
     [/moth/i,/復元未対応のオブジェクト/],
     [new Number(7),/復元未対応のオブジェクト/],
     [new Error('lost message'),/復元未対応のオブジェクト/],
+    [aliased,/共有参照/],
+    [cyclic,/循環参照/],
+    [aliasedBlobs,/共有参照/],
+    [aliasedBinaryViews,/共有バイナリバッファー/],
+    [directBufferAndView,/共有バイナリバッファー/],
+    [slicedView,/部分バイナリビュー/],
+    [trimmedView,/部分バイナリビュー/],
     // File extends Blob. Its name and lastModified would be lost because
     // the current v2 decoder reconstructs only Blob, never File.
     [new File(['portrait'], 'original-moth.png',

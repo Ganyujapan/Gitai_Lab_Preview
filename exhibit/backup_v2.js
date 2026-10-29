@@ -26,10 +26,28 @@
 
   function checkDepthAndNodes(root) {
     let total = 0;
+    const seen = new WeakSet();
+    const backingBuffers = new WeakSet();
     const stack = [[root, 0]];
     while (stack.length) {
       const [value, depth] = stack.pop();
       if (++total > MAX_PART_NODES || depth > MAX_DEPTH) fail('構造が複雑すぎます。');
+      if (value && typeof value === 'object') {
+        // IndexedDB preserves graph identity, but the v2 JSON codec does
+        // not. Refuse both cycles and shared references before serialization.
+        if (seen.has(value)) fail('共有参照または循環参照は復元できません。');
+        seen.add(value);
+        const backing = ArrayBuffer.isView(value) ? value.buffer :
+          value instanceof ArrayBuffer ? value : null;
+        if (backing) {
+          // Two views of the same buffer must not silently become two
+          // independent backing buffers on restore.
+          if (backingBuffers.has(backing)) {
+            fail('共有バイナリバッファーは復元できません。');
+          }
+          backingBuffers.add(backing);
+        }
+      }
       if (value instanceof Blob || value instanceof Date ||
           value instanceof ArrayBuffer || ArrayBuffer.isView(value)) continue;
       if (value && typeof value === 'object') {
@@ -216,6 +234,13 @@
         data: bytesToBase64(new Uint8Array(await value.arrayBuffer()))};
     }
     if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+      // The v2 codec stores only view bytes. The decoder always creates a
+      // fresh buffer with byteOffset=0; a sliced view would lose its
+      // original offset and backing-buffer length.
+      if (ArrayBuffer.isView(value) &&
+          (value.byteOffset !== 0 || value.byteLength !== value.buffer.byteLength)) {
+        fail('復元未対応の部分バイナリビューが含まれています。');
+      }
       if (ArrayBuffer.isView(value) &&
           !['Uint8Array', 'Uint8ClampedArray', 'Uint16Array', 'Uint32Array',
             'Int8Array', 'Int16Array', 'Int32Array', 'Float32Array', 'Float64Array']
