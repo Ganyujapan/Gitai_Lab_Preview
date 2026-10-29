@@ -118,6 +118,25 @@
   let titleMothCanvas = null;
   const slowTime = (time) => time * 0.001;
 
+  // The intro canvas fills its CSS box on phones AND iPads. A fixed 9:16
+  // backing buffer was stretched independently in X/Y on wider screens,
+  // turning the actual moth and circular ripples into ovals. Match the
+  // backing-buffer ratio to the CSS display ratio while keeping 640 logical
+  // units vertically: the jungle is allowed to stretch to fill the frame,
+  // but the foreground geometry always uses one uniform physical scale.
+  function resizeIntroCanvas() {
+    const bounds = canvas.getBoundingClientRect();
+    const cssWidth = bounds.width || portal.clientWidth || lineWidth;
+    const cssHeight = bounds.height || portal.clientHeight || lineHeight;
+    const bufferHeight = lineHeight * 2;
+    const bufferWidth = Math.max(1, Math.round(bufferHeight * cssWidth / cssHeight));
+    if (canvas.width === bufferWidth && canvas.height === bufferHeight) return false;
+    canvas.width = bufferWidth;
+    canvas.height = bufferHeight;
+    ctx.imageSmoothingEnabled = false;
+    return true;
+  }
+
   function rectangle(c, color, x, y, w, h) {
     c.fillStyle = color;
     c.fillRect(int(x), int(y), Math.max(1, int(w)), Math.max(1, int(h)));
@@ -303,20 +322,20 @@
   // block. This losslessly reduced 90×160 PNG recreates it pixel-for-pixel
   // when drawn nearest-neighbor over the 360×640 logical title canvas.
   let titleBackgroundImage = null;
-  const TITLE_MOTH_X = 180;
   const TITLE_MOTH_Y = 350;
   const RIPPLE_MS = 1750;
   function renderLineArtwork(timestamp) {
     const c = ctx;
+    const logicalWidth = canvas.width / 2;
     c.setTransform(2, 0, 0, 2, 0, 0);
     if (titleBackgroundImage && titleBackgroundImage.complete
         && titleBackgroundImage.naturalWidth > 0) {
       c.imageSmoothingEnabled = false;
-      c.drawImage(titleBackgroundImage, 0, 0, lineWidth, lineHeight);
+      c.drawImage(titleBackgroundImage, 0, 0, logicalWidth, lineHeight);
     } else {
       // Black is a fallback only while the jungle asset loads.
       c.fillStyle = '#000';
-      c.fillRect(0, 0, lineWidth, lineHeight);
+      c.fillRect(0, 0, logicalWidth, lineHeight);
     }
 
     // Water-drop ripples: multiple concentric, continuous, gently glowing
@@ -353,7 +372,7 @@
     // Only its pattern changes on tap. All paint frames use identical x/y,
     // scale and rotation; there is no pointer tracking or attraction impulse.
     c.save();
-    c.translate(TITLE_MOTH_X, TITLE_MOTH_Y);
+    c.translate(logicalWidth / 2, TITLE_MOTH_Y);
     c.imageSmoothingEnabled = false;
     if (titleMothCanvas) {
       // Preserve the real 128px symmetric moth, without the old pale circle.
@@ -468,9 +487,12 @@
     mode = nextMode;
     // Intro is high-resolution ripple artwork; menu retains original 180x320.
     const introResolution = nextMode === 'intro';
-    canvas.width = introResolution ? lineWidth * 2 : width;
-    canvas.height = introResolution ? lineHeight * 2 : height;
-    ctx.imageSmoothingEnabled = false;
+    if (introResolution) resizeIntroCanvas();
+    else {
+      canvas.width = width;
+      canvas.height = height;
+      ctx.imageSmoothingEnabled = false;
+    }
     portal.classList.toggle('portal-line-mode', introResolution);
     tapBursts.length = 0;
     window.GitaiTrophies?.close?.();
@@ -590,8 +612,9 @@
     randomizeTitleMoth();
     const box = canvas.getBoundingClientRect();
     if (!box.width || !box.height) return;
-    const x = Math.max(10, Math.min(lineWidth - 10,
-      (event.clientX - box.left) * lineWidth / box.width));
+    const logicalWidth = canvas.width / 2;
+    const x = Math.max(10, Math.min(logicalWidth - 10,
+      (event.clientX - box.left) * logicalWidth / box.width));
     const y = Math.max(10, Math.min(lineHeight - 10,
       (event.clientY - box.top) * lineHeight / box.height));
     tapBursts.push({ x, y, time: now(), hueOffset: Math.random() * 360 });
@@ -753,6 +776,11 @@
   });
   document.addEventListener('visibilitychange', restartAnimation);
   reducedMotion.addEventListener?.('change', restartAnimation);
+  // Rotation and iPad Split View can change the displayed aspect ratio
+  // without re-entering the title. Redraw once; no idle animation loop.
+  window.addEventListener('resize', () => {
+    if (mode === 'intro' && resizeIntroCanvas()) restartAnimation();
+  });
 
   portal.hidden = directSolo;
   portal.setAttribute('aria-hidden', String(directSolo));
