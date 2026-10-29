@@ -557,6 +557,47 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
     completed.checkpointToken);
   assert.equal(complete.getActive(),0);
 
+  // A token alone proves identity, not expected completeness. If an
+  // operator inspected 123 rows but another action removes one, guarded
+  // cleanup must refuse the stale count and retain EVERY remaining row.
+  const guarded=fakeDb();
+  const guardedA=await makeCheckpoint(guarded.db,ID);
+  const guardedB=await makeCheckpoint(guarded.db,OTHER);
+  const guardTx=guarded.log.length;
+  assert.throws(()=>discardCheckpoint(guarded.db,ID,
+    guardedA.checkpointToken,{expectedEntries:0}),/想定件数/);
+  assert.throws(()=>discardCheckpoint(guarded.db,ID,
+    guardedA.checkpointToken,{expectedEntries:MAX_CHECKPOINT_ENTRIES+1}),
+    /想定件数/);
+  assert.equal(guarded.log.length,guardTx);
+  await assert.rejects(discardCheckpoint(guarded.db,ID,
+    guardedA.checkpointToken,{expectedEntries:guardedA.entries-1}),
+    /件数が想定を超えました/);
+  assert.equal(guarded.getStage(ID),guardedA.entries,
+    'extra stage rows must roll back all queued deletes');
+  assert.equal(guarded.getStage(OTHER),guardedB.entries);
+
+  const missingKey=JSON.stringify([ID,'images',GEN+':01']);
+  assert.equal(guarded.data[STAGE_STORE].delete(missingKey),true);
+  await assert.rejects(discardCheckpoint(guarded.db,ID,
+    guardedA.checkpointToken,{expectedEntries:guardedA.entries}),
+    /件数が想定と一致しません/);
+  assert.equal(guarded.getStage(ID),guardedA.entries-1,
+    'stale expected count must not delete surviving stage rows');
+  assert.equal(guarded.getStage(OTHER),guardedB.entries);
+  assert.equal(guarded.data.images.size,60);
+  assert.equal(guarded.data.meta.size,62);
+  assert.equal(guarded.data.theater_frames.size,1);
+  assert.equal(guarded.data.meta.get('current_generation_id'),GEN);
+  assert.equal(guarded.getActive(),0);
+  // Only an explicit decision to discard the now-incomplete stage,
+  // using its current observed count, can clean it up.
+  assert.equal(await discardCheckpoint(guarded.db,ID,
+    guardedA.checkpointToken,{expectedEntries:guardedA.entries-1}),
+    guardedA.entries-1);
+  assert.equal(guarded.getStage(ID),0);
+  assert.equal(guarded.getStage(OTHER),guardedB.entries);
+
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.
   const quota=fakeDb({quotaAt:17});
