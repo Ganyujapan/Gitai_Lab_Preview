@@ -204,6 +204,12 @@
 
   async function encodeRecordValue(value, depth = 0, parents = new WeakSet()) {
     if (depth > 30) fail('保存項目の入れ子が深すぎます。');
+    // File is a Blob subclass, but structured-clone File records retain
+    // name/lastModified. Restoring our v2 Blob wrapper would silently lose
+    // that metadata, so refuse File until the format has a reviewed codec.
+    if (typeof File !== 'undefined' && value instanceof File) {
+      fail('ファイル名・更新日時を復元できないFile形式が含まれています。');
+    }
     if (value instanceof Blob) {
       if (value.size > MAX_PART_BYTES / 2) fail('単一画像が分割サイズを超えます。');
       return {$type: 'Blob', mime: value.type,
