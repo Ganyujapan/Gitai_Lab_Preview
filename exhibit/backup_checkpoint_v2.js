@@ -52,11 +52,19 @@
   // game/restore transactions and gives a single committed source epoch.
   // DO NOT await (including Blob.arrayBuffer) inside this transaction.
   function makeCheckpoint(db, snapshotId,
-    {maxEntries=MAX_CHECKPOINT_ENTRIES}={}) {
+    {maxEntries=MAX_CHECKPOINT_ENTRIES,signal=null}={}) {
     checkPrerequisites(db,snapshotId);
     if(!Number.isSafeInteger(maxEntries)||maxEntries<1||
        maxEntries>MAX_CHECKPOINT_ENTRIES) {
       throw failure('一時保存件数の上限指定が不正です。');
+    }
+    if(signal!==null && (typeof signal.aborted!=='boolean'||
+        typeof signal.addEventListener!=='function'||
+        typeof signal.removeEventListener!=='function')) {
+      throw failure('中断通知の形式が不正です。');
+    }
+    if(signal?.aborted) {
+      return Promise.reject(failure('一時保存の作成が中断されました。'));
     }
     const checkpointToken=newSnapshotToken();
     return new Promise((resolve,reject)=>{
