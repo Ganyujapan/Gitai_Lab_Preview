@@ -160,6 +160,10 @@ async function produce(recordStream, opts={}) {
     [/moth/i,/復元未対応のオブジェクト/],
     [new Number(7),/復元未対応のオブジェクト/],
     [new Error('lost message'),/復元未対応のオブジェクト/],
+    // File extends Blob. Its name and lastModified would be lost because
+    // the current v2 decoder reconstructs only Blob, never File.
+    [new File(['portrait'], 'original-moth.png',
+      {type:'image/png',lastModified:1720000000000}),/File形式/],
     [arrayWithExtra,/復元未対応の配列/],
     [sparseArray,/復元未対応の配列/]
   ]){
@@ -176,6 +180,25 @@ async function produce(recordStream, opts={}) {
     assert.ok(savedPartCount>0,
       'this test must exercise error discovered after parts were already prepared');
   }
+  // A File can also be stored directly in the images store, not just nested
+  // in metadata. Do not quietly treat it as an ordinary Blob.
+  async function* fileInsteadOfImage() {
+    for await (const row of records(0)) {
+      if(row.store==='images' && row.key===generation+':20') {
+        yield {...row,value:new File(['moth'], 'moth20.png',
+          {type:'image/png',lastModified:1720000000000})};
+      } else yield row;
+    }
+  }
+  let fileImageManifest=false;
+  await assert.rejects((async()=>{
+    const result=await writePartsFromRecords(fileInsteadOfImage(),
+      {mode:'cryptic',database:db,currentGeneration:generation,
+        maxPartBytes:4096,maxPartEntries:3},async()=>{});
+    fileImageManifest=Boolean(result.manifestFile);
+  })(),/File形式/);
+  assert.equal(fileImageManifest,false);
+
   // A user may cancel while a file is being saved, even when that callback
   // resolves successfully. Never hand back a manifest for partial output.
   const beforeStart=new AbortController();
@@ -228,6 +251,48 @@ async function produce(recordStream, opts={}) {
   await assert.rejects(writePartsFromRecords(records(0),
     {mode:'cryptic',database:db,currentGeneration:generation},
     null),/パラメーター/);
+
+  // Model a save handler that throws after writing partial files (e.g.
+  // quota exhaustion or a failed storage handoff). A process killed outright
+  // cannot be simulated by this unit test, but orphan files must never be
+  // mistaken for a complete backup without a matching manifest.
+  const orphanParts=[];
+  let failedSessionReturnedManifest=false;
+  await assert.rejects((async()=>{
+    const result=await writePartsFromRecords(records(0),
+      {mode:'cryptic',database:db,currentGeneration:generation,
+        maxPartBytes:4096,maxPartEntries:3},
+      async (file)=>{
+        orphanParts.push(file);
+        if(orphanParts.length===2)throw Error('simulated storage interruption');
+      });
+    failedSessionReturnedManifest=Boolean(result.manifestFile);
+  })(),/simulated storage interruption/);
+  assert.equal(orphanParts.length,2);
+  assert.equal(failedSessionReturnedManifest,false);
+  await assert.rejects(
+    verifyPartIntegrity(null,orphanParts,'cryptic',db),/索引/);
+
+  // A second attempt uses the same deterministic part filenames. A stale
+  // surviving file from a failed/old attempt must not pass a NEW manifest.
+  async function* alternateRecords() {
+    for await(const row of records(2)) {
+      if(row.store==='images' && row.key===generation+':01') {
+        yield {...row,value:new Blob([Uint8Array.from(
+          [137,80,78,71,13,10,26,11])],{type:'image/png'})};
+      } else yield row;
+    }
+  }
+  const differentAttempt=await produce(alternateRecords(),
+    {maxPartBytes:1024,maxPartEntries:3});
+  assert.equal(differentAttempt.files.length,mini.files.length);
+  assert.equal(differentAttempt.files[0].name,mini.files[0].name);
+  assert.equal(differentAttempt.files[0].size,mini.files[0].size);
+  const mixedAttempts=mini.files.slice();
+  mixedAttempts[0]=differentAttempt.files[0];
+  await assert.rejects(
+    verifyPartIntegrity(mini.manifestFile,mixedAttempts,'cryptic',db),
+    /破損/);
 
   // Tampering with even one stored output rejects before any restore.
   const corrupted=many.files.slice();
