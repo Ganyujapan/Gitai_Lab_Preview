@@ -259,7 +259,8 @@
   // jumps past each ID using the compound-key boundary [id, '\\uffff'].
   // This is a bounded discovery operation, never a delete/restore action.
   const MAX_DISCOVERY_IDS=64;
-  function listCheckpointIds(db,{maxIds=MAX_DISCOVERY_IDS}={}) {
+  function listCheckpointIds(db,
+    {maxIds=MAX_DISCOVERY_IDS,signal=null}={}) {
     if(!db?.objectStoreNames?.contains(STAGE_STORE)) {
       throw failure('一時保存用ストアが未準備です。既存DBは変更しません。');
     }
@@ -267,20 +268,43 @@
        maxIds>MAX_DISCOVERY_IDS) {
       throw failure('診断できる一時保存ID数の指定が不正です。');
     }
+    if(signal!==null&&(typeof signal.aborted!=='boolean'||
+       typeof signal.addEventListener!=='function'||
+       typeof signal.removeEventListener!=='function'))
+      throw failure('診断の中断通知が不正です。');
+    if(signal?.aborted)
+      return Promise.reject(failure('一時保存IDの検索を中断しました。'));
     return new Promise((resolve,reject)=>{
       let tx,early=null;
       const ids=[];
+      function removeAbortListener(){signal?.removeEventListener('abort',onCancel);}
+      function onCancel(){
+        try{
+          tx.abort();
+          early=failure('一時保存IDの検索を中断しました。');
+        }catch(_){}
+      }
       function abort(reason) {
         if(!early)early=reason instanceof Error?reason:failure(String(reason));
         try{tx.abort();}catch(_){}
       }
       try {
         tx=db.transaction(STAGE_STORE,'readonly');
-        tx.oncomplete=()=>resolve(Object.freeze(ids.slice()));
-        tx.onabort=()=>reject(early||tx.error||
-          failure('一時保存IDの検索が中断されました。'));
+        tx.oncomplete=()=>{
+          removeAbortListener();
+          resolve(Object.freeze(ids.slice()));
+        };
+        tx.onabort=()=>{
+          removeAbortListener();
+          reject(early||tx.error||
+            failure('一時保存IDの検索が中断されました。'));
+        };
         tx.onerror=()=>{if(!early)early=tx.error||
           failure('一時保存IDの検索に失敗しました。');};
+        if(signal){
+          signal.addEventListener('abort',onCancel,{once:true});
+          if(signal.aborted){onCancel();return;}
+        }
         // Key-only cursors do not structured-clone huge Blob or genome
         // values. Jump over all records of one snapshot per cursor step.
         const req=tx.objectStore(STAGE_STORE).openKeyCursor();
@@ -309,7 +333,8 @@
             cursor.continue([key[0],'\uffff']);
           }catch(e){abort(e);}
         };
-      }catch(e){if(tx){early=e;try{tx.abort();}catch(_){reject(e);}}
+      }catch(e){removeAbortListener();
+        if(tx){early=e;try{tx.abort();}catch(_){reject(e);}}
         else reject(e);}
     });
   }
@@ -322,26 +347,49 @@
   // discardCheckpoint() after an explicit decision to abandon this export.
   // If any row has a conflicting identity or malformed key, refuse cleanup.
   const MAX_INSPECT_ENTRIES=MAX_CHECKPOINT_ENTRIES;
-  function inspectCheckpoint(db,snapshotId) {
+  function inspectCheckpoint(db,snapshotId,{signal=null}={}) {
     checkPrerequisites(db,snapshotId);
+    if(signal!==null&&(typeof signal.aborted!=='boolean'||
+       typeof signal.addEventListener!=='function'||
+       typeof signal.removeEventListener!=='function'))
+      throw failure('診断の中断通知が不正です。');
+    if(signal?.aborted)
+      return Promise.reject(failure('一時保存の診断を中断しました。'));
     return new Promise((resolve,reject)=>{
       let tx,early=null;
       let entries=0,checkpointToken=null,generation=null;
       const byStore={images:0,meta:0,theater_frames:0};
+      function removeAbortListener(){signal?.removeEventListener('abort',onCancel);}
+      function onCancel(){
+        try{
+          tx.abort();
+          early=failure('一時保存の診断を中断しました。');
+        }catch(_){}
+      }
       function abort(reason) {
         if(!early)early=reason instanceof Error?reason:failure(String(reason));
         try{tx.abort();}catch(_){}
       }
       try {
         tx=db.transaction(STAGE_STORE,'readonly');
-        tx.oncomplete=()=>resolve(entries===0?null:Object.freeze({
-          snapshotId,checkpointToken,entries,
-          byStore:Object.freeze({...byStore}),generation
-        }));
-        tx.onabort=()=>reject(early||tx.error||
-          failure('一時保存の診断が中断されました。'));
+        tx.oncomplete=()=>{
+          removeAbortListener();
+          resolve(entries===0?null:Object.freeze({
+            snapshotId,checkpointToken,entries,
+            byStore:Object.freeze({...byStore}),generation
+          }));
+        };
+        tx.onabort=()=>{
+          removeAbortListener();
+          reject(early||tx.error||
+            failure('一時保存の診断が中断されました。'));
+        };
         tx.onerror=()=>{if(!early)early=tx.error||
           failure('一時保存の診断に失敗しました。');};
+        if(signal){
+          signal.addEventListener('abort',onCancel,{once:true});
+          if(signal.aborted){onCancel();return;}
+        }
         const req=tx.objectStore(STAGE_STORE).openCursor(rangeFor(snapshotId));
         req.onerror=()=>abort(req.error||failure('診断カーソルに失敗しました。'));
         req.onsuccess=()=>{
@@ -369,7 +417,8 @@
           }
           try{cursor.continue();}catch(e){abort(e);}
         };
-      }catch(e){if(tx){early=e;try{tx.abort();}catch(_){reject(e);}}
+      }catch(e){removeAbortListener();
+        if(tx){early=e;try{tx.abort();}catch(_){reject(e);}}
         else reject(e);}
     });
   }

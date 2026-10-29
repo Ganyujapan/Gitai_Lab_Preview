@@ -33,7 +33,8 @@ globalThis.IDBKeyRange={
   }
 };
 const cloneValue=v=>structuredClone(v);
-function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAfterStagePut=Infinity,abortController=null}={}) {
+function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAfterStagePut=Infinity,abortController=null,
+  abortAfterStageRead=Infinity,abortAfterKeyRead=Infinity,readAbortController=null}={}) {
   const source={
     images:new Map(),meta:new Map([['current_generation_id',GEN]]),
     theater_frames:new Map([['frame:'+GEN,{markers:[1,2]}]])
@@ -54,6 +55,7 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
   });
   const data=initialEntries();
   let activeTx=0,putCount=0,deleteCount=0,keyCursorVisited=0;
+  let stageReadCount=0,keyReadCount=0;
   const log=[];
   let concurrent=null;
   function mutateAfterCheckpoint(fn){concurrent=fn}
@@ -120,6 +122,9 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
                   });
                 }
               }:null;
+              if(name===STAGE_STORE&&mode==='readonly'&&item&&
+                 ++stageReadCount===abortAfterStageRead)
+                readAbortController?.abort();
               req.onsuccess?.();
             }
             enqueue(next);
@@ -141,7 +146,11 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
                   });
                 }
               };
-              if(key!==undefined)keyCursorVisited++;
+              if(key!==undefined) {
+                keyCursorVisited++;
+                if(++keyReadCount===abortAfterKeyRead)
+                  readAbortController?.abort();
+              }
               req.onsuccess?.();
             }
             enqueue(deliver);
@@ -597,6 +606,50 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
     guardedA.entries-1);
   assert.equal(guarded.getStage(ID),0);
   assert.equal(guarded.getStage(OTHER),guardedB.entries);
+
+  // Recovery diagnostics are read-only, but very large histories may take
+  // time. A cancelled request must stop promptly and never report success.
+  const stopEarly=new AbortController();
+  stopEarly.abort();
+  const preRead=fakeDb();
+  const beforeReadTx=preRead.log.length;
+  await assert.rejects(listCheckpointIds(preRead.db,
+    {signal:stopEarly.signal}),/中断/);
+  await assert.rejects(inspectCheckpoint(preRead.db,ID,
+    {signal:stopEarly.signal}),/中断/);
+  assert.equal(preRead.log.length,beforeReadTx);
+  assert.throws(()=>listCheckpointIds(preRead.db,
+    {signal:{aborted:false}}),/中断通知/);
+  assert.throws(()=>inspectCheckpoint(preRead.db,ID,
+    {signal:{aborted:false}}),/中断通知/);
+
+  const stopKey=new AbortController();
+  const keyDb=fakeDb({abortAfterKeyRead:1,
+    readAbortController:stopKey});
+  const keySnapshot=await makeCheckpoint(keyDb.db,ID);
+  await assert.rejects(listCheckpointIds(keyDb.db,
+    {signal:stopKey.signal}),/中断/);
+  assert.equal(stopKey.signal.aborted,true);
+  assert.equal(keyDb.getStage(ID),keySnapshot.entries);
+  assert.equal(keyDb.data.meta.get('current_generation_id'),GEN);
+  assert.equal(keyDb.getActive(),0);
+  assert.deepEqual(await listCheckpointIds(keyDb.db),[ID]);
+
+  const stopInspection=new AbortController();
+  const inspectDb=fakeDb({abortAfterStageRead:7,
+    readAbortController:stopInspection});
+  const inspectSnapshot=await makeCheckpoint(inspectDb.db,ID);
+  await assert.rejects(inspectCheckpoint(inspectDb.db,ID,
+    {signal:stopInspection.signal}),/中断/);
+  assert.equal(stopInspection.signal.aborted,true);
+  assert.equal(inspectDb.getStage(ID),inspectSnapshot.entries);
+  assert.equal(inspectDb.data.images.size,60);
+  assert.equal(inspectDb.data.meta.size,62);
+  assert.equal(inspectDb.data.theater_frames.size,1);
+  assert.equal(inspectDb.data.meta.get('current_generation_id'),GEN);
+  assert.equal(inspectDb.getActive(),0);
+  assert.equal((await inspectCheckpoint(inspectDb.db,ID)).entries,
+    inspectSnapshot.entries);
 
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.
