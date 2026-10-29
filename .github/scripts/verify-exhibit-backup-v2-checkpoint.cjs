@@ -33,7 +33,7 @@ globalThis.IDBKeyRange={
   }
 };
 const cloneValue=v=>structuredClone(v);
-function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
+function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAfterStagePut=Infinity,abortController=null}={}) {
   const source={
     images:new Map(),meta:new Map([['current_generation_id',GEN]]),
     theater_frames:new Map([['frame:'+GEN,{markers:[1,2]}]])
@@ -87,9 +87,11 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
             if(mode!=='readwrite')throw Error('ReadOnlyError');
             enqueue(()=>{
               if(++putCount===quotaAt)throw Error('QuotaExceededError');
-              if(name===STAGE_STORE)stage[name].set(JSON.stringify(key),
-                {__key:cloneValue(key),value:cloneValue(value)});
-              else stage[name].set(key,cloneValue(value));
+              if(name===STAGE_STORE) {
+                stage[name].set(JSON.stringify(key),
+                  {__key:cloneValue(key),value:cloneValue(value)});
+                if(putCount===abortAfterStagePut)abortController?.abort();
+              } else stage[name].set(key,cloneValue(value));
             });
           },
           openCursor(range) {
@@ -478,6 +480,55 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.equal(await discardCheckpoint(bounded.db,ID,
     atLimit.checkpointToken),123);
   assert.equal(bounded.getStage(OTHER),existing.entries);
+
+  // Cancellation before the transaction begins must be a no-op.
+  const beforeAbort=new AbortController();
+  beforeAbort.abort();
+  const pre=fakeDb();
+  const beforeTx=pre.log.length;
+  await assert.rejects(makeCheckpoint(pre.db,ID,
+    {signal:beforeAbort.signal}),/中断/);
+  assert.equal(pre.log.length,beforeTx);
+  assert.equal(pre.getStage(ID),0);
+  assert.throws(()=>makeCheckpoint(pre.db,ID,
+    {signal:{aborted:false}}),/中断通知/);
+  assert.equal(pre.log.length,beforeTx);
+
+  // An AbortSignal fired while copying the 17th temporary row must abort
+  // the entire transaction and retain the original source + other stages.
+  const duringAbort=new AbortController();
+  const during=fakeDb({abortAfterStagePut:123+17,abortController:duringAbort});
+  const keep=await makeCheckpoint(during.db,OTHER);
+  const countBefore=during.getStage(OTHER);
+  await assert.rejects(makeCheckpoint(during.db,ID,
+    {signal:duringAbort.signal}),/中断/);
+  assert.equal(duringAbort.signal.aborted,true);
+  assert.equal(during.getStage(ID),0);
+  assert.equal(during.getStage(OTHER),countBefore);
+  assert.equal(during.getActive(),0);
+  assert.equal(during.data.images.size,60);
+  assert.equal(during.data.meta.size,62);
+  assert.equal(during.data.theater_frames.size,1);
+  assert.equal(during.data.meta.get('current_generation_id'),GEN);
+  const retry=await makeCheckpoint(during.db,ID);
+  assert.equal(retry.entries,123);
+  assert.equal(during.getStage(ID),123);
+  await discardCheckpoint(during.db,ID,retry.checkpointToken);
+  await discardCheckpoint(during.db,OTHER,keep.checkpointToken);
+  assert.equal(during.getStage(ID),0);
+  assert.equal(during.getStage(OTHER),0);
+
+  // Aborting the signal AFTER a committed checkpoint must not retroactively
+  // claim the commit failed or remove stored stage data.
+  const postCommitAbort=new AbortController();
+  const complete=fakeDb();
+  const completed=await makeCheckpoint(complete.db,ID,
+    {signal:postCommitAbort.signal});
+  postCommitAbort.abort();
+  assert.equal(complete.getStage(ID),completed.entries);
+  assert.equal((await inspectCheckpoint(complete.db,ID)).checkpointToken,
+    completed.checkpointToken);
+  assert.equal(complete.getActive(),0);
 
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.

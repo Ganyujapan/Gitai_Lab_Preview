@@ -52,17 +52,37 @@
   // game/restore transactions and gives a single committed source epoch.
   // DO NOT await (including Blob.arrayBuffer) inside this transaction.
   function makeCheckpoint(db, snapshotId,
-    {maxEntries=MAX_CHECKPOINT_ENTRIES}={}) {
+    {maxEntries=MAX_CHECKPOINT_ENTRIES,signal=null}={}) {
     checkPrerequisites(db,snapshotId);
     if(!Number.isSafeInteger(maxEntries)||maxEntries<1||
        maxEntries>MAX_CHECKPOINT_ENTRIES) {
       throw failure('一時保存件数の上限指定が不正です。');
+    }
+    if(signal!==null && (typeof signal.aborted!=='boolean'||
+        typeof signal.addEventListener!=='function'||
+        typeof signal.removeEventListener!=='function')) {
+      throw failure('中断通知の形式が不正です。');
+    }
+    if(signal?.aborted) {
+      return Promise.reject(failure('一時保存の作成が中断されました。'));
     }
     const checkpointToken=newSnapshotToken();
     return new Promise((resolve,reject)=>{
       let tx;
       let error=null, generation=null, copied=0;
       const counts={images:0,meta:0,theater_frames:0};
+      function removeAbortListener() {
+        signal?.removeEventListener('abort',onAbort);
+      }
+      function onAbort() {
+        // If commit already completed, IDB rejects abort(). In that case
+        // report actual commit completion, not a false cancellation.
+        if(error)return;
+        try {
+          tx.abort();
+          error=failure('一時保存の作成が中断されました。');
+        }catch(_) {}
+      }
       function abort(reason) {
         if(error)return;
         error=reason instanceof Error?reason:failure(String(reason));
@@ -71,11 +91,19 @@
       try {
         tx=db.transaction([...SOURCE_STORES,STAGE_STORE],'readwrite');
         tx.oncomplete=()=>{
+          removeAbortListener();
           if(error)reject(error);
           else resolve({snapshotId,checkpointToken,generation,entries:copied,byStore:counts});
         };
-        tx.onabort=()=>reject(error||tx.error||failure('コピーが中断されました。'));
+        tx.onabort=()=>{
+          removeAbortListener();
+          reject(error||tx.error||failure('コピーが中断されました。'));
+        };
         tx.onerror=()=>{if(!error)error=tx.error||failure('コピーに失敗しました。');};
+        if(signal) {
+          signal.addEventListener('abort',onAbort,{once:true});
+          if(signal.aborted) {onAbort();return;}
+        }
         const stage=tx.objectStore(STAGE_STORE);
         const exists=stage.count(rangeFor(snapshotId));
         exists.onerror=()=>abort(exists.error||failure('一時保存の識別子を確認できません。'));
@@ -116,6 +144,7 @@
           };
         };
       }catch(e) {
+        removeAbortListener();
         if(tx) {
           error=e;
           try {tx.abort();} catch(_) {reject(e);}
