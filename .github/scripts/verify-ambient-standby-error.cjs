@@ -89,5 +89,41 @@ async function flush(){await Promise.resolve();await Promise.resolve();await Pro
     t.audio[1].emit('error');
     assert.equal(t.api.isAvailable(),false,'new active decoder failure still stops playback');
   }
-  console.log('Ambient: standby and post-crossfade old decoder errors leave sound alive; active decoder error still reports failure.');
+  {
+    // A transient active-player decoder error must not lock the user into
+    // a permanent "source error". Retry must use fresh media elements inside
+    // the real toggle tap, without changing a game's data or audio preference.
+    const t=fixture();
+    t.toggle.click();
+    await flush();
+    const initial=t.audio.slice();
+    initial[0].emit('error');
+    assert.equal(t.api.isAvailable(),false);
+    assert.match(t.toggle.textContent,/音源エラー/);
+    assert.equal(t.toggle.attributes['aria-disabled'],'false',
+      'a retryable audio error must leave the button available');
+    const beforeRetry=t.audio.length;
+    t.toggle.click();
+    await flush();
+    assert.equal(t.audio.length,beforeRetry+2,'retry creates fresh native media elements');
+    assert.equal(t.api.isAvailable(),true);
+    assert.equal(t.api.isPlaying(),true);
+    assert.match(t.toggle.textContent,/再生中/);
+    assert.equal(t.audio[2].src,initial[0].src);
+    // The original broken player can emit a delayed error after replacement.
+    initial[0].emit('error');
+    initial[1].emit('error');
+    assert.equal(t.api.isAvailable(),true,'stale player errors cannot break recovery');
+    assert.equal(t.api.isPlaying(),true);
+    // A genuinely persistent error is displayed again, not hidden or
+    // automatically retried without explicit user action.
+    t.audio[2].emit('error');
+    assert.equal(t.api.isAvailable(),false);
+    assert.match(t.toggle.textContent,/音源エラー/);
+    assert.equal(t.api.isPlaying(),false);
+    t.toggle.click();
+    await flush();
+    assert.equal(t.api.isPlaying(),true,'a later real tap may retry again');
+  }
+  console.log('Ambient: standby failures stay isolated; active errors are visible and a real-tap retry safely recreates native players.');
 })().catch(e=>{console.error(e);process.exitCode=1});
