@@ -31,3 +31,10 @@
  #soloTutorialOverlay.is-warning .tutorial-copy{margin:5px 0;font-size:15px;line-height:1.48}
  #soloTutorialOverlay.is-warning .tutorial-progress{margin-bottom:6px}
 }
+
+/* Authored tutorial image: never crop; its embedded copy replaces visible UI copy. */
+#soloTutorialOverlay .tutorial-slide-image{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+#soloTutorialOverlay .tutorial-slide-image[hidden],#soloTutorialOverlay canvas[hidden]{display:none!important}
+#soloTutorialOverlay.is-warning-image .tutorial-canvas-wrap{aspect-ratio:1080/1758}
+/* Preserve the dialog's accessible heading/copy without printing them twice. */
+#soloTutorialOverlay.is-warning-image .tutorial-title,#soloTutorialOverlay.is-warning-image .tutorial-copy{position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;border:0!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important}

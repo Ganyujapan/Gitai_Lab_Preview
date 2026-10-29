@@ -9,6 +9,14 @@ const html=fs.readFileSync('index.html','utf8');
 const exhibitIndex=fs.readFileSync('exhibit/modes.html','utf8');
 const exhibitGame=fs.readFileSync('exhibit/game.js','utf8');
 assert.match(code,/function arrow\(/);
+assert.match(code,/image:'img\/tutorial\/tutorial_warning_01_1080x1760\.png'/);
+assert.match(code,/const ratio=\(activeMode==='warning'&&activeSlides\[page\]\?\.image\)\?1080\/1758:9\/16/);
+assert.match(css,/object-fit:contain/);
+assert.match(css,/is-warning-image \.tutorial-title/);
+const picture=fs.readFileSync('img/tutorial/tutorial_warning_01_1080x1760.png');
+assert.equal(picture.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+assert.equal(picture.readUInt32BE(16),1080);
+assert.equal(picture.readUInt32BE(20),1758);
 assert.match(code,/#ee2c31/);
 assert.match(code,/function warningHud\(/);
 assert.match(code,/function warningGallery\(/);
@@ -18,8 +26,8 @@ assert.match(css,/aspect-ratio:9\/16/);
 assert.match(css,/is-warning \.tutorial-copy/);
 assert.match(css,/font-size:clamp\(16px,4\.4vw,19px\)/);
 assert.match(code,/const labelSize=Math\.max\(13,Math\.min\(19,/);
-assert.match(html,/solo_tutorial\.js\?v=20261026-warning-readable1/);
-assert.match(html,/solo_tutorial\.css\?v=20261026-warning-readable1/);
+assert.match(html,/solo_tutorial\.js\?v=20261029-warning-image1/);
+assert.match(html,/solo_tutorial\.css\?v=20261029-warning-image1/);
 assert.match(exhibitIndex,/experiment=warning_color[^"]*tutorial=1/);
 assert.match(exhibitGame,/history\.replaceState/);
 assert.match(exhibitGame,/GitaiSoloTutorial\?\.open\(\{ mode: 'warning' \}\)/);
@@ -69,6 +77,9 @@ async function check() {
   await new Promise(resolve=>setImmediate(resolve));
   const n=exhibit?7:6;
   assert.equal(h.elements.get('#soloTutorialProgress').children.length,n);
+  assert.equal(h.elements.get('#soloTutorialImage').hidden,false,'warning first page uses authored image');
+  assert.equal(h.elements.get('#soloTutorialCanvas').hidden,true,'image replaces canvas on first page');
+  assert.match(h.elements.get('#soloTutorialImage').src,/img\/tutorial\/tutorial_warning_01_1080x1760\.png$/);
   const expected=[
    '毒蛾6匹と無毒蛾6匹、計12匹',
    'ハートが1つ減ります',
@@ -83,7 +94,11 @@ async function check() {
     String(i+1).padStart(2,'0')+' / '+String(n).padStart(2,'0'));
    assert.ok(h.elements.get('#soloTutorialText').textContent.includes(expected[i]));
    assert.equal(h.elements.get('#soloTutorialNext').textContent,i===n-1?'はじめる':'次へ');
-   if(i<n-1)h.advance();
+   if(i<n-1){
+    h.advance();
+    assert.equal(h.elements.get('#soloTutorialImage').hidden,true,'later pages keep Canvas');
+    assert.equal(h.elements.get('#soloTutorialCanvas').hidden,false,'later Canvas remains visible');
+   }
   }
   assert.equal(finished,0);
   assert.ok(h.paint.some(args=>args[0]?.realSprite),'moths use renderer sprites');

@@ -62,7 +62,7 @@ assert.match(code,/document\.addEventListener\('pointerup', flushTouchSound/);
 assert.match(code,/const format = touchDevice \? 'aac' : formats\[0\]/);
 assert.match(tutorialCss,/#soloTutorialOverlay \.tutorial-viewport\{[^}]*width:100%/);
 assert.match(tutorial,/canvasWrap\.style\.width=width\+'px'/);
-assert.match(tutorial,/canvasWrap\.style\.height=\(width\*16\/9\)\+'px'/);
+assert.match(tutorial,/canvasWrap\.style\.height=\(width\/ratio\)\+'px'/);
 assert.match(ambient,/iosMediaGestureRequired/);
 const files=Object.keys(blobs);
 assert.equal(files.filter(x=>x.startsWith('opus/')).length,10);
