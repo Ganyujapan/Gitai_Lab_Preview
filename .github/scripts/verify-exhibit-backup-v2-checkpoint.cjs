@@ -2,7 +2,7 @@
 // RE2-EXH-02: exercise checkpoint against an isolated event/transaction
 // simulator. NEVER open real IndexedDB or touch exhibition player data.
 const assert=require('node:assert/strict');
-const {makeCheckpoint,readCheckpoint,discardCheckpoint,STAGE_STORE,SOURCE_STORES}=
+const {makeCheckpoint,readCheckpoint,inspectCheckpoint,discardCheckpoint,STAGE_STORE,SOURCE_STORES}=
   require('../../exhibit/backup_checkpoint_v2.js');
 const {writePartsFromRecords,verifyPartIntegrity}=require('../../exhibit/backup_v2.js');
 const {webcrypto}=require('node:crypto');
@@ -33,7 +33,7 @@ globalThis.IDBKeyRange={
   }
 };
 const cloneValue=v=>structuredClone(v);
-function fakeDb({withStage=true,quotaAt=Infinity}={}) {
+function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   const source={
     images:new Map(),meta:new Map([['current_generation_id',GEN]]),
     theater_frames:new Map([['frame:'+GEN,{markers:[1,2]}]])
@@ -53,7 +53,7 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
     ...(withStage?{[STAGE_STORE]:new Map()}: {})
   });
   const data=initialEntries();
-  let activeTx=0,putCount=0;
+  let activeTx=0,putCount=0,deleteCount=0;
   const log=[];
   let concurrent=null;
   function mutateAfterCheckpoint(fn){concurrent=fn}
@@ -108,7 +108,11 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
                 continue(){enqueue(next)},
                 delete(){
                   if(mode!=='readwrite')throw Error('ReadOnlyError');
-                  enqueue(()=>stage[name].delete(item.serialized));
+                  enqueue(()=>{
+                    if(++deleteCount===cleanupAbortAt)
+                      throw Error('AbortError: simulated cleanup interruption');
+                    stage[name].delete(item.serialized);
+                  });
                 }
               }:null;
               req.onsuccess?.();
@@ -185,6 +189,21 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   assert.match(cp.checkpointToken,/^[0-9a-f]{32}$/);
   assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
   assert.equal(f.getStage(ID),123);
+  // After an app restart the caller may have lost cp.checkpointToken.
+  // A read-only inventory of a KNOWN ID recovers the exact token, without
+  // reading values into a report or touching the original evolution stores.
+  const beforeInspection=f.log.length;
+  const inventory=await inspectCheckpoint(f.db,ID);
+  assert.deepEqual(inventory,{
+    snapshotId:ID,checkpointToken:cp.checkpointToken,entries:cp.entries,
+    byStore:{images:60,meta:62,theater_frames:1},generation:GEN
+  });
+  assert.equal(f.log.length,beforeInspection+1);
+  assert.deepEqual(f.log.at(-1).names,[STAGE_STORE]);
+  assert.equal(f.log.at(-1).mode,'readonly');
+  assert.equal(f.getStage(ID),123);
+  assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
+  assert.equal(await inspectCheckpoint(f.db,OTHER),null);
   assert.deepEqual(f.log[0].names,[...SOURCE_STORES,STAGE_STORE]);
   assert.equal(f.log[0].mode,'readwrite');
   await assert.rejects(makeCheckpoint(f.db,ID),/上書きしません/);
@@ -315,6 +334,7 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   const removed=await discardCheckpoint(f.db,ID,cp.checkpointToken);
   assert.equal(removed,cp.entries);
   assert.equal(f.getStage(ID),0);
+  assert.equal(await inspectCheckpoint(f.db,ID),null);
   assert.equal(f.getStage(OTHER),cp2.entries);
   assert.equal(f.data.meta.get('current_generation_id'),GEN);
   await assert.rejects((async()=>{
@@ -332,6 +352,8 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   assert.ok(frames);
   frames.value.checkpointToken='f'.repeat(32)===owned.checkpointToken ?
     'e'.repeat(32) : 'f'.repeat(32);
+  await assert.rejects(inspectCheckpoint(mixed.db,ID),/異なる一時保存/);
+  assert.equal(mixed.getStage(ID),owned.entries);
   await assert.rejects(discardCheckpoint(mixed.db,ID,owned.checkpointToken),
     /別のスナップショット/);
   assert.equal(mixed.getStage(ID),owned.entries,
@@ -345,6 +367,41 @@ function fakeDb({withStage=true,quotaAt=Infinity}={}) {
   assert.equal(await discardCheckpoint(mixed.db,ID,owned.checkpointToken),
     owned.entries);
   assert.equal(mixed.getStage(ID),0);
+
+  // A crash can lose the in-memory checkpoint token, while the committed
+  // stage remains after restart. Inspection must recover the token for an
+  // explicit owner-confirmed cleanup; NEVER delete on inspection alone.
+  const orphan=fakeDb();
+  await makeCheckpoint(orphan.db,ID); // deliberately discard the return
+  const recovered=await inspectCheckpoint(orphan.db,ID);
+  assert.equal(recovered.entries,123);
+  assert.equal(orphan.getStage(ID),123);
+  assert.equal(await discardCheckpoint(orphan.db,ID,recovered.checkpointToken),
+    recovered.entries);
+  assert.equal(orphan.getStage(ID),0);
+  assert.equal(orphan.data.images.size,60);
+  assert.equal(orphan.data.meta.size,62);
+  assert.equal(orphan.data.theater_frames.size,1);
+
+  // Simulate cleanup itself failing after some cursor deletes. IndexedDB
+  // must roll back ALL staged deletions, and an explicit retry must succeed.
+  const cleanupFail=fakeDb({cleanupAbortAt:17});
+  const cleanupSource=await makeCheckpoint(cleanupFail.db,ID);
+  await assert.rejects(
+    discardCheckpoint(cleanupFail.db,ID,cleanupSource.checkpointToken),
+    /simulated cleanup interruption/);
+  assert.equal(cleanupFail.getStage(ID),cleanupSource.entries);
+  assert.equal(cleanupFail.getActive(),0);
+  const afterAbort=await inspectCheckpoint(cleanupFail.db,ID);
+  assert.equal(afterAbort.checkpointToken,cleanupSource.checkpointToken);
+  assert.equal(afterAbort.entries,cleanupSource.entries);
+  assert.equal(await discardCheckpoint(cleanupFail.db,ID,
+    cleanupSource.checkpointToken),cleanupSource.entries);
+  assert.equal(cleanupFail.getStage(ID),0);
+  assert.equal(cleanupFail.data.images.size,60);
+  assert.equal(cleanupFail.data.meta.size,62);
+  assert.equal(cleanupFail.data.theater_frames.size,1);
+  assert.equal(cleanupFail.data.meta.get('current_generation_id'),GEN);
 
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.
