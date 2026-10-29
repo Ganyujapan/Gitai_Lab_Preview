@@ -18,6 +18,7 @@
   const validId=id=>typeof id==='string' && ID_RE.test(id);
   const validKey=key=>typeof key==='string' ||
     (typeof key==='number' && Number.isFinite(key));
+  const TOKEN_RE=/^[0-9a-f]{32}$/;
   const failure=text=>new Error('分割バックアップ一時保存：'+text);
   const rangeFor=id=>IDBKeyRange.bound([id],[id,'\uffff']);
   const checkPrerequisites=(db,id)=>{
@@ -29,12 +30,26 @@
     }
   };
 
+  // A checkpoint ID can be reused after a legitimate cleanup. Give every
+  // committed snapshot a cryptographically random identity so a reader that
+  // spans short transactions cannot accidentally splice together two
+  // different snapshots with the same ID and row count. This never uses
+  // Math.random or the game's evolution RNG.
+  function newSnapshotToken() {
+    const random=globalThis.crypto;
+    if(!random||typeof random.getRandomValues!=='function')
+      throw failure('安全な一時保存識別子を生成できません。');
+    const bytes=random.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
   // Copy each of the 3 original stores into the dedicated staging store
   // in ONE IndexedDB readwrite transaction. This serializes with writes by
   // game/restore transactions and gives a single committed source epoch.
   // DO NOT await (including Blob.arrayBuffer) inside this transaction.
   function makeCheckpoint(db, snapshotId) {
     checkPrerequisites(db,snapshotId);
+    const checkpointToken=newSnapshotToken();
     return new Promise((resolve,reject)=>{
       let tx;
       let error=null, generation=null, copied=0;
@@ -48,7 +63,7 @@
         tx=db.transaction([...SOURCE_STORES,STAGE_STORE],'readwrite');
         tx.oncomplete=()=>{
           if(error)reject(error);
-          else resolve({snapshotId,generation,entries:copied,byStore:counts});
+          else resolve({snapshotId,checkpointToken,generation,entries:copied,byStore:counts});
         };
         tx.onabort=()=>reject(error||tx.error||failure('コピーが中断されました。'));
         tx.onerror=()=>{if(!error)error=tx.error||failure('コピーに失敗しました。');};
@@ -78,8 +93,8 @@
                   if(!cursor)return;
                   try {
                     if(!validKey(cursor.key)) throw failure('未対応の保存キーがあります。');
-                    stage.put({store:storeName,key:cursor.key,value:cursor.value},
-                      [snapshotId,storeName,cursor.key]);
+                    stage.put({store:storeName,key:cursor.key,value:cursor.value,
+                      checkpointToken},[snapshotId,storeName,cursor.key]);
                     counts[storeName]++;
                     copied++;
                     cursor.continue();
@@ -100,14 +115,18 @@
 
   // Read only the precommitted immutable staging store in small, independent
   // transactions. It is safe to await Blob conversion BETWEEN these reads.
-  // expectedEntries must be the value returned by makeCheckpoint, so a
-  // missing/partially cleaned stage can never appear to be a complete backup.
-  async function* readCheckpoint(db,snapshotId,expectedEntries,{batchSize=8,signal=null}={}) {
+  // expectedEntries and checkpointToken MUST come from makeCheckpoint. A
+  // concurrent discard/recreate of the same snapshotId must not merge rows
+  // from different snapshots, even if both have identical row counts.
+  async function* readCheckpoint(db,snapshotId,expectedEntries,
+    {batchSize=8,signal=null,checkpointToken=null}={}) {
     checkPrerequisites(db,snapshotId);
     if(!Number.isSafeInteger(expectedEntries)||expectedEntries<=0 ||
        !Number.isSafeInteger(batchSize)||batchSize<1||batchSize>64) {
       throw failure('読込み件数またはバッチサイズが不正です。');
     }
+    if(!TOKEN_RE.test(checkpointToken||''))
+      throw failure('一時保存識別子がありません。再取得が必要です。');
     if(signal!==null && typeof signal.aborted!=='boolean')
       throw failure('中断通知が不正です。');
     const checkCancelled=()=>{
@@ -141,6 +160,11 @@
               try{tx.abort();}catch(_){}
               return;
             }
+            if(value.checkpointToken!==checkpointToken) {
+              error=failure('一時保存が別のスナップショットに切り替わりました。');
+              try{tx.abort();}catch(_){}
+              return;
+            }
             collected.push({store:value.store,key:value.key,value:value.value});
             last=key;
             if(collected.length<batchSize) cursor.continue();
@@ -159,6 +183,23 @@
     }
     checkCancelled();
     if(seen!==expectedEntries) throw failure('一時保存の項目数が不足しています。');
+    // The reader has already consumed all rows. Another tab may have
+    // deleted earlier rows between batches: that would not change 'seen'.
+    // Check the full staging count one last time before allowing a manifest.
+    const finalCount=await new Promise((resolve,reject)=>{
+      let tx,req;
+      try {
+        tx=db.transaction(STAGE_STORE,'readonly');
+        tx.oncomplete=()=>resolve(req.result);
+        tx.onabort=()=>reject(tx.error||failure('最終件数の検証が中断されました。'));
+        tx.onerror=()=>{};
+        req=tx.objectStore(STAGE_STORE).count(rangeFor(snapshotId));
+      } catch(error) {reject(error);}
+    });
+    checkCancelled();
+    if(finalCount!==expectedEntries) {
+      throw failure('一時保存の件数が読込み中に変更されました。');
+    }
   }
 
   // Deletes only the selected temporary checkpoint ID, NEVER sources.
