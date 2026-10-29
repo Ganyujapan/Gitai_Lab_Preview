@@ -520,11 +520,11 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
 
   // Aborting the signal AFTER a committed checkpoint must not retroactively
   // claim the commit failed or remove stored stage data.
-  const afterAbort=new AbortController();
+  const postCommitAbort=new AbortController();
   const complete=fakeDb();
   const completed=await makeCheckpoint(complete.db,ID,
-    {signal:afterAbort.signal});
-  afterAbort.abort();
+    {signal:postCommitAbort.signal});
+  postCommitAbort.abort();
   assert.equal(complete.getStage(ID),completed.entries);
   assert.equal((await inspectCheckpoint(complete.db,ID)).checkpointToken,
     completed.checkpointToken);
