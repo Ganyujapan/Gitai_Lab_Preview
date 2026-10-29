@@ -78,7 +78,10 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
       objectStore(name) {
         if(!names.includes(name))throw Error('StoreNotInScope');
         return {
-          get(key) {return request(()=>cloneValue(stage[name].get(key)))},
+          get(key) {return request(()=>cloneValue(
+            name===STAGE_STORE?
+              stage[name].get(JSON.stringify(key))?.value:
+              stage[name].get(key)))},
           count(range) {
             return request(()=>[...stage[name].values()].filter(item=>
               inRange(item.__key,range)).length);
