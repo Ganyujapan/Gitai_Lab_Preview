@@ -2,7 +2,7 @@
 // RE2-EXH-02: exercise checkpoint against an isolated event/transaction
 // simulator. NEVER open real IndexedDB or touch exhibition player data.
 const assert=require('node:assert/strict');
-const {makeCheckpoint,readCheckpoint,listCheckpointIds,inspectCheckpoint,discardCheckpoint,STAGE_STORE,SOURCE_STORES}=
+const {makeCheckpoint,readCheckpoint,listCheckpointIds,inspectCheckpoint,discardCheckpoint,MAX_CHECKPOINT_ENTRIES,STAGE_STORE,SOURCE_STORES}=
   require('../../exhibit/backup_checkpoint_v2.js');
 const {writePartsFromRecords,verifyPartIntegrity}=require('../../exhibit/backup_v2.js');
 const {webcrypto}=require('node:crypto');
