@@ -174,7 +174,7 @@
     };
     checkCancelled();
     const upper=[snapshotId,'\uffff'];
-    let previous=null,finished=false,seen=0;
+    let previous=null,lastObserved=null,finished=false,seen=0;
     while(!finished) {
       checkCancelled();
       const batch=await new Promise((resolve,reject)=>{
@@ -207,6 +207,7 @@
             }
             collected.push({store:value.store,key:value.key,value:value.value});
             last=key;
+            lastObserved=key;
             if(collected.length<batchSize) cursor.continue();
           };
         }catch(e){if(tx){try{tx.abort();}catch(_){reject(e);}}else reject(e);}
@@ -223,22 +224,33 @@
     }
     checkCancelled();
     if(seen!==expectedEntries) throw failure('一時保存の項目数が不足しています。');
-    // The reader has already consumed all rows. Another tab may have
-    // deleted earlier rows between batches: that would not change 'seen'.
-    // Check the full staging count one last time before allowing a manifest.
-    const finalCount=await new Promise((resolve,reject)=>{
-      let tx,req;
+    // Another tab can delete/recreate the same ID with an identical row
+    // count AFTER the final data batch was read. The count alone cannot
+    // detect this ABA race. Verify both total count and the last-read row's
+    // snapshot token in ONE readonly transaction before returning success.
+    const finalCheck=await new Promise((resolve,reject)=>{
+      let tx,countReq,witnessReq;
       try {
         tx=db.transaction(STAGE_STORE,'readonly');
-        tx.oncomplete=()=>resolve(req.result);
-        tx.onabort=()=>reject(tx.error||failure('最終件数の検証が中断されました。'));
+        tx.oncomplete=()=>resolve({
+          count:countReq.result,witness:witnessReq.result
+        });
+        tx.onabort=()=>reject(tx.error||failure('最終照合が中断されました。'));
         tx.onerror=()=>{};
-        req=tx.objectStore(STAGE_STORE).count(rangeFor(snapshotId));
+        const stage=tx.objectStore(STAGE_STORE);
+        countReq=stage.count(rangeFor(snapshotId));
+        witnessReq=stage.get(lastObserved);
       } catch(error) {reject(error);}
     });
     checkCancelled();
-    if(finalCount!==expectedEntries) {
+    if(finalCheck.count!==expectedEntries) {
       throw failure('一時保存の件数が読込み中に変更されました。');
+    }
+    if(!finalCheck.witness||
+       finalCheck.witness.checkpointToken!==checkpointToken||
+       finalCheck.witness.store!==lastObserved?.[1]||
+       finalCheck.witness.key!==lastObserved?.[2]) {
+      throw failure('最終照合で別のスナップショットを検出しました。');
     }
   }
 
