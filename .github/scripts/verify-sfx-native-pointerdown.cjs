@@ -11,7 +11,7 @@ assert.match(index,/window\.GitaiGameSfx\?\.play\(/);
 assert.match(src,/const instantNativeIOS/);
 assert.match(src,/pending\.voice\.retry\(\)/);
 function session({search='',failFirst=false}={}){
- let time=1000,rand=0,failed=false,hidden=false;
+ let time=1000,rand=0,failed=false,hidden=false,sessionCalls=0;
  const listeners=new Map(),calls=[],starts=[],players=[];
  const document={
   get hidden(){return hidden},
@@ -37,7 +37,12 @@ function session({search='',failFirst=false}={}){
    const a=listeners.get(kind)||[];a.push(fn);listeners.set(kind,a);
   }
  };
- const window={navigator:{maxTouchPoints:5,userAgent:'iPad',platform:'MacIntel'},
+ const window={navigator:{maxTouchPoints:5,userAgent:'iPad',platform:'MacIntel',
+   audioSession:{type:'ambient'}},
+  GitaiAmbientAudio:{activatePlaybackSession(){
+    sessionCalls++;
+    window.navigator.audioSession.type='playback';
+  }},
   location:{search},crypto:{getRandomValues(buf){buf[0]=rand++;return buf}},
   AudioContext:null,webkitAudioContext:null,PointerEvent:function(){}};
  const FakeDate={now:()=>time};
@@ -47,7 +52,7 @@ function session({search='',failFirst=false}={}){
   for(const fn of listeners.get(type)||[])fn({type,pointerId:id,isTrusted});
  }
  return {
-  calls,starts,window,players,
+  calls,starts,window,players,sessionCalls:()=>sessionCalls,
   advance(ms){time+=ms},
   emit,
   hit(kind='capture'){
@@ -61,6 +66,8 @@ function session({search='',failFirst=false}={}){
  for(const duration of [30,120,300]){
   const a=session();
   a.hit('capture');
+  assert.equal(a.sessionCalls(),1,'iPad reasserts playback category even with ambience off');
+  assert.equal(a.window.navigator.audioSession.type,'playback');
   assert.equal(a.starts.length,1,'AAC begins on capture pointerdown');
   assert.equal(a.starts[0].time,1000);
   const original=a.starts[0].player;
@@ -71,13 +78,18 @@ function session({search='',failFirst=false}={}){
   assert.equal(a.calls[1].player,original,'fallback never seeks or switches voice');
   a.emit('touchend');a.emit('click');
   assert.equal(a.starts.length,1,'no duplicate sound');
+  // Simulate Safari resetting the category after an interruption.
+  a.window.navigator.audioSession.type='ambient';
   a.hit('poison');
+  assert.equal(a.sessionCalls(),2);
+  assert.equal(a.window.navigator.audioSession.type,'playback');
   assert.equal(a.starts.length,2,'another tap plays immediately');
   assert.equal(a.starts[1].time,1000+duration);
  }
  {
   const a=session({search:'?sfx=release'});
   a.hit();assert.equal(a.starts.length,0);
+  assert.equal(a.sessionCalls(),1,'compatibility AAC also restores playback session');
   a.advance(120);a.emit('pointerup');
   assert.equal(a.starts.length,1);
   assert.equal(a.starts[0].time,1120,'explicit compatibility mode remains available');
