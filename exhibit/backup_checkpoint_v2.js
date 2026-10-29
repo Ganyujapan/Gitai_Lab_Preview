@@ -202,6 +202,66 @@
     }
   }
 
+  // Read-only recovery inspection for a KNOWN snapshot ID after an app
+  // crash. A process may have lost makeCheckpoint()'s returned token but
+  // left a committed stage consuming storage. This reports only identity,
+  // generation and counts: no source record values and NO automatic delete.
+  // The returned token can be passed to the already token-guarded
+  // discardCheckpoint() after an explicit decision to abandon this export.
+  // If any row has a conflicting identity or malformed key, refuse cleanup.
+  const MAX_INSPECT_ENTRIES=250000;
+  function inspectCheckpoint(db,snapshotId) {
+    checkPrerequisites(db,snapshotId);
+    return new Promise((resolve,reject)=>{
+      let tx,early=null;
+      let entries=0,checkpointToken=null,generation=null;
+      const byStore={images:0,meta:0,theater_frames:0};
+      function abort(reason) {
+        if(!early)early=reason instanceof Error?reason:failure(String(reason));
+        try{tx.abort();}catch(_){}
+      }
+      try {
+        tx=db.transaction(STAGE_STORE,'readonly');
+        tx.oncomplete=()=>resolve(entries===0?null:Object.freeze({
+          snapshotId,checkpointToken,entries,
+          byStore:Object.freeze({...byStore}),generation
+        }));
+        tx.onabort=()=>reject(early||tx.error||
+          failure('一時保存の診断が中断されました。'));
+        tx.onerror=()=>{if(!early)early=tx.error||
+          failure('一時保存の診断に失敗しました。');};
+        const req=tx.objectStore(STAGE_STORE).openCursor(rangeFor(snapshotId));
+        req.onerror=()=>abort(req.error||failure('診断カーソルに失敗しました。'));
+        req.onsuccess=()=>{
+          if(early)return;
+          const cursor=req.result;
+          if(!cursor)return;
+          const k=cursor.key,v=cursor.value;
+          if(!Array.isArray(k)||k.length!==3||k[0]!==snapshotId||
+             !SOURCE_STORES.includes(k[1])||!validKey(k[2])||
+             !v||v.store!==k[1]||v.key!==k[2]||
+             !Object.hasOwn(v,'value')||!TOKEN_RE.test(v.checkpointToken||'')) {
+            abort(failure('一時保存内の識別情報が破損しています。'));return;
+          }
+          if(checkpointToken!==null&&checkpointToken!==v.checkpointToken) {
+            abort(failure('同じIDに異なる一時保存が混在しています。'));return;
+          }
+          checkpointToken=v.checkpointToken;
+          if(++entries>MAX_INSPECT_ENTRIES) {
+            abort(failure('診断の上限件数を超えました。'));return;
+          }
+          byStore[v.store]++;
+          if(v.store==='meta'&&v.key==='current_generation_id'&&
+             typeof v.value==='string'&&GEN_RE.test(v.value)) {
+            generation=v.value;
+          }
+          try{cursor.continue();}catch(e){abort(e);}
+        };
+      }catch(e){if(tx){early=e;try{tx.abort();}catch(_){reject(e);}}
+        else reject(e);}
+    });
+  }
+
   // Deletes only rows belonging to the exact checkpoint incarnation.
   // A stale tab may finish late, after another tab has reused snapshotId.
   // Checking the token inside ONE readwrite transaction prevents it from
@@ -239,5 +299,5 @@
   }
 
   return Object.freeze({SOURCE_STORES,STAGE_STORE,makeCheckpoint,
-    readCheckpoint,discardCheckpoint});
+    readCheckpoint,inspectCheckpoint,discardCheckpoint});
 });
