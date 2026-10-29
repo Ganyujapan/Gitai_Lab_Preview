@@ -362,10 +362,17 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   // Snapshot A and B coexist; cancelling A deletes ONLY A's temporary keys.
   f.data.meta.set('current_generation_id',GEN);
   const cp2=await makeCheckpoint(f.db,OTHER);
+  const visitedBefore=f.getKeyCursorVisited();
+  assert.deepEqual(await listCheckpointIds(f.db),[ID,OTHER]);
+  assert.equal(f.getKeyCursorVisited()-visitedBefore,2);
+  await assert.rejects(listCheckpointIds(f.db,{maxIds:1}),/検索上限/);
+  assert.equal(f.getStage(ID),cp.entries);
+  assert.equal(f.getStage(OTHER),cp2.entries);
   assert.equal(cp2.entries,125); // the 2 newly added gen43 records remain.
   const removed=await discardCheckpoint(f.db,ID,cp.checkpointToken);
   assert.equal(removed,cp.entries);
   assert.equal(f.getStage(ID),0);
+  assert.deepEqual(await listCheckpointIds(f.db),[OTHER]);
   assert.equal(await inspectCheckpoint(f.db,ID),null);
   assert.equal(f.getStage(OTHER),cp2.entries);
   assert.equal(f.data.meta.get('current_generation_id'),GEN);
