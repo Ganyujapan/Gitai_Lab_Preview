@@ -497,7 +497,7 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
   // An AbortSignal fired while copying the 17th temporary row must abort
   // the entire transaction and retain the original source + other stages.
   const duringAbort=new AbortController();
-  const during=fakeDb({abortAfterStagePut:17,abortController:duringAbort});
+  const during=fakeDb({abortAfterStagePut:123+17,abortController:duringAbort});
   const keep=await makeCheckpoint(during.db,OTHER);
   const countBefore=during.getStage(OTHER);
   await assert.rejects(makeCheckpoint(during.db,ID,
