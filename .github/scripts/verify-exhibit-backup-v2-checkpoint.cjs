@@ -33,7 +33,8 @@ globalThis.IDBKeyRange={
   }
 };
 const cloneValue=v=>structuredClone(v);
-function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAfterStagePut=Infinity,abortController=null}={}) {
+function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAfterStagePut=Infinity,abortController=null,
+  abortAfterStageRead=Infinity,abortAfterKeyRead=Infinity,readAbortController=null}={}) {
   const source={
     images:new Map(),meta:new Map([['current_generation_id',GEN]]),
     theater_frames:new Map([['frame:'+GEN,{markers:[1,2]}]])
@@ -54,6 +55,7 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
   });
   const data=initialEntries();
   let activeTx=0,putCount=0,deleteCount=0,keyCursorVisited=0;
+  let stageReadCount=0,keyReadCount=0;
   const log=[];
   let concurrent=null;
   function mutateAfterCheckpoint(fn){concurrent=fn}
@@ -120,6 +122,9 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
                   });
                 }
               }:null;
+              if(name===STAGE_STORE&&mode==='readonly'&&item&&
+                 ++stageReadCount===abortAfterStageRead)
+                readAbortController?.abort();
               req.onsuccess?.();
             }
             enqueue(next);
@@ -141,7 +146,11 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
                   });
                 }
               };
-              if(key!==undefined)keyCursorVisited++;
+              if(key!==undefined) {
+                keyCursorVisited++;
+                if(++keyReadCount===abortAfterKeyRead)
+                  readAbortController?.abort();
+              }
               req.onsuccess?.();
             }
             enqueue(deliver);
