@@ -16,7 +16,7 @@ assert.ok(html.indexOf('src="js/game_sfx.js" defer') <
 assert.match(build,/"sfx_latency_rehearsal.html", "sfx_latency_rehearsal.js"/);
 assert.match(build,/assert "sfx_latency_rehearsal.js" not in page_source/);
 assert.match(workflow,/verify-sfx-latency-rehearsal\.cjs/);
-assert.match(engine,/const lowLatencyIOS = iosDevice &&/);
+assert.match(engine,/const lowLatencyIOS = iosDevice\s*&&/);
 assert.match(engine,/sfx=fast/);
 assert.match(engine,/sfx=release/);
 assert.match(engine,/const instantNativeIOS = iosDevice &&/);
@@ -69,7 +69,7 @@ function harness(search) {
 }
 (async()=>{
  for(const [query,current] of [
-   ['', 'routeNative'],['?sfx=fast','routeFast'],['?sfx=release','routeRelease']]){
+   ['?sfx=native', 'routeNative'],['?sfx=fast','routeFast'],['?sfx=release','routeRelease']]){
    const h=harness(query);
    await Promise.resolve();
    assert.equal(h.elements.get(current).attributes['aria-current'],'page');
