@@ -19,6 +19,10 @@
   const validKey=key=>typeof key==='string' ||
     (typeof key==='number' && Number.isFinite(key));
   const TOKEN_RE=/^[0-9a-f]{32}$/;
+  // The recovery inspector cannot safely enumerate larger snapshots.
+  // Refuse a snapshot above the same entry ceiling before allocating
+  // uninspectable temporary state. The entire four-store transaction aborts.
+  const MAX_CHECKPOINT_ENTRIES=250000;
   const failure=text=>new Error('分割バックアップ一時保存：'+text);
   const rangeFor=id=>IDBKeyRange.bound([id],[id,'\uffff']);
   const checkPrerequisites=(db,id)=>{
@@ -47,8 +51,13 @@
   // in ONE IndexedDB readwrite transaction. This serializes with writes by
   // game/restore transactions and gives a single committed source epoch.
   // DO NOT await (including Blob.arrayBuffer) inside this transaction.
-  function makeCheckpoint(db, snapshotId) {
+  function makeCheckpoint(db, snapshotId,
+    {maxEntries=MAX_CHECKPOINT_ENTRIES}={}) {
     checkPrerequisites(db,snapshotId);
+    if(!Number.isSafeInteger(maxEntries)||maxEntries<1||
+       maxEntries>MAX_CHECKPOINT_ENTRIES) {
+      throw failure('一時保存件数の上限指定が不正です。');
+    }
     const checkpointToken=newSnapshotToken();
     return new Promise((resolve,reject)=>{
       let tx;
@@ -93,6 +102,8 @@
                   if(!cursor)return;
                   try {
                     if(!validKey(cursor.key)) throw failure('未対応の保存キーがあります。');
+                    if(copied>=maxEntries)
+                      throw failure('一時保存の件数が上限を超えました。');
                     stage.put({store:storeName,key:cursor.key,value:cursor.value,
                       checkpointToken},[snapshotId,storeName,cursor.key]);
                     counts[storeName]++;
@@ -269,7 +280,7 @@
   // The returned token can be passed to the already token-guarded
   // discardCheckpoint() after an explicit decision to abandon this export.
   // If any row has a conflicting identity or malformed key, refuse cleanup.
-  const MAX_INSPECT_ENTRIES=250000;
+  const MAX_INSPECT_ENTRIES=MAX_CHECKPOINT_ENTRIES;
   function inspectCheckpoint(db,snapshotId) {
     checkPrerequisites(db,snapshotId);
     return new Promise((resolve,reject)=>{
@@ -358,6 +369,6 @@
     });
   }
 
-  return Object.freeze({SOURCE_STORES,STAGE_STORE,makeCheckpoint,
+  return Object.freeze({SOURCE_STORES,STAGE_STORE,MAX_CHECKPOINT_ENTRIES,makeCheckpoint,
     readCheckpoint,listCheckpointIds,inspectCheckpoint,discardCheckpoint});
 });
