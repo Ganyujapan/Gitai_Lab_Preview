@@ -61,22 +61,22 @@
   // claiming that subsequent pointerdown buffer starts are audible.
   let fastUnlocked = false;
   const touchDevice = Number(w.navigator?.maxTouchPoints || 0) > 0;
-  // Mixed native media + Web Audio can silence subsequent taps on iPadOS.
-  // Keep both BGM and recorded SFX on native HTMLMediaElements on iOS.
+  // iPad exhibition acceptance (2026-10-29): the user heard far less
+  // latency from the existing Web Audio route, including 13 captures and
+  // four poison sounds with rainforest ambience. Make that route the default
+  // ONLY in the exhibition game; ordinary public iOS play remains unchanged.
+  // The AAC native path is still available with ?sfx=native or ?sfx=release.
+  // The low-latency engine already falls back to AAC on an interrupted,
+  // suspended, unsupported or frozen Web Audio context.
   const iosDevice = /iPad|iPhone|iPod/.test(w.navigator?.userAgent || '')
     || (w.navigator?.platform === 'MacIntel' && touchDevice);
-  // The verified AAC-native route remains the iOS default. Opt in to a
-  // low-latency experiment with ?sfx=fast: decode AAC before gameplay and
-  // start AudioBufferSourceNode on the successful pointerdown. A suspended,
-  // interrupted or frozen context falls back to AAC on pointerup.
-  // Never alter the rainforest BGM's independent native media elements.
-  const lowLatencyIOS = iosDevice && /(?:^|[?&])sfx=fast(?:&|$)/.test(w.location?.search || '');
-  // SFX-L03: the capture itself happens on pointerdown, so ask the native
-  // AAC player to start at that instant. Keep an explicit opt-out for Safari
-  // devices where BGM + native audio behaves differently (?sfx=release).
-  // This does NOT enable mixed WebAudio/BGM on every iPad.
-  const instantNativeIOS = iosDevice && !lowLatencyIOS
-    && !/(?:^|[?&])sfx=release(?:&|$)/.test(w.location?.search || '');
+  const soundParam = new URLSearchParams(w.location?.search || '').get('sfx');
+  const exhibitGame = /\\/exhibit\\/game\\.html$/.test(w.location?.pathname || '');
+  const lowLatencyIOS = iosDevice
+    && (soundParam === 'fast'
+      || (exhibitGame && soundParam !== 'native' && soundParam !== 'release'));
+  // Retain the old low-latency-unfriendly routes as emergency fallbacks.
+  const instantNativeIOS = iosDevice && !lowLatencyIOS && soundParam !== 'release';
   function contextHealthy() {
     const ctx = getContext();
     if (!ctx || ctx.state !== 'running' || preferNative) return false;
