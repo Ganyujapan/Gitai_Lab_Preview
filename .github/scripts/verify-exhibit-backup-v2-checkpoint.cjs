@@ -236,8 +236,9 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.equal(f.getStage(ID),123);
   assert.equal(f.data.meta.get('current_generation_id'),'gen00043');
   assert.equal(await inspectCheckpoint(f.db,OTHER),null);
-  assert.deepEqual(f.log[0].names,[...SOURCE_STORES,STAGE_STORE]);
-  assert.equal(f.log[0].mode,'readwrite');
+  const snapshotTx=f.log.find(tx=>tx.names.length===4);
+  assert.deepEqual(snapshotTx.names,[...SOURCE_STORES,STAGE_STORE]);
+  assert.equal(snapshotTx.mode,'readwrite');
   await assert.rejects(makeCheckpoint(f.db,ID),/上書きしません/);
   assert.equal(f.getStage(ID),123);
 
