@@ -18,13 +18,29 @@ function fixture() {
     constructor(){
       this.paused=true;this.ended=false;this.muted=false;this.volume=1;
       this.currentTime=0;this.duration=20;this.handlers={};
+      this.loop=false;this.rejectNextPlay=false;
     }
     canPlayType(type){assert.equal(type,'audio/ogg; codecs="opus"');return 'probably';}
     setAttribute(){}
     addEventListener(k,cb){(this.handlers[k]??=[]).push(cb);}
     emit(event){for(const fn of this.handlers[event]||[])fn();}
-    play(){this.paused=false;this.emit('playing');return Promise.resolve();}
+    play(){
+      if(this.rejectNextPlay){
+        this.rejectNextPlay=false;
+        return Promise.reject(Object.assign(Error('simulated iPad standby block'),
+          {name:'NotAllowedError'}));
+      }
+      this.paused=false;this.ended=false;this.emit('playing');
+      return Promise.resolve();
+    }
     pause(){if(!this.paused){this.paused=true;this.emit('pause');}}
+    finish(){
+      // Approximate HTMLAudioElement's native-loop behavior at EOF.
+      // A player that has loop=true BEFORE its first play must not end.
+      this.currentTime=this.duration;
+      if(this.loop){this.currentTime=0;this.paused=false;this.ended=false;return;}
+      this.paused=true;this.ended=true;this.emit('ended');
+    }
   }
   let onTick=null;const timers=new Set();
   const local=new Map(),session=new Map();
@@ -125,5 +141,57 @@ async function flush(){await Promise.resolve();await Promise.resolve();await Pro
     await flush();
     assert.equal(t.api.isPlaying(),true,'a later real tap may retry again');
   }
-  console.log('Ambient: standby failures stay isolated; active errors are visible and a real-tap retry safely recreates native players.');
+  {
+    // A silent 2nd-player preparation or a stalled clock must NOT be able
+    // to end a full recording. This was the reported iPad PWA offline bug.
+    const t=fixture();
+    t.toggle.click();
+    assert.equal(t.audio[0].loop,true,
+      'native loop must be armed synchronously BEFORE first play');
+    await flush();
+    t.audio[0].finish();
+    assert.equal(t.audio[0].paused,false,
+      'if the overlap timer never fires, primary loops instead of stopping');
+    assert.equal(t.audio[0].currentTime,0);
+    assert.equal(t.api.isPlaying(),true);
+    assert.match(t.toggle.textContent,/再生中/);
+  }
+  {
+    // Normal overlap still uses the full-quality four-second crossfade.
+    // Only the NEW active element may loop; the old one fades out and ends.
+    const t=fixture();
+    t.toggle.click();
+    await flush();
+    t.audio[0].currentTime=17;
+    t.tick();
+    await flush();
+    assert.equal(t.audio[0].loop,false,'old element must not loop after overlap');
+    assert.equal(t.audio[1].loop,true,'new active element must have its safety loop');
+    t.audio[0].finish();
+    assert.equal(t.audio[0].paused,true,
+      'the old fade-out must end without keeping a second audio stream alive');
+    assert.equal(t.api.isPlaying(),true);
+    t.audio[1].finish();
+    assert.equal(t.audio[1].paused,false,'new active element keeps native looping');
+    assert.equal(t.api.isPlaying(),true);
+  }
+  {
+    // iPadOS can reject standby.play() outside a gesture. Do not mark
+    // running=false or let the main loop die. The active stream stays alive.
+    const t=fixture();
+    t.toggle.click();
+    await flush();
+    t.audio[1].rejectNextPlay=true;
+    t.audio[0].currentTime=17;
+    t.tick();
+    await flush();
+    assert.equal(t.audio[0].loop,true);
+    assert.equal(t.audio[1].loop,false);
+    assert.equal(t.api.isPlaying(),true);
+    t.audio[0].finish();
+    assert.equal(t.audio[0].paused,false,'failed overlap must keep native loop alive');
+    assert.equal(t.api.isPlaying(),true);
+    assert.match(t.toggle.textContent,/再生中/);
+  }
+  console.log('Ambient: active native fallback survives stalled/blocked overlaps; old fade-out ends; retry and isolation pass.');
 })().catch(e=>{console.error(e);process.exitCode=1});
