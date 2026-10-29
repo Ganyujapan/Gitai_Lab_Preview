@@ -119,6 +119,28 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
             }
             enqueue(next);
             return req;
+          },
+          openKeyCursor(){
+            assert.equal(name,STAGE_STORE,'key-only discovery: stage only');
+            const keys=entriesOf(stage[name]).map(x=>x.key).sort(compareKey);
+            const req={result:null,error:null,onsuccess:null,onerror:null};
+            let at=0;
+            function deliver(){
+              const key=keys[at++];
+              req.result=key===undefined?null:{
+                key:cloneValue(key),
+                continue(target){
+                  enqueue(()=>{
+                    while(at<keys.length&&compareKey(keys[at],target)<0)at++;
+                    deliver();
+                  });
+                }
+              };
+              if(key!==undefined)keyCursorVisited++;
+              req.onsuccess?.();
+            }
+            enqueue(deliver);
+            return req;
           }
         }
       }
