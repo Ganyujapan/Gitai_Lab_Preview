@@ -442,6 +442,17 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.equal(cleanupFail.data.theater_frames.size,1);
   assert.equal(cleanupFail.data.meta.get('current_generation_id'),GEN);
 
+  // A malformed staged key is not a candidate for automatic cleanup.
+  const bad=fakeDb();
+  bad.data[STAGE_STORE].set('invalid', {
+    __key:['invalid/id','images','frame'],
+    value:{store:'images',key:'frame',value:1,checkpointToken:'a'.repeat(32)}
+  });
+  await assert.rejects(listCheckpointIds(bad.db),/キー構造/);
+  assert.equal(bad.getActive(),0);
+  assert.equal(bad.data.images.size,60);
+  assert.equal(bad.data.meta.get('current_generation_id'),GEN);
+
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.
   const quota=fakeDb({quotaAt:17});
