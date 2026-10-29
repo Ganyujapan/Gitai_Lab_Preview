@@ -22,7 +22,7 @@
 
   // Match audio/crossfade_test.html: two native players, with the 4-second
   // fades already embedded in the Ogg. Avoid Web Audio and volume automation.
-  const players = [0, 1].map(() => {
+  function createPlayer() {
     const element = document.createElement('audio');
     element.src = new URL(SOURCE_PATH, document.baseURI).href;
     element.loop = false;
@@ -31,7 +31,8 @@
     element.volume = 1;
     element.setAttribute('aria-hidden', 'true');
     return element;
-  });
+  }
+  const players = [createPlayer(), createPlayer()];
   let active = 0;
   let switching = false;
   let running = false;
@@ -154,16 +155,18 @@
 
   function render() {
     toggle.setAttribute('aria-pressed', String(enabled && !errorReason));
-    toggle.setAttribute('aria-disabled', String(Boolean(errorReason)));
+    // A transient decode failure is recoverable by a deliberate tap.
+    // Only an unsupported format should appear genuinely disabled.
+    toggle.setAttribute('aria-disabled', String(errorReason === 'unsupported'));
     toggle.textContent = errorReason === 'unsupported' ? '♪ 音声非対応'
-      : errorReason === 'unavailable' ? '♪ 音源エラー'
+      : errorReason === 'unavailable' ? '♪ 音源エラー・再試行'
       : !enabled ? '♪ 環境音 OFF'
       : playState === 'playing' ? '♪ 再生中'
       : playState === 'loading' ? '♪ 読み込み中'
       : playState === 'blocked' ? '♪ 再生を試す'
       : '♪ 環境音 ON';
     toggle.title = errorReason === 'unsupported' ? 'このブラウザはOgg Opusに対応していません。'
-      : errorReason === 'unavailable' ? '熱帯雨林の音源ファイルを読み込めません。'
+      : errorReason === 'unavailable' ? '熱帯雨林の音源でエラーが発生しました。ここをタップすると音源を再読み込みします。'
       : enabled ? '熱帯雨林の環境音をオフにする' : '熱帯雨林の環境音をオンにする';
   }
 
@@ -223,8 +226,9 @@
     render();
   }
 
-  players.forEach((player, index) => {
+  function attachPlayer(player, index) {
     player.addEventListener('playing', () => {
+      if (players[index] !== player) return; // Ignore events from replaced elements.
       if (secondElementPriming && index !== active) return;
       if (!enabled || !running) { player.pause(); return; }
       if (index !== active && !switching) return;
@@ -233,19 +237,23 @@
       render();
     });
     player.addEventListener('waiting', () => {
+      if (players[index] !== player) return; // Ignore stale player errors/events.
       if (enabled && index === active) { playState = 'loading'; render(); }
     });
     player.addEventListener('pause', () => {
+      if (players[index] !== player) return; // Ignore stale player errors/events.
       if (index !== active || switching || !running) return;
       pending = false;
       if (playState !== 'idle') { playState = 'idle'; render(); }
     });
     player.addEventListener('ended', () => {
+      if (players[index] !== player) return; // Ignore stale player errors/events.
       if (running && index !== active) {
         try { player.currentTime = 0; } catch (_) {}
       }
     });
     player.addEventListener('error', () => {
+      if (players[index] !== player) return; // Ignore stale player errors/events.
       // Two independent native players share the same recorded rainforest
       // source. A stale/standby player's decoder can fail during an iPad
       // media interruption even while the CURRENT player remains audible.
@@ -264,11 +272,38 @@
       errorReason = 'unavailable';
       stop();
     });
-  });
+  }
+  players.forEach(attachPlayer);
+
+  function retryUnavailableInGesture() {
+    if (errorReason !== 'unavailable' || !enabled) return;
+    // HTMLMediaElement.error is sticky. Create two fresh native players on
+    // this REAL tap; calling load() or awaiting a promise before play() can
+    // lose Safari's user activation. No DB, life, or SFX state is touched.
+    for (const old of players) {
+      try { old.pause(); } catch (_) {}
+    }
+    for (let index = 0; index < players.length; index++) {
+      const replacement = createPlayer();
+      players[index] = replacement;
+      attachPlayer(replacement, index);
+    }
+    active = 0;
+    secondElementPrimed = false;
+    secondElementPriming = false;
+    errorReason = null;
+    playState = 'idle';
+    render();
+    playFromUserGesture(); // Synchronous call inside the real click.
+  }
 
   toggle.addEventListener('click', event => {
     event.stopPropagation();
-    if (errorReason) return;
+    if (errorReason === 'unsupported') return;
+    if (errorReason === 'unavailable') {
+      retryUnavailableInGesture();
+      return;
+    }
     if (enabled) primeSecondPlayerInGesture();
     if (enabled && (playState !== 'playing' || currentAudio().paused === true)) {
       primeSecondPlayerInGesture();
