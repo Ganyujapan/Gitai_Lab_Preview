@@ -17,7 +17,7 @@ assert.match(build,/"sfx_latency_rehearsal.html", "sfx_latency_rehearsal.js"/);
 assert.match(build,/assert "sfx_latency_rehearsal.js" not in page_source/);
 assert.match(workflow,/verify-sfx-latency-rehearsal\.cjs/);
 assert.match(engine,/const lowLatencyIOS = iosDevice\s*&&/);
-assert.match(engine,/sfx=fast/);
+assert.match(engine,/soundParam === 'fast'/);
 assert.match(engine,/sfx=release/);
 assert.match(engine,/const instantNativeIOS = iosDevice &&/);
 assert.doesNotMatch(js,/\b(?:indexedDB|localStorage|sessionStorage|deleteDatabase|WebSocket)\b/,
