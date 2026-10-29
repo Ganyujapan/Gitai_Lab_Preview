@@ -244,6 +244,32 @@ async function waitFor(fn){
   assert.equal(JSON.parse(sameVisitor.stash.get('gitai-exhibit-visit-start-v1')).start,26,
     'the same visitor keeps the original five-generation window');
 
+  // T-003 A-4/A-6: a page RELOAD mid-visit must recover the original
+  // first generation from sessionStorage rather than award five fresh rounds.
+  // This is a DOM/controller reload regression, NOT an iPad OS termination test.
+  const continuingVisitStash=new Map([
+    ['gitai-exhibit-visit-start-v1',JSON.stringify({mode:'warning',start:26})]
+  ]);
+  const resumed=fixture({
+    mode:'warning',start:29,end:30,sessionStash:continuingVisitStash
+  });
+  assert.equal(resumed.api.start(),26,'reload restores original visitor start');
+  assert.equal(resumed.api.notice.hidden,false,'fifth generation reached after reload');
+  assert.equal(resumed.api.button.hidden,true,'manual handover hidden at five generations');
+  assert.equal(resumed.nodes.continueButton.textContent,'次へ（進化シアター）');
+  resumed.nodes.continueButton.click();
+  await waitFor(()=>resumed.navigations.length>0);
+  assert.equal(resumed.pointer,'gen00031','fifth result persists exactly one next generation');
+  assert.equal(resumed.clicks,1);
+  assert.deepEqual(JSON.parse(resumed.life),{generation_id:'gen00031',thirds:30});
+  assert.equal(continuingVisitStash.has('gitai-exhibit-visit-start-v1'),false);
+  const afterReloadHandover=fixture({
+    mode:'warning',start:31,end:31,sessionStash:continuingVisitStash
+  });
+  assert.equal(afterReloadHandover.api.start(),31,
+    'new visitor receives five fresh generations only after saved handover');
+  assert.equal(afterReloadHandover.api.notice.hidden,true);
+
   const nextVisitor=fixture({start:26,end:26});
   assert.equal(nextVisitor.api.start(),26);
   for(const behavior of ['stale','invalid','fail']){
