@@ -188,6 +188,36 @@ async function waitFor(fn){
       generation_id:'gen00026',thirds:30
     },'fifth-generation handover also resets only life');
   }
+  // T-003 A-2: the real exhibition handover from warning generation 26
+  // commits exactly generation 27 and gives the NEXT visitor 10 hearts.
+  const warningHandover26=fixture({mode:'warning',start:26,end:26});
+  assert.equal(JSON.parse(warningHandover26.life).thirds,12);
+  await warningHandover26.api.safelyHandover();
+  assert.equal(warningHandover26.pointer,'gen00027');
+  assert.equal(warningHandover26.clicks,1,'one offspring generation only');
+  assert.equal(warningHandover26.navigations.length,1);
+  assert.deepEqual(JSON.parse(warningHandover26.life),{
+    generation_id:'gen00027',thirds:30
+  },'only a completed handover resets life to 10 hearts');
+  assert.equal(warningHandover26.stash.has('gitai-exhibit-visit-start-v1'),false);
+
+  // T-003 A-3: the same visitor presses the NORMAL next-generation button
+  // (not the handover button). The main game saves remaining hearts, and
+  // exhibit/game.js must NOT replace them with 10 or reset the visit count.
+  const sameVisitor=fixture({mode:'warning',start:26,end:26});
+  const normalNext=sameVisitor.nodes.continueButton.click();
+  assert.equal(normalNext.stopped,false,'generation 1 of 5 uses the normal action');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(sameVisitor.pointer,'gen00027');
+  assert.equal(sameVisitor.clicks,1);
+  assert.deepEqual(JSON.parse(sameVisitor.life),{
+    generation_id:'gen00027',thirds:6
+  },'same visitor keeps main-game remaining life, not ten hearts');
+  assert.equal(sameVisitor.lifeWrites,0,'no exhibition life reset without handover');
+  assert.equal(sameVisitor.navigations.length,0,'normal play must not navigate');
+  assert.equal(JSON.parse(sameVisitor.stash.get('gitai-exhibit-visit-start-v1')).start,26,
+    'the same visitor keeps the original five-generation window');
+
   const nextVisitor=fixture({start:26,end:26});
   assert.equal(nextVisitor.api.start(),26);
   for(const behavior of ['stale','invalid','fail']){
