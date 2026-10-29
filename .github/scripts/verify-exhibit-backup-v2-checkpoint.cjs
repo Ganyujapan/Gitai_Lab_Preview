@@ -33,7 +33,8 @@ globalThis.IDBKeyRange={
   }
 };
 const cloneValue=v=>structuredClone(v);
-function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAfterStagePut=Infinity,abortController=null,
+function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,cleanupCancelAt=Infinity,
+  cleanupAbortController=null,abortAfterStagePut=Infinity,abortController=null,
   abortAfterStageRead=Infinity,abortAfterKeyRead=Infinity,readAbortController=null}={}) {
   const source={
     images:new Map(),meta:new Map([['current_generation_id',GEN]]),
@@ -119,6 +120,7 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
                     if(++deleteCount===cleanupAbortAt)
                       throw Error('AbortError: simulated cleanup interruption');
                     stage[name].delete(item.serialized);
+                    if(deleteCount===cleanupCancelAt)cleanupAbortController?.abort();
                   });
                 }
               }:null;
@@ -664,6 +666,51 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity,abortAf
   missing.data.meta.delete('current_generation_id');
   await assert.rejects(makeCheckpoint(missing.db,ID),/世代番号/);
   assert.equal(missing.getStage(ID),0);
+
+  // A cancelled cleanup must roll back ALL staged deletes in its single
+  // transaction. Do not touch other snapshot IDs, source DNA or images.
+  const cleanupPreCancel=new AbortController();
+  cleanupPreCancel.abort();
+  const cleanupPre=fakeDb();
+  const cleanupPreSnapshot=await makeCheckpoint(cleanupPre.db,ID);
+  const cleanupPreTx=cleanupPre.log.length;
+  await assert.rejects(discardCheckpoint(cleanupPre.db,ID,
+    cleanupPreSnapshot.checkpointToken,{signal:cleanupPreCancel.signal}),/中断/);
+  assert.equal(cleanupPre.log.length,cleanupPreTx,
+    'pre-cancelled cleanup must not start a transaction');
+  assert.equal(cleanupPre.getStage(ID),cleanupPreSnapshot.entries);
+  assert.throws(()=>discardCheckpoint(cleanupPre.db,ID,
+    cleanupPreSnapshot.checkpointToken,{signal:{aborted:false}}),/中断通知/);
+
+  const cleanupSignal=new AbortController();
+  const interrupted=fakeDb({cleanupCancelAt:17,cleanupAbortController:cleanupSignal});
+  const interruptedA=await makeCheckpoint(interrupted.db,ID);
+  const interruptedB=await makeCheckpoint(interrupted.db,OTHER);
+  await assert.rejects(discardCheckpoint(interrupted.db,ID,
+    interruptedA.checkpointToken,
+    {expectedEntries:interruptedA.entries,signal:cleanupSignal.signal}),/中断/);
+  assert.equal(cleanupSignal.signal.aborted,true);
+  assert.equal(interrupted.getStage(ID),interruptedA.entries,
+    'cancelled cleanup must roll back the first 17 deleted stage rows');
+  assert.equal(interrupted.getStage(OTHER),interruptedB.entries);
+  assert.equal(interrupted.getActive(),0);
+  assert.equal(interrupted.data.images.size,60);
+  assert.equal(interrupted.data.meta.size,62);
+  assert.equal(interrupted.data.meta.get('current_generation_id'),GEN);
+  const retried=await discardCheckpoint(interrupted.db,ID,
+    interruptedA.checkpointToken,{expectedEntries:interruptedA.entries});
+  assert.equal(retried,interruptedA.entries);
+  assert.equal(interrupted.getStage(ID),0);
+  assert.equal(interrupted.getStage(OTHER),interruptedB.entries);
+  const cleanupAfterCommit=new AbortController();
+  const postCleanup=fakeDb();
+  const postCleanupSnapshot=await makeCheckpoint(postCleanup.db,ID);
+  assert.equal(await discardCheckpoint(postCleanup.db,ID,
+    postCleanupSnapshot.checkpointToken,{signal:cleanupAfterCommit.signal}),
+    postCleanupSnapshot.entries);
+  cleanupAfterCommit.abort();
+  assert.equal(postCleanup.getStage(ID),0);
+  assert.equal(postCleanup.getActive(),0);
 
   // Explicit cleanup never erases a single original record.
   await discardCheckpoint(f.db,OTHER,cp2.checkpointToken);
