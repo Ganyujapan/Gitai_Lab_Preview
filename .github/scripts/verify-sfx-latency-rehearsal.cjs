@@ -94,7 +94,7 @@ function harness(search) {
    h.listeners.pagehide();
    assert.equal(h.audio[0].paused,true);
    h.elements.get('copy').emit('click');
-   await Promise.resolve();await Promise.resolve();
+   await new Promise(resolve=>setImmediate(resolve));
    assert.match(h.listeners.copied,/iPad効果音比較/);
    assert.equal(h.elements.get('copyStatus').textContent.includes('コピー'),true);
  }
