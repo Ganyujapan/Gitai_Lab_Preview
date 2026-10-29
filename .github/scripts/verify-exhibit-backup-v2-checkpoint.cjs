@@ -454,6 +454,31 @@ function fakeDb({withStage=true,quotaAt=Infinity,cleanupAbortAt=Infinity}={}) {
   assert.equal(bad.data.images.size,60);
   assert.equal(bad.data.meta.get('current_generation_id'),GEN);
 
+  // The recovery inspector and snapshot writer share a hard ceiling.
+  // Small per-call budgets let the CI cover the exact boundary cheaply.
+  assert.equal(MAX_CHECKPOINT_ENTRIES,250000);
+  const bounded=fakeDb();
+  const existing=await makeCheckpoint(bounded.db,OTHER);
+  const sourceImages=bounded.data.images.size;
+  const sourceMeta=bounded.data.meta.size;
+  const beforeInvalid=bounded.log.length;
+  assert.throws(()=>makeCheckpoint(bounded.db,ID,{maxEntries:0}),/上限指定/);
+  assert.throws(()=>makeCheckpoint(bounded.db,ID,
+    {maxEntries:MAX_CHECKPOINT_ENTRIES+1}),/上限指定/);
+  assert.equal(bounded.log.length,beforeInvalid);
+  await assert.rejects(makeCheckpoint(bounded.db,ID,{maxEntries:122}),
+    /件数が上限を超えました/);
+  assert.equal(bounded.getStage(ID),0);
+  assert.equal(bounded.getStage(OTHER),existing.entries);
+  assert.equal(bounded.data.images.size,sourceImages);
+  assert.equal(bounded.data.meta.size,sourceMeta);
+  assert.equal(bounded.getActive(),0);
+  const atLimit=await makeCheckpoint(bounded.db,ID,{maxEntries:123});
+  assert.equal(atLimit.entries,123);
+  assert.equal(await discardCheckpoint(bounded.db,ID,
+    atLimit.checkpointToken),123);
+  assert.equal(bounded.getStage(OTHER),existing.entries);
+
   // Quota error must roll back 100% of temporary stage without modifying
   // images, meta, frames or previous (different ID) snapshots.
   const quota=fakeDb({quotaAt:17});
