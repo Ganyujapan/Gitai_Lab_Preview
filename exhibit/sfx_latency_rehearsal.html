@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>ギタイラボ：iPad効果音ラグ比較（隔離テスト）</title>
+<style>
+:root {color-scheme:dark;}
+body {font:16px/1.65 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;
+  max-width:680px;margin:auto;padding:18px 16px 56px;background:#0a1718;color:#edf4ec;}
+h1 {font-size:1.45rem;line-height:1.35}
+h2 {font-size:1.12rem;margin-top:24px}
+a {color:#b3e6ff;}
+.notice {padding:12px 14px;border:1px solid #8da894;border-radius:8px;background:#152629;}
+.route-links {display:grid;gap:8px;margin:14px 0;}
+.route-links a {display:block;border:1px solid #5e858a;border-radius:8px;padding:11px;text-decoration:none;}
+.route-links a[aria-current="page"] {background:#285d5a;border-color:#b0e0b1;font-weight:700;}
+button {font:inherit;min-height:48px;border-radius:8px;border:1px solid #82aaa0;
+  background:#205345;color:white;padding:12px;margin:5px 5px 5px 0;touch-action:manipulation;}
+button:active {background:#378773}
+.hit {width:100%;min-height:76px;font-size:1.18rem;font-weight:700;}
+#report {white-space:pre-wrap;overflow-wrap:anywhere;background:#101c20;padding:12px;border-radius:6px;}
+small {color:#c3d1cd;}
+</style>
+</head>
+<body>
+<h1>iPad効果音ラグ比較</h1>
+<p class="notice"><strong>安全な独立テストです。</strong> 実際のゲームと同じ録音済み効果音再生コードを使いますが、進化データ・標本箱・ライフ・IndexedDB・設定は読み書きしません。ゲームをプレイせず比較できます。</p>
+<p>タップから<strong>実際に耳に届くまでの時間</strong>を、iPadのスピーカーで比べてください。このページに表示する操作回数は音が出た証明ではありません。</p>
+<h2>1. 再生方式を選択</h2>
+<nav class="route-links" aria-label="再生方式">
+<a href="sfx_latency_rehearsal.html" id="routeNative">標準：iPad AAC再生（現在のゲームと同じ）</a>
+<a href="sfx_latency_rehearsal.html?sfx=fast" id="routeFast">実験：Web Audio低遅延（最初のタップで準備）</a>
+<a href="sfx_latency_rehearsal.html?sfx=release" id="routeRelease">比較用：指を離したときにAAC再生</a>
+</nav>
+<p id="routeStatus" role="status">再生方式を確認中…</p>
+<h2>2. 効果音を試す</h2>
+<p>まず一度触れ、その後、続けて数回タップして遅延を比較してください。低遅延方式では最初の音だけ準備の影響を受ける場合があります。</p>
+<button type="button" class="hit" data-sfx="capture">捕食（繰り返しタップ）</button>
+<button type="button" class="hit" data-sfx="poison">毒蛾の音</button>
+<button type="button" class="hit" data-sfx="death">死亡音</button>
+<h2>3. 環境音と同時に試す</h2>
+<button type="button" id="bgmToggle" aria-pressed="false">熱帯雨林BGM：OFF</button>
+<p><small>このBGMは音源の同時再生確認用です。ゲーム本体の4秒クロスフェードまでは再現しません。Web Audio方式とBGMを併用した際の無音・不安定さも確認してください。</small></p>
+<p id="status" role="status" aria-live="polite">音声の準備中…</p>
+<h2>4. 比較結果を記録</h2>
+<p>どの方式が「即時」「少し遅れる」「明らかに遅い」「無音」だったかを開発スレッドへ報告してください。</p>
+<pre id="report">未操作</pre>
+<button id="copy" type="button">記録をコピー</button>
+<p id="copyStatus" role="status"></p>
+<p><small>実際の音の開始時刻はWebページ側では正確に測れません。表示回数は再生要求数で、聴覚上のラグの数値ではありません。テスト結果の自動送信は行いません。</small></p>
+<script src="js/game_sfx.js" defer></script>
+<script src="sfx_latency_rehearsal.js" defer></script>
+</body>
+</html>
