@@ -431,7 +431,7 @@
   // Cleanup errors may leave temporary copies consuming quota, but never
   // erase source evolution data.
   function discardCheckpoint(db,snapshotId,checkpointToken,
-    {expectedEntries=null}={}) {
+    {expectedEntries=null,signal=null}={}) {
     checkPrerequisites(db,snapshotId);
     if(!TOKEN_RE.test(checkpointToken||''))
       throw failure('後片付けには一時保存識別子が必要です。');
@@ -440,13 +440,37 @@
         expectedEntries>MAX_CHECKPOINT_ENTRIES)) {
       throw failure('後片付けの想定件数が不正です。');
     }
+    if(signal!==null&&(typeof signal.aborted!=='boolean'||
+        typeof signal.addEventListener!=='function'||
+        typeof signal.removeEventListener!=='function')) {
+      throw failure('後片付けの中断通知が不正です。');
+    }
+    if(signal?.aborted)
+      return Promise.reject(failure('一時保存の後片付けを中断しました。'));
     return new Promise((resolve,reject)=>{
       let tx,removed=0,error=null;
+      function removeAbortListener(){signal?.removeEventListener('abort',onCancel);}
+      function onCancel(){
+        if(error)return;
+        try {
+          tx.abort();
+          error=failure('一時保存の後片付けを中断しました。');
+        }catch(_) {
+          // Already committed: the successful cleanup must not be reported as cancelled.
+        }
+      }
       try {
         tx=db.transaction(STAGE_STORE,'readwrite');
-        tx.oncomplete=()=>resolve(removed);
-        tx.onabort=()=>reject(error||tx.error||failure('一時保存の後片付けが中断されました。'));
+        tx.oncomplete=()=>{removeAbortListener();resolve(removed);};
+        tx.onabort=()=>{
+          removeAbortListener();
+          reject(error||tx.error||failure('一時保存の後片付けが中断されました。'));
+        };
         tx.onerror=()=>{if(!error)error=tx.error||failure('一時保存の後片付けに失敗しました。');};
+        if(signal){
+          signal.addEventListener('abort',onCancel,{once:true});
+          if(signal.aborted){onCancel();return;}
+        }
         const req=tx.objectStore(STAGE_STORE).openCursor(rangeFor(snapshotId));
         req.onerror=()=>{error=req.error||failure('一時保存を列挙できません。');try{tx.abort();}catch(_){}};
         req.onsuccess=()=>{
@@ -470,7 +494,11 @@
             cursor.continue();
           } catch(e) {error=e;try{tx.abort();}catch(_){}}
         };
-      }catch(e){if(tx){try{tx.abort();}catch(_){reject(e);}}else reject(e);}
+      }catch(e){
+        removeAbortListener();
+        if(tx){error=e;try{tx.abort();}catch(_){reject(e);}}
+        else reject(e);
+      }
     });
   }
 
