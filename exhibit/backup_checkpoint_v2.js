@@ -202,6 +202,66 @@
     }
   }
 
+  // Recover checkpoint IDs after a crash WITHOUT reading stored moth
+  // images, DNA, Blob contents or even staged record values. A key cursor
+  // jumps past each ID using the compound-key boundary [id, '\\uffff'].
+  // This is a bounded discovery operation, never a delete/restore action.
+  const MAX_DISCOVERY_IDS=64;
+  function listCheckpointIds(db,{maxIds=MAX_DISCOVERY_IDS}={}) {
+    if(!db?.objectStoreNames?.contains(STAGE_STORE)) {
+      throw failure('一時保存用ストアが未準備です。既存DBは変更しません。');
+    }
+    if(!Number.isSafeInteger(maxIds)||maxIds<1||
+       maxIds>MAX_DISCOVERY_IDS) {
+      throw failure('診断できる一時保存ID数の指定が不正です。');
+    }
+    return new Promise((resolve,reject)=>{
+      let tx,early=null;
+      const ids=[];
+      function abort(reason) {
+        if(!early)early=reason instanceof Error?reason:failure(String(reason));
+        try{tx.abort();}catch(_){}
+      }
+      try {
+        tx=db.transaction(STAGE_STORE,'readonly');
+        tx.oncomplete=()=>resolve(Object.freeze(ids.slice()));
+        tx.onabort=()=>reject(early||tx.error||
+          failure('一時保存IDの検索が中断されました。'));
+        tx.onerror=()=>{if(!early)early=tx.error||
+          failure('一時保存IDの検索に失敗しました。');};
+        // Key-only cursors do not structured-clone huge Blob or genome
+        // values. Jump over all records of one snapshot per cursor step.
+        const req=tx.objectStore(STAGE_STORE).openKeyCursor();
+        req.onerror=()=>abort(req.error||
+          failure('一時保存IDのカーソルを開けません。'));
+        req.onsuccess=()=>{
+          if(early)return;
+          const cursor=req.result;
+          if(!cursor)return;
+          const key=cursor.key;
+          if(!Array.isArray(key)||key.length!==3||
+             !validId(key[0])||!SOURCE_STORES.includes(key[1])||
+             !validKey(key[2])) {
+            abort(failure('一時保存IDのキー構造が不正です。'));return;
+          }
+          if(ids.length>=maxIds) {
+            abort(failure('一時保存IDが検索上限を超えました。'));return;
+          }
+          if(ids.length&&ids[ids.length-1]>=key[0]) {
+            abort(failure('一時保存IDの並び順が不正です。'));return;
+          }
+          ids.push(key[0]);
+          try {
+            // All source-store names are ASCII, strictly below U+FFFF.
+            // The next key must belong to a different snapshot ID.
+            cursor.continue([key[0],'\\uffff']);
+          }catch(e){abort(e);}
+        };
+      }catch(e){if(tx){early=e;try{tx.abort();}catch(_){reject(e);}}
+        else reject(e);}
+    });
+  }
+
   // Read-only recovery inspection for a KNOWN snapshot ID after an app
   // crash. A process may have lost makeCheckpoint()'s returned token but
   // left a committed stage consuming storage. This reports only identity,
@@ -299,5 +359,5 @@
   }
 
   return Object.freeze({SOURCE_STORES,STAGE_STORE,makeCheckpoint,
-    readCheckpoint,inspectCheckpoint,discardCheckpoint});
+    readCheckpoint,listCheckpointIds,inspectCheckpoint,discardCheckpoint});
 });
