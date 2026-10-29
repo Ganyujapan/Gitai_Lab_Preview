@@ -95,12 +95,18 @@
     const nextIndex = 1 - oldIndex;
     const next = players[nextIndex];
     try { next.currentTime = 0; } catch (_) {}
+    // Each active element loops on its own as an emergency safety net.
+    // Do not depend on the standby player accepting play() on iPadOS.
+    next.loop = true;
     try {
       Promise.resolve(next.play()).then(() => {
         if (!running || epoch !== playbackEpoch || !enabled) {
           next.pause();
           return;
         }
+        // The old player may now finish its pre-rendered fade-out and stop.
+        // Only the new active player should retain native looping.
+        old.loop = false;
         active = nextIndex;
         switching = false;
         playState = 'playing';
@@ -108,18 +114,26 @@
       }).catch(error => {
         if (epoch !== playbackEpoch) return;
         switching = false;
-        // Preserve continuous sound if iOS blocks a second native player.
+        // Fall back to the ALREADY-ENABLED native loop of the audible
+        // element. Leaving running=true keeps the UI honest and allows
+        // its normal pause/error listeners to work.
+        try { next.pause(); } catch (_) {}
+        next.loop = false;
         old.loop = true;
-        running = false;
-        stopLoopTimer();
-        console.warn('Ambient overlap failed:', error?.name || error);
+        stopLoopTimer(); // Don't hammer a blocked standby every 80ms.
+        playState = old.paused ? 'blocked' : 'playing';
+        render();
+        console.warn('Ambient overlap failed; native loop kept:', error?.name || error);
       });
     } catch (error) {
       switching = false;
+      try { next.pause(); } catch (_) {}
+      next.loop = false;
       old.loop = true;
-      running = false;
       stopLoopTimer();
-      console.warn('Ambient overlap failed:', error?.name || error);
+      playState = old.paused ? 'blocked' : 'playing';
+      render();
+      console.warn('Ambient overlap failed; native loop kept:', error?.name || error);
     }
   }
   function startLoopTimer() {
@@ -182,6 +196,11 @@
     try {
       // Crucially synchronous with the pointer/click, as in the audio test.
       running = true;
+      // The previous implementation enabled native looping only AFTER a
+      // failed overlap attempt. On iPadOS the second player may never become
+      // ready, so the first element reached its end and stopped silently.
+      // Arm this fallback BEFORE the first play() (inside the real gesture).
+      currentAudio().loop = true;
       startLoopTimer();
       const attempt = currentAudio().play();
       if (attempt && typeof attempt.then === 'function') {
@@ -250,6 +269,13 @@
       if (players[index] !== player) return; // Ignore stale player errors/events.
       if (running && index !== active) {
         try { player.currentTime = 0; } catch (_) {}
+      } else if (running && index === active) {
+        // Native loop should prevent this. If WebKit still ends playback,
+        // never show a false "playing" status; allow a fresh real tap.
+        running = false;
+        stopLoopTimer();
+        playState = 'blocked';
+        render();
       }
     });
     player.addEventListener('error', () => {
