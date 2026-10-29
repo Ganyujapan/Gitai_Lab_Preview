@@ -70,8 +70,9 @@
   // suspended, unsupported or frozen Web Audio context.
   const iosDevice = /iPad|iPhone|iPod/.test(w.navigator?.userAgent || '')
     || (w.navigator?.platform === 'MacIntel' && touchDevice);
-  const soundParam = new URLSearchParams(w.location?.search || '').get('sfx');
-  const exhibitGame = /\\/exhibit\\/game\\.html$/.test(w.location?.pathname || '');
+  const soundParam = (w.location?.search || '')
+    .match(/(?:^|[?&])sfx=(fast|native|release)(?:&|$)/)?.[1] || null;
+  const exhibitGame = /\/exhibit\/game\.html$/.test(w.location?.pathname || '');
   const lowLatencyIOS = iosDevice
     && (soundParam === 'fast'
       || (exhibitGame && soundParam !== 'native' && soundParam !== 'release'));
