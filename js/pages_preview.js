@@ -4278,7 +4278,20 @@
           const metaKeys = values.metaKeys.map(String);
           const frameKeys = values.frameKeys.map(String);
           if (prepared) {
-            if (pointer !== undefined || imageKeys.length || metaKeys.length
+            // EXH-RESET-01: the administrator's safe exhibit reset leaves ONLY
+            // an epoch fence, not evolution data. A new document captures it
+            // in ensureCurrentGeneration(); allow a fresh founder precisely
+            // when this same epoch is still present inside this transaction.
+            // A stale page with a different captured epoch MUST fail closed.
+            const resetEpochOnly = imageKeys.length === 0
+              && metaKeys.length === 1
+              && metaKeys[0] === 'restore_epoch'
+              && typeof values.epoch === 'string'
+              && /^exhibit-reset-[a-f0-9]{32}$/.test(values.epoch)
+              && restoreEpochCaptured
+              && loadedRestoreEpoch === values.epoch;
+            if (pointer !== undefined || imageKeys.length
+                || (metaKeys.length && !resetEpochOnly)
                 || frameKeys.length) {
               throw new Error('他の画面で初代が作成されているか、未完成の記録があります。'
                 + ' 元データは変更せず停止しました。再読み込みしてください。');
@@ -4317,6 +4330,7 @@
       try {
         record('pointer', meta.get('current_generation_id'));
         record('marker', meta.get(markerKey));
+        if (prepared) record('epoch', meta.get('restore_epoch'));
         record('imageKeys', images.getAllKeys());
         record('metaKeys', meta.getAllKeys());
         record('frameKeys', theater.getAllKeys());
