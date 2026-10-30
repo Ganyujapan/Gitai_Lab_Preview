@@ -5,7 +5,7 @@
 <link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="landing.css"><link rel="stylesheet" href="theater_canvas_20261026.css"><link rel="stylesheet" href="admin.css">
 <title>モード選択 | ギタイラボ 昆虫大学 2026</title></head><body>
 <main id="exhibitModeSelection">
-<header><p class="eyebrow">KONCHU UNIVERSITY 2026 / OFFLINE EXHIBITION</p><p class="exhibit-title-eyebrow">進化シミュレーター</p><h1 class="exhibit-brand-logo">ギタイラボ</h1><p>キミの選択が、蛾の進化を変える。</p></header>
+<header><p class="eyebrow">KONCHU UNIVERSITY 2026 / OFFLINE EXHIBITION</p><p class="exhibit-title-eyebrow">進化シミュレーター</p><h1 class="exhibit-brand-logo">ギタイラボ</h1><p>あなたの行動が進化を決める</p></header>
 <div class="modes">
 <article class="mode" data-exhibit-mode="cryptic">
 <a class="mode-play" href="game.html?model=continuous_v1&amp;env=kusagi_001&amp;run=konchu2026_cryptic&amp;play=1">
@@ -24,7 +24,11 @@
 <button type="button" class="mode-theater-button" data-view-theater="warning" aria-haspopup="dialog">進化シアターを見る ▶</button>
 </div></article>
 </div>
-<p class="instructions">同じiPadで進化を引き継ぎます。1回のプレイは最大5世代で、途中交代もできます。5世代終了後は進化シアターが再生され、「次の人へ」からトップへ戻ります。待っている人がいなければ、トップから同じ進化の続きをプレイできます。目立つギタイでは、交代するとライフだけ10に戻り、蛾の進化は引き継がれます。</p>
+<section class="instructions" aria-label="あそびかた">
+<p class="instructions-lead">蛾をタップして捕食しよう！ <strong>生き残った蛾が次の世代の親になり、模様が変わっていきます。</strong></p>
+<p><strong>隠れるギタイ</strong>は4秒で蛾を探そう。<strong>目立つギタイ</strong>は時間制限なし。5匹食べたら次のラウンドへ。毒蛾を食べるとライフが減ります。</p>
+<p><strong>1人最大5世代、途中交代もOK。</strong>5世代後は進化シアターを見て「次の人へ」。交代しても蛾の進化は引き継がれ、目立つギタイのライフだけ10に戻ります。次に待つ人がいなければ、トップから続きを遊べます。</p>
+</section>
 <section class="status" aria-live="polite"><p id="offlineStatus">オフライン準備を確認中…</p><p id="buildVersion"></p><p id="storageStatus"></p></section>
 <section id="exhibitTheaterDialog" class="exhibit-theater-overlay" role="dialog" aria-modal="true" aria-labelledby="exhibitTheaterTitle" hidden>
 <div class="exhibit-theater-panel">

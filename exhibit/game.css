@@ -11,3 +11,17 @@
 #reviewOverlay #exhibitHandover:focus-visible{outline:3px solid white}
 #reviewOverlay #exhibitHandoverNotice{display:block;margin:12px 0 5px;padding:10px 12px;text-align:center;color:#fff2bc;border:1px solid #b8bd8d;border-radius:7px;background:#294233;font:700 clamp(13px,3.5vw,16px)/1.5 system-ui}
 #reviewOverlay #exhibitHandoverNotice[hidden]{display:none!important}
+
+/* Visitor guidance is visible only after a generation's five rounds finish.
+   Keep type large enough for an iPad on an exhibition stand. */
+#reviewOverlay #exhibitVisitProgress{
+  display:block;
+  margin:8px 0 5px;
+  padding:8px 12px;
+  text-align:center;
+  color:#f4f7e9;
+  background:#243a32;
+  border-radius:7px;
+  font:700 clamp(14px,3.5vw,17px)/1.5 system-ui,-apple-system,sans-serif;
+}
+#reviewOverlay #exhibitVisitProgress[hidden]{display:none!important}
