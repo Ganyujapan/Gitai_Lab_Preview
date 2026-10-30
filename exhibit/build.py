@@ -225,6 +225,16 @@ def main() -> None:
     for thumbnail in thumbnails:
         artifact = "img/modeselect/" + thumbnail
         assert artifact in runtime_files, artifact
+    # All four authored warning tutorial PNGs must be available to the offline
+    # exhibition service worker. Never deploy broken image references.
+    for i in range(1, 5):
+        asset = "img/tutorial/tutorial_warning_" + f"{i:02d}" + "_1080x1760.png"
+        assert asset in runtime_files, "Missing offline tutorial image: " + asset
+        with (exhibit / asset).open("rb") as fp:
+            header = fp.read(24)
+        assert (header[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+                and int.from_bytes(header[16:20], "big") == 1080
+                and int.from_bytes(header[20:24], "big") == 1758), asset
     modes_source = (exhibit / "modes.html").read_text(encoding="utf-8")
     for thumbnail in thumbnails:
         assert modes_source.count("img/modeselect/" + thumbnail) == 1, thumbnail
