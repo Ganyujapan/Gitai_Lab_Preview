@@ -16,6 +16,9 @@
   const STAGE='backup_v2_stage';
   const SANDBOX=/^gitai-backup-rehearsal-[0-9a-f]{32}$/;
   const STAGE_ID=/^restore-[a-f0-9]{32}$/;
+  // Each successful staging attempt has a fresh identity. Reusing the same
+  // stage ID after another tab finishes must not authorize a stale restore.
+  const STAGE_TOKEN=/^restore-[a-f0-9]{32}$/;
   const GEN=/^gen(?:\d{5}|[1-9]\d{5,})$/;
   const fail=message=>{throw Error('分割バックアップ隔離復元：'+message);};
   const validKey=x=>typeof x==='string'||(typeof x==='number'&&Number.isFinite(x));
@@ -45,7 +48,7 @@
       }catch(e){reject(e);}
     });
   }
-  function saveBatch(db,id,items) {
+  function saveBatch(db,id,items,stageToken) {
     return new Promise((resolve,reject)=>{
       let tx;
       try {
@@ -62,14 +65,17 @@
           }
           // add() rather than put(): collision cannot silently overwrite
           // another in-progress checkpoint or restored record.
-          store.add(record,[id,record.store,record.key]);
+          store.add({...record,stageToken},[id,record.store,record.key]);
         }
       }catch(e){if(tx)try{tx.abort();}catch(_){} reject(e);}
     });
   }
   // Removes only the selected stage ID. Never touches original three stores.
-  function discardStage(db,id) {
+  function discardStage(db,id,{expectedStageToken=null}={}) {
     requireSandbox(db,id);
+    if (expectedStageToken!==null && !STAGE_TOKEN.test(expectedStageToken)) {
+      fail('一時保存の検証トークンが不正です。');
+    }
     return new Promise((resolve,reject)=>{
       let tx,count=0,early=null;
       try {
@@ -82,8 +88,18 @@
         req.onsuccess=()=>{
           const cursor=req.result;
           if(!cursor)return;
-          try{cursor.delete();count++;cursor.continue();}
-          catch(e){early=e;try{tx.abort();}catch(_){}}
+          try{
+            // A concurrent attempt may have won the same stage ID between
+            // our initial count and first write. Never delete its rows.
+            // Any earlier deletes are rolled back by this transaction.
+            if(expectedStageToken!==null &&
+               cursor.value?.stageToken!==expectedStageToken) {
+              early=Error('Stage ownership changed; cleanup rolled back');
+              tx.abort();
+              return;
+            }
+            cursor.delete();count++;cursor.continue();
+          } catch(e){early=e;try{tx.abort();}catch(_){}}
         };
       }catch(e){if(tx)try{tx.abort();}catch(_){} reject(e);}
     });
@@ -114,9 +130,10 @@
       fail('内容検査の結果が不正です。');
     }
     if(await requestCount(db,stageId)!==0) fail('一時保存IDがすでに使われています。');
+    const stageToken=makeStageId();
     const pending=[];
     const byStore={images:0,meta:0,theater_frames:0};
-    let loaded=0;
+    let loaded=0,stagedSuccessfully=false;
     try{
       await partApi.verifyPartIntegrity(manifestFile,partFiles,mode,database,
         async (store,key,value)=>{
@@ -124,22 +141,31 @@
           byStore[store]++;
           loaded++;
           if(pending.length>=batchSize) {
-            await saveBatch(db,stageId,pending);
+            await saveBatch(db,stageId,pending,stageToken);
+            stagedSuccessfully=true;
             pending.length=0;
           }
         });
-      if(pending.length) await saveBatch(db,stageId,pending);
+      if(pending.length) {
+        await saveBatch(db,stageId,pending,stageToken);
+        stagedSuccessfully=true;
+      }
       if(loaded!==proof.entries||(await requestCount(db,stageId))!==loaded)
         fail('一時保存件数が事前検証と一致しません。');
       return Object.freeze({
-        stageId,mode,database,generation:proof.generation,
+        stageId,stageToken,mode,database,generation:proof.generation,
         entries:loaded,byStore:Object.freeze(byStore),stageComplete:true,
         // No commit has occurred yet; warning life is NOT restored.
         lifeRestored:false
       });
     }catch(error){
-      try{await discardStage(db,stageId);}
-      catch(cleanup){error.cleanupError=cleanup;}
+      // If this attempt never committed even one batch, it owns no rows.
+      // Blindly cleaning by stage ID could destroy another tab's completed
+      // snapshot after both observed an initially empty stage.
+      if(stagedSuccessfully) {
+        try{await discardStage(db,stageId,{expectedStageToken:stageToken});}
+        catch(cleanup){error.cleanupError=cleanup;}
+      }
       throw error;
     }
   }
@@ -154,7 +180,8 @@
     if(!prepared||prepared.stageComplete!==true)
       fail('検証と一時保存が完了していません。');
     requireSandbox(db,prepared.stageId);
-    if(prepared.database!==db.name||!GEN.test(prepared.generation)||
+    if(prepared.database!==db.name||!STAGE_TOKEN.test(prepared.stageToken||'')||
+       !GEN.test(prepared.generation)||
        !Number.isSafeInteger(prepared.entries)||prepared.entries<121||
        !prepared.byStore||STORES.some(s=>
          !Number.isSafeInteger(prepared.byStore[s])||prepared.byStore[s]<0)||
@@ -218,7 +245,8 @@
               if(!Array.isArray(k)||k.length!==3||k[0]!==prepared.stageId||
                  !STORES.includes(k[1])||!rec||rec.store!==k[1]||
                  !validKey(k[2])||rec.key!==k[2]||
-                 !Object.hasOwn(rec,'value')) {
+                 !Object.hasOwn(rec,'value')||
+                 rec.stageToken!==prepared.stageToken) {
                 abort(Error('Staged restore row is corrupt'));return;
               }
               try {
@@ -251,8 +279,10 @@
       }
     });
     let cleanupError=null;
-    try{await discardStage(db,prepared.stageId);}
-    catch(error){cleanupError=error?.message||String(error);}
+    try {
+      await discardStage(db,prepared.stageId,
+        {expectedStageToken:prepared.stageToken});
+    } catch(error) {cleanupError=error?.message||String(error);}
     return Object.freeze({
       status:cleanupError?'db-committed-cleanup-warning':'db-committed',
       generation:result.generation,entries:result.entries,
