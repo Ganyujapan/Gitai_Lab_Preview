@@ -82,8 +82,8 @@ function advance(ms=100){now+=ms;for(const fn of [...timers.values()])fn()}
  assert.ok(first.plays>before,'stalled but unpaused player must restart');
  assert.equal(first.paused,false);
  // One unresolved standby play() must not suppress every future watchdog.
- first.currentTime=25.5;advance(400);
  audio[1].pendingNextPlay=true;
+ first.currentTime=25.5;advance(400);
  advance(100);
  await flush();
  assert.equal(first.loop,true,'audible element retains native safety loop');
