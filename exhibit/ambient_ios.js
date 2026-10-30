@@ -112,17 +112,18 @@
     lastPosition = NaN;
     lastProgressAt = Date.now();
     pending = false;
+    lastAttemptAt = 0;
     state = 'idle';
   }
   replaceFailedPlayer();
   if (!player.canPlayType?.(FORMAT)) errorReason = 'unsupported';
   activatePlaybackSession();
 
-  function attemptPlayback(rewind = false) {
+  function attemptPlayback(rewind = false, userGesture = false) {
     if (!enabled || errorReason || document.hidden) return;
     if (pending && Date.now() - pendingStartedAt < 2500) return;
     pending = false;
-    if (Date.now() - lastAttemptAt < 250 && !rewind) return;
+    if (Date.now() - lastAttemptAt < 250 && !rewind && !userGesture) return;
     lastAttemptAt = Date.now();
     playingRequested = true;
     activatePlaybackSession();
@@ -195,7 +196,7 @@
     checkPlayback();
     if (pending && Date.now() - pendingStartedAt <= 2500) return;
     if (player.paused || player.ended || !playingRequested || state !== 'playing') {
-      attemptPlayback(player.ended);
+      attemptPlayback(player.ended, true);
     }
   }
 
