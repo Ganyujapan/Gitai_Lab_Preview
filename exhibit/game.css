@@ -25,3 +25,27 @@
   font:700 clamp(14px,3.5vw,17px)/1.5 system-ui,-apple-system,sans-serif;
 }
 #reviewOverlay #exhibitVisitProgress[hidden]{display:none!important}
+
+/* Exhibition visitors cannot open or save specimens, but all standard
+   specimen code and saved IndexedDB records remain untouched. */
+#specimenBoxButton,#theaterButton,#evolutionSpecimenButton,
+#evolutionTheaterButton,#specimenSaveButton,#rankMilestoneSaveButton,
+#specimenBoxOverlay{display:none!important}
+
+/* Continue is the clear default, visitor handover a secondary option. */
+#reviewOverlay .review-actions #continueButton{
+  display:block;width:100%;min-height:62px;padding:13px 18px;
+  border:2px solid #d1f3ae;border-radius:9px;
+  background:#346a37;color:#fff;font:800 clamp(19px,5vw,25px)/1.3 system-ui,-apple-system,sans-serif;
+  touch-action:manipulation;box-shadow:0 3px 0 #162c1a
+}
+#reviewOverlay #exhibitHandover{
+  background:#1a2c24;border:1px solid #759484;color:#d9e9dc;
+  min-height:48px;margin-top:14px;font-size:clamp(13px,3.5vw,15px);
+}
+#reviewOverlay #continueButton:focus-visible,#warningToxicDeath button:focus-visible{
+  outline:3px solid #fff;outline-offset:2px
+}
+#warningToxicDeath #warningDeathHandover{
+  margin-top:12px;background:#23332d;border:1px solid #90a797;color:#e8f4e9
+}
