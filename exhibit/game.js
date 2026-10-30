@@ -58,6 +58,14 @@
   notice.hidden = true;
   notice.textContent = '5世代おつかれさま！「次へ」で進化シアターを再生します。';
   reviewOverlay?.querySelector('.review-actions')?.insertAdjacentElement('beforebegin', notice);
+  // Show the visitor's own five-generation allowance on the result screen,
+  // not a floating in-round HUD. This is display-only: saved generations,
+  // handover limits and experiment data are unchanged.
+  const progress = document.createElement('p');
+  progress.id = 'exhibitVisitProgress';
+  progress.hidden = true;
+  progress.setAttribute('role', 'status');
+  reviewOverlay?.querySelector('.review-actions')?.insertAdjacentElement('beforebegin', progress);
 
   function numberFrom(node) {
     const match = (node?.textContent || '').match(/(?:GENERATION|第)\s*(\d+)/i);
@@ -108,7 +116,16 @@
       && completed >= firstGeneration
       && !continueButton.disabled
       && /^(次の世代を生成|次へ（進化シアター）)$/.test(continueButton.textContent.trim());
-    const finishedFive = valid && completed - firstGeneration + 1 >= 5;
+    const generationsPlayed = valid ? completed - firstGeneration + 1 : 0;
+    const finishedFive = valid && generationsPlayed >= 5;
+    const showProgress = valid && !handoverPending;
+    progress.hidden = !showProgress;
+    if (showProgress) {
+      const label = '今回のプレイ：' + Math.min(generationsPlayed, 5) + ' / 5世代';
+      // A MutationObserver watches the results subtree. Avoid a self-triggered
+      // observer loop by updating text only when the progress actually changes.
+      if (progress.textContent !== label) progress.textContent = label;
+    }
     button.hidden = !valid || finishedFive || handoverPending;
     notice.hidden = !finishedFive || handoverPending;
     if (finishedFive && !handoverPending
