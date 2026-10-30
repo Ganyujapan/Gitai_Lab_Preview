@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync('exhibit/game.js','utf8');
 const injected=source.replace(/\}\)\(\);\s*$/, '  globalThis.__test={numberFrom,sync,safelyHandover,button,notice,\n' +
-  '    start:()=>firstGeneration,pending:()=>handoverPending};\n})();');
+  '    start:()=>firstGeneration,pending:()=>handoverPending,progress};\n})();');
 assert.notEqual(injected,source,'must execute the actual controller');
 
 function element(text='',visible=false){
@@ -14,7 +14,8 @@ function element(text='',visible=false){
   const classes=new Set(visible?['visible']:[]);
   return {textContent:text,hidden:false,disabled:false,
     classList:{contains:x=>classes.has(x),add:x=>classes.add(x),remove:x=>classes.delete(x)},
-    insertAdjacentElement(){},addEventListener(name,fn){listeners.push({name,fn});},
+    insertAdjacentElement(){},setAttribute(){},
+    addEventListener(name,fn){listeners.push({name,fn});},
     click(){
       const event={stopped:false,preventDefault(){},stopImmediatePropagation(){this.stopped=true}};
       for(const item of listeners)if(item.name==='click'){
@@ -176,6 +177,13 @@ async function waitFor(fn){
   ])assert.equal(p.api.numberFrom(element(label)),num,label);
   assert.equal(p.api.start(),21);
   assert.equal(p.api.button.hidden,false);
+  assert.equal(p.api.progress.hidden,false);
+  assert.equal(p.api.progress.textContent,'今回のプレイ：1 / 5世代');
+  // Calling sync again must not rewrite the same label, which would cause
+  // repeated MutationObserver callbacks in a real browser.
+  const previousProgress=p.api.progress.textContent;
+  p.api.sync();
+  assert.equal(p.api.progress.textContent,previousProgress);
   assert.equal(JSON.parse(p.stash.get('gitai-exhibit-visit-start-v1')).start,21);
   await p.api.safelyHandover();
   assert.equal(p.pointer,'gen00022');
@@ -200,6 +208,7 @@ async function waitFor(fn){
   for(const mode of ['cryptic','warning']){
     const mid=fixture({mode,start:21,end:24});
     assert.equal(mid.api.button.hidden,false,'1-4 generation manual swap');
+    assert.equal(mid.api.progress.textContent,'今回のプレイ：4 / 5世代');
     await mid.api.safelyHandover();
     assert.equal(mid.pointer,'gen00025');
     assert.equal(JSON.parse(mid.stash.get('gitai-exhibit-handover-v1')).mode,mode);
@@ -209,6 +218,7 @@ async function waitFor(fn){
     assert.equal(successor.api.start(),25,'the next visitor begins counting at new generation');
     assert.equal(successor.api.notice.hidden,true);
     assert.equal(successor.api.button.hidden,false);
+    assert.equal(successor.api.progress.textContent,'今回のプレイ：1 / 5世代');
     if(mode==='warning') {
       assert.deepEqual(JSON.parse(mid.life),{generation_id:'gen00025',thirds:30},
         'next visitor gets 10 full hearts without resetting moth evolution');
@@ -217,6 +227,7 @@ async function waitFor(fn){
     const fifth=fixture({mode,start:21,end:25});
     assert.equal(fifth.api.button.hidden,true);
     assert.equal(fifth.api.notice.hidden,false);
+    assert.equal(fifth.api.progress.textContent,'今回のプレイ：5 / 5世代');
     assert.equal(fifth.nodes.continueButton.textContent,'次へ（進化シアター）');
     const evt=fifth.nodes.continueButton.click();
     assert.equal(evt.stopped,true,'fifth generation Next intercepted');
