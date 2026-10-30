@@ -193,5 +193,49 @@ async function flush(){await Promise.resolve();await Promise.resolve();await Pro
     assert.equal(t.api.isPlaying(),true);
     assert.match(t.toggle.textContent,/再生中/);
   }
-  console.log('Ambient: active native fallback survives stalled/blocked overlaps; old fade-out ends; retry and isolation pass.');
+  {
+    // Two consecutive successful crossfades 0→1→0. A safety loop
+    // must not make both players audible after the old fade-out.
+    const t=fixture();
+    t.toggle.click();
+    await flush();
+    t.audio[0].currentTime=17;
+    t.tick();
+    await flush();
+    assert.equal(t.audio[0].loop,false);
+    assert.equal(t.audio[1].loop,true);
+    t.audio[0].finish();
+    t.audio[1].currentTime=17;
+    t.tick();
+    await flush();
+    assert.equal(t.audio[0].loop,true,'returning primary needs fallback');
+    assert.equal(t.audio[1].loop,false,'old sound must fade and stop');
+    t.audio[1].finish();
+    assert.equal(t.audio[1].paused,true);
+    t.audio[0].finish();
+    assert.equal(t.audio[0].paused,false,'second crossfade still loops');
+    assert.equal(t.api.isPlaying(),true);
+  }
+  {
+    // Reject a standby play on the SECOND cycle, after first crossfade.
+    // Current player must continue through repeated native loop cycles.
+    const t=fixture();
+    t.toggle.click();
+    await flush();
+    t.audio[0].currentTime=17;
+    t.tick();
+    await flush();
+    t.audio[0].finish();
+    t.audio[0].rejectNextPlay=true;
+    t.audio[1].currentTime=17;
+    t.tick();
+    await flush();
+    assert.equal(t.audio[1].loop,true,'second-cycle reject keeps BGM');
+    assert.equal(t.audio[0].loop,false,'rejected standby may not loop');
+    t.audio[1].finish();
+    t.audio[1].finish();
+    assert.equal(t.audio[1].paused,false,'BGM survives third native loop');
+    assert.equal(t.api.isPlaying(),true);
+  }
+  console.log('Ambient: multi-cycle native loops and second-cycle refusal pass; retry and standby error isolation remain safe.');
 })().catch(e=>{console.error(e);process.exitCode=1});
