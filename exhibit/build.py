@@ -121,6 +121,39 @@ def main() -> None:
     },
     activatePlaybackSession,"""
     )
+    # An unresolved standby play() Promise must not freeze the watchdog.
+    replace_audio(
+        "  let secondElementPriming = false;\n  const currentAudio",
+        "  let secondElementPriming = false;\n  let primingStartedAt = 0;\n  const currentAudio"
+    )
+    replace_audio(
+        "    secondElementPriming = true;\n    standby.muted = true;",
+        "    secondElementPriming = true;\n    primingStartedAt = Date.now();\n"
+        "    standby.muted = true;"
+    )
+    replace_audio(
+        """  function tickLoop() {
+    if (!running || switching || secondElementPriming || !enabled || errorReason || document.hidden) return;""",
+        """  function tickLoop() {
+    if (secondElementPriming && Date.now() - primingStartedAt > 3500) {
+      secondElementPriming = false;
+      players[1 - active].muted = false;
+    }
+    if (!running || switching || secondElementPriming || !enabled || errorReason || document.hidden) return;"""
+    )
+    # An active decoder can fail transiently after idle. The next genuine
+    # touch automatically retries it without requiring the visitor to hunt
+    # for a separate audio toggle.
+    replace_audio(
+        """    activatePlaybackSession();
+    if (enabled && !errorReason && !document.hidden) primeSecondPlayerInGesture();""",
+        """    activatePlaybackSession();
+    if (enabled && errorReason === 'unavailable' && !document.hidden) {
+      retryUnavailableInGesture();
+      return;
+    }
+    if (enabled && !errorReason && !document.hidden) primeSecondPlayerInGesture();"""
+    )
     ambient.write_text(ambient_code, encoding="utf-8")
 
     # RE3-MODEL-01: embed the build that ACTUALLY supplies each engine script.
