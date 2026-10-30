@@ -116,6 +116,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-visitor-handover.cjs
       - name: Verify admin-only exhibit reset is atomic, mode-isolated and fenced
         run: node .github/scripts/verify-exhibit-reset.cjs
+      - name: Integrate admin reset, new 60 founders, evolution and reload
+        run: node .github/scripts/verify-exhibit-reset-restart.cjs
       - name: Inspect exhibit backup readiness read-only without allocating history
         run: node .github/scripts/verify-exhibit-backup-readiness.cjs
       - name: Verify exhibition backup cannot overwrite existing data with malformed JSON
