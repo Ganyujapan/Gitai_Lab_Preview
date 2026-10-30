@@ -21,7 +21,9 @@ const code=src.slice(beginning,ending);
 assert.doesNotMatch(code, /'backToMenu'/);
 assert.match(src,/if \(handoverPending/);
 assert.match(src,/void safelyHandover\(\)/);
-assert.match(src,/window.addEventListener\('gitai:warning-death-return'/);
+assert.doesNotMatch(src,/window.addEventListener\('gitai:warning-death-return'/,
+  'death retry must remain in the same generation');
+assert.match(src,/deathHandover\?\.addEventListener\('click'/);
 function fixture({start=true,review=false,pending=false}={}){
  const listeners={},destinations=[],effects={prevented:0,stopped:0,handover:0};
  const elements=Object.fromEntries(['portalBackToMenu','soloHomeButton','resultBackToMenu'].map(k=>[k,{
