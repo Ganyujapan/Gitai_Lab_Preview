@@ -11,7 +11,8 @@ if (typeof File === 'undefined') {
 }
 globalThis.indexedDB = {open() { throw Error('No existing IndexedDB access allowed'); }};
 const {
-  writePartsFromRecords, verifyPartIntegrity, PART_SCHEMA, SCHEMA, MAX_PART_BYTES
+  writePartsFromRecords, verifyPartIntegrity, validateManifest,
+  PART_SCHEMA, SCHEMA, MAX_PART_BYTES, MAX_TOTAL_ENTRIES
 } = require('../../exhibit/backup_v2.js');
 const db = 'gitai-exhibit-2026-test-cryptic';
 const generation = 'gen00035';
@@ -45,6 +46,7 @@ async function produce(recordStream, opts={}) {
     {mode:'cryptic',database:db,currentGeneration:generation,
       maxPartEntries:opts.maxPartEntries ?? 500,
       maxPartBytes:opts.maxPartBytes ?? 256*1024,
+      maxTotalEntries:opts.maxTotalEntries ?? MAX_TOTAL_ENTRIES,
       createdAt:'2026-10-27T01:02:03Z'},
     async (file, descriptor)=>{
       assert.equal(file.name, descriptor.file);
@@ -101,6 +103,54 @@ async function produce(recordStream, opts={}) {
   const verified=await verifyPartIntegrity(many.manifestFile,many.files,'cryptic',db);
   assert.equal(verified.entries,22172);
   assert.ok(many.manifest.parts.every(p=>p.bytes<=MAX_PART_BYTES && /^[a-f0-9]{64}$/.test(p.sha256)));
+
+  // Staging supports at most 250k records; accepting a syntactically
+  // valid 300k+ manifest would create backups that the safe checkpoint
+  // path cannot stage/inspect. Reject at the cheap manifest preflight.
+  assert.equal(MAX_TOTAL_ENTRIES,250000);
+  const hugeParts=Array.from({length:126},(_,i)=>({
+    index:i,store:'meta',
+    file:'part-'+String(i).padStart(5,'0')+'.json',
+    bytes:1024,entries:i===125?1001:2000,
+    sha256:'a'.repeat(64)
+  }));
+  const hugeManifest={
+    schema:SCHEMA,mode:'cryptic',database:db,databaseVersion:2,
+    currentGeneration:generation,parts:hugeParts,
+    totals:{entries:251001,byStore:{images:0,meta:251001,theater_frames:0}}
+  };
+  assert.throws(()=>validateManifest(hugeManifest,'cryptic',db),
+    /総件数/);
+  const forgedCount={...hugeManifest,totals:{
+    entries:250000,byStore:{images:0,meta:250000,theater_frames:0}
+  }};
+  assert.throws(()=>validateManifest(forgedCount,'cryptic',db),
+    /総件数/);
+  const forgedFile=new File([JSON.stringify(hugeManifest)],'manifest.json',
+    {type:'application/json'});
+  await assert.rejects(verifyPartIntegrity(forgedFile,[],
+    'cryptic',db),/総件数/,
+    'reject oversized index before reading or allocating any part files');
+
+  // Force the same real writer over its bounded entry count with a tiny
+  // test-specific limit. It must not produce a success manifest after
+  // earlier parts have already been handed to a file-save callback.
+  let boundedParts=0,oversizeManifest=false;
+  await assert.rejects((async()=>{
+    const output=await writePartsFromRecords(records(2),{
+      mode:'cryptic',database:db,currentGeneration:generation,
+      maxPartBytes:4096,maxPartEntries:3,maxTotalEntries:123
+    },async()=>{boundedParts++});
+    oversizeManifest=Boolean(output.manifestFile);
+  })(),/総件数/);
+  assert.ok(boundedParts>0);
+  assert.equal(oversizeManifest,false);
+  let invalidBudgetSaves=0;
+  await assert.rejects(writePartsFromRecords(records(),{
+    mode:'cryptic',database:db,currentGeneration:generation,
+    maxTotalEntries:MAX_TOTAL_ENTRIES+1
+  },async()=>{invalidBudgetSaves++}),/分割上限/);
+  assert.equal(invalidBudgetSaves,0);
 
   // Existing restore does not decode DataView or BigInt views.
   const unsupported = async function* () {
@@ -324,5 +374,5 @@ async function produce(recordStream, opts={}) {
   await assert.rejects(verifyPartIntegrity(many.manifestFile,corrupted,'cryptic',db),/破損/);
 
   assert.equal(typeof indexedDB.open,'function');
-  console.log('RE2-EXH-02: bounded multipart writer, 22,172 records, verifier round-trip, v1 codec, corrupt/missing/order/disk-full cases OK. No IndexedDB accessed.');
+  console.log('RE2-EXH-02: bounded multipart writer, 22,172 records, 250k preflight ceiling, verifier round-trip, v1 codec, corrupt/missing/order/disk-full cases OK. No IndexedDB accessed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
