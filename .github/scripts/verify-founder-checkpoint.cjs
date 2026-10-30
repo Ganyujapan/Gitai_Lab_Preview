@@ -16,7 +16,8 @@ const founderBody=source.slice(ensureStart,ensureEnd);
 assert.match(founderBody,/await commitFounderCheckpoint\(markerKey, expectedMarker, \{/);
 assert.match(founderBody,/await commitFounderCheckpoint\(markerKey, expectedMarker\)/);
 assert.doesNotMatch(founderBody,/await idbPut\(/);
-function fixture({warning=false,failPutAt=Infinity}={}){
+function fixture({warning=false,failPutAt=Infinity,
+                   capturedEpoch=null,hasCapturedEpoch=true}={}){
  let busy=false,putCount=0;const pending=[];
  const data={
   images:new Map(),meta:new Map(),theater_frames:new Map()
@@ -72,6 +73,8 @@ function fixture({warning=false,failPutAt=Infinity}={}){
   openDb:async()=>db,Blob,Error,TOTAL:60,
   IMAGE_STORE:'images',META_STORE:'meta',THEATER_STORE:'theater_frames',
   WARNING_EXPERIMENT:warning,
+  loadedRestoreEpoch:capturedEpoch,
+  restoreEpochCaptured:hasCapturedEpoch,
   imageKey:(gen,i)=>{assert.equal(gen,'gen00001');return toKey(i);},
   genomeKey:(gen,i)=>{assert.equal(gen,'gen00001');return toGenome(i);}
  };
@@ -136,6 +139,36 @@ function fixture({warning=false,failPutAt=Infinity}={}){
      broken==='wrong-pointer'?'gen00234':undefined,broken);
    assert.equal(await k.data.images.get(k.imageKey(10)).text(),'kept-10');
  }
+ // The actual exhibit admin reset atomically clears data but keeps a new
+ // restore_epoch fence. The next launch MUST be able to generate 60 new
+ // founders without deleting that fence or opening an old experiment.
+ const resetEpoch='exhibit-reset-'+'a'.repeat(32);
+ const reset=fixture({capturedEpoch:resetEpoch});
+ reset.data.meta.set('restore_epoch',resetEpoch);
+ await reset.fresh();
+ assert.equal(reset.data.meta.get('current_generation_id'),'gen00001',
+   'new exhibit experiment must start after admin reset');
+ assert.equal(reset.data.images.size,60);
+ assert.equal(reset.data.meta.get('restore_epoch'),resetEpoch,
+   'new founder must preserve the reset conflict fence');
+ assert.equal(reset.data.meta.size,63,
+   '60 genomes + founder marker + pointer + reset epoch');
+ const staleEpoch=fixture({capturedEpoch:'exhibit-reset-'+'b'.repeat(32)});
+ staleEpoch.data.meta.set('restore_epoch',resetEpoch);
+ await assert.rejects(staleEpoch.fresh(),/他の画面|未完成/,
+   'a game tab open before reset cannot regenerate founders');
+ assert.equal(staleEpoch.data.images.size,0);
+ const unexpected=fixture({capturedEpoch:resetEpoch});
+ unexpected.data.meta.set('restore_epoch',resetEpoch);
+ unexpected.data.meta.set('diagnostic:old-run',{generation:'gen00021'});
+ await assert.rejects(unexpected.fresh(),/他の画面|未完成/,
+   'reset epoch plus legacy records must not be treated as a fresh run');
+ assert.equal(unexpected.data.meta.size,2);
+ const arbitraryEpoch=fixture({capturedEpoch:'restore-existing'});
+ arbitraryEpoch.data.meta.set('restore_epoch','restore-existing');
+ await assert.rejects(arbitraryEpoch.fresh(),/他の画面|未完成/,
+   'only explicit exhibit reset epochs may authorize new founders');
+
  const partial=fixture();
  partial.data.images.set(partial.imageKey(1),new Blob(['partial']));
  await assert.rejects(partial.fresh(),/他の画面|未完成/);
@@ -164,5 +197,5 @@ function fixture({warning=false,failPutAt=Infinity}={}){
  await warning.recover();
  assert.equal(warning.data.meta.get('current_generation_id'),'gen00001');
  assert.ok(warning.data.meta.has('warning_neutral_run_seed_v1'));
- console.log('RE2-EV-01: atomic fresh gen1, full legacy repair, incomplete/later data refusal, quota rollback, 2-tab CAS, warning seed OK.');
+ console.log('RE2-EV-01: atomic fresh gen1, full legacy repair, safe exhibit reset founder restart and stale epoch refusal, quota rollback, 2-tab CAS, warning seed OK.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
