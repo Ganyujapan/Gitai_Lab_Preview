@@ -89,6 +89,21 @@ def main() -> None:
     assert page.count(rank_auto_gallery) == 1, "Missing rare-rank gallery hook"
     page = page.replace(rank_auto_gallery, rank_to_review, 1)
 
+    # Exhibition-only: do not send a poisoned visitor to the mode picker
+    # after 2.8 seconds. Let them retry the same uncommitted generation or
+    # consciously hand over. The simulator still resets life to 10 on retry.
+    death_button = '<button id="warningDeathReturn" type="button">トップへ戻る</button>'
+    death_buttons = (
+        '<button id="warningDeathReturn" type="button">もう一度挑戦</button>'
+        '<button id="warningDeathHandover" type="button">次の人へ変わる</button>'
+    )
+    death_timer = 'state.warningDeathReturnTimer = setTimeout(returnFromToxicDeath, 2800);'
+    assert page.count(death_button) == 1, "Missing original toxic-death return button"
+    assert page.count(death_timer) == 1, "Missing original toxic-death timer"
+    page = page.replace(death_button, death_buttons, 1)
+    page = page.replace(death_timer,
+        '// Exhibition: no automatic death dismissal; wait for visitor choice.', 1)
+
     (exhibit / "game.html").write_text(page, encoding="utf-8")
 
     # Namespace the complete IndexedDB database without modifying the shared
