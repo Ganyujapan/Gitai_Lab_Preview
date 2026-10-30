@@ -232,7 +232,7 @@ def main() -> None:
         assert asset in runtime_files, "Missing offline tutorial image: " + asset
         with (exhibit / asset).open("rb") as fp:
             header = fp.read(24)
-        assert (header[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+        assert (header[:8] == b"\x89PNG\r\n\x1a\n"
                 and int.from_bytes(header[16:20], "big") == 1080
                 and int.from_bytes(header[20:24], "big") == 1758), asset
     modes_source = (exhibit / "modes.html").read_text(encoding="utf-8")
