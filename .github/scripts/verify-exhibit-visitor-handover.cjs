@@ -24,12 +24,13 @@ function element(text='',visible=false){
       return event;
     }};
 }
-function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false,lifeSaveFailures=0,sessionStash=null}={}){
+function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false,lifeSaveFailures=0,sessionStash=null,lifeStash=null,pendingWriteFails=false,handoverMetaFailures=0}={}){
   let pointer='gen'+String(end).padStart(5,'0');
   let clicks=0;const errors=[],navigations=[],stash=sessionStash||new Map();
-  const life=new Map();
+  const life=lifeStash||new Map();
+  let handoverMetaFailuresRemaining=handoverMetaFailures;
   const lifeKey='gitai-warning-life-v1:gitai-exhibit-test';
-  if(mode==='warning')life.set(lifeKey,JSON.stringify({
+  if(mode==='warning' && !life.has(lifeKey))life.set(lifeKey,JSON.stringify({
     generation_id:pointer,thirds:12 // previous visitor's remaining 4 hearts
   }));
   let lifeWrites=0,lifeFailuresRemaining=lifeSaveFailures;
@@ -90,7 +91,15 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   };
   const sessionStorage={
     getItem:k=>stash.get(k)||null,
-    setItem:(k,v)=>stash.set(k,v),
+    setItem(k,v){
+      if(k==='gitai-exhibit-handover-pending-v1' && pendingWriteFails)
+        throw Error('sessionStorage unavailable');
+      if(k==='gitai-exhibit-handover-v1' && handoverMetaFailuresRemaining>0){
+        handoverMetaFailuresRemaining--;
+        throw Error('session handover write failed');
+      }
+      stash.set(k,v);
+    },
     removeItem:k=>stash.delete(k)
   };
   const localStorage={
@@ -118,7 +127,7 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   vm.runInNewContext(injected,context,{filename:'exhibit/game.js',timeout:5000});
   return {api:context.__test,nodes,navigations,stash,errors,
     get pointer(){return pointer},get clicks(){return clicks},
-    get life(){return life.get(lifeKey)||null},get lifeWrites(){return lifeWrites},
+    get life(){return life.get(lifeKey)||null},get lifeWrites(){return lifeWrites},lifeStore:life,
     set pointer(next){pointer=next}};
 }
 async function waitFor(fn){
@@ -322,6 +331,76 @@ async function waitFor(fn){
   assert.equal(retry.lifeWrites,2);
   assert.equal(retry.stash.has('gitai-exhibit-visit-start-v1'),false);
   assert.equal(JSON.parse(retry.stash.get('gitai-exhibit-handover-v1')).end,21);
+
+
+  // A full reload between the committed offspring and the warning-life reset
+  // must resume the saved handover without clicking the evolution button again.
+  const interruptedLife=fixture({mode:'warning',lifeSaveFailures:1});
+  await interruptedLife.api.safelyHandover();
+  assert.equal(interruptedLife.clicks,1);
+  assert.equal(interruptedLife.pointer,'gen00022');
+  assert.ok(interruptedLife.stash.has('gitai-exhibit-handover-pending-v1'));
+  const recoveredLife=fixture({
+    mode:'warning',start:22,end:22,review:false,
+    sessionStash:interruptedLife.stash,lifeStash:interruptedLife.lifeStore
+  });
+  await waitFor(()=>recoveredLife.navigations.length===1);
+  assert.equal(recoveredLife.clicks,0,'reload never submits another offspring');
+  assert.equal(recoveredLife.pointer,'gen00022');
+  assert.deepEqual(JSON.parse(recoveredLife.life),{
+    generation_id:'gen00022',thirds:30
+  });
+  assert.equal(recoveredLife.stash.has('gitai-exhibit-handover-pending-v1'),false);
+  assert.equal(recoveredLife.stash.has('gitai-exhibit-visit-start-v1'),false);
+
+  // A failed SESSION handover write after commit has the same safe recovery,
+  // even without a warning-life key (cryptic mode).
+  const interruptedMeta=fixture({handoverMetaFailures:1});
+  await interruptedMeta.api.safelyHandover();
+  assert.equal(interruptedMeta.pointer,'gen00022');
+  assert.equal(interruptedMeta.navigations.length,0);
+  assert.ok(interruptedMeta.stash.has('gitai-exhibit-handover-pending-v1'));
+  const recoveredMeta=fixture({
+    start:22,end:22,review:false,sessionStash:interruptedMeta.stash
+  });
+  await waitFor(()=>recoveredMeta.navigations.length===1);
+  assert.equal(recoveredMeta.clicks,0);
+  assert.equal(recoveredMeta.stash.has('gitai-exhibit-visit-start-v1'),false);
+
+  // The recovery marker must be written BEFORE the first generation submit.
+  const noCheckpoint=fixture({pendingWriteFails:true});
+  await noCheckpoint.api.safelyHandover();
+  assert.equal(noCheckpoint.clicks,0);
+  assert.equal(noCheckpoint.pointer,'gen00021');
+  assert.equal(noCheckpoint.navigations.length,0);
+  assert.equal(noCheckpoint.stash.has('gitai-exhibit-visit-start-v1'),true);
+
+  // A stale next-generation pointer is never taken for a successful handover.
+  const interruptedStale=fixture({mode:'warning',lifeSaveFailures:1});
+  await interruptedStale.api.safelyHandover();
+  const staleRecovery=fixture({
+    mode:'warning',start:23,end:23,review:false,
+    sessionStash:interruptedStale.stash,lifeStash:interruptedStale.lifeStore
+  });
+  await waitFor(()=>staleRecovery.errors.length>0);
+  assert.equal(staleRecovery.clicks,0);
+  assert.equal(staleRecovery.navigations.length,0);
+  assert.deepEqual(JSON.parse(staleRecovery.life),{
+    generation_id:'gen00022',thirds:6
+  },'stale recovery does not overwrite current warning lives');
+  assert.ok(staleRecovery.stash.has('gitai-exhibit-handover-pending-v1'));
+
+  // The original page may have been closed before IDB commit. If its pointer
+  // is still the reviewed generation, recovery must not auto-resubmit.
+  const neverCommitted=fixture({behavior:'stale'});
+  await neverCommitted.api.safelyHandover();
+  const pendingOld=fixture({
+    start:21,end:21,review:false,sessionStash:neverCommitted.stash
+  });
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(pendingOld.clicks,0);
+  assert.equal(pendingOld.navigations.length,0);
+  assert.equal(pendingOld.pointer,'gen00021');
 
   const staleAfterCommit=fixture({mode:'warning',lifeSaveError:true});
   await staleAfterCommit.api.safelyHandover();
