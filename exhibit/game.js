@@ -429,6 +429,19 @@
       }
     }, true);
   }
+  // A new generation is a new HTML document on iPad. Safari destroys the
+  // preceding native media element and AudioContext at navigation. Re-arm
+  // BOTH optional sound engines during the new generation's real Start tap;
+  // no simulation or saved evolution data is touched.
+  function unlockExhibitSound(event) {
+    if (event?.isTrusted === false) return;
+    window.GitaiAmbientAudio?.resumeFromGesture?.();
+    window.GitaiGameSfx?.activate?.();
+    void window.GitaiGameSfx?.prepare?.();
+  }
+  const begin = document.getElementById('startButton');
+  begin?.addEventListener('pointerup', unlockExhibitSound, { capture: true });
+  begin?.addEventListener('click', unlockExhibitSound, { capture: true });
   document.getElementById('resetConfirmButton')?.setAttribute('disabled', 'true');
   // Exhibition death: the simulator's retry button restores the SAME saved
   // generation and ten hearts. It must not navigate to the mode picker.
