@@ -66,6 +66,12 @@
 <button type="button" id="exhibitBackupLifeRetry">ライフ情報だけ再試行（進化データは変更しない）</button>
 <input type="file" id="exhibitBackupFile" accept=".json,application/json">
 <hr>
+<h3>本番前のテストデータ初期化</h3>
+<p>上で選択したモードだけを初期化します。もう一方のモード・管理者パスコード・オフライン用ファイルは保持します。先にすべてのゲーム画面を閉じてください。</p>
+<button type="button" id="exhibitResetInspect">初期化対象を確認（読み取り専用）</button>
+<pre id="exhibitResetPreview" role="status" aria-live="polite" hidden></pre>
+<button type="button" id="exhibitResetExecute" disabled>確認したモードのテストデータを初期化</button>
+<hr>
 <p id="exhibitUpdateLifecycleNote">更新確認・手動適用の操作は管理者専用ですが、ブラウザが自動的に更新を検知・準備する場合があります。すべての展示画面を閉じた後やアプリの再起動時には、手動適用なしで新版に切り替わる可能性があります。展示期間中のバージョン固定は保証されません。</p>
 <button type="button" id="exhibitUpdateCheck">最新版を確認（インターネット接続時）</button>
 <p id="exhibitUpdateStatus" role="status" aria-live="polite"></p>

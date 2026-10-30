@@ -924,6 +924,111 @@
     }
   }
 
+
+  // EXH-RESET-BEGIN: shipped reset implementation; tested against synthetic DB.
+  // Reset selected exhibition mode ONLY. Never deleteDatabase() or clear caches.
+  async function inspectModeBeforeReset(modeId) {
+    if (!MODES[modeId]) throw Error('初期化対象が不正です。');
+    const db = await openDb(MODES[modeId].db);
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORES, 'readonly');
+        const result = {mode: modeId, generation: undefined, epoch: undefined, counts: {}};
+        const meta = tx.objectStore('meta');
+        for (const [key, req] of [
+          ['generation', meta.get('current_generation_id')],
+          ['epoch', meta.get('restore_epoch')],
+          ...STORES.map(name => [name, tx.objectStore(name).count()])
+        ]) req.onsuccess = () => {
+          if (STORES.includes(key)) result.counts[key] = req.result;
+          else result[key] = req.result;
+        };
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => {};
+        tx.onabort = () => reject(tx.error || Error('データ確認が中断されました。'));
+      });
+    } finally { db.close(); }
+  }
+
+  async function resetModeForExhibit(modeId, snapshot) {
+    if (!MODES[modeId] || !snapshot || snapshot.mode !== modeId)
+      throw Error('対象モードの確認情報が一致しません。');
+    const mode = MODES[modeId];
+    const entropy = crypto.getRandomValues(new Uint8Array(16));
+    const newEpoch = 'exhibit-reset-' + [...entropy]
+      .map(n => n.toString(16).padStart(2, '0')).join('');
+    const db = await openDb(mode.db);
+    try {
+      // Atomically fence the generation and restore epoch after confirmation.
+      // Stale game tabs must not be able to commit on an old epoch.
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORES, 'readwrite');
+        const meta = tx.objectStore('meta');
+        const observed = {};
+        let pendingChecks = 2;
+        let failure = null;
+        const abort = message => {
+          failure = Error(message);
+          try { tx.abort(); } catch (_) { reject(failure); }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => {};
+        tx.onabort = () => reject(failure || tx.error ||
+          Error('データベースの初期化が中断されました。'));
+        const afterRead = () => {
+          if (--pendingChecks !== 0) return;
+          if (observed.generation !== snapshot.generation ||
+              observed.epoch !== snapshot.epoch) {
+            abort('確認中に他の画面で世代・保存履歴が変更されました。'
+              + '初期化は行っていません。ゲーム画面を閉じて再確認してください。');
+            return;
+          }
+          try {
+            for (const store of STORES) tx.objectStore(store).clear();
+            meta.put(newEpoch, 'restore_epoch');
+          } catch (error) {
+            failure = error;
+            try { tx.abort(); } catch (_) { reject(error); }
+          }
+        };
+        for (const [field, key] of [
+          ['generation', 'current_generation_id'],
+          ['epoch', 'restore_epoch']
+        ]) {
+          const req = meta.get(key);
+          req.onsuccess = () => { observed[field] = req.result; afterRead(); };
+        }
+      });
+    } finally { db.close(); }
+
+    // IndexedDB has already committed; a failed life/session cleanup is
+    // PARTIAL. The same mode can be safely reset again without affecting others.
+    const incomplete = [];
+    if (modeId === 'warning') {
+      const key = warningLifeStorageKey(mode.db);
+      try {
+        localStorage.removeItem(key);
+        if (localStorage.getItem(key) !== null)
+          throw Error('削除を確認できませんでした');
+      } catch (error) {
+        incomplete.push('ライフ：' + (error?.message || String(error)));
+      }
+    }
+    for (const key of ['gitai-exhibit-visit-start-v1',
+                       'gitai-exhibit-handover-v1']) {
+      try {
+        const state = JSON.parse(sessionStorage.getItem(key) || 'null');
+        if (state?.mode === modeId) sessionStorage.removeItem(key);
+      } catch (error) {
+        incomplete.push('来場者カウント：' + (error?.message || String(error)));
+      }
+    }
+    return incomplete.length
+      ? {status: 'partial', detail: incomplete.join('／')}
+      : {status: 'complete'};
+  }
+  // EXH-RESET-END.
+
   // EXH-F01: verify bytes selected BACK FROM iPad Files, without using
   // a database connection or localStorage. Merely starting a download or
   // invoking the Share sheet is not evidence that a backup was saved.
@@ -1013,6 +1118,9 @@
     // Pending asynchronous preparation cannot be handed off after locking.
     preparationId++;
     clearPreparedBackup();
+    resetSnapshot = null;
+    resetExecute.disabled = true;
+    resetReadout.hidden = true;
   });
   // Read-only capacity preflight: neither uses openDb(name, 2), which can
   // initialize an empty database, nor loads image blobs / whole history.
@@ -1051,12 +1159,89 @@
   let preparedBackup=null;
   let preparingBackup=false;
   let preparationId=0;
+  // This UI is PIN-gated by the existing admin panel. Never perform an
+  // automatic reset on page load, SW update or visitor handover.
+  const resetInspect = document.getElementById('exhibitResetInspect');
+  const resetExecute = document.getElementById('exhibitResetExecute');
+  const resetReadout = document.getElementById('exhibitResetPreview');
+  let resetSnapshot = null;
+  resetInspect.addEventListener('click', async () => {
+    if (!unlocked || restoreMutationBusy || preparingBackup || preparedBackup) {
+      say('初期化前に、復元・バックアップ準備を終えてください。');
+      return;
+    }
+    const modeId = selector.value;
+    resetSnapshot = null;
+    resetExecute.disabled = true;
+    resetReadout.hidden = false;
+    resetReadout.textContent = '保存状態を確認中…';
+    resetInspect.disabled = true;
+    try {
+      const snapshot = await inspectModeBeforeReset(modeId);
+      if (!unlocked || selector.value !== modeId) return;
+      resetSnapshot = snapshot;
+      resetReadout.textContent = MODES[modeId].label
+        + '\n現在世代：' + (snapshot.generation || '未開始')
+        + '\n蛾画像：' + snapshot.counts.images + '件'
+        + '\nDNAなど：' + snapshot.counts.meta + '件'
+        + '\nシアター記録：' + snapshot.counts.theater_frames + '件'
+        + '\nこのモードだけを初期化できます。';
+      resetExecute.disabled = false;
+    } catch (error) {
+      resetReadout.textContent = '確認できません：'
+        + (error?.message || String(error)) + '\n変更は行っていません。';
+    } finally { resetInspect.disabled = false; }
+  });
+  resetExecute.addEventListener('click', async () => {
+    const snapshot = resetSnapshot;
+    const modeId = selector.value;
+    if (!unlocked || !snapshot || snapshot.mode !== modeId ||
+        restoreMutationBusy || preparingBackup || preparedBackup) return;
+    resetSnapshot = null;  // A fresh preview is required for each attempt.
+    resetExecute.disabled = true;
+    const label = MODES[modeId].label;
+    if (!confirm('【展示前の初期化】' + label
+      + '\n現在世代：' + (snapshot.generation || '未開始')
+      + '\nこのモードの蛾画像・DNA・進化履歴をすべて削除します。'
+      + '\n元には戻せません。他のゲーム画面を閉じていますか？')) {
+      say('初期化をキャンセルしました。');
+      return;
+    }
+    if (prompt('最終確認：' + label + ' のみ削除する場合、'
+      + '半角英大文字で RESET と入力してください。') !== 'RESET') {
+      say('確認文字が一致しないため初期化を中止しました。');
+      return;
+    }
+    restoreMutationBusy = true;
+    resetInspect.disabled = true;
+    say(label + ' のテストデータを初期化中…');
+    try {
+      const result = await resetModeForExhibit(modeId, snapshot);
+      if (result.status === 'partial') {
+        say(label + ' の進化履歴を初期化しましたが、'
+          + '後処理が未完了です：' + result.detail
+          + '。このモードの初期化をもう一度実行してください。');
+      } else {
+        say(label + ' の初期化が完了しました。表示を更新します。');
+        location.reload();
+      }
+    } catch (error) {
+      say('初期化は完了していません：' + (error?.message || String(error))
+        + '。保存状況を再確認してください。');
+    } finally {
+      restoreMutationBusy = false;
+      resetInspect.disabled = false;
+    }
+  });
   function clearPreparedBackup() {
     preparedBackup=null;
     shareButton.hidden=true;
     downloadButton.hidden=true;
   }
   selector.addEventListener('change',()=>{
+    resetSnapshot = null;
+    resetExecute.disabled = true;
+    resetReadout.hidden = true;
     preparationId++;
     clearPreparedBackup();
     if(!preparingBackup)say('モードを変更しました。バックアップを準備し直してください。');
