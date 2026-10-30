@@ -65,7 +65,7 @@ assertHas(game,/次へ（進化シアター）/);
 assertHas(game,/sessionStorage\.setItem\(HANDOVER_KEY/);
 assertHas(game,/sessionStorage\.getItem\(VISIT_KEY/);
 assertHas(game,/continueButton\?\.addEventListener\('click', event =>/);
-assertHas(game,/next !== previous/);
+assertHas(game,/next === generationId\(completed \+ 1\)/);
 assertHas(game,/new URL\('modes\.html', home\.href\)/);
 assertHas(gameCSS,/#reviewOverlay #exhibitHandover/);
 assert.doesNotMatch(gameCSS,/position:fixed[^}]*#exhibitHandover/);
