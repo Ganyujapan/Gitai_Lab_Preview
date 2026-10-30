@@ -29,7 +29,9 @@ function fixture({clearFails=false,lifeRemoveFails=false}={}) {
   const warningLifeKey='gitai-warning-life-v1:'+MODES.warning.db;
   const local=new Map([[warningLifeKey,'old warning hearts'],['admin-pin','keep']]);
   const session=new Map([['gitai-exhibit-visit-start-v1',JSON.stringify({mode:'warning',start:18})],
-    ['gitai-exhibit-handover-v1',JSON.stringify({mode:'warning',start:17,end:18})]]);
+    ['gitai-exhibit-handover-v1',JSON.stringify({mode:'warning',start:17,end:18})],
+    ['gitai-exhibit-handover-pending-v1',
+      JSON.stringify({mode:'warning',start:17,end:18})]]);
   let reads=0,writes=0,closes=0,txAborts=0;
   function openDb(name){
     const mode=Object.keys(MODES).find(key=>MODES[key].db===name);
