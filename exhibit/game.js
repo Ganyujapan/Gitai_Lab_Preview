@@ -22,6 +22,10 @@
   const continueButton = document.getElementById('continueButton');
   const VISIT_KEY = 'gitai-exhibit-visit-start-v1';
   const HANDOVER_KEY = 'gitai-exhibit-handover-v1';
+  // Persist the submission intent BEFORE advancing a generation. A page reload
+  // between the IndexedDB commit and life/session writes must not evolve again.
+  const PENDING_HANDOVER_KEY = 'gitai-exhibit-handover-pending-v1';
+  const generationId = n => 'gen' + String(n).padStart(5, '0');
   const mode = route.searchParams.get('experiment') === 'warning_color'
     ? 'warning' : 'cryptic';
   let firstGeneration = null;
@@ -104,23 +108,38 @@
   // and could leave the next visitor with the previous visitor's low life.
   // The generation-ready button becomes unhidden only after the game's
   // life-saving step has completed. This waits for BOTH, not just the DB.
-  async function resetWarningLifeForNextVisitor(nextGenerationId) {
+  async function resetWarningLifeForNextVisitor(nextGenerationId, afterReload = false) {
     if (mode !== 'warning') return;
     const initial = window.GitaiWarningColor?.LIFE_INITIAL_THIRDS;
     if (initial !== 30) {
       throw Error('ライフ初期値を確認できません。スタッフにお知らせください。');
     }
-    const readyButton = document.getElementById('generationContinueButton');
-    let gameReady = false;
-    for (let attempt = 0; attempt < 180; attempt += 1) {
-      if (readyButton?.hidden === false) {
-        gameReady = true;
-        break;
+    if (afterReload) {
+      // The ready overlay is not restored after a full reload. Only trust the
+      // persisted life written by the main game for the exact committed child.
+      const key = 'gitai-warning-life-v1:'
+        + window.GitaiPagesPreview?.context?.storageNamespace;
+      let stored;
+      try { stored = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) {}
+      if (stored?.generation_id !== nextGenerationId
+          || !Number.isInteger(stored?.thirds)
+          || stored.thirds < 0 || stored.thirds > initial) {
+        throw Error('再読み込み後のライフ保存を確認できません。'
+          + '進化データは変更せず停止しました。スタッフにお知らせください。');
       }
-      await delay(500);
-    }
-    if (!gameReady) {
-      throw Error('次世代のライフ保存完了を確認できませんでした。スタッフにお知らせください。');
+    } else {
+      const readyButton = document.getElementById('generationContinueButton');
+      let gameReady = false;
+      for (let attempt = 0; attempt < 180; attempt += 1) {
+        if (readyButton?.hidden === false) {
+          gameReady = true;
+          break;
+        }
+        await delay(500);
+      }
+      if (!gameReady) {
+        throw Error('次世代のライフ保存完了を確認できませんでした。スタッフにお知らせください。');
+      }
     }
     const namespace = window.GitaiPagesPreview?.context?.storageNamespace;
     if (!namespace || await savedGeneration() !== nextGenerationId) {
@@ -139,6 +158,55 @@
     } catch (error) {
       throw Error('次の来場者のライフ10を保存できませんでした。'
         + '進化データは保存済みの可能性があります。スタッフにお知らせください。');
+    }
+  }
+
+  function finishSavedHandover(intent) {
+    sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
+      mode: intent.mode, start: intent.start, end: intent.end
+    }));
+    sessionStorage.removeItem(VISIT_KEY);
+    sessionStorage.removeItem(PENDING_HANDOVER_KEY);
+    const nextPage = new URL('modes.html', home.href);
+    nextPage.searchParams.set('handover', '1');
+    location.assign(nextPage.href);
+  }
+
+  // Full page reload or tab restoration: finish ONLY a proven, already
+  // committed handover. Never click the evolution submit button in recovery.
+  let recoveryRunning = false;
+  async function recoverPendingHandover() {
+    if (recoveryRunning || handoverPending) return;
+    let intent;
+    try { intent = JSON.parse(sessionStorage.getItem(PENDING_HANDOVER_KEY) || 'null'); }
+    catch (_) { return; }
+    if (!intent) return;
+    const namespace = window.GitaiPagesPreview?.context?.storageNamespace;
+    if (!namespace) return; // game model may still be initializing
+    recoveryRunning = true;
+    try {
+      if (intent.mode !== mode || intent.namespace !== namespace
+          || !Number.isSafeInteger(intent.start) || intent.start < 1
+          || !Number.isSafeInteger(intent.end) || intent.end < intent.start
+          || intent.end - intent.start > 4
+          || intent.previous !== generationId(intent.end)
+          || intent.next !== generationId(intent.end + 1)) {
+        throw Error('交代記録の照合に失敗しました。進化データは変更していません。');
+      }
+      const current = await savedGeneration();
+      if (current === intent.previous) return; // original commit did not finish
+      if (current !== intent.next) {
+        throw Error('再読み込み中に世代が変更されました。交代を中断しました。');
+      }
+      // A fully committed game has already saved this generation's life.
+      // If the life write was interrupted, fail closed rather than guessing.
+      await resetWarningLifeForNextVisitor(current, true);
+      finishSavedHandover(intent);
+    } catch (error) {
+      console.error(error);
+      alert(String(error?.message || error));
+    } finally {
+      recoveryRunning = false;
     }
   }
 
@@ -164,12 +232,25 @@
         }
       } else {
         const previous = await savedGeneration();
+        if (previous !== generationId(completed)) {
+          throw Error('保存済み世代が結果画面と一致しません。交代を中断しました。');
+        }
+        const namespace = window.GitaiPagesPreview?.context?.storageNamespace;
+        if (!namespace) throw Error('進化データの保存先が不明です。');
+        const intent = {
+          mode, start: firstGeneration, end: completed, namespace,
+          previous, next: generationId(completed + 1)
+        };
+        const serialized = JSON.stringify(intent);
+        sessionStorage.setItem(PENDING_HANDOVER_KEY, serialized);
+        if (sessionStorage.getItem(PENDING_HANDOVER_KEY) !== serialized) {
+          throw Error('交代の保護記録を保存できません。進化データは変更していません。');
+        }
         continueButton.click();
         for (let i = 0; i < 180; i += 1) {
           await delay(500);
           const next = await savedGeneration();
-          if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(next)) && Number(next.slice(3)) > completed
-            && next !== previous) {
+          if (next === generationId(completed + 1)) {
             committedOffspringForHandover = next;
             break;
           }
@@ -186,18 +267,11 @@
       // evolution DB, genomes, images, history and ordinary continuous play
       // remain unchanged. Never reset on unsuccessful evolution or retry.
       await resetWarningLifeForNextVisitor(committedOffspringForHandover);
-      sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
+      // Clear the visit counter BEFORE theater playback. This also clears the
+      // pre-commit recovery marker, but only after all writes have succeeded.
+      finishSavedHandover({
         mode, start: firstGeneration, end: completed
-      }));
-      // This visitor has now finished. Do NOT wait until they watch the
-      // closing theater and press its final Next button to reset the visit
-      // counter: Safari may be closed or backgrounded during playback.
-      // The independent HANDOVER_KEY still lets the next page show this
-      // visitor's generations without reopening or modifying their data.
-      sessionStorage.removeItem(VISIT_KEY);
-      const nextPage = new URL('modes.html', home.href);
-      nextPage.searchParams.set('handover', '1');
-      location.assign(nextPage.href);
+      });
     } catch (error) {
       console.error(error);
       // The original result is ordinarily covered by the generation-ready
@@ -233,8 +307,13 @@
     subtree: true, attributes: true, attributeFilter: ['class'],
     childList: true, characterData: true
   });
-  window.addEventListener('gitai:solo-assets-ready', sync);
+  window.addEventListener('gitai:solo-assets-ready', () => {
+    sync();
+    void recoverPendingHandover();
+  });
   sync();
+  // Covers reloads where game initialization completed before this script ran.
+  void recoverPendingHandover();
 
   // Exhibition game HTML inherits #portalBackToMenu (not #backToMenu).
   // The production handler pauses SOLO and shows its hidden portal.
