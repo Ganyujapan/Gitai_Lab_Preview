@@ -43,7 +43,9 @@ assert.match(html,/solo_tutorial\.js\?v=20261030-warning-images4/);
 assert.match(html,/solo_tutorial\.css\?v=20261029-warning-image1/);
 assert.match(exhibitIndex,/experiment=warning_color[^"]*tutorial=1/);
 assert.match(exhibitGame,/history\.replaceState/);
-assert.match(exhibitGame,/GitaiSoloTutorial\?\.open\(\{ mode: 'warning' \}\)/);
+assert.match(exhibitIndex,/run=konchu2026_cryptic[^"]*tutorial=1/);
+assert.match(exhibitGame,/GitaiSoloTutorial\?\.open\(\{ mode: tutorialMode \}\)/);
+assert.match(exhibitGame,/\? 'warning' : 'solo'/);
 
 function run(exhibit=false) {
  const elements=new Map(),paint=[];
