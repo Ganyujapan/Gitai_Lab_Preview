@@ -39,7 +39,8 @@ function harness({canShare=true,shareError=null,canShareError=null}={}){
   const msgs=[],links=[];
   const file={name:'gitailab_2026_cryptic_gen00042.json',size:4096};
   const controls=Object.fromEntries(
-    ['exhibitBackupExport','exhibitBackupShare','exhibitBackupDownload'].map(id=>[
+    ['exhibitBackupExport','exhibitBackupShare','exhibitBackupDownload',
+      'exhibitResetInspect','exhibitResetExecute','exhibitResetPreview'].map(id=>[
       id,{hidden:id!=='exhibitBackupExport',disabled:false,
         addEventListener(type,cb){listeners[id+':'+type]=cb}}
     ])
