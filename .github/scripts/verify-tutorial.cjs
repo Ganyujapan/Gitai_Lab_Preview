@@ -3,20 +3,33 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
+const crypto=require('node:crypto');
 const code=fs.readFileSync('js/solo_tutorial.js','utf8');
 const css=fs.readFileSync('css/solo_tutorial.css','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const exhibitIndex=fs.readFileSync('exhibit/modes.html','utf8');
 const exhibitGame=fs.readFileSync('exhibit/game.js','utf8');
 assert.match(code,/function arrow\(/);
-assert.match(code,/image:'img\/tutorial\/tutorial_warning_01_1080x1760\.png'/);
+const tutorialAssets=[
+ ['tutorial_warning_01_1080x1760.png','e3ff7d7ef4fef1ec937f465b4c038e05db35d681b131a4e05905c5cbe878865d'],
+ ['tutorial_warning_02_1080x1760.png','6c021c9add485bc34a32f65a8b63134d4298e671f0210050400021d307146c67'],
+ ['tutorial_warning_03_1080x1760.png','8d19c3c32bcc6653123228d58fc0dfa5384cb5d99abb8b19429e09a029e9c9ec'],
+ ['tutorial_warning_04_1080x1760.png','9d769e25abb7aba351d78d205dc227c913efc6a9b43d421e6620f6a9e53cae59']
+];
+for(const [file,hash] of tutorialAssets){
+ const path='img/tutorial/'+file;
+ assert.ok(code.includes("image:'"+path+"'"),'missing slide image mapping '+path);
+ const picture=fs.readFileSync(path);
+ assert.equal(picture.subarray(0,8).toString('hex'),'89504e470d0a1a0a',path);
+ assert.equal(picture.readUInt32BE(16),1080,path+' width');
+ assert.equal(picture.readUInt32BE(20),1758,path+' height');
+ assert.equal(crypto.createHash('sha256').update(picture).digest('hex'),hash,
+  'image must match the exact user-uploaded PNG bytes: '+path);
+}
+assert.match(code,/alt="" aria-hidden="true"/);
 assert.match(code,/const ratio=\(activeMode==='warning'&&activeSlides\[page\]\?\.image\)\?1080\/1758:9\/16/);
 assert.match(css,/object-fit:contain/);
 assert.match(css,/is-warning-image \.tutorial-title/);
-const picture=fs.readFileSync('img/tutorial/tutorial_warning_01_1080x1760.png');
-assert.equal(picture.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
-assert.equal(picture.readUInt32BE(16),1080);
-assert.equal(picture.readUInt32BE(20),1758);
 assert.match(code,/#ee2c31/);
 assert.match(code,/function warningHud\(/);
 assert.match(code,/function warningGallery\(/);
@@ -26,7 +39,7 @@ assert.match(css,/aspect-ratio:9\/16/);
 assert.match(css,/is-warning \.tutorial-copy/);
 assert.match(css,/font-size:clamp\(16px,4\.4vw,19px\)/);
 assert.match(code,/const labelSize=Math\.max\(13,Math\.min\(19,/);
-assert.match(html,/solo_tutorial\.js\?v=20261029-warning-image1/);
+assert.match(html,/solo_tutorial\.js\?v=20261030-warning-images4/);
 assert.match(html,/solo_tutorial\.css\?v=20261029-warning-image1/);
 assert.match(exhibitIndex,/experiment=warning_color[^"]*tutorial=1/);
 assert.match(exhibitGame,/history\.replaceState/);
@@ -94,16 +107,23 @@ async function check() {
     String(i+1).padStart(2,'0')+' / '+String(n).padStart(2,'0'));
    assert.ok(h.elements.get('#soloTutorialText').textContent.includes(expected[i]));
    assert.equal(h.elements.get('#soloTutorialNext').textContent,i===n-1?'はじめる':'次へ');
-   if(i<n-1){
-    h.advance();
-    assert.equal(h.elements.get('#soloTutorialImage').hidden,true,'later pages keep Canvas');
-    assert.equal(h.elements.get('#soloTutorialCanvas').hidden,false,'later Canvas remains visible');
+   if(i<4){
+    assert.equal(h.elements.get('#soloTutorialImage').hidden,false,
+      'authored images must appear on pages 1-4');
+    assert.equal(h.elements.get('#soloTutorialCanvas').hidden,true);
+    assert.ok(h.elements.get('#soloTutorialImage').src.endsWith('/'+tutorialAssets[i][0]),
+      'wrong image on slide '+(i+1));
+   }else{
+    assert.equal(h.elements.get('#soloTutorialImage').hidden,true,
+      'pages 5-7 keep the current live Canvas');
+    assert.equal(h.elements.get('#soloTutorialCanvas').hidden,false);
    }
+   if(i<n-1)h.advance();
   }
   assert.equal(finished,0);
   assert.ok(h.paint.some(args=>args[0]?.realSprite),'moths use renderer sprites');
   h.advance();assert.equal(finished,1);assert.equal(h.api.isOpen,false);
  }
- console.log('Warning tutorial: six public, seven exhibit, correct heart arrows, no forced navigation.');
+ console.log('Warning tutorial: exact PNGs on pages 1-4, Canvas on 5-7; six public, seven exhibit, no forced navigation.');
 }
 check().catch(e=>{console.error(e);process.exitCode=1;});
