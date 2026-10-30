@@ -100,8 +100,14 @@ function setup() {
   state.theater_frames.set('gen00018-frame',{old:true});
  }
  const lifeKey='gitai-warning-life-v1:'+MODES.warning.db;
+ const durableKeys=Object.fromEntries(Object.keys(MODES).map(m=>[
+   m,'gitai-exhibit-visit-start-durable-v1:'+MODES[m].db
+ ]));
  const local=new Map([[lifeKey,JSON.stringify({generation_id:'gen00018',thirds:9})],
-                      ['admin-passcode','keep']]);
+                      ['admin-passcode','keep'],
+                      ...Object.keys(MODES).map(m=>[durableKeys[m],JSON.stringify({
+                        mode:m,namespace:MODES[m].db,start:16
+                      })])]);
  const sessions=new Map([
   ['gitai-exhibit-visit-start-v1',JSON.stringify({mode:'warning',start:17})],
   ['gitai-exhibit-handover-v1',JSON.stringify({mode:'warning',start:16,end:17})],
@@ -140,7 +146,8 @@ function setup() {
     :{schema_version:1,individual:j+1}
   ]));
  }
- return {data,local,sessions,caches,lifeKey,admin:adminCtx.api,engineFor,sixty};
+ return {data,local,sessions,caches,lifeKey,durableKeys,
+   admin:adminCtx.api,engineFor,sixty};
 }
 (async()=>{
  for(const mode of ['cryptic','warning']){
@@ -166,6 +173,10 @@ function setup() {
   assert.equal(f.data[other].images.get('gen00018:01'),originalOther.image);
   assert.equal(f.data[other].meta.get('restore_epoch'),originalOther.epoch);
   assert.equal(f.local.get('admin-passcode'),'keep');
+  assert.equal(f.local.has(f.durableKeys[mode]),false,
+    'selected experiment loses its old five-generation counter');
+  assert.equal(f.local.has(f.durableKeys[other]),true,
+    'unrelated experiment keeps its visitor counter');
   assert.equal(f.caches.get('offline-app-cache'),'unchanged');
   if(mode==='warning'){
    assert.equal(f.local.has(f.lifeKey),false);
