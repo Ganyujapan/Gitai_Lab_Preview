@@ -48,6 +48,7 @@
   let handoverData = null;
   let finalTimer = null;
   let playback = null;
+  let resumeHandoverOnPageshow = false;
   let token = 0;
   let focusReturn = null;
   let originalOverflow = '';
@@ -184,7 +185,8 @@
       clearInterval(playback);
       playback = null;
     }
-    play.textContent = '再生';
+    play.textContent = handoverData && frames.length > 1
+      && cursor === frames.length - 1 ? 'もう一度再生' : '再生';
   }
   function enableControls(enabled) {
     slider.disabled = !enabled;
@@ -260,9 +262,33 @@
   }
   function finishHandover() {
     if (!handoverData || dialog.hidden) return;
+    // Retain the last moth snapshot, playback controls and focus.
+    // No completion overlay or navigation: visitor explicitly exits below.
     stopPlayback();
-    handoverFinished.hidden = false;
-    handoverFinishNext.focus({ preventScroll: true });
+    if (frames.length > 1) play.textContent = 'もう一度再生';
+  }
+  function beginPlayback(intervalMs) {
+    if (playback !== null || frames.length < 2) return;
+    play.textContent = '停止';
+    let stalledTicks = 0;
+    playback = setInterval(() => {
+      if (dialog.hidden) { stopPlayback(); return; }
+      // Wait for the previous PNG decode before advancing on a slow iPad.
+      if (pendingFrameIndex !== null) {
+        if (++stalledTicks > 50) {
+          if (handoverData) finishHandover();
+          else stopPlayback();
+        }
+        return;
+      }
+      stalledTicks = 0;
+      if (cursor >= frames.length - 1) {
+        if (handoverData) finishHandover();
+        else stopPlayback();
+      } else {
+        showFrame(cursor + 1);
+      }
+    }, intervalMs);
   }
   function scheduleHandoverPlayback() {
     if (!handoverData || dialog.hidden) return;
@@ -270,17 +296,7 @@
       finalTimer = setTimeout(finishHandover, frames.length ? 1300 : 400);
       return;
     }
-    let steps = 0;
-    playback = setInterval(() => {
-      if (dialog.hidden) { stopPlayback(); return; }
-      if (cursor >= frames.length - 1) {
-        stopPlayback();
-        finalTimer = setTimeout(finishHandover, 1100);
-      } else {
-        showFrame(cursor + 1);
-      }
-      if (++steps > 50) finishHandover();
-    }, 950);
+    beginPlayback(950);
   }
   function closeTheater() {
     if (dialog.hidden || handoverData) return;
@@ -307,7 +323,8 @@
     cursor = 0;
     handoverData = handover;
     dialog.classList.toggle('is-handover', !!handover);
-    handoverFinished.hidden = true;
+    // Small footer stays visible, but never obscures the moth canvas.
+    handoverFinished.hidden = !handover;
     markers.hidden = true;
     playedLabel.hidden = true;
     stage.classList.remove('is-played');
@@ -388,14 +405,8 @@
     if (playback !== null) { stopPlayback(); return; }
     if (frames.length < 2) return;
     if (cursor === frames.length - 1) showFrame(0);
-    play.textContent = '停止';
-    playback = setInterval(() => {
-      if (cursor >= frames.length - 1) {
-        stopPlayback();
-        return;
-      }
-      showFrame(cursor + 1);
-    }, 800);
+    // The interval will wait for frame 1 to finish decoding.
+    beginPlayback(800);
   });
   dialog.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
@@ -419,6 +430,7 @@
     // Invalidate a pending IDB read as well as pending image decoding.
     // BFCache retains JavaScript state but our object URLs are revoked.
     token += 1;
+    resumeHandoverOnPageshow = !!handoverData && playback !== null;
     stopPlayback();
     if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     releaseImage();
@@ -431,7 +443,10 @@
       // already-read Blob records, not a new experiment or DB write.
       if (!frameUrls.length) assignFrameUrls();
       showFrame(cursor);
-      if (handoverData && handoverFinished.hidden) scheduleHandoverPlayback();
+      if (handoverData && resumeHandoverOnPageshow) {
+        resumeHandoverOnPageshow = false;
+        scheduleHandoverPlayback();
+      }
     } else {
       // The page was suspended before the readonly theater query finished.
       // It was invalidated on pagehide, so restart that read deliberately.
