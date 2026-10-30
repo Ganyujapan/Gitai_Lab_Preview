@@ -12,9 +12,9 @@
  ]);
  const warningSlides=Object.freeze([
   {heading:'毒蛾と無毒蛾',description:'画面には毒蛾6匹と無毒蛾6匹、計12匹が現れます。\nこのうち5匹をタップして捕食してください。',image:'img/tutorial/tutorial_warning_01_1080x1760.png'},
-  {heading:'毒ダメージに注意！',description:'毒蛾を食べるとハートが1つ減ります。\n無毒の蛾を食べると、ハートが1/3回復します。'},
-  {heading:'ハートがなくなると',description:'ハートが0になると中毒死し、その世代は終了します。\n保存された進化データは消えず、続きから挑戦できます。'},
-  {heading:'60匹で1世代',description:'1世代は5ラウンド・60個体。\n生き残った蛾が親となり、毒蛾と無毒蛾は交配せず、それぞれ別々に進化します。'},
+  {heading:'毒ダメージに注意！',description:'毒蛾を食べるとハートが1つ減ります。\n無毒の蛾を食べると、ハートが1/3回復します。',image:'img/tutorial/tutorial_warning_02_1080x1760.png'},
+  {heading:'ハートがなくなると',description:'ハートが0になると中毒死し、その世代は終了します。\n保存された進化データは消えず、続きから挑戦できます。',image:'img/tutorial/tutorial_warning_03_1080x1760.png'},
+  {heading:'60匹で1世代',description:'1世代は5ラウンド・60個体。\n生き残った蛾が親となり、毒蛾と無毒蛾は交配せず、それぞれ別々に進化します。',image:'img/tutorial/tutorial_warning_04_1080x1760.png'},
   {heading:'第21世代から実験！',description:'真っ白な親から始まり、模様に少しずつ多様性が現れた第21世代からスタート。\n毒蛾と無毒蛾に違いがあるか、よく観察してみましょう！'},
   {heading:'進化のゆくえは？',description:'毒蛾と無毒蛾は、どんな模様に進化するでしょうか？\nあなたの捕食が、2つの進化を変えます！'}
  ]);
@@ -32,7 +32,7 @@
   '<div class="tutorial-inner">',
   '<div class="tutorial-header"><span class="tutorial-brand">INVISILAB / HOW TO PLAY</span><span id="soloTutorialStep" class="tutorial-step">01 / 04</span></div>',
   '<h2 id="soloTutorialHeading" class="tutorial-title"></h2>',
-  '<div class="tutorial-viewport"><div class="tutorial-canvas-wrap"><img id="soloTutorialImage" class="tutorial-slide-image" alt="目立つギタイの操作説明。12匹の蛾から5匹をタップして捕食。毒蛾6匹と無毒蛾6匹が登場します。" hidden><canvas id="soloTutorialCanvas" width="360" height="640" role="img" aria-label="ゲームの実際の背景と蛾の描画素材を使った説明画像。赤い矢印はハートの位置などを示します"></canvas></div></div>',
+  '<div class="tutorial-viewport"><div class="tutorial-canvas-wrap"><img id="soloTutorialImage" class="tutorial-slide-image" alt="" aria-hidden="true" hidden><canvas id="soloTutorialCanvas" width="360" height="640" role="img" aria-label="ゲームの実際の背景と蛾の描画素材を使った説明画像。赤い矢印はハートの位置などを示します"></canvas></div></div>',
   '<p id="soloTutorialText" class="tutorial-copy" aria-live="polite"></p>',
   '<div id="soloTutorialProgress" class="tutorial-progress"></div>',
   '<div class="tutorial-actions"><button id="soloTutorialSkip" type="button">スキップ</button><button id="soloTutorialNext" type="button">次へ</button></div></div>'
