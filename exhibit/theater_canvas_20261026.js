@@ -240,6 +240,29 @@
       markers.appendChild(marker);
     }
   }
+  function followCurrentMarker() {
+    // The timeline contains every saved generation. On narrow iPad screens
+    // its scrollable row can hide later numbers (e.g. 34+) unless it follows
+    // the frame that was ACTUALLY drawn, rather than the requested frame.
+    if (markers.hidden || !markers.clientWidth
+        || markers.scrollWidth <= markers.clientWidth) return;
+    const marker = markers.children[cursor];
+    if (!marker || typeof marker.getBoundingClientRect !== 'function'
+        || typeof markers.getBoundingClientRect !== 'function') return;
+    const viewport = markers.getBoundingClientRect();
+    const selected = marker.getBoundingClientRect();
+    const margin = Math.min(12, viewport.width / 8);
+    let delta = 0;
+    if (selected.right > viewport.right - margin) {
+      delta = selected.right - viewport.right + margin;
+    } else if (selected.left < viewport.left + margin) {
+      delta = selected.left - viewport.left - margin;
+    }
+    if (delta) {
+      const max = markers.scrollWidth - markers.clientWidth;
+      markers.scrollLeft = Math.max(0, Math.min(max, markers.scrollLeft + delta));
+    }
+  }
   function showFrame(index) {
     if (index < 0 || index >= frames.length) return;
     if (pendingFrameIndex === index) return;
@@ -263,6 +286,7 @@
       for (let i = 0; i < markers.children.length; i++) {
         markers.children[i].classList.toggle('is-current', i === cursor);
       }
+      followCurrentMarker();
       meta.textContent = '第' + generation + '世代 · ' +
         (cursor + 1) + ' / ' + frames.length + '枚';
       counter.textContent = (cursor + 1) + ' / ' + frames.length;

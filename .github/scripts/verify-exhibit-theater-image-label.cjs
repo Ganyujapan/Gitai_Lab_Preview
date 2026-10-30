@@ -23,7 +23,7 @@ const marker = ()=> {
 };
 const frames=[1,2,3].map(n=>({generation_id:'gen'+String(n).padStart(5,'0')}));
 const images=new Map();
-const painted=[];
+const painted=[],followed=[];
 const ctx={
  frames,cursor:0,pendingFrameIndex:null,frameLoadId:0,
  dialog:{hidden:false},canvas:{hidden:true,width:600,height:1000},
@@ -36,6 +36,7 @@ const ctx={
  handoverData:{start:2,end:3},
  empty:{hidden:false,textContent:'loading'},
  numberOf:g=>Number(g.slice(3)),
+ followCurrentMarker(){followed.push(ctx.cursor)},
  console:{warn:()=>{}},
  decodeFrame(index){
    if (!images.has(index))images.set(index,delayed());
@@ -55,6 +56,7 @@ const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
  await flush();
  assert.deepEqual(painted,[3]);
  assert.equal(ctx.cursor,2);
+ assert.deepEqual(followed,[2],'follow the numbered frame only after its image is painted');
  assert.equal(ctx.meta.textContent,'第3世代 · 3 / 3枚');
  assert.equal(ctx.counter.textContent,'3 / 3');
  assert.equal(ctx.slider.value,'2');
