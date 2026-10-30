@@ -57,7 +57,7 @@ assertHas(html,/id="exhibitTheaterMarkers"/);
 assertHas(html,/id="exhibitTheaterPlayed"/);
 assertHas(html,/id="exhibitHandoverFinished"/);
 assertHas(html,/id="exhibitHandoverFinishNext"/);
-assertHas(html,/何度でも再生できます/);
+assert.doesNotMatch(html,/何度でも再生できます/,'requested theater explanation is removed');
 assert.doesNotMatch(css,/\.exhibit-handover-finished\{position:absolute/);
 assert.doesNotMatch(css,/\.is-handover \.exhibit-theater-controls\{display:none/);
 assertHas(html,/id="exhibitGenerationCryptic"/);
@@ -70,7 +70,7 @@ assertHas(css,/persistent composited drawing surface/i);
 assertHas(theater,/picture\.drawImage\(bitmap, 0, 0, canvas\.width, canvas\.height\)/);
 assert.doesNotMatch(theater,/target\.hidden = true/);
 assertHas(game,/reviewOverlay\?\.querySelector\('\.review-actions'\)/);
-assertHas(game,/次へ（進化シアター）/);
+assertHas(game,/continueButton.textContent = '次へ'/);
 assertHas(game,/sessionStorage\.setItem\(HANDOVER_KEY/);
 assertHas(game,/sessionStorage\.getItem\(VISIT_KEY/);
 assertHas(game,/continueButton\?\.addEventListener\('click', event =>/);
@@ -142,10 +142,15 @@ function setup({handover=false,absentWarning=false}={}) {
       let got=false,done=false;
       const tx={objectStore(store){
        return {
-        get(key){assert.equal(store,'meta');assert.equal(key,'current_generation_id');const g={};queueMicrotask(()=>{g.result=source.generation;g.onsuccess?.();got=true;if(done)queueMicrotask(()=>tx.oncomplete?.())});return g;},
-        openCursor(){const q={};queueMicrotask(()=>{
+        get(key){const g={};queueMicrotask(()=>{
+          if(store==='meta'){assert.equal(key,'current_generation_id');g.result=source.generation;got=true;}
+          else if(store==='theater_frames'){g.result=source.frames.find(f=>f.generation_id===key);}
+          else throw Error('unexpected readonly store '+store);
+          g.onsuccess?.();if(done)queueMicrotask(()=>tx.oncomplete?.());
+        });return g;},
+        openKeyCursor(){assert.equal(store,'theater_frames');const q={};queueMicrotask(()=>{
          let i=0;function pump(){if(i<source.frames.length){
-          q.result={value:source.frames[i++],continue:()=>queueMicrotask(pump)};
+          q.result={key:source.frames[i++].generation_id,continue:()=>queueMicrotask(pump)};
           q.onsuccess?.();
          }else{q.result=null;q.onsuccess?.();done=true;if(got)queueMicrotask(()=>tx.oncomplete?.())}}
          pump();
@@ -232,7 +237,7 @@ function setup({handover=false,absentWarning=false}={}) {
    'next-person button stays available without covering the moths');
  assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'停止',
    'automatic playback is preserved');
- assert.equal(h.elements.get('exhibitTheaterMarkers').children.length,6);
+ assert.equal(h.elements.get('exhibitTheaterMarkers').children.length,7,'full read-only history available');
  assert.equal(h.elements.get('exhibitTheaterMarkers').children.filter(x=>x.classList.contains('is-played')).length,5);
  assert.equal(h.elements.get('exhibitTheaterPlayed').hidden,true,'pre-visitor frame is unmarked');
  h.tick();await h.settle();
@@ -243,7 +248,7 @@ function setup({handover=false,absentWarning=false}={}) {
  assert.equal(h.elements.get('exhibitTheaterDialog').hidden,false);
  assert.equal(h.elements.get('exhibitTheaterCanvas').hidden,false,
    'last moth image remains visible after playback');
- assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'6 / 6');
+ assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'7 / 7');
  assert.deepEqual(h.navigated,[],'animation end cannot navigate');
  const paints=h.paints.length;
  h.elements.get('exhibitTheaterPlay').trigger('click');
@@ -253,7 +258,7 @@ function setup({handover=false,absentWarning=false}={}) {
    'replay begins again from the first frame');
  for(let i=0;i<8;i++){h.tick();await h.settle()}
  assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'もう一度再生');
- assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'6 / 6');
+ assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'7 / 7');
  assert.ok(h.paints.length>paints,'replay repaints the visitor history');
  assert.deepEqual(h.navigated,[],'replay never auto-navigates');
  h.elements.get('exhibitHandoverFinishNext').trigger('click');
