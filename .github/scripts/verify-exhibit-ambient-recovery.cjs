@@ -12,7 +12,7 @@ assert.match(exhibit,/lastAutoResumeAttemptAt/);
 assert.match(exhibit,/resumeFromGesture\(\)/);
 assert.doesNotMatch(publicAudio,/lastAutoResumeAttemptAt/,'standard preview audio remains unchanged');
 const listeners={}, media=[], timers=[], attr={};
-const button={setAttribute(k,v){attr[k]=v},textContent:'',title:''};
+const button={setAttribute(k,v){attr[k]=v},addEventListener(){},textContent:'',title:''};
 class Player {
  constructor(){this.paused=true;this.ended=false;this.currentTime=0;this.duration=27;this.loop=false;this.muted=false;this.listeners={};this.plays=0;}
  setAttribute(){}
