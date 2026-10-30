@@ -1015,7 +1015,8 @@
       }
     }
     for (const key of ['gitai-exhibit-visit-start-v1',
-                       'gitai-exhibit-handover-v1']) {
+                       'gitai-exhibit-handover-v1',
+                       'gitai-exhibit-handover-pending-v1']) {
       try {
         const state = JSON.parse(sessionStorage.getItem(key) || 'null');
         if (state?.mode === modeId) sessionStorage.removeItem(key);
