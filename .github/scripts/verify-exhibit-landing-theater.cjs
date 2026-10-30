@@ -87,7 +87,7 @@ for(const db of [crypticDb,warningDb]){assert.ok(admin.includes(db));assert.ok(t
 const HANDOVER_KEY='gitai-exhibit-handover-v1';
 const VISIT_KEY='gitai-exhibit-visit-start-v1';
 
-function setup({handover=false,absentWarning=false}={}) {
+function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
  const elements=new Map(), windowListeners={}, documentListeners={}, transactions=[], missingAborts=[],urls=[],revoked=[],navigated=[],timeouts=[],intervals=[];
  function node(id='') {
   const cl=new Set();
@@ -130,6 +130,13 @@ function setup({handover=false,absentWarning=false}={}) {
   [crypticDb]:{generation:'gen00031',frames:[{generation_id:'gen00029',image_blob:blob('cryptic29')},{generation_id:'gen00031',image_blob:blob('cryptic31')}]},
   [warningDb]:{generation:'gen00026',frames:[20,21,22,23,24,25,26].map(n=>({generation_id:'gen'+String(n).padStart(5,'0'),image_blob:blob('warn'+n)}))}
  };
+ if(largeWarning){
+  database[warningDb].generation='gen00061';
+  database[warningDb].frames=Array.from({length:60},(_,i)=>({
+   generation_id:'gen'+String(i+1).padStart(5,'0'),
+   image_blob:blob('warning historical '+(i+1))
+  }));
+ }
  if(absentWarning)delete database[warningDb];
  const indexedDB={open(name){
   const req={};queueMicrotask(()=>{
@@ -221,6 +228,19 @@ function setup({handover=false,absentWarning=false}={}) {
  s.close();assert.equal(s.elements.get('exhibitTheaterDialog').hidden,true);
  assert.ok(s.urls.every(u=>s.revoked.includes(u)),'all display URLs must be revoked');
  assert.ok(s.transactions.every(x=>x==='readonly'),'no database writes');
+
+ // Sixty saved generations and many visitor cycles must remain readable
+ // without opening a Blob URL (or decoding a bitmap) for every old frame.
+ const long=setup({largeWarning:true});await long.settle();
+ long.open('warning');await long.settle();
+ assert.equal(long.elements.get('exhibitTheaterProgress').textContent,'60 / 60');
+ assert.equal(long.elements.get('exhibitTheaterMarkers').hidden,true);
+ assert.ok(long.urls.length<=3,'long history must lazily decode only nearby images');
+ long.elements.get('exhibitTheaterSlider').trigger('input',0);await long.settle();
+ assert.equal(long.elements.get('exhibitTheaterProgress').textContent,'1 / 60');
+ assert.match(long.elements.get('exhibitTheaterMeta').textContent,/第1世代/);
+ assert.ok(long.transactions.every(mode=>mode==='readonly'));
+ long.close();
 
  const missing=setup({absentWarning:true});await missing.settle();
  assert.equal(missing.elements.get('exhibitGenerationWarning').textContent,'現在 未開始');
