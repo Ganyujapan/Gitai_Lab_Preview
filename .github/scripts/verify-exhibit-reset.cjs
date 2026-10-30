@@ -29,7 +29,11 @@ function fixture({clearFails=false,lifeRemoveFails=false}={}) {
   const warningLifeKey='gitai-warning-life-v1:'+MODES.warning.db;
   const durableCryptic='gitai-exhibit-visit-start-durable-v1:'+MODES.cryptic.db;
   const durableWarning='gitai-exhibit-visit-start-durable-v1:'+MODES.warning.db;
+  const pendingCryptic='gitai-exhibit-handover-pending-durable-v1:'+MODES.cryptic.db;
+  const pendingWarning='gitai-exhibit-handover-pending-durable-v1:'+MODES.warning.db;
   const local=new Map([[warningLifeKey,'old warning hearts'],['admin-pin','keep'],
+    [pendingCryptic,'synthetic pending cryptic'],
+    [pendingWarning,'synthetic pending warning'],
     [durableCryptic,JSON.stringify({mode:'cryptic',namespace:MODES.cryptic.db,start:15})],
     [durableWarning,JSON.stringify({mode:'warning',namespace:MODES.warning.db,start:16})]]);
   const session=new Map([['gitai-exhibit-visit-start-v1',JSON.stringify({mode:'warning',start:18})],
@@ -104,7 +108,7 @@ function fixture({clearFails=false,lifeRemoveFails=false}={}) {
   };
   vm.runInNewContext(helperCode,context,{timeout:2500});
   return {api:context.api,data,local,session,warningLifeKey,
-    durableCryptic,durableWarning,
+    durableCryptic,durableWarning,pendingCryptic,pendingWarning,
     get reads(){return reads},get writes(){return writes},
     get closes(){return closes},get aborts(){return txAborts}};
 }
@@ -127,6 +131,9 @@ function fixture({clearFails=false,lifeRemoveFails=false}={}) {
     'admin reset clears selected mode\'s durable visitor allowance');
   assert.equal(i.local.has(i.durableWarning),true,
     'reset does not clear the other mode\'s allowance');
+  assert.equal(i.local.has(i.pendingCryptic),false);
+  assert.equal(i.local.has(i.pendingWarning),true,
+    'other mode pending handover is not touched by this reset');
   assert.equal(i.local.get(i.warningLifeKey),'old warning hearts');
   assert.ok(i.session.has('gitai-exhibit-visit-start-v1'),
     'a cryptic reset does not erase a warning visitor session');
@@ -138,6 +145,8 @@ function fixture({clearFails=false,lifeRemoveFails=false}={}) {
   assert.ok(!i.local.has(i.warningLifeKey),'warning life key cleared');
   assert.equal(i.local.has(i.durableWarning),false,
     'warning reset clears its durable visitor allowance');
+  assert.equal(i.local.has(i.pendingWarning),false,
+    'warning reset clears any interrupted warning handover');
   assert.equal(i.local.get('admin-pin'),'keep','administrator PIN never reset');
   assert.equal(i.session.size,0,'warning session and handover cleared');
   assert.equal(i.closes,4,'all DB connections closed');

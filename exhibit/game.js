@@ -29,6 +29,7 @@
   // Persist the submission intent BEFORE advancing a generation. A page reload
   // between the IndexedDB commit and life/session writes must not evolve again.
   const PENDING_HANDOVER_KEY = 'gitai-exhibit-handover-pending-v1';
+  const DURABLE_PENDING_PREFIX = 'gitai-exhibit-handover-pending-durable-v1:';
   const generationId = n => 'gen' + String(n).padStart(5, '0');
   const mode = route.searchParams.get('experiment') === 'warning_color'
     ? 'warning' : 'cryptic';
@@ -203,9 +204,12 @@
     // life have been committed. A failure keeps recovery available.
     const storage = visitStorage();
     if (!storage) throw Error('交代前の保存先を確認できません。');
+    const durablePendingKey = DURABLE_PENDING_PREFIX + storage.namespace;
     localStorage.removeItem(storage.key);
-    if (localStorage.getItem(storage.key) !== null) {
-      throw Error('来場者カウントの完了を保存できませんでした。');
+    localStorage.removeItem(durablePendingKey);
+    if (localStorage.getItem(storage.key) !== null
+        || localStorage.getItem(durablePendingKey) !== null) {
+      throw Error('来場者交代の完了を保存できませんでした。');
     }
     sessionStorage.removeItem(VISIT_KEY);
     sessionStorage.removeItem(PENDING_HANDOVER_KEY);
@@ -220,14 +224,31 @@
   let recoveryRunning = false;
   async function recoverPendingHandover() {
     if (recoveryRunning || handoverPending) return;
-    let intent;
-    try { intent = JSON.parse(sessionStorage.getItem(PENDING_HANDOVER_KEY) || 'null'); }
-    catch (_) { return; }
-    if (!intent) return;
     const namespace = window.GitaiPagesPreview?.context?.storageNamespace;
     if (!namespace) return; // game model may still be initializing
+    let sessionIntent = null;
+    let durableIntent = null;
+    try { sessionIntent = JSON.parse(sessionStorage.getItem(PENDING_HANDOVER_KEY) || 'null'); }
+    catch (_) {}
+    try {
+      durableIntent = JSON.parse(localStorage.getItem(DURABLE_PENDING_PREFIX + namespace) || 'null');
+    } catch (_) {}
+    // The single legacy session key may belong to the OTHER exhibit mode.
+    // Never apply its pending generation to the currently opened namespace.
+    const sessionMatches = sessionIntent?.mode === mode && sessionIntent.namespace === namespace;
+    const intent = durableIntent || (sessionMatches ? sessionIntent : null);
+    if (!intent) return;
     recoveryRunning = true;
     try {
+      if (durableIntent && sessionMatches
+          && (durableIntent.mode !== sessionIntent.mode
+              || durableIntent.namespace !== sessionIntent.namespace
+              || durableIntent.start !== sessionIntent.start
+              || durableIntent.end !== sessionIntent.end
+              || durableIntent.previous !== sessionIntent.previous
+              || durableIntent.next !== sessionIntent.next)) {
+        throw Error('交代の記録が一致しません。安全のため処理を停止しました。');
+      }
       if (intent.mode !== mode || intent.namespace !== namespace
           || !Number.isSafeInteger(intent.start) || intent.start < 1
           || !Number.isSafeInteger(intent.end) || intent.end < intent.start
@@ -285,6 +306,13 @@
           previous, next: generationId(completed + 1)
         };
         const serialized = JSON.stringify(intent);
+        // Both writes must be durable before a next-generation submit. If
+        // iPadOS kills the PWA and drops sessionStorage, localStorage retains
+        // the exact intent so the already-committed child is not resubmitted.
+        localStorage.setItem(DURABLE_PENDING_PREFIX + namespace, serialized);
+        if (localStorage.getItem(DURABLE_PENDING_PREFIX + namespace) !== serialized) {
+          throw Error('交代の保護記録を保持できません。進化データは変更していません。');
+        }
         sessionStorage.setItem(PENDING_HANDOVER_KEY, serialized);
         if (sessionStorage.getItem(PENDING_HANDOVER_KEY) !== serialized) {
           throw Error('交代の保護記録を保存できません。進化データは変更していません。');
