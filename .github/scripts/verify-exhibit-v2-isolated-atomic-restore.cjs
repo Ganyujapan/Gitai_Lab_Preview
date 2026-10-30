@@ -159,6 +159,12 @@ function fakeDatabase({hasStage=true}={}) {
           v.__key[0]===id&&v.__key[1]==='meta'&&v.__key[2]==='current_generation_id');
         if(!row)throw Error('pointer not found');
         row[1].value.value=OLD;
+      } else if(kind==='changeStageIdentity') {
+        // A second incarnation of the same stage ID has the same count and
+        // data keys, but must never inherit the first attempt's proof.
+        for(const row of states.backup_v2_stage.values()){
+          if(row.__key[0]===id)row.value.stageToken='restore-'+'f'.repeat(32);
+        }
       } else if(kind==='replaceRequiredImage'||kind==='replaceRequiredGenome'){
         // Alter a required row to a plausible wrong suffix, retaining
         // the exact same total count and per-store counts.
@@ -235,6 +241,8 @@ async function errorMatching(p,pattern){await assert.rejects(p,pattern);}
   assert.equal(prepared.entries,122);
   assert.equal(prepared.generation,GEN);
   assert.equal(prepared.stageComplete,true);
+  assert.match(prepared.stageToken,/^restore-[a-f0-9]{32}$/,
+    'verified staging has a per-attempt ownership identity');
   assert.equal(prepared.lifeRestored,false);
   assert.deepEqual(env.snapshot(),before,'staging must not touch live stores');
   assert.equal(env.getStageSize(stageId),122);
@@ -280,6 +288,48 @@ async function errorMatching(p,pattern){await assert.rejects(p,pattern);}
   await errorMatching(stage(stageQuota,files),/QuotaExceededError/);
   assert.equal(stageQuota.getStageSize(stageId),0);
   assert.deepEqual(stageQuota.snapshot(),before);
+
+  // Same-ID race between TWO staging clients: both observed an empty
+  // stage, but client B commits first. Client A's first add() collides.
+  // Its error handler must not erase B's valid staged data.
+  const collision=fakeDatabase();
+  let verifyCalls=0,winner=null;
+  const delayedApi={...partApi,
+    async verifyPartIntegrity(...args){
+      verifyCalls++;
+      if(verifyCalls===2)winner=await stage(collision,files);
+      return verifyPartIntegrity(...args);
+    }
+  };
+  await errorMatching(restore.stageValidatedBackup({
+    db:collision.db,stageId,manifestFile:files.manifestFile,
+    partFiles:files.files,mode:'cryptic',database:DB,
+    partApi:delayedApi,semanticApi:semantic,checkGenome,checkMothPng,
+    batchSize:9
+  }),/ConstraintError/);
+  assert.ok(winner?.stageComplete);
+  assert.equal(collision.getStageSize(stageId),122,
+    'losing concurrent staging operation must preserve winning stage');
+  assert.deepEqual(collision.snapshot(),before,
+    'a staging collision cannot modify live evolution');
+  const winnerResult=await restore.commitStagedRestore(collision.db,winner,{cryptoApi});
+  assert.equal(winnerResult.status,'db-committed',
+    'winning stage remains independently restorable');
+  assert.equal(collision.snapshot().pointer,GEN);
+
+  // Same row count, same pointer, same key set, different staging identity:
+  // refuse to overwrite previous data even if the stage was swapped while
+  // keeping all visible content counters intact.
+  const swapped=fakeDatabase();
+  const originalStage=await stage(swapped,files);
+  swapped.mutateStage(stageId,'changeStageIdentity');
+  assert.equal(swapped.getStageSize(stageId),122);
+  await errorMatching(
+    restore.commitStagedRestore(swapped.db,originalStage,{cryptoApi}),
+    /Staged restore row is corrupt/);
+  assert.deepEqual(swapped.snapshot(),before);
+  assert.equal(swapped.getStageSize(stageId),122,
+    'failed commit must not delete an unknown stage incarnation');
 
   // Abort in the middle of the four-store transaction restores ALL old
   // records; a partial clear() must never leak to committed state.
@@ -347,10 +397,17 @@ async function errorMatching(p,pattern){await assert.rejects(p,pattern);}
 
   // Cancellation only removes temporary rows; original state must survive.
   const cancellation=fakeDatabase();
-  await stage(cancellation,files);
-  const removed=await restore.discardStage(cancellation.db,stageId);
+  const cancellationPlan=await stage(cancellation,files);
+  await errorMatching(restore.discardStage(cancellation.db,stageId,
+    {expectedStageToken:'restore-'+'f'.repeat(32)}),
+    /ownership changed/);
+  assert.equal(cancellation.getStageSize(stageId),122,
+    'mismatched cleanup token cannot delete any valid stage rows');
+  assert.deepEqual(cancellation.snapshot(),before);
+  const removed=await restore.discardStage(cancellation.db,stageId,
+    {expectedStageToken:cancellationPlan.stageToken});
   assert.equal(removed,122);
   assert.equal(cancellation.getStageSize(stageId),0);
   assert.deepEqual(cancellation.snapshot(),before);
-  console.log('RE2-EXH-02: staged 122 validated records, rejected corrupt PNG/genome/tamper, preserved 3 original stores under quota abort/missing stage/stale pointer, atomic commit and restore_epoch rotation OK. Sandbox only.');
+  console.log('RE2-EXH-02: stage ownership tokens protect same-ID concurrent staging and same-count replacement; quota abort/partial cleanup preserve live stores; 122-row atomic restore/epoch rotation OK. Sandbox only.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
