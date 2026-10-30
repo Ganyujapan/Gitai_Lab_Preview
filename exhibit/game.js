@@ -2,17 +2,17 @@
 (() => {
   'use strict';
   const home = new URL('./', location.href);
-  // Only the first exhibition entry displays the seven-page warning tutorial.
-  // Remove its route flag without navigation, so page reloads at generation
-  // boundaries never replay the tutorial and never reset exhibit evolution.
+  // Show the selected mode's tutorial only at visitor entry, never on
+  // generation reloads. Removing the flag does not alter persisted evolution.
   const route = new URL(location.href);
-  const showWarningTutorial = route.searchParams.get('tutorial') === '1'
-    && route.searchParams.get('experiment') === 'warning_color';
-  if (showWarningTutorial) {
+  const tutorialMode = route.searchParams.get('tutorial') === '1'
+    ? (route.searchParams.get('experiment') === 'warning_color' ? 'warning' : 'solo')
+    : null;
+  if (tutorialMode) {
     route.searchParams.delete('tutorial');
     history.replaceState(history.state, '', route.toString());
     document.addEventListener('DOMContentLoaded', () => {
-      window.GitaiSoloTutorial?.open({ mode: 'warning' });
+      window.GitaiSoloTutorial?.open({ mode: tutorialMode });
     }, { once: true });
   }
   const startLabel = document.getElementById('startGeneration');
@@ -115,7 +115,7 @@
     const valid = atReview && completed !== null && firstGeneration !== null
       && completed >= firstGeneration
       && !continueButton.disabled
-      && /^(次の世代を生成|次へ（進化シアター）)$/.test(continueButton.textContent.trim());
+      && /^(次の世代を生成|次へ|次へ（進化シアター）)$/.test(continueButton.textContent.trim());
     const generationsPlayed = valid ? completed - firstGeneration + 1 : 0;
     const finishedFive = valid && generationsPlayed >= 5;
     const showProgress = valid && !handoverPending;
@@ -128,9 +128,10 @@
     }
     button.hidden = !valid || finishedFive || handoverPending;
     notice.hidden = !finishedFive || handoverPending;
-    if (finishedFive && !handoverPending
-        && continueButton.textContent !== '次へ（進化シアター）') {
-      continueButton.textContent = '次へ（進化シアター）';
+    // Make ordinary continuation the primary action; preserve the existing
+    // fifth-generation handover interception and save-before-navigation.
+    if (valid && !handoverPending && continueButton.textContent !== '次へ') {
+      continueButton.textContent = '次へ';
     }
   }
 
@@ -297,7 +298,7 @@
     const completed = numberFrom(reviewLabel);
     if (!completed || !firstGeneration || completed < firstGeneration
       || continueButton.disabled
-      || !/^(次の世代を生成|次へ（進化シアター）)$/.test(continueButton.textContent.trim())) return;
+      || !/^(次の世代を生成|次へ|次へ（進化シアター）)$/.test(continueButton.textContent.trim())) return;
     handoverPending = true;
     button.disabled = true;
     button.textContent = '進化データを保存中…';
@@ -386,7 +387,7 @@
     const completed = numberFrom(reviewLabel);
     if (!handoverPending && reviewOverlay?.classList.contains('visible')
       && completed && firstGeneration && completed - firstGeneration + 1 >= 5
-      && continueButton.textContent === '次へ（進化シアター）') {
+      && continueButton.textContent === '次へ') {
       event.preventDefault();
       event.stopImmediatePropagation();
       void safelyHandover();
@@ -429,5 +430,26 @@
     }, true);
   }
   document.getElementById('resetConfirmButton')?.setAttribute('disabled', 'true');
-  window.addEventListener('gitai:warning-death-return', () => location.assign(home.href));
+  // Exhibition death: the simulator's retry button restores the SAME saved
+  // generation and ten hearts. It must not navigate to the mode picker.
+  const deathHandover = document.getElementById('warningDeathHandover');
+  deathHandover?.addEventListener('click', () => {
+    if (handoverPending || document.getElementById('warningToxicDeath')?.hidden) return;
+    const storage = visitStorage();
+    if (!storage) {
+      alert('保存済み世代を確認できません。スタッフへお知らせください。');
+      return;
+    }
+    try {
+      // The failed generation was never submitted; unlike ordinary handover,
+      // there is NO next-generation commit and no theater playback.
+      // Reset only this visitor's allowance, never any evolution history.
+      sessionStorage.removeItem(VISIT_KEY);
+      localStorage.removeItem(storage.key);
+      if (localStorage.getItem(storage.key) !== null) throw Error('交代情報の更新に失敗しました');
+      location.assign(home.href);
+    } catch (error) {
+      alert('交代処理を完了できません。データは保持されています。' + String(error?.message || error));
+    }
+  });
 })();
