@@ -246,6 +246,8 @@ jobs:
           test -f _site/exhibit/theater_canvas_20261026.css
           node --check _site/exhibit/theater_canvas_20261026.js
           node --check _site/exhibit/game.js
+          node --check _site/exhibit/js/ambient_audio.js
+          node .github/scripts/verify-exhibit-ambient-recovery.cjs _site
           node --check _site/exhibit/admin.js
           node --check _site/exhibit/landing.js
           node --check _site/exhibit/js/pages_preview.js
