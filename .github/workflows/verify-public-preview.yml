@@ -90,6 +90,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-landing-theater.cjs
       - name: Verify exhibition play buttons stand out without losing thumbnail space
         run: node .github/scripts/verify-exhibit-primary-play-cta.cjs
+      - name: Verify exhibition theater automatically follows active generation labels
+        run: node .github/scripts/verify-exhibit-theater-marker-follow.cjs
       - name: Verify exhibition theater's image and generation label remain consistent
         run: node .github/scripts/verify-exhibit-theater-image-label.cjs
       - name: Verify obsolete exhibition theater image errors cannot evict current decode
