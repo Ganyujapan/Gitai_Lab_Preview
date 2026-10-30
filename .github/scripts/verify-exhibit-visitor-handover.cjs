@@ -400,11 +400,14 @@ async function waitFor(fn){
 
   // A full reload between the committed offspring and the warning-life reset
   // must resume the saved handover without clicking the evolution button again.
+  const durablePendingKey='gitai-exhibit-handover-pending-durable-v1:gitai-exhibit-test';
   const interruptedLife=fixture({mode:'warning',lifeSaveFailures:1});
   await interruptedLife.api.safelyHandover();
   assert.equal(interruptedLife.clicks,1);
   assert.equal(interruptedLife.pointer,'gen00022');
   assert.ok(interruptedLife.stash.has('gitai-exhibit-handover-pending-v1'));
+  assert.ok(interruptedLife.lifeStore.has(durablePendingKey),
+    'persisted checkpoint survives loss of sessionStorage');
   const recoveredLife=fixture({
     mode:'warning',start:22,end:22,review:false,
     sessionStash:interruptedLife.stash,lifeStash:interruptedLife.lifeStore
@@ -416,7 +419,60 @@ async function waitFor(fn){
     generation_id:'gen00022',thirds:30
   });
   assert.equal(recoveredLife.stash.has('gitai-exhibit-handover-pending-v1'),false);
+  assert.equal(recoveredLife.lifeStore.has(durablePendingKey),false);
   assert.equal(recoveredLife.stash.has('gitai-exhibit-visit-start-v1'),false);
+
+  // Simulate iPadOS terminating the standalone PWA: sessionStorage is
+  // entirely gone, yet the actual committed next-generation pointer and
+  // localStorage life/checkpoint remain. Never submit generation 23.
+  const killedDuringHandover=fixture({mode:'warning',lifeSaveFailures:1});
+  await killedDuringHandover.api.safelyHandover();
+  assert.equal(killedDuringHandover.pointer,'gen00022');
+  assert.ok(killedDuringHandover.lifeStore.has(durablePendingKey));
+  const restoredAfterKill=fixture({
+    mode:'warning',start:22,end:22,review:false,
+    sessionStash:new Map(),lifeStash:killedDuringHandover.lifeStore
+  });
+  await waitFor(()=>restoredAfterKill.navigations.length===1);
+  assert.equal(restoredAfterKill.clicks,0,
+    'full PWA restart recovers handover without another offspring generation');
+  assert.equal(restoredAfterKill.pointer,'gen00022');
+  assert.deepEqual(JSON.parse(restoredAfterKill.life),{
+    generation_id:'gen00022',thirds:30
+  });
+  assert.equal(restoredAfterKill.lifeStore.has(durablePendingKey),false);
+  assert.equal(restoredAfterKill.lifeStore.has(durableKey),false);
+
+  // The in-progress generation may not have committed at crash time. In
+  // that case the same durable intent is NOT authorization to evolve again.
+  const killedBeforeCommit=fixture({behavior:'stale'});
+  await killedBeforeCommit.api.safelyHandover();
+  assert.ok(killedBeforeCommit.lifeStore.has(durablePendingKey));
+  const notCommittedAfterKill=fixture({
+    start:21,end:21,review:false,
+    sessionStash:new Map(),lifeStash:killedBeforeCommit.lifeStore
+  });
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(notCommittedAfterKill.clicks,0);
+  assert.equal(notCommittedAfterKill.navigations.length,0);
+  assert.equal(notCommittedAfterKill.pointer,'gen00021');
+
+  // A conflicting session and persistent intent is a safety error, never
+  // permission to write life or navigate to the next visitor.
+  const conflicting=new Map([[durablePendingKey,JSON.stringify({
+    mode:'warning',namespace:'gitai-exhibit-test',
+    start:21,end:21,previous:'gen00021',next:'gen00022'
+  })]]);
+  const conflictSession=new Map([['gitai-exhibit-handover-pending-v1',
+    JSON.stringify({mode:'warning',namespace:'gitai-exhibit-test',
+      start:21,end:20,previous:'gen00021',next:'gen00022'})]]);
+  const conflict=fixture({mode:'warning',start:22,end:22,review:false,
+    sessionStash:conflictSession,lifeStash:conflicting});
+  await waitFor(()=>conflict.errors.length>0);
+  assert.equal(conflict.clicks,0);
+  assert.equal(conflict.navigations.length,0);
+  assert.equal(conflict.lifeWrites,0);
+  assert.match(conflict.errors.join(' '),/交代の記録が一致しません/);
 
   // A failed SESSION handover write after commit has the same safe recovery,
   // even without a warning-life key (cryptic mode).
