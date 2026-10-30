@@ -21,6 +21,10 @@
   const reviewOverlay = document.getElementById('reviewOverlay');
   const continueButton = document.getElementById('continueButton');
   const VISIT_KEY = 'gitai-exhibit-visit-start-v1';
+  // Session storage may be discarded when iPadOS terminates a standalone PWA.
+  // Mirror each experiment's visit boundary in localStorage so re-opening the
+  // same saved evolution does not silently award five more generations.
+  const DURABLE_VISIT_PREFIX = 'gitai-exhibit-visit-start-durable-v1:';
   const HANDOVER_KEY = 'gitai-exhibit-handover-v1';
   // Persist the submission intent BEFORE advancing a generation. A page reload
   // between the IndexedDB commit and life/session writes must not evolve again.
@@ -30,6 +34,7 @@
     ? 'warning' : 'cryptic';
   let firstGeneration = null;
   let handoverPending = false;
+  let visitFinished = false;
   // If offspring have committed but a later life/session write fails,
   // a handover retry must NEVER call the evolution submit button again.
   let committedOffspringForHandover = null;
@@ -57,13 +62,42 @@
     const match = (node?.textContent || '').match(/(?:GENERATION|第)\s*(\d+)/i);
     return match ? Number(match[1]) : null;
   }
+  function visitStorage() {
+    const namespace = window.GitaiPagesPreview?.context?.storageNamespace;
+    return namespace ? {
+      namespace, key: DURABLE_VISIT_PREFIX + namespace
+    } : null;
+  }
   function ensureVisitorStart() {
+    if (visitFinished) return;
     const current = numberFrom(startLabel) || numberFrom(reviewLabel);
-    if (current === null) return;
-    if (firstGeneration === null || current < firstGeneration) {
-      firstGeneration = current;
-      try { sessionStorage.setItem(VISIT_KEY, JSON.stringify({ mode, start: current })); } catch (_) {}
+    const storage = visitStorage();
+    // The startup labels are placeholders until the actual experiment loads.
+    if (current === null || !storage) return;
+    let durable = null;
+    try { durable = JSON.parse(localStorage.getItem(storage.key) || 'null'); } catch (_) {}
+    if (durable?.mode === mode && durable.namespace === storage.namespace
+        && Number.isSafeInteger(durable.start) && durable.start > 0
+        && durable.start <= current
+        && (firstGeneration === null || durable.start < firstGeneration)) {
+      firstGeneration = durable.start;
     }
+    if (firstGeneration === null || current < firstGeneration) firstGeneration = current;
+    const visit = {mode, start: firstGeneration};
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(VISIT_KEY) || 'null');
+      if (saved?.mode !== mode || saved.start !== firstGeneration) {
+        sessionStorage.setItem(VISIT_KEY, JSON.stringify(visit));
+      }
+    } catch (_) {}
+    try {
+      if (durable?.mode !== mode || durable.namespace !== storage.namespace
+          || durable.start !== firstGeneration) {
+        localStorage.setItem(storage.key, JSON.stringify({
+          ...visit, namespace: storage.namespace
+        }));
+      }
+    } catch (_) {}
   }
   function sync() {
     ensureVisitorStart();
@@ -165,8 +199,17 @@
     sessionStorage.setItem(HANDOVER_KEY, JSON.stringify({
       mode: intent.mode, start: intent.start, end: intent.end
     }));
+    // Clear the persistent visitor boundary only AFTER the offspring and
+    // life have been committed. A failure keeps recovery available.
+    const storage = visitStorage();
+    if (!storage) throw Error('交代前の保存先を確認できません。');
+    localStorage.removeItem(storage.key);
+    if (localStorage.getItem(storage.key) !== null) {
+      throw Error('来場者カウントの完了を保存できませんでした。');
+    }
     sessionStorage.removeItem(VISIT_KEY);
     sessionStorage.removeItem(PENDING_HANDOVER_KEY);
+    visitFinished = true;
     const nextPage = new URL('modes.html', home.href);
     nextPage.searchParams.set('handover', '1');
     location.assign(nextPage.href);

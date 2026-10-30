@@ -1004,6 +1004,17 @@
     // IndexedDB has already committed; a failed life/session cleanup is
     // PARTIAL. The same mode can be safely reset again without affecting others.
     const incomplete = [];
+    // A reset starts a new exhibition experiment. Do not carry the old
+    // visitor's five-generation allowance into the fresh run, even if iPadOS
+    // discarded the tab's sessionStorage before the reset.
+    const durableVisitKey = 'gitai-exhibit-visit-start-durable-v1:' + mode.db;
+    try {
+      localStorage.removeItem(durableVisitKey);
+      if (localStorage.getItem(durableVisitKey) !== null)
+        throw Error('来場者記録の削除を確認できませんでした');
+    } catch (error) {
+      incomplete.push('来場者カウント：' + (error?.message || String(error)));
+    }
     if (modeId === 'warning') {
       const key = warningLifeStorageKey(mode.db);
       try {
