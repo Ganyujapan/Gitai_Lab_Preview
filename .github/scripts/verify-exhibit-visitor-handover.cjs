@@ -33,7 +33,7 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   if(mode==='warning' && !life.has(lifeKey))life.set(lifeKey,JSON.stringify({
     generation_id:pointer,thirds:12 // previous visitor's remaining 4 hearts
   }));
-  let lifeWrites=0,lifeFailuresRemaining=lifeSaveFailures;
+  let lifeWrites=0,durableWrites=0,lifeFailuresRemaining=lifeSaveFailures;
   const startGeneration=element('GENERATION '+String(start).padStart(5,'0'));
   const reviewGeneration=element('GENERATION '+String(end).padStart(5,'0'));
   const startOverlay=element('',!review),reviewOverlay=element('',review);
@@ -105,13 +105,19 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   const localStorage={
     getItem:k=>life.get(k)??null,
     setItem(k,v){
+      if(k!==lifeKey){
+        durableWrites++;
+        life.set(k,v);
+        return;
+      }
       lifeWrites++;
       if(lifeSaveError||lifeFailuresRemaining>0){
         if(lifeFailuresRemaining>0)lifeFailuresRemaining--;
         throw Error('QuotaExceededError');
       }
       life.set(k,v);
-    }
+    },
+    removeItem(k){life.delete(k);}
   };
   const context={document:doc,indexedDB,sessionStorage,localStorage,URL,
     window:{
@@ -127,7 +133,9 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   vm.runInNewContext(injected,context,{filename:'exhibit/game.js',timeout:5000});
   return {api:context.__test,nodes,navigations,stash,errors,
     get pointer(){return pointer},get clicks(){return clicks},
-    get life(){return life.get(lifeKey)||null},get lifeWrites(){return lifeWrites},lifeStore:life,
+    get life(){return life.get(lifeKey)||null},
+    get lifeWrites(){return lifeWrites},get durableWrites(){return durableWrites},
+    lifeStore:life,
     set pointer(next){pointer=next}};
 }
 async function waitFor(fn){
@@ -278,6 +286,60 @@ async function waitFor(fn){
   assert.equal(afterReloadHandover.api.start(),31,
     'new visitor receives five fresh generations only after saved handover');
   assert.equal(afterReloadHandover.api.notice.hidden,true);
+
+  // A standalone iPad PWA may lose sessionStorage after an OS kill while
+  // preserving its real IndexedDB and localStorage. The visitor must not
+  // receive another 5 generations just because the tab's session vanished.
+  const durableKey='gitai-exhibit-visit-start-durable-v1:gitai-exhibit-test';
+  const begun=fixture({mode:'warning',start:26,end:26,review:false});
+  assert.equal(JSON.parse(begun.lifeStore.get(durableKey)).start,26);
+  const killedPwa=fixture({
+    mode:'warning',start:29,end:30,
+    sessionStash:new Map(),lifeStash:begun.lifeStore
+  });
+  assert.equal(killedPwa.api.start(),26,'cold restart recovers old visitor boundary');
+  assert.equal(killedPwa.api.notice.hidden,false,
+    'cold restart at fifth generation does not grant five new generations');
+  assert.equal(killedPwa.api.button.hidden,true);
+  killedPwa.nodes.continueButton.click();
+  await waitFor(()=>killedPwa.navigations.length===1);
+  assert.equal(killedPwa.pointer,'gen00031');
+  assert.equal(killedPwa.clicks,1);
+  assert.equal(killedPwa.lifeStore.has(durableKey),false,
+    'successful handover clears the durable visitor boundary');
+  killedPwa.api.sync();
+  assert.equal(killedPwa.lifeStore.has(durableKey),false,
+    'late UI updates after handover must not recreate old visitor count');
+  const coldNext=fixture({
+    mode:'warning',start:31,end:31,review:false,
+    sessionStash:new Map(),lifeStash:begun.lifeStore
+  });
+  assert.equal(coldNext.api.start(),31,
+    'next visitor receives new five-generation window after handover');
+  assert.equal(coldNext.api.notice.hidden,true);
+
+  // Switching modes in one PWA session must not overwrite the other mode's
+  // durable visit count; the older single session key is only an accelerator.
+  const switchSession=new Map(),switchLocal=new Map();
+  fixture({mode:'cryptic',start:21,end:21,review:false,
+    sessionStash:switchSession,lifeStash:switchLocal});
+  fixture({mode:'warning',start:51,end:51,review:false,
+    sessionStash:switchSession,lifeStash:switchLocal});
+  const backToCryptic=fixture({mode:'cryptic',start:24,end:25,
+    sessionStash:switchSession,lifeStash:switchLocal});
+  assert.equal(backToCryptic.api.start(),21,
+    'returning to a mode does not silently reset its five-generation count');
+  assert.equal(backToCryptic.api.notice.hidden,false);
+
+  // Forged or stale durable data must never be trusted without matching the
+  // currently loaded experiment namespace, mode, and plausible generation.
+  const invalidDurable=new Map([[durableKey,JSON.stringify({
+    mode:'warning',namespace:'other-db',start:1
+  })]]);
+  const rejectOtherNamespace=fixture({mode:'warning',start:26,end:26,
+    review:false,sessionStash:new Map(),lifeStash:invalidDurable});
+  assert.equal(rejectOtherNamespace.api.start(),26);
+  assert.equal(JSON.parse(rejectOtherNamespace.lifeStore.get(durableKey)).start,26);
 
   const nextVisitor=fixture({start:26,end:26});
   assert.equal(nextVisitor.api.start(),26);
