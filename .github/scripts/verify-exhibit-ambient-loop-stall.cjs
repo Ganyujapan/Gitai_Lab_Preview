@@ -98,7 +98,8 @@ function advance(ms=100){now+=ms;for(const fn of [...timers.values()])fn()}
  assert.equal(window.GitaiAmbientAudio.isPlaying(),true);
  // A real tap can also help when progress has been frozen for a while.
  first.currentTime=16;advance(100);
- advance(3100);
+ // Simulate iPad throttling the interval while time moves forward.
+ now+=3100;
  const gestureBefore=first.plays;
  window.GitaiAmbientAudio.resumeFromGesture();
  await flush();
