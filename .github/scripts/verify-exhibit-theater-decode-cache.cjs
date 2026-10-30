@@ -18,20 +18,25 @@ class FakeImage{
   succeed(){this.onload?.();}
   fail(){this.onerror?.(Error('broken image'));}
 }
+const urls=[],revoked=[];
 const ctx={frames:[{generation_id:'gen00021'}],loadedImages:new Map(),
-  frameUrls:['blob:old'],cursor:0,Image:FakeImage,Math,Promise,Error};
+  frameUrls:[],cursor:0,Image:FakeImage,Math,Promise,Error,
+  loadFrameBlob:()=>Promise.resolve(new Blob(['original'],{type:'image/webp'})),
+  URL:{createObjectURL:()=>{const u='blob:test-'+(urls.length+1);urls.push(u);return u},
+       revokeObjectURL:u=>revoked.push(u)}};
 vm.runInNewContext(original+'\nglobalThis.read=decodeFrame;',ctx,{
  filename:'exhibit/theater_canvas_20261026.js:decodeFrame',timeout:3000
 });
-const flush=async()=>{for(let i=0;i<8;i++)await Promise.resolve()};
+const flush=async()=>{for(let i=0;i<20;i++)await Promise.resolve()};
 (async()=>{
  const old=ctx.read(0);void old.catch(()=>{});
- assert.equal(launched[0].url,'blob:old');
+ await flush();
+ assert.equal(launched[0].url,'blob:test-1');
  ctx.loadedImages.clear();
- ctx.frameUrls=['blob:new'];
  const fresh=ctx.read(0);
+ await flush();
  assert.notEqual(fresh,old);
- assert.equal(launched[1].url,'blob:new');
+ assert.equal(launched[1].url,'blob:test-2');
  launched[0].fail();await flush();
  assert.equal(ctx.loadedImages.get(0),fresh,
    'old failure cannot evict newer same-index promise');
@@ -40,13 +45,15 @@ const flush=async()=>{for(let i=0;i<8;i++)await Promise.resolve()};
  assert.equal(launched.length,2);
  launched[1].succeed();await fresh;
  assert.equal(ctx.loadedImages.get(0),fresh);
- ctx.loadedImages.clear();ctx.frameUrls=['blob:third'];
+ ctx.loadedImages.clear();
  const broken=ctx.read(0);void broken.catch(()=>{});
- launched[2].fail();await flush();
+ await flush();launched[2].fail();await flush();
  assert.equal(ctx.loadedImages.has(0),false,'current failed decode may be dropped');
  const retried=ctx.read(0);
+ await flush();
  assert.notEqual(retried,broken);
  assert.equal(launched.length,4);
  launched[3].succeed();await retried;
+ assert.equal(revoked.length,4,'each lazily loaded frame URL must be released');
  console.log('RE2-PF-03: old failure preserves new-session cache, current failures clean up and retry.');
 })().catch(error=>{console.error(error);process.exitCode=1});

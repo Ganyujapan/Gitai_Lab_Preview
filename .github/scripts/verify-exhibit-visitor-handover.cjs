@@ -228,7 +228,7 @@ async function waitFor(fn){
     assert.equal(fifth.api.button.hidden,true);
     assert.equal(fifth.api.notice.hidden,false);
     assert.equal(fifth.api.progress.textContent,'今回のプレイ：5 / 5世代');
-    assert.equal(fifth.nodes.continueButton.textContent,'次へ（進化シアター）');
+    assert.equal(fifth.nodes.continueButton.textContent,'次へ');
     const evt=fifth.nodes.continueButton.click();
     assert.equal(evt.stopped,true,'fifth generation Next intercepted');
     assert.equal(fifth.clicks,0,'must await original save before returning');
@@ -284,7 +284,7 @@ async function waitFor(fn){
   assert.equal(resumed.api.start(),26,'reload restores original visitor start');
   assert.equal(resumed.api.notice.hidden,false,'fifth generation reached after reload');
   assert.equal(resumed.api.button.hidden,true,'manual handover hidden at five generations');
-  assert.equal(resumed.nodes.continueButton.textContent,'次へ（進化シアター）');
+  assert.equal(resumed.nodes.continueButton.textContent,'次へ');
   resumed.nodes.continueButton.click();
   await waitFor(()=>resumed.navigations.length>0);
   assert.equal(resumed.pointer,'gen00031','fifth result persists exactly one next generation');

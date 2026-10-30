@@ -89,14 +89,15 @@
         const get = tx.objectStore('meta').get('current_generation_id');
         get.onsuccess = () => { generation = get.result; };
         if (hasTheater) {
-          const request = tx.objectStore('theater_frames').openCursor();
+          // Read keys ONLY: hundreds of full images must not be loaded
+          // into iPad RAM just to list all historical generations.
+          const request = tx.objectStore('theater_frames').openKeyCursor();
           request.onsuccess = () => {
             const c = request.result;
             if (!c) return;
-            const entry = c.value;
-            if (entry && /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(entry.generation_id || ''))
-              && entry.image_blob instanceof Blob) {
-              savedFrames.push(entry);
+            const generationId = String(c.key || '');
+            if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(generationId)) {
+              savedFrames.push({ generation_id: generationId });
             }
             c.continue();
           };
@@ -147,23 +148,49 @@
     loadedImages.clear();
   }
   function assignFrameUrls() {
-    frameUrls = frames.map(frame => URL.createObjectURL(frame.image_blob));
+    // Historical IDs are cheap; only the requested snapshot obtains a
+    // temporary Blob URL. Do not allocate a URL for every past generation.
+    frameUrls = [];
+  }
+  async function loadFrameBlob(index) {
+    const generationId = frames[index]?.generation_id;
+    const mode = MODES[activeMode];
+    if (!generationId || !mode) throw Error('Frame unavailable');
+    const db = await openExisting(mode.db);
+    if (!db) throw Error('Saved history unavailable');
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('theater_frames', 'readonly');
+        const request = tx.objectStore('theater_frames').get(generationId);
+        request.onsuccess = () => {
+          const entry = request.result;
+          if (entry?.generation_id !== generationId || !(entry.image_blob instanceof Blob)) {
+            reject(Error('Saved generation image missing: ' + generationId));
+          } else resolve(entry.image_blob);
+        };
+        request.onerror = () => reject(request.error || Error('Frame read failed'));
+        tx.onabort = () => reject(tx.error || Error('Frame transaction aborted'));
+      });
+    } finally {
+      db.close();
+    }
   }
   function decodeFrame(index) {
     if (!frames[index]) return Promise.reject(Error('Frame unavailable'));
     if (loadedImages.has(index)) return loadedImages.get(index);
-    const preview = new Image();
-    preview.decoding = 'async';
-    const url = frameUrls[index];
-    const ready = new Promise((resolve,reject) => {
+    const ready = loadFrameBlob(index).then(blob => new Promise((resolve, reject) => {
+      const preview = new Image();
+      preview.decoding = 'async';
+      const url = URL.createObjectURL(blob);
+      const release = () => URL.revokeObjectURL(url);
       preview.onload = () => {
         const decoded = typeof preview.decode === 'function'
           ? preview.decode().catch(() => {}) : Promise.resolve();
-        Promise.resolve(decoded).then(() => resolve(preview));
+        Promise.resolve(decoded).then(() => { release(); resolve(preview); }, error => { release(); reject(error); });
       };
-      preview.onerror = () => reject(Error('Frame image could not be read'));
+      preview.onerror = () => { release(); reject(Error('Frame image could not be read')); };
       preview.src = url;
-    });
+    }));
     loadedImages.set(index, ready);
     ready.catch(() => {
       // An old session's failure must not delete a newer session's
@@ -343,16 +370,9 @@
     try {
       const result = await readMode(mode);
       if (requestToken !== token || dialog.hidden) return;
+      // All saved generations stay available across visitor handovers.
+      // The visit range only highlights the current visitor's contribution.
       frames = result.frames;
-      if (handover) {
-        // A compact closing recap: 4 earlier frames for context, plus all
-        // available frames of the visitor's up to five completed generations.
-        const from = Math.max(1, handover.start - 4);
-        frames = frames.filter(frame => {
-          const n = numberOf(frame.generation_id);
-          return n >= from && n <= handover.end;
-        });
-      }
       assignFrameUrls();
       renderMarkers();
       if (!frames.length) {
