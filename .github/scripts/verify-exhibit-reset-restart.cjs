@@ -103,7 +103,11 @@ function setup() {
  const durableKeys=Object.fromEntries(Object.keys(MODES).map(m=>[
    m,'gitai-exhibit-visit-start-durable-v1:'+MODES[m].db
  ]));
+ const pendingKeys=Object.fromEntries(Object.keys(MODES).map(m=>[
+   m,'gitai-exhibit-handover-pending-durable-v1:'+MODES[m].db
+ ]));
  const local=new Map([[lifeKey,JSON.stringify({generation_id:'gen00018',thirds:9})],
+                      ...Object.keys(MODES).map(m=>[pendingKeys[m],'pending-'+m]),
                       ['admin-passcode','keep'],
                       ...Object.keys(MODES).map(m=>[durableKeys[m],JSON.stringify({
                         mode:m,namespace:MODES[m].db,start:16
@@ -146,7 +150,7 @@ function setup() {
     :{schema_version:1,individual:j+1}
   ]));
  }
- return {data,local,sessions,caches,lifeKey,durableKeys,
+ return {data,local,sessions,caches,lifeKey,durableKeys,pendingKeys,
    admin:adminCtx.api,engineFor,sixty};
 }
 (async()=>{
@@ -177,6 +181,10 @@ function setup() {
     'selected experiment loses its old five-generation counter');
   assert.equal(f.local.has(f.durableKeys[other]),true,
     'unrelated experiment keeps its visitor counter');
+  assert.equal(f.local.has(f.pendingKeys[mode]),false,
+    'reset removes only selected experiment\'s crash-recovery intent');
+  assert.equal(f.local.has(f.pendingKeys[other]),true,
+    'other experiment pending recovery is unaffected');
   assert.equal(f.caches.get('offline-app-cache'),'unchanged');
   if(mode==='warning'){
    assert.equal(f.local.has(f.lifeKey),false);
