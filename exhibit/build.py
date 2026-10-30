@@ -336,6 +336,15 @@ def main() -> None:
         )
 
     page = (site / "index.html").read_text(encoding="utf-8")
+    # iPhone/iPad native Ogg looping and second-player overlap fail after one
+    # track in real tests. Use the self-contained 45s gapless AAC controller
+    # ONLY in the exhibition game; normal index.html remains unchanged.
+    page, audio_tags = re.subn(
+        r'<script src="js/ambient_audio\.js(?:\?[^"]*)?"></script>',
+        '<script src="ambient_ios.js"></script>', page
+    )
+    assert audio_tags == 1, "Missing exhibition sound-controller entry"
+
     page = re.sub(
         r'\s*<link rel="stylesheet" href="https://fonts\.googleapis\.com/[^"]*">',
         "", page
@@ -493,7 +502,7 @@ def main() -> None:
     )
     # The exhibition bundles only the currently supported public simulator.
     for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css",
-                 "manifest.webmanifest", "game.js", "game.css", "admin.js", "admin.css",
+                 "manifest.webmanifest", "game.js", "game.css", "ambient_ios.js", "admin.js", "admin.css",
                  "backup_readiness.js",
                  # Optional diagnostics: NEVER loaded by index/modes/game/admin.
                  "backup_rehearsal.html", "backup_schema_rehearsal.js",
@@ -522,7 +531,9 @@ def main() -> None:
     for needed in ("index.html", "game.html", "game.js", "manifest.webmanifest",
                    "config/konchu_univ_alpha.json", "js/pages_preview.js",
                    "js/warning_color.js", "img/backgrounds/bg_leaf01.png",
-                   "audio/gitailab_rainforest_overlap_test_48k.ogg"):
+                   "audio/gitailab_rainforest_overlap_test_48k.ogg",
+                   "audio/gitailab_rainforest_ios_seamless_loop_48k.m4a",
+                   "ambient_ios.js"):
         assert needed in runtime_files, needed
     for thumbnail in thumbnails:
         artifact = "img/modeselect/" + thumbnail
