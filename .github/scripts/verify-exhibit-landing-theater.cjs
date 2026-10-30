@@ -48,6 +48,9 @@ assertHas(html,/id="exhibitTheaterMarkers"/);
 assertHas(html,/id="exhibitTheaterPlayed"/);
 assertHas(html,/id="exhibitHandoverFinished"/);
 assertHas(html,/id="exhibitHandoverFinishNext"/);
+assertHas(html,/何度でも再生できます/);
+assert.doesNotMatch(css,/\.exhibit-handover-finished\{position:absolute/);
+assert.doesNotMatch(css,/\.is-handover \.exhibit-theater-controls\{display:none/);
 assertHas(html,/id="exhibitGenerationCryptic"/);
 assertHas(html,/id="exhibitGenerationWarning"/);
 assert.equal((html.match(/data-view-theater=/g)||[]).length,2);
@@ -216,6 +219,10 @@ function setup({handover=false,absentWarning=false}={}) {
  assert.equal(h.stash.has(HANDOVER_KEY),false,'one-use handover consumed');
  assert.equal(h.elements.get('exhibitTheaterDialog').hidden,false);
  assert.equal(h.elements.get('exhibitTheaterDialog').classList.contains('is-handover'),true);
+ assert.equal(h.elements.get('exhibitHandoverFinished').hidden,false,
+   'next-person button stays available without covering the moths');
+ assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'停止',
+   'automatic playback is preserved');
  assert.equal(h.elements.get('exhibitTheaterMarkers').children.length,6);
  assert.equal(h.elements.get('exhibitTheaterMarkers').children.filter(x=>x.classList.contains('is-played')).length,5);
  assert.equal(h.elements.get('exhibitTheaterPlayed').hidden,true,'pre-visitor frame is unmarked');
@@ -223,8 +230,23 @@ function setup({handover=false,absentWarning=false}={}) {
  assert.equal(h.elements.get('exhibitTheaterPlayed').hidden,false);
  assert.ok(h.stage.classList.contains('is-played'),'visitor frame outlined');
  for(let i=0;i<8;i++){h.tick();await h.settle()}
- h.timeout();
- assert.equal(h.elements.get('exhibitHandoverFinished').hidden,false);
+ assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'もう一度再生');
+ assert.equal(h.elements.get('exhibitTheaterDialog').hidden,false);
+ assert.equal(h.elements.get('exhibitTheaterCanvas').hidden,false,
+   'last moth image remains visible after playback');
+ assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'6 / 6');
+ assert.deepEqual(h.navigated,[],'animation end cannot navigate');
+ const paints=h.paints.length;
+ h.elements.get('exhibitTheaterPlay').trigger('click');
+ assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'停止');
+ await h.settle();
+ assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'1 / 6',
+   'replay begins again from the first frame');
+ for(let i=0;i<8;i++){h.tick();await h.settle()}
+ assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'もう一度再生');
+ assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'6 / 6');
+ assert.ok(h.paints.length>paints,'replay repaints the visitor history');
+ assert.deepEqual(h.navigated,[],'replay never auto-navigates');
  h.elements.get('exhibitHandoverFinishNext').trigger('click');
  assert.deepEqual(h.navigated,['https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/']);
  assert.ok(h.transactions.every(x=>x==='readonly'));

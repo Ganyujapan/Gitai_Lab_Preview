@@ -66,15 +66,13 @@
 .exhibit-theater-marker{flex:0 0 auto;min-width:30px;padding:5px 4px;border:1px solid #637c6c;border-radius:5px;background:#1c2822;color:#d4ddcf;text-align:center;font:700 11px/1.4 ui-monospace,monospace}
 .exhibit-theater-marker.is-played{border:2px solid #ffc568;background:#4b3824;color:#ffe8b0}
 .exhibit-theater-marker.is-current{outline:2px solid #fcfcf0;outline-offset:1px}
-.exhibit-theater-overlay.is-handover .exhibit-theater-close,
-.exhibit-theater-overlay.is-handover .exhibit-theater-slider,
-.exhibit-theater-overlay.is-handover .exhibit-theater-controls,
-.exhibit-theater-overlay.is-handover .exhibit-theater-footnote{display:none}
-.exhibit-handover-finished{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:25px;padding:24px;background:rgba(5,16,11,.98);text-align:center}
+.exhibit-theater-overlay.is-handover .exhibit-theater-close{display:none}
+/* Never cover the finished evolution canvas or its replay controls. */
+.exhibit-handover-finished{flex:none;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 2px 0;border-top:1px solid #566e5d}
 .exhibit-handover-finished[hidden]{display:none!important}
-.exhibit-handover-finished p{margin:0;line-height:1.8;font-size:clamp(19px,5vw,27px);font-weight:800;color:#f8fff4}
-.exhibit-handover-finished p:first-child{color:#b5e7bf;font-size:clamp(24px,6vw,34px)}
-#exhibitHandoverFinishNext{min-width:190px;min-height:62px;border:2px solid #a4d8b3;border-radius:7px;background:#244b35;color:#fff;font:800 20px system-ui,sans-serif;touch-action:manipulation}
+.exhibit-handover-finished p{flex:1;min-width:0;margin:0;font-size:clamp(11px,3vw,14px);line-height:1.45;font-weight:700;color:#d8f0da}
+.exhibit-handover-finished p span{display:block;color:#a9c9ae;font-weight:500}
+#exhibitHandoverFinishNext{flex:none;min-width:132px;min-height:48px;padding:6px 10px;border:2px solid #a4d8b3;border-radius:7px;background:#244b35;color:#fff;font:750 clamp(13px,3.2vw,16px) system-ui,sans-serif;touch-action:manipulation}
 
 
 /* A persistent composited drawing surface cannot reveal a black frame
