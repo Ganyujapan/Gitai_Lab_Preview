@@ -10,12 +10,17 @@ const build = fs.readFileSync('exhibit/build.py','utf8');
 assert.equal(manifest.start_url,'./');
 assert.equal(manifest.scope,'./');
 assert.match(build,/\"index\.html\", \"modes\.html\"/);
+assert.match(build,/for folder in \("audio",/,
+  'exhibition build must copy the Ogg sound assets');
+assert.match(build,/for p in exhibit\.rglob/,
+  'offline precache must include copied audio assets');
 const BASE='https://example.test/Gitai_Lab_Preview/exhibit/';
 const actualCache=new Map([
  ['index.html','TITLE_OFFLINE'],
  ['modes.html','MODES_OFFLINE'],
  ['game.html','GAME_OFFLINE'],
- ['img/backgrounds/bg_leaf01.png','IMAGE_OFFLINE']
+ ['img/backgrounds/bg_leaf01.png','IMAGE_OFFLINE'],
+ ['audio/gitailab_rainforest_overlap_test_48k.ogg','RAINFOREST_BGM_OFFLINE']
 ].map(([x,value])=>[new URL(x,BASE).href,value]));
 const listeners={};
 const cacheLookups=[], network=[],scope=BASE;
@@ -56,6 +61,8 @@ async function visit(path,mode='navigate',method='GET') {
  assert.equal(await visit('modes.html?handover=1'),'MODES_OFFLINE');
  assert.equal(await visit('game.html?play=1'),'GAME_OFFLINE');
  assert.equal(await visit('img/backgrounds/bg_leaf01.png','no-cors'),'IMAGE_OFFLINE');
+ assert.equal(await visit('audio/gitailab_rainforest_overlap_test_48k.ogg','no-cors'),
+   'RAINFOREST_BGM_OFFLINE','PWA BGM must come from offline cache');
  assert.equal(await visit('../index.html'),null,
    'Outside exhibit must be completely uncontrolled');
  assert.equal(await visit('./','no-cors').then(x=>x).catch(e=>e.message),'OFFLINE',
