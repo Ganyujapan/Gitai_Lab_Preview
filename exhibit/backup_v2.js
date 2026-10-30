@@ -17,6 +17,9 @@
   const MAX_PART_BYTES = 8 * 1024 * 1024;
   const MAX_PARTS = 8192;
   const MAX_PART_ENTRIES = 2000;
+  // The isolated checkpoint inspector and writer must agree on a hard
+  // ceiling; never accept a multipart archive that cannot be staged safely.
+  const MAX_TOTAL_ENTRIES = 250000;
   const MAX_PART_NODES = 350000;
   const MAX_DEPTH = 36;
   const GEN_RE = /^gen(?:\d{5}|[1-9]\d{5,})$/;
@@ -69,7 +72,7 @@
     if (!Array.isArray(manifest.parts) || !integer(manifest.parts.length, 1, MAX_PARTS)) {
       fail('分割ファイルの一覧が不正です。');
     }
-    if (!isObject(manifest.totals) || !integer(manifest.totals.entries, 1, Number.MAX_SAFE_INTEGER) ||
+    if (!isObject(manifest.totals) || !integer(manifest.totals.entries, 1, MAX_TOTAL_ENTRIES) ||
         !isObject(manifest.totals.byStore) ||
         STORES.some(s => !integer(manifest.totals.byStore[s], 0, Number.MAX_SAFE_INTEGER)) ||
         Object.keys(manifest.totals.byStore).length !== STORES.length) {
@@ -103,7 +106,7 @@
       names.add(part.file);
       planned += part.entries;
       plannedByStore[part.store] += part.entries;
-      if (!Number.isSafeInteger(planned)) fail('総件数の上限を超えました。');
+      if (planned > MAX_TOTAL_ENTRIES) fail('総件数の上限を超えました。');
     }
     if (planned !== manifest.totals.entries ||
         STORES.some(s => plannedByStore[s] !== manifest.totals.byStore[s])) {
@@ -340,8 +343,10 @@
     checkCancelled();
     const maxPartBytes = options.maxPartBytes ?? MAX_PART_BYTES;
     const maxPartEntries = options.maxPartEntries ?? MAX_PART_ENTRIES;
+    const maxTotalEntries = options.maxTotalEntries ?? MAX_TOTAL_ENTRIES;
     if (!integer(maxPartBytes, 1024, MAX_PART_BYTES) ||
-        !integer(maxPartEntries, 1, MAX_PART_ENTRIES)) {
+        !integer(maxPartEntries, 1, MAX_PART_ENTRIES) ||
+        !integer(maxTotalEntries, 1, MAX_TOTAL_ENTRIES)) {
       fail('分割上限の指定が不正です。');
     }
     const parts = [];
@@ -352,6 +357,7 @@
       'genome:' + options.currentGeneration + ':' + String(i + 1).padStart(2, '0')));
     const lastKeys = Object.create(null);
     let pointerFound = false;
+    let totalRecords = 0;
     let currentStore = null;
     let storeIndex = -1;
     let chunks = [];
@@ -399,6 +405,9 @@
 
     for await (const record of records) {
       checkCancelled();
+      // Reject oversize input even if parts were written earlier. No
+      // success manifest is returned and the underlying DB is untouched.
+      if (++totalRecords > maxTotalEntries) fail('総件数の上限を超えました。');
       const store = record?.store;
       const nextIndex = STORES.indexOf(store);
       if (nextIndex < 0 || nextIndex < storeIndex) {
@@ -481,5 +490,6 @@
   }
 
   return Object.freeze({SCHEMA, PART_SCHEMA, MAX_MANIFEST_BYTES, MAX_PART_BYTES,
+    MAX_TOTAL_ENTRIES,
     validateManifest, verifyPartIntegrity, writePartsFromRecords});
 });
