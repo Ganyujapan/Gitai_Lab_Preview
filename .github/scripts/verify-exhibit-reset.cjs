@@ -12,7 +12,7 @@ assert.match(html,/id="exhibitResetExecute" disabled/);
 assert.match(source,/if \(!unlocked \|\| !snapshot \|\| snapshot\.mode !== modeId/);
 assert.match(source,/prompt\('最終確認：'/);
 assert.match(source,/!== 'RESET'/);
-assert.doesNotMatch(source.slice(begin,end),/deleteDatabase|caches\.delete|localStorage\.clear|indexedDB\.deleteDatabase/);
+assert.doesNotMatch(source.slice(begin,end).replace(/\/\/[^\n]*/g,''),/deleteDatabase|caches\.delete|localStorage\.clear|indexedDB\.deleteDatabase/);
 const helperCode=source.slice(begin,end)+'\n globalThis.api={inspectModeBeforeReset,resetModeForExhibit};';
 const STORES=['images','meta','theater_frames'];
 const MODES={
