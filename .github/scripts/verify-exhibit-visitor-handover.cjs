@@ -24,12 +24,12 @@ function element(text='',visible=false){
       return event;
     }};
 }
-function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false,lifeSaveFailures=0,sessionStash=null,lifeStash=null,pendingWriteFails=false,handoverMetaFailures=0}={}){
+function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,disabled=false,lifeSaveError=false,lifeSaveFailures=0,sessionStash=null,lifeStash=null,pendingWriteFails=false,handoverMetaFailures=0,namespace='gitai-exhibit-test'}={}){
   let pointer='gen'+String(end).padStart(5,'0');
   let clicks=0;const errors=[],navigations=[],stash=sessionStash||new Map();
   const life=lifeStash||new Map();
   let handoverMetaFailuresRemaining=handoverMetaFailures;
-  const lifeKey='gitai-warning-life-v1:gitai-exhibit-test';
+  const lifeKey='gitai-warning-life-v1:'+namespace;
   if(mode==='warning' && !life.has(lifeKey))life.set(lifeKey,JSON.stringify({
     generation_id:pointer,thirds:12 // previous visitor's remaining 4 hearts
   }));
@@ -121,7 +121,7 @@ function fixture({mode='cryptic',start=21,end=21,behavior='commit',review=true,d
   };
   const context={document:doc,indexedDB,sessionStorage,localStorage,URL,
     window:{
-      GitaiPagesPreview:{context:{storageNamespace:'gitai-exhibit-test'}},
+      GitaiPagesPreview:{context:{storageNamespace:namespace}},
       GitaiWarningColor:{LIFE_INITIAL_THIRDS:30},
       addEventListener(){}},
     location:{href:'https://example.test/Gitai_Lab_Preview/exhibit/game.html'
@@ -322,10 +322,13 @@ async function waitFor(fn){
   // durable visit count; the older single session key is only an accelerator.
   const switchSession=new Map(),switchLocal=new Map();
   fixture({mode:'cryptic',start:21,end:21,review:false,
+    namespace:'gitai-exhibit-cryptic-test',
     sessionStash:switchSession,lifeStash:switchLocal});
   fixture({mode:'warning',start:51,end:51,review:false,
+    namespace:'gitai-exhibit-warning-test',
     sessionStash:switchSession,lifeStash:switchLocal});
   const backToCryptic=fixture({mode:'cryptic',start:24,end:25,
+    namespace:'gitai-exhibit-cryptic-test',
     sessionStash:switchSession,lifeStash:switchLocal});
   assert.equal(backToCryptic.api.start(),21,
     'returning to a mode does not silently reset its five-generation count');
