@@ -254,7 +254,7 @@ function setup({handover=false,absentWarning=false}={}) {
  h.elements.get('exhibitTheaterPlay').trigger('click');
  assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'停止');
  await h.settle();
- assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'1 / 6',
+ assert.equal(h.elements.get('exhibitTheaterProgress').textContent,'1 / 7',
    'replay begins again from the first frame');
  for(let i=0;i<8;i++){h.tick();await h.settle()}
  assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'もう一度再生');
