@@ -250,7 +250,8 @@
         for (let i = 0; i < 180; i += 1) {
           await delay(500);
           const next = await savedGeneration();
-          if (next === generationId(completed + 1)) {
+          if (/^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(next))
+              && next === generationId(completed + 1)) {
             committedOffspringForHandover = next;
             break;
           }
