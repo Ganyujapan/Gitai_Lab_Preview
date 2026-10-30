@@ -33,6 +33,96 @@ def main() -> None:
     for folder in ("audio", "config", "css", "data", "environments", "img", "js", "species"):
         shutil.copytree(site / folder, exhibit / folder, dirs_exist_ok=True)
 
+    # iPad exhibition-only audio recovery. Keep standard preview modules
+    # byte-identical: only the copied exhibit/js/ambient_audio.js is patched.
+    ambient = exhibit / "js" / "ambient_audio.js"
+    ambient_code = ambient.read_text(encoding="utf-8")
+    def replace_audio(before: str, after: str) -> None:
+        nonlocal ambient_code
+        assert ambient_code.count(before) == 1, "Missing ambient hook: " + before[:70]
+        ambient_code = ambient_code.replace(before, after, 1)
+
+    replace_audio(
+        "  let loopTimer = null;\n  let playbackEpoch = 0;",
+        "  let loopTimer = null;\n  let lastAutoResumeAttemptAt = 0;\n"
+        "  let overlapUnavailable = false;\n  let playbackEpoch = 0;"
+    )
+    replace_audio(
+        "    const old = players[oldIndex];\n    const duration = old.duration;",
+        """    const old = players[oldIndex];
+    // iPadOS may silently pause or end a native media element after idle.
+    // Retry the SAME user-authorized player at most once every 2.5 seconds.
+    // No Web Audio, new source, state reset or repeat SFX is involved.
+    if (old.paused || old.ended) {
+      const now = Date.now();
+      if (pending || now - lastAutoResumeAttemptAt < 2500) return;
+      lastAutoResumeAttemptAt = now;
+      old.loop = true;
+      activatePlaybackSession();
+      try {
+        Promise.resolve(old.play()).catch(() => {
+          if (running && enabled && !document.hidden) {
+            playState = 'blocked';
+            render();
+          }
+        });
+      } catch (_) {
+        playState = 'blocked';
+        render();
+      }
+      return;
+    }
+    if (overlapUnavailable) return;
+    const duration = old.duration;"""
+    )
+    replace_audio(
+        "        old.loop = false;\n        active = nextIndex;",
+        "        old.loop = false;\n        overlapUnavailable = false;\n        active = nextIndex;"
+    )
+    replace_audio(
+        "        stopLoopTimer(); // Don't hammer a blocked standby every 80ms.",
+        "        overlapUnavailable = true; // Keep watchdog running for idle recovery."
+    )
+    replace_audio(
+        "      stopLoopTimer();\n      playState = old.paused ? 'blocked' : 'playing';",
+        "      overlapUnavailable = true;\n      playState = old.paused ? 'blocked' : 'playing';"
+    )
+    replace_audio(
+        """        // Native loop should prevent this. If WebKit still ends playback,
+        // never show a false "playing" status; allow a fresh real tap.
+        running = false;
+        stopLoopTimer();
+        playState = 'blocked';
+        render();""",
+        """        // Some iPad WebKit versions emit ended even with loop=true.
+        // Attempt a gesture-free continuation on this already-authorized
+        // element, then let the next genuine tap recover if Safari blocks it.
+        player.loop = true;
+        try {
+          player.currentTime = 0;
+          Promise.resolve(player.play()).catch(() => {
+            if (running && enabled) { playState = 'blocked'; render(); }
+          });
+        } catch (_) {
+          playState = 'blocked';
+          render();
+        }"""
+    )
+    replace_audio(
+        """    isPlaying: () => playState === 'playing',
+    activatePlaybackSession,""",
+        """    isPlaying: () => playState === 'playing',
+    resumeFromGesture() {
+      if (!enabled || document.hidden) return;
+      activatePlaybackSession();
+      if (errorReason === 'unavailable') retryUnavailableInGesture();
+      else if (!errorReason && (currentAudio().paused || currentAudio().ended
+          || playState !== 'playing')) playFromUserGesture();
+    },
+    activatePlaybackSession,"""
+    )
+    ambient.write_text(ambient_code, encoding="utf-8")
+
     # RE3-MODEL-01: embed the build that ACTUALLY supplies each engine script.
     # The normal preview and the PWA get the same source provenance; their
     # mutation profile is recorded separately. Rebuilding never edits user DBs.
