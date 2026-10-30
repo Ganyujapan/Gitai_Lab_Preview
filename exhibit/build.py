@@ -154,6 +154,170 @@ def main() -> None:
     }
     if (enabled && !errorReason && !document.hidden) primeSecondPlayerInGesture();"""
     )
+    # BUG-01 iPad regression: a native media element may claim "playing"
+    # even while currentTime no longer advances. The previous watchdog only
+    # handled .paused/.ended; a pending standby play() promise could also
+    # leave switching=true forever and disable the watchdog entirely.
+    replace_audio(
+        "  let overlapUnavailable = false;\n  let playbackEpoch = 0;",
+        """  let overlapUnavailable = false;
+  let switchingStartedAt = 0;
+  let watchedPlayer = -1;
+  let watchedPosition = NaN;
+  let lastProgressAt = Date.now();
+  let lastSeekRecoveryAt = 0;
+  let playbackEpoch = 0;"""
+    )
+    replace_audio(
+        """    if (!running || switching || secondElementPriming || !enabled || errorReason || document.hidden) return;
+    const oldIndex = active;
+    const old = players[oldIndex];""",
+        """    if (!running || !enabled || errorReason || document.hidden) return;
+    const now = Date.now();
+    // Safari can leave play() pending without ever resolving or rejecting.
+    // Do not let this freeze the timer while the audible element reaches EOF.
+    if (switching && now - switchingStartedAt > 2200) {
+      ++playbackEpoch; // An obsolete standby success cannot steal active.
+      switching = false;
+      const staleStandby = players[1 - active];
+      try { staleStandby.pause(); } catch (_) {}
+      staleStandby.loop = false;
+      staleStandby.muted = false;
+      currentAudio().loop = true;
+      overlapUnavailable = true;
+    }
+    const oldIndex = active;
+    const old = players[oldIndex];
+    const position = Number(old.currentTime);
+    const progressed = watchedPlayer !== oldIndex
+      || !Number.isFinite(watchedPosition)
+      || (Number.isFinite(position)
+        && (position > watchedPosition + 0.08 || position < watchedPosition - 0.5));
+    if (progressed) {
+      watchedPlayer = oldIndex;
+      watchedPosition = position;
+      lastProgressAt = now;
+    }
+    // Treat frozen currentTime as a real dropout even if paused=false.
+    // A native 'playing' event alone does not guarantee audible progress.
+    const stalled = !switching && now - lastProgressAt > 2600;
+    if (switching || secondElementPriming) return;"""
+    )
+    replace_audio(
+        """    if (old.paused || old.ended) {
+      const now = Date.now();
+      if (pending || now - lastAutoResumeAttemptAt < 2500) return;
+      lastAutoResumeAttemptAt = now;
+      old.loop = true;
+      activatePlaybackSession();
+      try {
+        Promise.resolve(old.play()).catch(() => {
+          if (running && enabled && !document.hidden) {
+            playState = 'blocked';
+            render();
+          }
+        });
+      } catch (_) {
+        playState = 'blocked';
+        render();
+      }
+      return;
+    }
+    if (overlapUnavailable) return;""",
+        """    if (old.paused || old.ended || stalled) {
+      if (pending || now - lastAutoResumeAttemptAt < 2500) return;
+      lastAutoResumeAttemptAt = now;
+      old.loop = true;
+      activatePlaybackSession();
+      try {
+        // At EOF native .loop may never fire in iPad WebKit; rewind the
+        // SAME gesture-unlocked element, not a newly locked second player.
+        const duration = old.duration;
+        if (old.ended || (stalled && Number.isFinite(duration)
+            && position >= duration - 1)) {
+          old.currentTime = 0;
+        } else if (stalled && !old.paused) {
+          old.pause();
+          old.currentTime = Math.max(0, position - 0.15);
+        }
+        Promise.resolve(old.play()).catch(() => {
+          if (running && enabled && !document.hidden) {
+            playState = 'blocked';
+            render();
+          }
+        });
+      } catch (_) {
+        playState = 'blocked';
+        render();
+      }
+      lastProgressAt = now;
+      watchedPosition = Number(old.currentTime);
+      return;
+    }
+    if (overlapUnavailable) {
+      // If the second player is unusable, manually restart the same
+      // authorized element at its end instead of relying on Ogg looping.
+      const duration = old.duration;
+      if (Number.isFinite(duration) && duration > 2
+          && position >= duration - 0.18 && now - lastSeekRecoveryAt > 1500) {
+        lastSeekRecoveryAt = now;
+        try {
+          old.currentTime = 0;
+          Promise.resolve(old.play()).catch(() => {
+            if (running && enabled) { playState = 'blocked'; render(); }
+          });
+        } catch (_) { playState = 'blocked'; render(); }
+      }
+      return;
+    }"""
+    )
+    replace_audio(
+        """    switching = true;
+    const epoch = playbackEpoch;""",
+        """    switching = true;
+    switchingStartedAt = Date.now();
+    const epoch = playbackEpoch;"""
+    )
+    replace_audio(
+        """    pending = false;
+    running = false;
+    switching = false;
+    secondElementPriming = false;
+    playbackEpoch += 1;""",
+        """    pending = false;
+    running = false;
+    switching = false;
+    secondElementPriming = false;
+    watchedPlayer = -1;
+    watchedPosition = NaN;
+    lastProgressAt = Date.now();
+    overlapUnavailable = false;
+    playbackEpoch += 1;"""
+    )
+    replace_audio(
+        """      else if (!errorReason && (currentAudio().paused || currentAudio().ended
+          || playState !== 'playing')) playFromUserGesture();""",
+        """      else if (!errorReason) {
+        // Even if WebKit still says 'playing', frozen time must not
+        // suppress the recovery gesture.
+        if (Date.now() - lastProgressAt > 2200) {
+          pending = false;
+          try { currentAudio().pause(); } catch (_) {}
+          playState = 'blocked';
+        }
+        if (currentAudio().paused || currentAudio().ended
+            || playState !== 'playing') playFromUserGesture();
+      }"""
+    )
+    # Media timeupdate events continue to signal progress when iPad Safari
+    # throttles JavaScript intervals; maintain a second path for EOF checks.
+    replace_audio(
+        "    player.addEventListener('waiting', () => {",
+        """    player.addEventListener('timeupdate', () => {
+      if (index === active && running) tickLoop();
+    });
+    player.addEventListener('waiting', () => {"""
+    )
     ambient.write_text(ambient_code, encoding="utf-8")
 
     # RE3-MODEL-01: embed the build that ACTUALLY supplies each engine script.
