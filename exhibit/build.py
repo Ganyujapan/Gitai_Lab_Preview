@@ -309,6 +309,15 @@ def main() -> None:
             || playState !== 'playing') playFromUserGesture();
       }"""
     )
+    # Media timeupdate events continue to signal progress when iPad Safari
+    # throttles JavaScript intervals; maintain a second path for EOF checks.
+    replace_audio(
+        "    player.addEventListener('waiting', () => {",
+        """    player.addEventListener('timeupdate', () => {
+      if (index === active && running) tickLoop();
+    });
+    player.addEventListener('waiting', () => {"""
+    )
     ambient.write_text(ambient_code, encoding="utf-8")
 
     # RE3-MODEL-01: embed the build that ACTUALLY supplies each engine script.
