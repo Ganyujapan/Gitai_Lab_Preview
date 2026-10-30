@@ -336,7 +336,8 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
   assert.equal(cancelledThenRetry.opened,2,
     'A valid current-state snapshot is read before asking for confirmation');
   assert.match(source,/if\(restoreMutationBusy\)\{\s*setUpdate\('復元処理中のため、更新の適用を中止/);
-  assert.match(source,/restoreMutationBusy = false;\s*}\s*}\s*\/\/ EXH-F01/);
+  assert.match(source,/restoreMutationBusy = false;\s*}\s*}\s*\/\/ EXH-RESET-BEGIN/);
+  assert.match(source,/\/\/ EXH-RESET-END\.[\s\S]*\/\/ EXH-F01/);
 
   // AUD-RST-02: another tab may commit a new generation WHILE the
   // confirmation dialog is open. The restore must not erase that generation.
