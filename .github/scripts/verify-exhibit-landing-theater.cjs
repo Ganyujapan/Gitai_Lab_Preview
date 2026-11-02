@@ -111,7 +111,7 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
   'exhibitTheaterPrev','exhibitTheaterNext','exhibitTheaterPlay',
   'exhibitGenerationCryptic','exhibitGenerationWarning',
   'exhibitTheaterPlayed','exhibitTheaterMarkers','exhibitHandoverFinished',
-  'exhibitHandoverFinishNext']) elements.set(id,node(id));
+  'exhibitHandoverFinishNext','exhibitVisitorNickname','exhibitVisitorNicknameStatus']) elements.set(id,node(id));
  const stage=node('theaterStage');
  const paints=[];
  elements.get('exhibitTheaterCanvas').getContext=()=>({
@@ -155,6 +155,12 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
           else throw Error('unexpected readonly store '+store);
           g.onsuccess?.();if(done)queueMicrotask(()=>tx.oncomplete?.());
         });return g;},
+        openCursor(range){
+         assert.equal(store,'meta');
+         assert.equal(range.start,'exhibit_visitor_nickname_v1:');
+         const q={};queueMicrotask(()=>{q.result=null;q.onsuccess?.();});
+         return q;
+        },
         openKeyCursor(){assert.equal(store,'theater_frames');const q={};queueMicrotask(()=>{
          let i=0;function pump(){if(i<source.frames.length){
           q.result={key:source.frames[i++].generation_id,continue:()=>queueMicrotask(pump)};
@@ -184,7 +190,7 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
  const globals={
   document:doc,window:{addEventListener:(evt,cb)=>windowListeners[evt]=cb,
    GitaiExhibitLanding:{showMenu(){},showSplash(){}}},location:loc,
-  Blob,indexedDB,URL:FakeURL,sessionStorage,
+  Blob,indexedDB,IDBKeyRange:{bound:(start,end)=>({start,end})},URL:FakeURL,sessionStorage,
   Image:class FakeImage {
    set src(value){this._src=value;queueMicrotask(()=>this.onload?.())}
    get src(){return this._src}
@@ -217,13 +223,13 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
  assert.match(s.elements.get('exhibitTheaterMeta').textContent,/第26世代/);
  assert.equal(s.elements.get('exhibitTheaterProgress').textContent,'7 / 7');
  assert.equal(s.elements.get('exhibitTheaterCanvas').hidden,false);
- assert.equal(s.paints.length,1);
+ assert.equal(s.paints.length,2,'original frame plus in-memory legacy label cover');
  // The previous pixels remain on the same canvas until next drawImage.
  s.elements.get('exhibitTheaterPrev').trigger('click');
  assert.equal(s.elements.get('exhibitTheaterCanvas').hidden,false);
  await s.settle();
  assert.equal(s.elements.get('exhibitTheaterCanvas').hidden,false);
- assert.equal(s.paints.length,2);
+ assert.equal(s.paints.length,4,'two draws per historical snapshot; no DB mutation');
  assert.equal(s.elements.get('exhibitTheaterMarkers').hidden,true);
  s.close();assert.equal(s.elements.get('exhibitTheaterDialog').hidden,true);
  assert.ok(s.urls.every(u=>s.revoked.includes(u)),'all display URLs must be revoked');
