@@ -72,7 +72,15 @@
 .exhibit-handover-finished[hidden]{display:none!important}
 .exhibit-handover-finished p{flex:1;min-width:0;margin:0;font-size:clamp(11px,3vw,14px);line-height:1.45;font-weight:700;color:#d8f0da}
 .exhibit-handover-finished p span{display:block;color:#a9c9ae;font-weight:500}
-#exhibitHandoverFinishNext{flex:none;min-width:132px;min-height:48px;padding:6px 10px;border:2px solid #a4d8b3;border-radius:7px;background:#244b35;color:#fff;font:750 clamp(13px,3.2vw,16px) system-ui,sans-serif;touch-action:manipulation}
+/* Optional, offline-only visitor identity. It never covers the theater canvas. */
+.exhibit-visitor-nickname{display:flex;flex:1 1 0;min-width:0;max-width:64%;flex-direction:column;gap:3px}
+.exhibit-visitor-nickname label{font-size:clamp(11px,2.8vw,14px);font-weight:700;color:#d8f0da}
+.exhibit-visitor-nickname input{box-sizing:border-box;width:100%;min-width:0;min-height:42px;padding:7px 9px;border:1px solid #8aa594;border-radius:6px;background:#182820;color:#fff;font:600 16px system-ui,sans-serif}
+.exhibit-visitor-nickname input:focus-visible{outline:2px solid #f1d68d;outline-offset:2px}
+.exhibit-visitor-nickname small{display:block;min-height:12px;color:#b3ccba;font-size:10px;line-height:1.25}
+#exhibitHandoverFinishNext{flex:none;margin-inline-start:auto;min-width:132px;min-height:48px;padding:6px 10px;border:2px solid #a4d8b3;border-radius:7px;background:#244b35;color:#fff;font:750 clamp(13px,3.2vw,16px) system-ui,sans-serif;touch-action:manipulation}
+#exhibitHandoverFinishNext:disabled{opacity:.65}
+@media(max-width:370px){.exhibit-visitor-nickname{max-width:54%}#exhibitHandoverFinishNext{min-width:116px;padding:5px}}
 
 
 /* A persistent composited drawing surface cannot reveal a black frame
