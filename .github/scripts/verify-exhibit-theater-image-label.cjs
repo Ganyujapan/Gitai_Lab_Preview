@@ -23,11 +23,15 @@ const marker = ()=> {
 };
 const frames=[1,2,3].map(n=>({generation_id:'gen'+String(n).padStart(5,'0')}));
 const images=new Map();
-const painted=[],followed=[];
+const painted=[],covered=[],followed=[];
 const ctx={
  frames,cursor:0,pendingFrameIndex:null,frameLoadId:0,
  dialog:{hidden:false},canvas:{hidden:true,width:600,height:1000},
- picture:{drawImage:(img)=>painted.push(img.number)},
+ picture:{drawImage:(img,...args)=>{
+   if(args.length===4)painted.push(img.number);
+   else if(args.length===8)covered.push(img.number);
+   else throw Error('unexpected canvas draw');
+ }},
  markers:{children:frames.map(marker)},
  meta:{textContent:'読み込み中…'},counter:{textContent:'-- / --'},
  slider:{value:'0',max:'0'},
@@ -37,6 +41,7 @@ const ctx={
  empty:{hidden:false,textContent:'loading'},
  numberOf:g=>Number(g.slice(3)),
  followCurrentMarker(){followed.push(ctx.cursor)},
+ renderBadge(generation){ctx.playedLabel.hidden=!(generation>=2&&generation<=3)},
  console:{warn:()=>{}},
  decodeFrame(index){
    if (!images.has(index))images.set(index,delayed());
@@ -55,6 +60,7 @@ const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
  images.get(2).resolve({number:3});
  await flush();
  assert.deepEqual(painted,[3]);
+ assert.deepEqual(covered,[3],'legacy label cover must repaint only the same frame');
  assert.equal(ctx.cursor,2);
  assert.deepEqual(followed,[2],'follow the numbered frame only after its image is painted');
  assert.equal(ctx.meta.textContent,'第3世代 · 3 / 3枚');
