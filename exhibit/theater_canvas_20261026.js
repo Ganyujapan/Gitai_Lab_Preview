@@ -1,6 +1,6 @@
-/* Exhibition landing: read-only access to its two isolated evolution Runs.
-   Never open a database writing transaction, never initialize a
-   missing Run, and never start the simulator just to display theater frames. */
+/* Exhibition landing: read-only evolution theater for the two isolated Runs.
+   Only an explicit visitor nickname submission may write one namespaced
+   metadata record. Never alter generations, genomes, frames or images. */
 (() => {
   'use strict';
   const MODES = Object.freeze({
@@ -29,6 +29,9 @@
   const markers = document.getElementById('exhibitTheaterMarkers');
   const handoverFinished = document.getElementById('exhibitHandoverFinished');
   const handoverFinishNext = document.getElementById('exhibitHandoverFinishNext');
+  const nicknameInput = document.getElementById('exhibitVisitorNickname');
+  const nicknameStatus = document.getElementById('exhibitVisitorNicknameStatus');
+  const NAME_PREFIX = 'exhibit_visitor_nickname_v1:';
   const HANDOVER_KEY = 'gitai-exhibit-handover-v1';
   const VISIT_KEY = 'gitai-exhibit-visit-start-v1';
   const empty = document.getElementById('exhibitTheaterEmpty');
@@ -46,6 +49,8 @@
   let loadedImages = new Map();
   let frameUrls = [];
   let handoverData = null;
+  let visitorRecords = [];
+  let leavingForNextVisitor = false;
   let finalTimer = null;
   let playback = null;
   let resumeHandoverOnPageshow = false;
@@ -75,7 +80,7 @@
 
   async function readMode(mode) {
     const db = await openExisting(mode.db);
-    if (!db) return { generation: null, frames: [] };
+    if (!db) return { generation: null, frames: [], nicknames: [] };
     try {
       if (!db.objectStoreNames.contains('meta')) {
         throw Error('進化データの保存形式を確認できません');
@@ -86,8 +91,27 @@
         const tx = db.transaction(stores, 'readonly');
         let generation = null;
         const savedFrames = [];
-        const get = tx.objectStore('meta').get('current_generation_id');
+        const nicknames = [];
+        const metaStore = tx.objectStore('meta');
+        const get = metaStore.get('current_generation_id');
         get.onsuccess = () => { generation = get.result; };
+        // Prefix cursor: do not scan 60 genomes per historical generation.
+        // This is a READONLY view. Saved names are optional and validated.
+        const named = metaStore.openCursor(IDBKeyRange.bound(NAME_PREFIX, NAME_PREFIX + '\uffff'));
+        named.onsuccess = () => {
+          const entry = named.result;
+          if (!entry) return;
+          const value = entry.value;
+          if (value && value.schema === 1
+              && Number.isSafeInteger(value.start) && value.start >= 1
+              && Number.isSafeInteger(value.end) && value.end >= value.start
+              && value.end - value.start <= 4
+              && typeof value.name === 'string' && value.name.length <= 24
+              && value.name.trim() && !/[<>\u0000-\u001f\u007f]/u.test(value.name)) {
+            nicknames.push({ start: value.start, end: value.end, name: value.name });
+          }
+          entry.continue();
+        };
         if (hasTheater) {
           // Read keys ONLY: hundreds of full images must not be loaded
           // into iPad RAM just to list all historical generations.
@@ -107,7 +131,7 @@
             Number(a.generation_id.slice(3)) - Number(b.generation_id.slice(3)));
           resolve({
             generation: /^gen(?:\d{5}|[1-9]\d{5,})$/.test(String(generation)) ? generation : null,
-            frames: savedFrames
+            frames: savedFrames, nicknames
           });
         };
         tx.onerror = () => reject(tx.error || Error('保存データを読み込めません'));
@@ -120,6 +144,70 @@
 
   function numberOf(generation) {
     return Number(String(generation).slice(3));
+  }
+
+  function normalizeVisitorName(raw) {
+    const value = String(raw || '').normalize('NFC').trim();
+    if (!value) return '';
+    if (Array.from(value).length > 12 || /[<>\u0000-\u001f\u007f]/u.test(value)) {
+      throw Error('ニックネームは12文字以内で、記号 < > や改行を使わずに入力してください。');
+    }
+    return value;
+  }
+
+  function badgeForGeneration(generation) {
+    if (handoverData && generation >= handoverData.start && generation <= handoverData.end) {
+      const typed = nicknameInput.value.trim();
+      return typed ? '参加：' + typed : 'あなたのプレイ';
+    }
+    const stored = visitorRecords.find(item => generation >= item.start && generation <= item.end);
+    return stored ? '参加：' + stored.name : '';
+  }
+
+  function renderBadge(generation) {
+    const label = badgeForGeneration(generation);
+    playedLabel.textContent = label;
+    playedLabel.hidden = !label;
+  }
+
+  async function saveVisitorName(modeId, handover, name) {
+    if (!name) return; // Empty is an intentional anonymous handover: no DB writes.
+    const mode = MODES[modeId];
+    if (!mode || !handover || !Number.isSafeInteger(handover.start)
+        || !Number.isSafeInteger(handover.end) || handover.start < 1
+        || handover.end < handover.start || handover.end - handover.start > 4) {
+      throw Error('記録するプレイ世代を確認できません。');
+    }
+    const db = await openExisting(mode.db);
+    if (!db) throw Error('進化データが見つかりません。');
+    try {
+      // Only use the EXISTING DB v2 meta store. No migration or new object store.
+      if (db.version !== 2 || !db.objectStoreNames.contains('meta')) {
+        throw Error('進化データの保存形式が想定と異なります。');
+      }
+      const nextId = 'gen' + String(handover.end + 1).padStart(5, '0');
+      const recordKey = NAME_PREFIX + 'gen' + String(handover.end).padStart(5, '0');
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('meta', 'readwrite');
+        const store = tx.objectStore('meta');
+        let failure = null;
+        const current = store.get('current_generation_id');
+        current.onsuccess = () => {
+          // Refuse a stale handover (e.g. another tab has already evolved).
+          if (current.result !== nextId) {
+            failure = Error('別の画面で世代が変更されました。名前は記録していません。');
+            try { tx.abort(); } catch (_) {}
+            return;
+          }
+          store.put({ schema: 1, start: handover.start, end: handover.end, name }, recordKey);
+        };
+        tx.oncomplete = () => resolve();
+        tx.onabort = () => reject(failure || tx.error || Error('名前の記録を中断しました。'));
+        tx.onerror = () => {};
+      });
+    } finally {
+      db.close();
+    }
   }
   async function refreshGenerations() {
     await Promise.all(Object.values(MODES).map(async mode => {
@@ -276,12 +364,16 @@
       const record = frames[index];
       if (!record) return;
       picture.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      // Legacy saved screenshots have an obsolete "エンタメ型" label baked
+      // into y=50..90. Cover it by copying an empty area of the SAME header.
+      // Do not rewrite/delete any historical frame in IndexedDB.
+      picture.drawImage(bitmap, 310, 50, 230, 40, 0, 50, 230, 40);
       cursor = index;
       pendingFrameIndex = null;
       const generation = numberOf(record.generation_id);
       const marked = !!handoverData
         && generation >= handoverData.start && generation <= handoverData.end;
-      playedLabel.hidden = !marked;
+      renderBadge(generation);
       stage.classList.toggle('is-played', marked);
       for (let i = 0; i < markers.children.length; i++) {
         markers.children[i].classList.toggle('is-current', i === cursor);
@@ -373,6 +465,12 @@
     releaseImage();
     cursor = 0;
     handoverData = handover;
+    visitorRecords = [];
+    leavingForNextVisitor = false;
+    handoverFinishNext.disabled = false;
+    nicknameInput.disabled = false;
+    nicknameInput.value = '';
+    nicknameStatus.textContent = '「次の人へ」で記録します。空欄でもOK。';
     dialog.classList.toggle('is-handover', !!handover);
     // Small footer stays visible, but never obscures the moth canvas.
     handoverFinished.hidden = !handover;
@@ -397,6 +495,7 @@
       // All saved generations stay available across visitor handovers.
       // The visit range only highlights the current visitor's contribution.
       frames = result.frames;
+      visitorRecords = result.nicknames;
       assignFrameUrls();
       renderMarkers();
       if (!frames.length) {
@@ -423,14 +522,39 @@
   for (const button of document.querySelectorAll('[data-view-theater]')) {
     button.addEventListener('click', () => openTheater(button.dataset.viewTheater));
   }
-  handoverFinishNext.addEventListener('click', () => {
-    stopPlayback();
-    if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
+  nicknameInput.addEventListener('input', () => {
+    nicknameStatus.textContent = '「次の人へ」で記録します。空欄でもOK。';
+    if (handoverData && !dialog.hidden && frames[cursor]) {
+      renderBadge(numberOf(frames[cursor].generation_id));
+    }
+  });
+  handoverFinishNext.addEventListener('click', async () => {
+    if (leavingForNextVisitor || !handoverData || !activeMode) return;
+    let name;
+    try { name = normalizeVisitorName(nicknameInput.value); }
+    catch (error) { nicknameStatus.textContent = error.message; nicknameInput.focus(); return; }
+    leavingForNextVisitor = true;
+    handoverFinishNext.disabled = true;
+    nicknameInput.disabled = true;
+    nicknameStatus.textContent = name ? 'ニックネームを記録中…' : '匿名で交代します…';
     try {
-      sessionStorage.removeItem(VISIT_KEY);
-      sessionStorage.removeItem(HANDOVER_KEY);
-    } catch (_) {}
-    location.assign(new URL('./', location.href).href);
+      // The caller has finished evolving BEFORE this theater opens.
+      // A single isolated meta entry is included in existing v1 JSON backups.
+      if (name) await saveVisitorName(activeMode, handoverData, name);
+      stopPlayback();
+      if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
+      try {
+        sessionStorage.removeItem(VISIT_KEY);
+        sessionStorage.removeItem(HANDOVER_KEY);
+      } catch (_) {}
+      location.assign(new URL('./', location.href).href);
+    } catch (error) {
+      leavingForNextVisitor = false;
+      handoverFinishNext.disabled = false;
+      nicknameInput.disabled = false;
+      nicknameStatus.textContent = '記録失敗：' + (error?.message || String(error))
+        + '。再試行するか名前を空欄にしてください。';
+    }
   });
   closeButton.addEventListener('click', closeTheater);
   previous.addEventListener('click', () => {
@@ -459,8 +583,10 @@
     }
     // Keep keyboard focus inside the simple viewing dialog.
     if (e.key === 'Tab') {
-      const controls = [closeButton, slider, previous, play, next]
-        .filter(element => !element.disabled);
+      const controls = (handoverData
+        ? [slider, previous, play, next, nicknameInput, handoverFinishNext]
+        : [closeButton, slider, previous, play, next])
+        .filter(element => !element.disabled && !element.hidden);
       if (!controls.length) return;
       const ix = controls.indexOf(document.activeElement);
       if (e.shiftKey && (ix <= 0)) {
