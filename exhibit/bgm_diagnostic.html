@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>ギタイラボ BGMループ診断（展示版・開発用）</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",sans-serif;color-scheme:dark}
+body{margin:0;padding:18px 16px 48px;background:#111d1a;color:#f3f7f4;line-height:1.6}
+main{max-width:700px;margin:auto}h1{font-size:22px}h2{font-size:18px;margin-top:24px}
+p,small{color:#cbdcd3}button{font:inherit;font-size:16px;display:block;width:100%;background:#285e4d;color:white;border:1px solid #76ad98;border-radius:8px;padding:12px;margin:8px 0}
+button:disabled{opacity:.4}.sub{background:#354742}output,pre,textarea{display:block;box-sizing:border-box;width:100%;white-space:pre-wrap;overflow-wrap:anywhere;background:#0a1512;border:1px solid #52665b;border-radius:7px;padding:10px;font-size:13px;line-height:1.45}
+pre{max-height:320px;overflow:auto}textarea{height:110px}audio{width:100%;margin:16px 0}
+.warning{background:#44351e;border:1px solid #a88340;border-radius:7px;padding:12px;color:#ffe5a5}
+</style>
+</head>
+<body>
+<main>
+<h1>熱帯雨林BGM・ループ診断</h1>
+<p>ギタイラボ展示版のBGMが、2周目から約4秒だけ繰り返される原因を調べる開発者用ページです。ゲームや進化データにはアクセスしません。ゲーム本編は変更されません。</p>
+<p>同じ45秒のAAC音源を、<strong>1本の音声プレーヤー</strong>だけで再生します。最初のモードで2分程度試し、異常が出たら「ログをコピー」してください。必要に応じて2つ目のモードと比較できます。</p>
+<h2>再生方法を選ぶ</h2>
+<button id="native" type="button">A：iOS標準のループを試す（現行ゲームと同じ）</button>
+<button id="manual" type="button" class="sub">B：曲が終了したら手動で最初から再生</button>
+<button id="stop" type="button" class="sub">音声を止める</button>
+<audio id="player" controls playsinline preload="auto"></audio>
+<h2>現在の状態</h2>
+<output id="status">音声を選んでください</output>
+<p id="alert" class="warning" hidden>途中で再生位置が巻き戻りました。下の記録を保存してください。</p>
+<h2>動作記録</h2>
+<small>記録は端末内のこの画面だけに保存されます。自動送信・個人データ収集・IndexedDB操作はありません。録音やマイクは使用しません。</small>
+<button id="copy" type="button">診断ログをコピー</button>
+<output id="copy-status" aria-live="polite">記録開始前</output>
+<textarea id="log-text" aria-label="コピーする診断ログ" readonly placeholder="再生を開始すると、ここに記録が表示されます"></textarea>
+<pre id="recent" aria-label="直近の記録"></pre>
+<script src="bgm_diagnostic.js" defer></script>
+</main>
+</body>
+</html>
