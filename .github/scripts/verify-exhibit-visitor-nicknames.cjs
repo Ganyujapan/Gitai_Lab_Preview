@@ -30,7 +30,7 @@ assert.match(theater, /picture\.drawImage\(bitmap, 310, 50, 230, 40, 0, 50, 230,
 assert.match(publicEngine, /ctx\.fillText\(\s*theaterModelLabel\(\),\s*22,\s*68,/);
 assert.doesNotMatch(exhibitEngine, /ctx\.fillText\(\s*theaterModelLabel\(\),\s*22,\s*68,/,
   'exhibit must not bake obsolete label into NEW cached frames');
-assert.match(admin, /const STORES = \['meta', 'images', 'theater_frames'\]/,
+assert.match(admin, /const STORES = \['images', 'meta', 'theater_frames'\]/,
   'v1 JSON backup includes the unmodified meta store');
 assert.match(admin, /snapshotStores\(db\)/);
 assert.match(admin, /validateBackup\(raw, selected\)/);
