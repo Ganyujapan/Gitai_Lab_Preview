@@ -46,7 +46,10 @@
 <button type="button" id="exhibitTheaterNext">次へ ▶</button>
 </div>
 <p class="exhibit-theater-footnote">閲覧専用：進化データは変更されません。</p>
-<div id="exhibitHandoverFinished" class="exhibit-handover-finished" hidden><button id="exhibitHandoverFinishNext" type="button">次の人へ →</button></div>
+<div id="exhibitHandoverFinished" class="exhibit-handover-finished" hidden>
+<div class="exhibit-visitor-nickname"><label for="exhibitVisitorNickname">ニックネーム（任意）</label><input id="exhibitVisitorNickname" type="text" maxlength="24" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="本名ではなくニックネーム"><small id="exhibitVisitorNicknameStatus" role="status">「次の人へ」で記録します。空欄でもOK。</small></div>
+<button id="exhibitHandoverFinishNext" type="button">次の人へ →</button>
+</div>
 </div></section>
 <button id="exhibitAdminOpen" type="button">管理者用</button>
 <section id="exhibitAdminPanel" hidden aria-label="管理者専用設定">
