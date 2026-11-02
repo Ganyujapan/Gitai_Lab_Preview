@@ -33,6 +33,25 @@ def main() -> None:
     for folder in ("audio", "config", "css", "data", "environments", "img", "js", "species"):
         shutil.copytree(site / folder, exhibit / folder, dirs_exist_ok=True)
 
+    # Hide public-preview's "エンタメ型" header ONLY in newly rendered
+    # exhibition theater snapshots. Keep normal preview source unchanged.
+    pages = exhibit / "js" / "pages_preview.js"
+    pages_code = pages.read_text(encoding="utf-8")
+    model_label_drawing = (
+        "    ctx.fillText(\n"
+        "      theaterModelLabel(),\n"
+        "      22,\n"
+        "      68,\n"
+        "    );"
+    )
+    assert pages_code.count(model_label_drawing) == 1, "Theater label render code changed"
+    pages.write_text(
+        pages_code.replace(
+            model_label_drawing,
+            "    // Exhibit-only: no entertainment/education model label on theater image."
+        ), encoding="utf-8"
+    )
+
     # iPad exhibition-only audio recovery. Keep standard preview modules
     # byte-identical: only the copied exhibit/js/ambient_audio.js is patched.
     ambient = exhibit / "js" / "ambient_audio.js"
