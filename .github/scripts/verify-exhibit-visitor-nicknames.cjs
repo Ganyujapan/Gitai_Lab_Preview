@@ -110,7 +110,7 @@ vm.runInNewContext(executable + '\n' +
   assert.equal(closes, 1);
 
   // A stale handover must NOT write a nickname or affect existing entries.
-  state.set('current_generation_id', 'gen00007');
+  state.set('current_generation_id', 'gen00008');
   await assert.rejects(
     api.saveVisitorName('cryptic', { start: 6, end: 6 }, '次の人'),
     /別の画面で世代が変更/);
