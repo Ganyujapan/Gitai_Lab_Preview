@@ -253,6 +253,8 @@ jobs:
           node .github/scripts/verify-exhibit-ambient-loop-stall.cjs _site
           node --check _site/exhibit/ambient_ios.js
           node .github/scripts/verify-exhibit-aac-single-loop.cjs _site
+          node --check _site/exhibit/bgm_diagnostic.js
+          node .github/scripts/verify-exhibit-bgm-diagnostic.cjs _site
           node --check _site/exhibit/admin.js
           node --check _site/exhibit/landing.js
           node --check _site/exhibit/js/pages_preview.js
