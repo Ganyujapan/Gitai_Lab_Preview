@@ -503,6 +503,7 @@ def main() -> None:
     # The exhibition bundles only the currently supported public simulator.
     for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css",
                  "manifest.webmanifest", "game.js", "game.css", "ambient_ios.js", "admin.js", "admin.css",
+                 "bgm_diagnostic.html", "bgm_diagnostic.js",
                  "backup_readiness.js",
                  # Optional diagnostics: NEVER loaded by index/modes/game/admin.
                  "backup_rehearsal.html", "backup_schema_rehearsal.js",
@@ -533,7 +534,8 @@ def main() -> None:
                    "js/warning_color.js", "img/backgrounds/bg_leaf01.png",
                    "audio/gitailab_rainforest_overlap_test_48k.ogg",
                    "audio/gitailab_rainforest_ios_seamless_loop_48k.m4a",
-                   "ambient_ios.js"):
+                   "ambient_ios.js",
+                   "bgm_diagnostic.html", "bgm_diagnostic.js"):
         assert needed in runtime_files, needed
     for thumbnail in thumbnails:
         artifact = "img/modeselect/" + thumbnail
@@ -567,6 +569,15 @@ def main() -> None:
     assert "backup_readiness.js" in runtime_files
     assert 'src="backup_readiness.js"' in (exhibit / "modes.html").read_text(encoding="utf-8")
     assert "backup_readiness.js" not in (exhibit / "game.html").read_text(encoding="utf-8")
+    # Standalone audio research page must not touch persistent evolution data
+    # and is not imported by any visitor-facing entry point.
+    diagnostic_html = (exhibit / "bgm_diagnostic.html").read_text(encoding="utf-8")
+    diagnostic_js = (exhibit / "bgm_diagnostic.js").read_text(encoding="utf-8")
+    assert 'src="bgm_diagnostic.js"' in diagnostic_html
+    assert "audio/gitailab_rainforest_ios_seamless_loop_48k.m4a" in diagnostic_js
+    assert "indexedDB" not in diagnostic_js and "localStorage" not in diagnostic_js
+    assert "bgm_diagnostic" not in (exhibit / "game.html").read_text(encoding="utf-8")
+    assert "bgm_diagnostic" not in (exhibit / "modes.html").read_text(encoding="utf-8")
     # Capacity inspector never imports v3 rehearsal code into production.
     assert "js/game_sfx.js" in runtime_files
     assert "theater_canvas_20261026.js" in runtime_files and "theater_canvas_20261026.css" in runtime_files
