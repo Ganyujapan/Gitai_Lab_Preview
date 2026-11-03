@@ -13,8 +13,8 @@ assert.match(script.slice(to,to+1600),/followCurrentMarker\(\)/,
   'follow the generation actually drawn and highlighted');
 const helper = script.slice(from,to);
 
+for(const count of [60,100,500,1000]){
 const viewportLeft=100, viewportWidth=280, chipWidth=38, pitch=43;
-const count=60;
 let cursor=0;
 const markers={
  hidden:false,clientWidth:viewportWidth,scrollWidth:count*pitch,scrollLeft:0,
@@ -53,4 +53,5 @@ markers.hidden=false;
 markers.clientWidth=markers.scrollWidth;
 sandbox.follow();
 assert.equal(markers.scrollLeft,100,'no scrolling when all markers fit');
-console.log('Exhibition theater: all 60 generation labels remain visible during forward/back playback; no DB writes.');
+}
+console.log('Exhibition theater: 60/100/500/1000 generation markers follow forward/back playback; no DB writes.');
