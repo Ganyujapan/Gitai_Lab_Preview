@@ -24,6 +24,8 @@ assert.match(stylesheet, /#exhibitHandoverFinishNext\{[^}]*margin-inline-start:a
 assert.match(theater, /const NAME_PREFIX = 'exhibit_visitor_nickname_v1:';/);
 assert.match(theater, /metaStore\.openCursor\(IDBKeyRange\.bound\(NAME_PREFIX,/);
 assert.match(theater, /db\.transaction\('meta', 'readwrite'\)/);
+assert.match(theater, /store\.add\(\{ schema: 1, start: handover\.start/);
+assert.doesNotMatch(theater, /store\.put\(\{ schema: 1, start: handover\.start/);
 assert.match(theater, /current\.result !== nextId/);
 assert.doesNotMatch(theater, /deleteDatabase\(|objectStore\(['"]images['"]\).*clear\(/);
 assert.match(theater, /picture\.drawImage\(bitmap, 310, 50, 230, 40, 0, 50, 230, 40\)/);
@@ -64,10 +66,20 @@ function fakeDb() {
               });
               return request;
             },
-            put(value, key) {
+            add(value, key) {
               assert.equal(aborted, false);
-              state.set(key, value);
-              writes.push(key);
+              const req = {};
+              if (state.has(key)) {
+                queueMicrotask(() => {
+                  req.error = new Error('ConstraintError');
+                  req.onerror?.();
+                  transaction.abort();
+                });
+              } else {
+                state.set(key, value);
+                writes.push(key);
+              }
+              return req;
             }
           };
         },
@@ -109,13 +121,22 @@ vm.runInNewContext(executable + '\n' +
   assert.deepEqual(writes, [key], 'one metadata entry only');
   assert.equal(closes, 1);
 
+  // A second tap after a BFCache/back navigation must NOT overwrite the name
+  // of the original visitor, even if the current generation did not change.
+  await assert.rejects(
+    api.saveVisitorName('cryptic', { start: 1, end: 5 }, '別の名前'),
+    /この世代の参加者名は登録済み/);
+  assert.equal(state.get(key).name,'テスター');
+  assert.deepEqual(writes,[key]);
+  assert.equal(closes,2);
+
   // A stale handover must NOT write a nickname or affect existing entries.
   state.set('current_generation_id', 'gen00008');
   await assert.rejects(
     api.saveVisitorName('cryptic', { start: 6, end: 6 }, '次の人'),
     /別の画面で世代が変更/);
   assert.deepEqual(writes, [key]);
-  assert.equal(closes, 2);
+  assert.equal(closes, 3);
   await api.saveVisitorName('cryptic', { start: 1, end: 5 }, '');
   assert.deepEqual(writes, [key], 'anonymous handover has no DB write');
 
@@ -128,5 +149,5 @@ vm.runInNewContext(executable + '\n' +
   api.renderBadge(6);
   assert.equal(sandbox.playedLabel.textContent, '参加：クワガタ');
   assert.equal(sandbox.playedLabel.hidden, false);
-  console.log('Exhibit nickname: read-only theater, one guarded meta write, anonymous skip, stale rejection, preview, backup inclusion, public isolation OK');
+  console.log('Exhibit nickname: read-only theater, write-once meta, no BFCache overwrite, anonymous skip, stale rejection, preview, backup inclusion, public isolation OK');
 })().catch(error => { console.error(error); process.exitCode = 1; });
