@@ -477,7 +477,7 @@
     handoverFinishNext.disabled = false;
     nicknameInput.disabled = false;
     nicknameInput.value = '';
-    nicknameStatus.textContent = '「次の人へ」で記録します。空欄でもOK。';
+    nicknameStatus.textContent = '入力名はiPadとバックアップに残ります。空欄は匿名。';
     dialog.classList.toggle('is-handover', !!handover);
     // Small footer stays visible, but never obscures the moth canvas.
     handoverFinished.hidden = !handover;
@@ -530,7 +530,7 @@
     button.addEventListener('click', () => openTheater(button.dataset.viewTheater));
   }
   nicknameInput.addEventListener('input', () => {
-    nicknameStatus.textContent = '「次の人へ」で記録します。空欄でもOK。';
+    nicknameStatus.textContent = '入力名はiPadとバックアップに残ります。空欄は匿名。';
     if (handoverData && !dialog.hidden && frames[cursor]) {
       renderBadge(numberOf(frames[cursor].generation_id));
     }
