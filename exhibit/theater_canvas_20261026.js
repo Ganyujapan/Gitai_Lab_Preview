@@ -199,7 +199,14 @@
             try { tx.abort(); } catch (_) {}
             return;
           }
-          store.put({ schema: 1, start: handover.start, end: handover.end, name }, recordKey);
+          // A completed visitor name is write-once. In particular, Safari
+          // BFCache/back navigation must never overwrite an earlier attendee.
+          // IDB add() rejects an existing key atomically (unlike put()).
+          const add = store.add({ schema: 1, start: handover.start, end: handover.end, name }, recordKey);
+          add.onerror = () => {
+            failure = Error('この世代の参加者名は登録済みです。既存の名前を上書きしません。'
+              + '匿名で次の人へ進む場合は入力欄を空欄にしてください。');
+          };
         };
         tx.oncomplete = () => resolve();
         tx.onabort = () => reject(failure || tx.error || Error('名前の記録を中断しました。'));
