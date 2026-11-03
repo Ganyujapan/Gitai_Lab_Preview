@@ -124,6 +124,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-backup-readiness.cjs
       - name: Verify exhibition backup cannot overwrite existing data with malformed JSON
         run: node .github/scripts/verify-exhibit-backup-validation.cjs
+      - name: Verify v1 codec preserves 1000 synthetic theater frames and visitor nicknames
+        run: node .github/scripts/verify-exhibit-v1-codec-names.cjs
       - name: Verify exhibition backup restore reports partial success accurately
         run: node .github/scripts/verify-exhibit-restore-result.cjs
       - name: Verify exhibit admin opens DB without creation or upgrade and preflights archive size
