@@ -16,6 +16,9 @@ const publicEngine = fs.readFileSync('js/pages_preview.js', 'utf8');
 const admin = read('admin.js');
 
 assert.match(mode, /id="exhibitVisitorNickname"[^>]*maxlength="24"/);
+assert.match(mode, /aria-describedby="exhibitVisitorNicknameStatus"/);
+assert.match(mode, /入力名はiPadとバックアップに残ります。空欄は匿名。/);
+assert.match(theater, /入力名はiPadとバックアップに残ります。空欄は匿名。/);
 assert.ok(mode.indexOf('id="exhibitVisitorNickname"') <
   mode.indexOf('id="exhibitHandoverFinishNext"'),
   'left nickname field must precede right handover CTA');
@@ -23,6 +26,7 @@ assert.match(stylesheet, /\.exhibit-visitor-nickname\{/);
 assert.match(stylesheet, /#exhibitHandoverFinishNext\{[^}]*margin-inline-start:auto/);
 assert.match(theater, /const NAME_PREFIX = 'exhibit_visitor_nickname_v1:';/);
 assert.match(theater, /metaStore\.openCursor\(IDBKeyRange\.bound\(NAME_PREFIX,/);
+assert.match(theater, /entry\.key === NAME_PREFIX \+ 'gen' \+ String\(value\.end\)\.padStart\(5, '0'\)/);
 assert.match(theater, /db\.transaction\('meta', 'readwrite'\)/);
 assert.match(theater, /store\.add\(\{ schema: 1, start: handover\.start/);
 assert.doesNotMatch(theater, /store\.put\(\{ schema: 1, start: handover\.start/);
