@@ -48,6 +48,7 @@ const executable = theater.slice(start, finish);
 const state = new Map([['current_generation_id', 'gen00006']]);
 const writes = [];
 let closes = 0;
+let failNextAdd = false;
 function fakeDb() {
   return {
     version: 2,
@@ -73,9 +74,11 @@ function fakeDb() {
             add(value, key) {
               assert.equal(aborted, false);
               const req = {};
-              if (state.has(key)) {
+              if (state.has(key) || failNextAdd) {
+                const errorName=failNextAdd?'QuotaExceededError':'ConstraintError';
+                failNextAdd = false;
                 queueMicrotask(() => {
-                  req.error = new Error('ConstraintError');
+                  req.error = Object.assign(new Error(errorName),{name:errorName});
                   req.onerror?.();
                   transaction.abort();
                 });
@@ -141,6 +144,15 @@ vm.runInNewContext(executable + '\n' +
     /別の画面で世代が変更/);
   assert.deepEqual(writes, [key]);
   assert.equal(closes, 3);
+  // Storage full is not a duplicate name. Do not mislead the visitor and do
+  // not permit a navigation that falsely suggests the name was recorded.
+  state.set('current_generation_id','gen00007');
+  failNextAdd = true;
+  await assert.rejects(
+    api.saveVisitorName('cryptic', { start: 6, end: 6 }, '容量試験'),
+    /保存できませんでした（QuotaExceededError）/);
+  assert.equal(writes.length,1);
+  assert.equal(closes,4);
   await api.saveVisitorName('cryptic', { start: 1, end: 5 }, '');
   assert.deepEqual(writes, [key], 'anonymous handover has no DB write');
 
@@ -153,5 +165,5 @@ vm.runInNewContext(executable + '\n' +
   api.renderBadge(6);
   assert.equal(sandbox.playedLabel.textContent, '参加：クワガタ');
   assert.equal(sandbox.playedLabel.hidden, false);
-  console.log('Exhibit nickname: read-only theater, write-once meta, no BFCache overwrite, anonymous skip, stale rejection, preview, backup inclusion, public isolation OK');
+  console.log('Exhibit nickname: read-only theater, write-once meta, no BFCache overwrite, quota rejection, anonymous skip, stale rejection, preview, backup inclusion, public isolation OK');
 })().catch(error => { console.error(error); process.exitCode = 1; });
