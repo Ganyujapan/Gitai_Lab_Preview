@@ -822,6 +822,7 @@
         + '\n現在の実験：' + currentLabel
         + '\n復元するデータ：' + importedGeneration
         + '\n現在の画像・DNA・履歴をすべて置き換えます。'
+        + '参加者名の記録もバックアップの内容に置き換わります。'
         + ' 必要な場合は先にバックアップを保存してください。';
       if (!confirm(summary + '\n復元を実行しますか？'))
         return {status: 'cancelled'};
