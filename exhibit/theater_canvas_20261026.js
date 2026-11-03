@@ -105,6 +105,7 @@
           if (value && value.schema === 1
               && Number.isSafeInteger(value.start) && value.start >= 1
               && Number.isSafeInteger(value.end) && value.end >= value.start
+              && entry.key === NAME_PREFIX + 'gen' + String(value.end).padStart(5, '0')
               && value.end - value.start <= 4
               && typeof value.name === 'string' && value.name.length <= 24
               && value.name.trim() && !/[<>\u0000-\u001f\u007f]/u.test(value.name)) {
