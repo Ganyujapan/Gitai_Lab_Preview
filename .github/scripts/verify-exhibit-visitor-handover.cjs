@@ -545,6 +545,43 @@ async function waitFor(fn){
     'changed generation must not receive a stale life reset');
   assert.match(staleAfterCommit.errors.join(' '),/別の画面/);
 
+
+  // 100 sequential visitor handovers PER mode with 1..5 generations.
+  // Synthetic in-memory session/storage only: no iPad data, no real IDB.
+  for(const mode of ['cryptic','warning']){
+    const sharedSession=new Map();
+    const sharedLocal=new Map();
+    let first=99950;
+    for(let visit=0;visit<100;visit++){
+      const played=1+((visit*37)%5);
+      const last=first+played-1;
+      const cycle=fixture({mode,start:first,end:last,
+        sessionStash:sharedSession,lifeStash:sharedLocal});
+      assert.equal(cycle.api.start(),first);
+      await cycle.api.safelyHandover();
+      const expected='gen'+String(last+1).padStart(5,'0');
+      assert.equal(cycle.pointer,expected,'exactly one generation at handover');
+      assert.equal(cycle.clicks,1,'never double evolve');
+      assert.equal(cycle.navigations.length,1);
+      assert.equal(sharedSession.has('gitai-exhibit-visit-start-v1'),false);
+      const replay=JSON.parse(sharedSession.get('gitai-exhibit-handover-v1'));
+      assert.equal(replay.mode,mode);
+      assert.equal(replay.start,first);
+      assert.equal(replay.end,last);
+      assert.equal(replay.end-replay.start+1,played);
+      if(mode==='warning'){
+        assert.deepEqual(JSON.parse(cycle.life),{
+          generation_id:expected,thirds:30
+        },'new visitor receives ten hearts');
+      }else{
+        assert.equal(cycle.lifeWrites,0);
+      }
+      // The theater consumes this one-use marker before returning to modes.
+      sharedSession.delete('gitai-exhibit-handover-v1');
+      first=last+1;
+    }
+  }
+
   const disabled=fixture({disabled:true});
   assert.equal(disabled.api.button.hidden,true);
   await disabled.api.safelyHandover();
