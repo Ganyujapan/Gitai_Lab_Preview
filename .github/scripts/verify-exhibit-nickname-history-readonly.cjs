@@ -21,7 +21,8 @@ const invalidNames=[
  {key:PREFIX+'bad2',value:{schema:2,start:1,end:1,name:'旧形式'}},
  {key:PREFIX+'bad3',value:{schema:1,start:0,end:1,name:'不正'}},
  {key:PREFIX+'bad4',value:{schema:1,start:3,end:3,name:'<script>'}},
- {key:PREFIX+'bad5',value:{schema:1,start:11,end:10,name:'逆順'}}
+ {key:PREFIX+'bad5',value:{schema:1,start:11,end:10,name:'逆順'}},
+ {key:PREFIX+id(1002),value:{schema:1,start:996,end:1000,name:'不一致キー'}}
 ];
 const sources={
  warning:{generation:id(1001),frames:imageKeys,records:[
