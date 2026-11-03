@@ -445,6 +445,7 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
   assert.match(cautious.prompts[0],/現在の実験：gen00044/);
   assert.match(cautious.prompts[0],/復元するデータ：gen00025/);
   assert.match(cautious.prompts[0],/画像・DNA・履歴をすべて置き換え/);
+  assert.match(cautious.prompts[0],/参加者名の記録もバックアップの内容に置き換わります/);
   assert.match(cautious.prompts[1],/進化履歴の巻き戻し/);
   assert.match(cautious.prompts[1],/現在：gen00044/);
   assert.match(cautious.prompts[1],/復元後：gen00025/);
