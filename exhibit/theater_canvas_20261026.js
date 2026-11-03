@@ -205,8 +205,12 @@
           // IDB add() rejects an existing key atomically (unlike put()).
           const add = store.add({ schema: 1, start: handover.start, end: handover.end, name }, recordKey);
           add.onerror = () => {
-            failure = Error('この世代の参加者名は登録済みです。既存の名前を上書きしません。'
-              + '匿名で次の人へ進む場合は入力欄を空欄にしてください。');
+            failure = add.error?.name === 'ConstraintError'
+              ? Error('この世代の参加者名は登録済みです。既存の名前を上書きしません。'
+                + '匿名で次の人へ進む場合は入力欄を空欄にしてください。')
+              : Error('ニックネームを保存できませんでした（'
+                + (add.error?.name || '保存エラー') + '）。'
+                + '空欄で交代するか管理者にお知らせください。');
           };
         };
         tx.oncomplete = () => resolve();
