@@ -51,7 +51,7 @@ function genome(i, warning) {
     modules,
     ...(warning ? {lineage:i <= 30 ? 'poison' : 'harmless'} : {})};
 }
-function backup(mode, warningLife) {
+function backup(mode, warningLife, visitorNames=[]) {
   const gen = mode === 'warning' ? 'gen00025' : 'gen00035';
   const body = {
     schema:'gitai-exhibit-backup-v1',
@@ -66,7 +66,7 @@ function backup(mode, warningLife) {
         ...Array.from({length:60},(_,i) => ({
           key:'genome:' + gen + ':' + String(i+1).padStart(2,'0'),
           value:genome(i+1, mode === 'warning')
-        }))],
+        })), ...visitorNames.map(record=>({key:record.key,value:record.value}))],
       theater_frames:[]
     }
   };
@@ -83,7 +83,9 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
   let stallOneOpen=false,releaseOpen=null;
   const state = {
     images: new Map([['old-image','kept']]),
-    meta: new Map([['current_generation_id','gen00010']]),
+    meta: new Map([['current_generation_id','gen00010'],
+      ['exhibit_visitor_nickname_v1:gen00005',
+       {schema:1,start:1,end:5,name:'旧参加者'}]]),
     theater_frames: new Map([['old-frame','kept']])
   };
   const input = {
@@ -279,6 +281,59 @@ function harness({mode='warning', confirmed=true, confirmAnswers=null, idbFail=f
 (async()=>{
   const savedLife = JSON.stringify({generation_id:'gen00025',thirds:18});
   const rawWarning = await backup('warning',savedLife);
+  // Production validator and restore must include visitor attribution in the
+  // SAME transaction as images and genomes (never a separate name migration).
+  const insertedNames=[
+    {key:'exhibit_visitor_nickname_v1:gen00020',
+     value:{schema:1,start:16,end:20,name:'クワガタ🦋'}},
+    {key:'exhibit_visitor_nickname_v1:gen00025',
+     value:{schema:1,start:21,end:25,name:'カモフラージュ'}}
+  ];
+  const namedWarning=await backup('warning',savedLife,insertedNames);
+  const namedVerified=harness();
+  assert.match(await namedVerified.verifySaved(namedWarning),
+    /保存済みJSONの検証成功/);
+  assert.equal(namedVerified.opened,0,'file re-selection must not open IDB');
+  assert.equal(namedVerified.state.meta.get(
+    'exhibit_visitor_nickname_v1:gen00005').name,'旧参加者');
+  const importedNames=harness();
+  assert.match(await importedNames.restore(namedWarning),/復元が完了/);
+  for(const {key,value} of insertedNames){
+    assert.equal(JSON.stringify(importedNames.state.meta.get(key)),
+      JSON.stringify(value),'name and generation range preserved through actual IDB swap');
+  }
+  assert.equal(importedNames.state.meta.has('exhibit_visitor_nickname_v1:gen00005'),
+    false,'full restore correctly replaces old metadata (not silently merged)');
+  assert.equal(importedNames.state.meta.get('current_generation_id'),'gen00025');
+  assert.equal(importedNames.state.images.size,60);
+  assert.equal(importedNames.saved.get(lifeKey),savedLife);
+
+  // Any IDB error must roll back BOTH historical names and all other stores.
+  const namesRollback=harness({idbFail:true});
+  assert.match(await namesRollback.restore(namedWarning),
+    /復元失敗（既存データは保持）/);
+  assert.equal(namesRollback.state.meta.get(
+    'exhibit_visitor_nickname_v1:gen00005').name,'旧参加者');
+  for(const {key} of insertedNames)assert.equal(namesRollback.state.meta.has(key),false);
+  assert.equal(namesRollback.state.meta.get('current_generation_id'),'gen00010');
+  assert.equal(namesRollback.state.images.get('old-image'),'kept');
+  assert.equal(namesRollback.state.theater_frames.get('old-frame'),'kept');
+  assert.equal(namesRollback.saved.get(lifeKey),'PREVIOUS_LIFE');
+
+  // Refusing a restore or detecting stale generation must keep old names.
+  const namesCancelled=harness({confirmed:false});
+  assert.match(await namesCancelled.restore(namedWarning),/キャンセル/);
+  assert.equal(namesCancelled.state.meta.get(
+    'exhibit_visitor_nickname_v1:gen00005').name,'旧参加者');
+  assert.equal(namesCancelled.state.meta.has(insertedNames[0].key),false);
+  const namesStale=harness({onConfirm(state){
+    state.meta.set('current_generation_id','gen00011');
+  }});
+  assert.match(await namesStale.restore(namedWarning),/復元失敗/);
+  assert.equal(namesStale.state.meta.get(
+    'exhibit_visitor_nickname_v1:gen00005').name,'旧参加者');
+  assert.equal(namesStale.state.meta.has(insertedNames[0].key),false);
+
   const verifiedFirst=harness();
   const currentBefore=verifiedFirst.state.meta.get('current_generation_id');
   assert.match(await verifiedFirst.verifySaved(rawWarning),/保存済みJSONの検証成功/);
