@@ -78,10 +78,11 @@ function harness() {
   openDb:async()=>{openCalls++;throw Error('Should never touch user data for a failed backup')},
   confirm:()=>{confirmCalls++;return true}
  };
- vm.runInNewContext(body+'\nglobalThis.validate=validateBackup;globalThis.restore=restoreMode;globalThis.verifySaved=verifySavedBackupFile;globalThis.loci=EXPECTED_PATTERN_LOCI;',
+ vm.runInNewContext(body+'\nglobalThis.validate=validateBackup;globalThis.restore=restoreMode;globalThis.verifySaved=verifySavedBackupFile;globalThis.checkExport=checkBackupExportLimits;globalThis.loci=EXPECTED_PATTERN_LOCI;',
    context,{filename:'exhibit/admin.js:EXH-02',timeout:5000});
  assert.deepEqual(Array.from(context.loci),MODEL_LOCI,'validator must match frozen model loci');
  return {validate:(raw,mode)=>context.validate(raw,mode),
+  checkExport:(envelope,bytes)=>context.checkExport(envelope,bytes),
   restore:(mode,file)=>context.restore(mode,file),
   verifySaved:(file,mode)=>context.verifySaved(file,mode),
   get openCalls(){return openCalls},get confirmCalls(){return confirmCalls}};
@@ -242,6 +243,72 @@ async function shouldFail(mode,payload,match) {
  const many=createPayload('cryptic','gen00035');
  many.stores.theater_frames=Array.from({length:20001},(_,i)=>({key:'x'+i,value:{}}));
  await shouldFail('cryptic',many,/保存項目が多すぎ/);
+
+ // Non-destructive, realistic *bounded history* acceptance: after a completed
+ // generation the engine trims older moth images/DNA but retains theater
+ // snapshots and diagnostics. Per-visit nicknames live in the existing meta
+ // store and must round-trip in v1 exports (no migration, no restore).
+ for(const historyCount of [100,500,1000]){
+  for(const mode of ['cryptic','warning']){
+   const gen='gen'+String(historyCount+1).padStart(5,'0');
+   const payload=createPayload(mode,gen);
+   const visits=Math.ceil(historyCount/5);
+   payload.stores.theater_frames=Array.from({length:historyCount},(_,i)=>{
+    const generation='gen'+String(i+1).padStart(5,'0');
+    return {key:generation,value:{
+     generation_id:generation,generation_number:i+1,
+     render_version:3,image_blob:blobPayload()
+    }};
+   });
+   // A visitor can end after fewer than five generations. The saved range
+   // refers to completed generations; never to the next generated offspring.
+   const names=Array.from({length:visits},(_,i)=>{
+    const start=1+i*5,end=Math.min(start+4,historyCount);
+    return {key:'exhibit_visitor_nickname_v1:gen'+String(end).padStart(5,'0'),
+      value:{schema:1,start,end,name:'参加者'+String(i+1)}};
+   });
+   payload.stores.meta.push(...names);
+   const raw=await exportJson(payload);
+   const h=harness();
+   const exported=JSON.parse(raw);
+   const bytes=Buffer.byteLength(raw,'utf8');
+   h.checkExport(exported,bytes); // real production export's import-compatible gate
+   const verified=await h.verifySaved({
+    name:'synthetic_'+mode+'_'+gen+'.json',size:bytes,async text(){return raw;}
+   },mode);
+   assert.equal(verified.generation,gen);
+   assert.equal(verified.count,121+historyCount+visits);
+   assert.equal(verified.bytes,bytes);
+   assert.equal(verified.integrity,'sha256-and-current-generation-shape');
+   const {prepared}=await h.validate(raw,mode);
+   assert.equal(prepared.theater_frames.length,historyCount);
+   const received=prepared.meta.filter(x=>
+    String(x.key).startsWith('exhibit_visitor_nickname_v1:'));
+   assert.equal(received.length,visits,'must preserve every optional visitor');
+   assert.deepEqual(received.map(x=>JSON.stringify(x.value)),
+     names.map(x=>JSON.stringify(x.value)),'must not alter name/range records');
+   assert.equal(h.openCalls,0,'history verification cannot access any DB');
+   assert.equal(h.confirmCalls,0,'history verification cannot offer restore');
+   // Nickname tampering, even with intact images/DNA, invalidates checksum.
+   if(historyCount===100){
+    const tampered=JSON.parse(raw);
+    tampered.payload.stores.meta.at(-1).value.name='別名';
+    await assert.rejects(h.verifySaved({
+     name:'tampered.json',size:Buffer.byteLength(JSON.stringify(tampered)),
+     async text(){return JSON.stringify(tampered);}
+    },mode),/整合性検証/);
+    assert.equal(h.openCalls,0);
+   }
+  }
+ }
+ // One extra record over the supported 20,000-entry cap must fail closed.
+ // No real historical records are removed or overwritten to make it fit.
+ const beyond=createPayload('cryptic','gen00011');
+ beyond.stores.theater_frames=Array.from({length:20000},(_,i)=>
+  ({key:'gen'+String(i+1).padStart(5,'0'),value:{generation_number:i+1}}));
+ const overEnvelope={payload:beyond,checksum:'0'.repeat(64)};
+ assert.throws(()=>harness().checkExport(overEnvelope,1024),/上限/);
+
  const modes=fs.readFileSync('exhibit/modes.html','utf8');
  const admin=fs.readFileSync('exhibit/admin.js','utf8');
  const css=fs.readFileSync('exhibit/admin.css','utf8');
