@@ -38,7 +38,7 @@ assert.doesNotMatch(installText,/self\.skipWaiting\s*\(/);
 const messageText=worker.slice(worker.indexOf("self.addEventListener('message'"));
 assert.match(messageText,/self\.skipWaiting\s*\(/);
 
-function harness({failAdd=false}={}) {
+function harness({failAdd=false,failAfter=0,failManifest=false}={}) {
   const callbacks={};
   const oldName=PREFIX+'test-vA';
   const stores=new Map([
@@ -56,8 +56,12 @@ function harness({failAdd=false}={}) {
       return {
         async addAll(requests){
           if(failAdd)throw Error('TEST_OFFLINE_NETWORK_CUT');
-          for(const request of requests)store.set(request.url,
-            {tag:'vB:'+new URL(request.url).pathname.split('/').at(-1),ok:true});
+          let added=0;
+          for(const request of requests){
+            store.set(request.url,
+              {tag:'vB:'+new URL(request.url).pathname.split('/').at(-1),ok:true});
+            if(failAfter && ++added===failAfter)throw Error('QuotaExceededError');
+          }
         },
         async match(request,{ignoreSearch=false}={}){
           const raw=typeof request==='string'?request:request.url;
@@ -83,6 +87,7 @@ function harness({failAdd=false}={}) {
       network++;
       const url=typeof request==='string'?request:
         (request instanceof URL?request.href:request.url);
+      if(url===path('precache.json') && failManifest)throw Error('TEST_MANIFEST_OFFLINE');
       if(url===path('precache.json'))return {
         ok:true,
         async json(){return ['index.html','modes.html','game.html','version.json'];}
@@ -146,5 +151,21 @@ function harness({failAdd=false}={}) {
   assert.ok(!cut.stores.has(CACHE),'partially populated vB cache must be deleted');
   assert.equal(cut.skipped,0);
   assert.equal(cut.claimed,0);
-  console.log('EXH-05: vA/vB precache, waiting-compatible install, manual skipWaiting, scoped activation cleanup, offline navigation, cross-scope exclusion and network-cut rollback OK. Browser auto-activation and iPad timing NOT simulated.');
+  // Some browser storage implementations can fail after partial cache writes.
+  // The new cache must be discarded, NEVER replacing the complete old build.
+  const quota=harness({failAfter:2});
+  await assert.rejects(quota.lifecycle('install'),/QuotaExceededError/);
+  assert.ok(quota.stores.has(quota.oldName),'quota failure retains all old assets');
+  assert.ok(!quota.stores.has(CACHE),'partial new cache removed after quota failure');
+  assert.ok(quota.stores.has('unrelated-app-cache'));
+  assert.equal(quota.skipped,0);
+  assert.equal(quota.claimed,0);
+
+  const manifestOffline=harness({failManifest:true});
+  await assert.rejects(manifestOffline.lifecycle('install'),/TEST_MANIFEST_OFFLINE/);
+  assert.ok(manifestOffline.stores.has(manifestOffline.oldName));
+  assert.ok(!manifestOffline.stores.has(CACHE));
+  assert.ok(manifestOffline.stores.has('unrelated-app-cache'));
+
+  console.log('EXH-05: vA/vB precache, waiting-compatible install, manual skipWaiting, scoped activation cleanup, offline navigation, cross-scope exclusion and network-cut, partial quota and offline-manifest rollback OK. Browser auto-activation and iPad timing NOT simulated.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
