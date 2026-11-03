@@ -285,8 +285,8 @@ async function shouldFail(mode,payload,match) {
    const received=prepared.meta.filter(x=>
     String(x.key).startsWith('exhibit_visitor_nickname_v1:'));
    assert.equal(received.length,visits,'must preserve every optional visitor');
-   assert.deepEqual(received.map(x=>JSON.stringify(x.value)),
-     names.map(x=>JSON.stringify(x.value)),'must not alter name/range records');
+   assert.deepEqual(Array.from(received,x=>JSON.stringify(x.value)),
+     Array.from(names,x=>JSON.stringify(x.value)),'must not alter name/range records');
    assert.equal(h.openCalls,0,'history verification cannot access any DB');
    assert.equal(h.confirmCalls,0,'history verification cannot offer restore');
    // Nickname tampering, even with intact images/DNA, invalidates checksum.
