@@ -32,6 +32,14 @@
 - `.github/scripts/verify-exhibit-nickname-history-readonly.cjs` は本番の `readMode()` を合成DBで実行し、保存画像1,000件とニックネーム200件の世代対応、形式不正の名前の除外、両モードのDB分離、画像Blobを読み込まない軽量表示を確認。
 - 名前の編集・削除UIは今回実装しない。来場者が名前を残したくない場合は入力欄を空にして交代する。記録済みの名前を安易に改変しない。
 
+### 本番v1復元の参加者名に関する追加検証（2026-11-03）
+
+- `.github/scripts/verify-exhibit-restore-result.cjs` で**実際のadmin.jsの復元処理**を合成DBに対して実行し、画像・DNAと同一の書込みトランザクションでニックネームと世代範囲が復元されることを確認。
+- トランザクション失敗、復元の取り消し、復元直前の世代変更では、既存の参加者名・画像・履歴が残ることを検査。
+- バックアップからの復元は全履歴交換であり、**旧バックアップに含まれない参加者名は残らない**。管理画面の確認メッセージでも明示し、`verify-exhibit-restore-result.cjs` で確認文言を検査。
+- `verify-exhibit-visitor-nicknames.cjs` で、重複名の`ConstraintError`と保存領域不足の`QuotaExceededError`を区別し、未保存を成功表示しないことを検査。
+- 来場者向け入力欄に、名前がiPadとバックアップに残ること・空欄なら匿名であることを明示。
+
 ## 2. 来場者交代の連続試験
 
 検証ファイル：`.github/scripts/verify-exhibit-visitor-handover.cjs`
