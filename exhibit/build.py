@@ -501,7 +501,7 @@ def main() -> None:
         ), encoding="utf-8"
     )
     # The exhibition bundles only the currently supported public simulator.
-    for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css",
+    for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css", "nickname_store.js",
                  "manifest.webmanifest", "game.js", "game.css", "ambient_ios.js", "admin.js", "admin.css",
                  "bgm_diagnostic.html", "bgm_diagnostic.js",
                  "backup_readiness.js",
