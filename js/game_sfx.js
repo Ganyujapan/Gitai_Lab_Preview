@@ -161,9 +161,9 @@
         if (ticket) pendingResumes.delete(ticket);
       };
       const ctx = getContext();
-      if (!ctx || frozenClockFallback || ctx.state === 'interrupted') {
-        // Fallback now, during this trusted pointerup. In particular, a
-        // suspended/interrupted resume Promise may never settle on iPadOS.
+      if (!ctx || frozenClockFallback) {
+        // Fallback now, during this trusted pointerup. A proven frozen
+        // clock must not be revived by resume() returning "running".
         playOnce(() => playNative(sound.kind, sound.number));
         finish();
         return;
@@ -208,6 +208,15 @@
       if (!fastUnlocked || preferNative || ctx.state !== 'running') {
         try {
           const attempt = ctx.resume();
+          if (ctx.state === 'interrupted') {
+            // WebKit may leave this state and the resume Promise stuck for
+            // minutes. If resume could not even transition it to running,
+            // request AAC in the same trusted gesture without waiting.
+            if (attempt && typeof attempt.catch === 'function') attempt.catch(() => {});
+            playOnce(() => playNative(sound.kind, sound.number));
+            finish();
+            return;
+          }
           if (attempt && typeof attempt.then === 'function') {
             attempt.then(recover).catch(() => {
               if (ctx === context && epoch === audioVisibilityEpoch
