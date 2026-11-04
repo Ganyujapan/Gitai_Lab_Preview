@@ -74,6 +74,8 @@ jobs:
         run: node .github/scripts/verify-sfx-latency-rehearsal.cjs
       - name: Verify iPad exhibition defaults to low latency Web Audio with AAC fallback
         run: node .github/scripts/verify-exhibit-web-audio-default.cjs
+      - name: SFX-IDLE-01 ensure frozen or interrupted iPad sound always falls back to native AAC
+        run: node .github/scripts/verify-exhibit-sfx-idle-recovery.cjs
       - name: Verify native audio ended-listener cleanup and voice cap
         run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
       - name: Keep rainforest BGM alive on inactive iPad decoder failures
