@@ -42,6 +42,10 @@
   // "running" while its clock stops. Detect the frozen clock and switch
   // further taps to native media rather than silently playing into it.
   let preferNative = false;
+  // A frozen Web Audio clock must not be re-armed merely because resume()
+  // reports "running". Use AAC until the next generation's new document.
+  // This is isolated from the ambient rainforest player's audio element.
+  let frozenClockFallback = false;
   let previousClockMs = 0;
   let previousClockSec = 0;
   let pendingTouchSound = null;
@@ -86,6 +90,10 @@
       if (previousClockMs && now - previousClockMs > 150
           && ctx.currentTime - previousClockSec < 0.015 && !document.hidden) {
         preferNative = true;
+        if (lowLatencyIOS) {
+          frozenClockFallback = true;
+          fastUnlocked = false;
+        }
         return false;
       }
       previousClockMs = now;
@@ -121,6 +129,16 @@
           && typeof w.PointerEvent !== 'undefined') return;
 
       pendingFastSound = null;
+      // Ordinary pointerup gestures without a captured moth can re-arm a
+      // newly created graph, but must NEVER erase a proven stall diagnosis.
+      if (!sound) {
+        if (!frozenClockFallback) {
+          const idleCtx = getContext();
+          if (idleCtx?.state === 'running' && !preferNative) fastUnlocked = true;
+          else activate();
+        }
+        return;
+      }
       const startedAt = Date.now();
       const epoch = audioVisibilityEpoch;
       const ticket = sound
@@ -143,7 +161,9 @@
         if (ticket) pendingResumes.delete(ticket);
       };
       const ctx = getContext();
-      if (!ctx) {
+      if (!ctx || frozenClockFallback || ctx.state === 'interrupted') {
+        // Fallback now, during this trusted pointerup. In particular, a
+        // suspended/interrupted resume Promise may never settle on iPadOS.
         playOnce(() => playNative(sound.kind, sound.number));
         finish();
         return;
@@ -155,6 +175,18 @@
           return;
         }
         if (ctx.state !== 'running') {
+          playOnce(() => playNative(sound.kind, sound.number));
+          finish();
+          return;
+        }
+        // Safari may claim the context has resumed even while its audio
+        // clock remains frozen. Do not clear preferNative until there is
+        // observable progress since the previous audible Web Audio hit.
+        if (previousClockMs && Date.now() - previousClockMs > 150
+            && typeof ctx.currentTime === 'number'
+            && ctx.currentTime - previousClockSec < 0.015) {
+          frozenClockFallback = true;
+          fastUnlocked = false;
           playOnce(() => playNative(sound.kind, sound.number));
           finish();
           return;
@@ -432,7 +464,7 @@
         }
         return;
       }
-      if (lowLatencyIOS && !fastUnlocked) {
+      if (lowLatencyIOS && (!fastUnlocked || frozenClockFallback)) {
         // First tap of a freshly navigated generation: do not start a buffer
         // into a context that Safari has not unlocked. Resume on pointerup,
         // then play THIS SAME tap once the graph reports running.
