@@ -66,6 +66,10 @@ function fixture() {
       this.state = 'interrupted';
       this.handlers.statechange?.();
     }
+    suspend(){
+      this.state = 'suspended';
+      this.handlers.statechange?.();
+    }
   }
   const window = {
     location:{pathname:'/Gitai_Lab_Preview/exhibit/game.html',search:''},
@@ -147,6 +151,19 @@ function fixture() {
     'interrupted context must request AAC in a trusted gesture, no await');
   assert.equal(interrupted.buffers.length,1);
 
+  // A previously audible iPad may enter 'suspended' rather than
+  // 'interrupted' after a long kiosk idle; a hung resume also needs AAC.
+  const suspended=fixture();await suspended.prepared();
+  suspended.down();suspended.up();await suspended.settle();
+  assert.equal(suspended.buffers.length,1);
+  suspended.context.suspend();
+  suspended.context.blockResume=true;
+  suspended.advance(120000,0);
+  suspended.down('capture');suspended.up();await suspended.settle();
+  assert.equal(suspended.native.length,1,
+    'previously audible suspended graph must use AAC without waiting');
+  assert.equal(suspended.buffers.length,1);
+
   // A mere temporary interruption whose clock progresses again can return
   // to the low-latency engine after WebKit really resumes.
   const recovering=fixture();await recovering.prepared();
@@ -158,5 +175,5 @@ function fixture() {
   assert.equal(recovering.buffers.length,2,'healthy resumed clock may recover');
   assert.equal(recovering.native.length,0);
 
-  console.log('SFX-IDLE-01: 120s frozen clock sticky AAC, inert pointerup, interrupted hung resume, recovered clock, cancellation, and healthy Web Audio PASS');
+  console.log('SFX-IDLE-01: 120s frozen clock sticky AAC, inert pointerup, interrupted/suspended hung resume, recovered clock, cancellation, and healthy Web Audio PASS');
 })().catch(error=>{console.error(error);process.exitCode=1});
