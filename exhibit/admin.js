@@ -640,6 +640,37 @@
         throw Error('キーの重複を検出しました。');
       }
     }
+    // Optional visitor names belong to v1 meta. Verify their structure even
+    // if an attacker recomputes SHA-256 for a malformed JSON archive.
+    // This validator is read-only; never change existing evolution data.
+    const nicknamePrefix = 'exhibit_visit_nickname_v1:';
+    const nicknameRanges = [];
+    const currentNumber = BigInt(String(current).slice(3));
+    for (const item of prepared.meta) {
+      if (typeof item.key !== 'string' || !item.key.startsWith(nicknamePrefix)) continue;
+      const value = item.value;
+      const start = value?.start;
+      const end = value?.end;
+      const name = value?.name;
+      const key = nicknamePrefix + String(start).padStart(8, '0')
+        + ':' + String(end).padStart(8, '0');
+      if (!Number.isSafeInteger(start) || start < 1
+          || !Number.isSafeInteger(end) || end < start || end - start > 4
+          || BigInt(end) >= currentNumber || item.key !== key
+          || typeof name !== 'string' || !name.trim()
+          || [...name].length > 20 || name !== name.trim()
+          || name !== name.normalize('NFC')
+          || /[\u0000-\u001f\u007f\u202a-\u202e]/.test(name)) {
+        throw Error('来場者のニックネーム記録が不正です。進化データは変更していません。');
+      }
+      nicknameRanges.push({start,end});
+    }
+    nicknameRanges.sort((a,b) => a.start - b.start);
+    for (let i = 1; i < nicknameRanges.length; i++) {
+      if (nicknameRanges[i].start <= nicknameRanges[i-1].end) {
+        throw Error('参加世代が重複するニックネーム記録があります。進化データは変更していません。');
+      }
+    }
     const images = new Map(prepared.images.map(item => [item.key, item.value]));
     const genomes = new Map(prepared.meta.map(item => [item.key, item.value]));
     // Validate EXACT keys 01..60, not a count of arbitrary prefix matches.
