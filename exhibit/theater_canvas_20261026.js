@@ -409,7 +409,7 @@
     focusReturn = null;
     void refreshGenerations();
   }
-  async function openTheater(modeId, handover = null) {
+  async function openTheater(modeId, handover = null, options = {}) {
     const mode = MODES[modeId];
     if (!mode) return;
     activeMode = modeId;
@@ -420,8 +420,11 @@
     cursor = 0;
     handoverData = handover;
     visitorNames = [];
-    if (nicknameInput) nicknameInput.value = '';
-    if (nicknameStatus) nicknameStatus.textContent = '他の来場者にも表示されます。空欄なら保存しません';
+    // Reopening an unfinished read after iPad BFCache restore is NOT a new
+    // visitor. Preserve an already typed but not-yet-submitted nickname.
+    if (!options.preserveNickname && nicknameInput) nicknameInput.value = '';
+    if (!options.preserveNickname && nicknameStatus)
+      nicknameStatus.textContent = '他の来場者にも表示されます。空欄なら保存しません';
     if (nicknameBadge) nicknameBadge.hidden = true;
     dialog.classList.toggle('is-handover', !!handover);
     // Small footer stays visible, but never obscures the moth canvas.
@@ -580,7 +583,7 @@
     } else {
       // The page was suspended before the readonly theater query finished.
       // It was invalidated on pagehide, so restart that read deliberately.
-      void openTheater(activeMode, handoverData);
+      void openTheater(activeMode, handoverData, { preserveNickname: true });
     }
   });
   document.addEventListener('visibilitychange', () => {
