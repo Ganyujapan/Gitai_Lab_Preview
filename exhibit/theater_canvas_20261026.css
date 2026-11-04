@@ -61,7 +61,7 @@
 .exhibit-theater-stage img{position:absolute;inset:0;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;border:none;border-radius:5px}
 .exhibit-theater-stage.is-played{box-shadow:inset 0 0 0 4px #ffca6b}
 .exhibit-theater-stage.is-played::after{content:'';position:absolute;inset:0;border:4px solid #ffca6b;border-radius:5px;pointer-events:none;z-index:2}
-.exhibit-theater-played{position:absolute;top:9px;right:8px;z-index:3;max-width:calc(100% - 18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:7px 10px;border-radius:5px;background:#ffce75;color:#1c231b;font-size:clamp(13px,3.6vw,18px);font-weight:900}
+.exhibit-theater-played{box-sizing:border-box;position:absolute;top:9px;right:8px;z-index:3;max-width:calc(100% - 18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:7px 10px;border-radius:5px;background:#ffce75;color:#1c231b;font-size:clamp(13px,3.6vw,18px);font-weight:900}
 .exhibit-theater-markers{display:flex;flex:none;gap:5px;align-items:center;max-width:100%;width:100%;overflow-x:auto;padding:4px;min-height:40px;scrollbar-width:thin}
 .exhibit-theater-marker{flex:0 0 auto;min-width:30px;padding:5px 4px;border:1px solid #637c6c;border-radius:5px;background:#1c2822;color:#d4ddcf;text-align:center;font:700 11px/1.4 ui-monospace,monospace}
 .exhibit-theater-marker.is-played{border:2px solid #ffc568;background:#4b3824;color:#ffe8b0}

@@ -23,7 +23,7 @@ const marker = ()=> {
 };
 const frames=[1,2,3].map(n=>({generation_id:'gen'+String(n).padStart(5,'0')}));
 const images=new Map();
-const painted=[],followed=[];
+const painted=[],followed=[],positioned=[];
 const ctx={
  frames,cursor:0,pendingFrameIndex:null,frameLoadId:0,
  dialog:{hidden:false},canvas:{hidden:true,width:600,height:1000},
@@ -41,6 +41,7 @@ const ctx={
    ctx.playedLabel.textContent=marked?'あなたのプレイ':'';
  },
  followCurrentMarker(){followed.push(ctx.cursor)},
+ positionPlayedLabel(){positioned.push({index:ctx.cursor,canvasVisible:!ctx.canvas.hidden,painted:painted.length})},
  console:{warn:()=>{}},
  decodeFrame(index){
    if (!images.has(index))images.set(index,delayed());
@@ -68,6 +69,8 @@ const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
  assert.equal(ctx.markers.children[2].classList.contains('is-current'),true);
  assert.equal(ctx.playedLabel.hidden,false);
  assert.equal(ctx.canvas.hidden,false);
+ assert.deepEqual(positioned,[{index:2,canvasVisible:true,painted:1}],
+   'image-anchored label is positioned only after successful frame paint');
  ctx.display(1);
  assert.equal(ctx.cursor,2,'pending decode preserves current image id');
  assert.equal(ctx.meta.textContent,'第3世代 · 3 / 3枚');

@@ -125,6 +125,13 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
   'exhibitHandoverFinishNext','exhibitHandoverNickname','exhibitHandoverNicknameStatus',
   'exhibitTheaterNickname']) elements.set(id,node(id));
  const stage=node('theaterStage');
+ // Letterboxed 3:5 snapshot in the taller mode-selection viewer. The
+ // outgoing visitor's footer uses a different height, but both should
+ // place the name relative to the actual image rather than the stage.
+ const stageBounds={top:10,left:10,right:510,width:500,height:700};
+ const imageBounds={top:102,left:91,right:431,width:340,height:567};
+ stage.getBoundingClientRect=()=>stageBounds;
+ elements.get('exhibitTheaterCanvas').getBoundingClientRect=()=>imageBounds;
  const paints=[];
  elements.get('exhibitTheaterCanvas').getContext=()=>({
   drawImage(...args){paints.push(args)},imageSmoothingEnabled:true
@@ -223,6 +230,7 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
  };
  vm.runInNewContext(theater,globals,{filename:'exhibit/theater_canvas_20261026.js',timeout:5000});
  return {elements,stage,paints,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,nameSaves,nameReads,
+  moveImage(rect){Object.assign(imageBounds,rect);windowListeners.resize?.()},
   async settle(){await new Promise(resolve=>setTimeout(resolve,6))},
   open(which){(which==='warning'?wButton:cButton).trigger('click')},
   tick(){const cb=intervals.at(-1);if(cb)cb()},
@@ -288,6 +296,8 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
  h.tick();await h.settle();
  assert.equal(h.elements.get('exhibitTheaterPlayed').hidden,false);
  assert.ok(h.stage.classList.contains('is-played'),'visitor frame outlined');
+ assert.equal(h.elements.get('exhibitTheaterPlayed').style.top,'101px',
+   'handover name uses the same on-image positioning rule');
  for(let i=0;i<8;i++){h.tick();await h.settle()}
  assert.equal(h.elements.get('exhibitTheaterPlay').textContent,'もう一度再生');
  assert.equal(h.elements.get('exhibitTheaterDialog').hidden,false);
@@ -322,6 +332,14 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
  assert.equal(historical.elements.get('exhibitTheaterPlayed').textContent,
    '蛾博士のプレイ');
  assert.equal(historical.elements.get('exhibitTheaterPlayed').hidden,false);
+ const label=historical.elements.get('exhibitTheaterPlayed');
+ assert.equal(label.style.top,'101px','name sits nine pixels inside the rendered image top');
+ assert.equal(label.style.right,'87px','name sits eight pixels inside the rendered image right');
+ assert.equal(label.style.maxWidth,'322px','long names may not extend beyond the image');
+ historical.moveImage({top:21,right:497,width:475,height:665});
+ assert.equal(label.style.top,'20px','resize follows a new letterbox top');
+ assert.equal(label.style.right,'21px','resize follows a new letterbox right');
+ assert.equal(label.style.maxWidth,'457px','long names adapt to the new image width');
  historical.elements.get('exhibitTheaterSlider').trigger('input',0);
  await historical.settle();
  assert.equal(historical.elements.get('exhibitTheaterPlayed').hidden,true,
