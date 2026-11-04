@@ -421,7 +421,7 @@
     handoverData = handover;
     visitorNames = [];
     if (nicknameInput) nicknameInput.value = '';
-    if (nicknameStatus) nicknameStatus.textContent = '空欄なら記録しません';
+    if (nicknameStatus) nicknameStatus.textContent = '他の来場者にも表示されます。空欄なら保存しません';
     if (nicknameBadge) nicknameBadge.hidden = true;
     dialog.classList.toggle('is-handover', !!handover);
     // Small footer stays visible, but never obscures the moth canvas.
