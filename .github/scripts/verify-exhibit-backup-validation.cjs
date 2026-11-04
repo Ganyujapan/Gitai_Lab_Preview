@@ -173,7 +173,7 @@ async function shouldFail(mode,payload,match) {
   forgedName.stores.meta.at(-1).value.name='a'.repeat(25);
   await shouldFail(mode,forgedName,/ニックネーム記録が不正/);
   const forgedBidi=structuredClone(named);
-  forgedBidi.stores.meta.at(-1).value.name='ABC\\u202eDEF';
+  forgedBidi.stores.meta.at(-1).value.name='ABC'+String.fromCharCode(0x202e)+'DEF';
   await shouldFail(mode,forgedBidi,/ニックネーム記録が不正/);
   const forgedKey=structuredClone(named);
   forgedKey.stores.meta.at(-1).key='exhibit_visit_nickname_v1:00000001:00000005';
