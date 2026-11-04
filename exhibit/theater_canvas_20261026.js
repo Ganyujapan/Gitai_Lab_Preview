@@ -303,7 +303,7 @@
         && generation >= handoverData.start && generation <= handoverData.end;
       playedLabel.hidden = !marked;
       stage.classList.toggle('is-played', marked);
-      setNicknameForFrame(generation, marked);
+      if (typeof setNicknameForFrame === 'function') setNicknameForFrame(generation, marked);
       for (let i = 0; i < markers.children.length; i++) {
         markers.children[i].classList.toggle('is-current', i === cursor);
       }
