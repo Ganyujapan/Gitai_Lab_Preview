@@ -208,10 +208,11 @@
       if (!fastUnlocked || preferNative || ctx.state !== 'running') {
         try {
           const attempt = ctx.resume();
-          if (ctx.state === 'interrupted') {
-            // WebKit may leave this state and the resume Promise stuck for
-            // minutes. If resume could not even transition it to running,
-            // request AAC in the same trusted gesture without waiting.
+          if (ctx.state === 'interrupted' ||
+              (ctx.state === 'suspended' && previousClockMs > 0)) {
+            // WebKit may leave an interrupted (or formerly running, now
+            // suspended) context and resume Promise stuck for minutes.
+            // Fallback within this trusted gesture rather than drop SFX.
             if (attempt && typeof attempt.catch === 'function') attempt.catch(() => {});
             playOnce(() => playNative(sound.kind, sound.number));
             finish();
