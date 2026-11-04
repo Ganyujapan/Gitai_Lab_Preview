@@ -124,6 +124,43 @@ async function shouldFail(mode,payload,match) {
   assert.equal(verified.integrity,'sha256-and-current-generation-shape');
   assert.equal(valid.openCalls,0);
   assert.equal(valid.confirmCalls,0);
+
+  // A newer exhibition may contain optional nickname metadata. The actual
+  // v1 validator must accept the extra meta record while still checking the
+  // same 60 current-generation moth images, 60 DNA records and checksum.
+  const named=createPayload(mode,gen);
+  const nickname={
+    key:'exhibit_visit_nickname_v1:00000021:00000025',
+    value:{start:21,end:25,name:'蛾博士'}
+  };
+  named.stores.meta.push(nickname);
+  const namedRaw=await exportJson(named);
+  const withName=harness();
+  const namedVerified=await withName.verifySaved({
+    name:'visitors-'+mode+'.json',size:Buffer.byteLength(namedRaw),
+    async text(){return namedRaw}
+  },mode);
+  assert.equal(namedVerified.count,122,'nickname adds exactly one meta record');
+  const namedPrepared=await withName.validate(namedRaw,mode);
+  assert.equal(namedPrepared.prepared.meta.length,62);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(namedPrepared.prepared.meta.find(x=>x.key===nickname.key))),
+    nickname,'the optional name must survive v1 decode without modification');
+  assert.equal(withName.openCalls,0,'validating named archive must never open the real DB');
+
+  // Existing pre-nickname v1 JSON remains valid with no migration.
+  const oldWithoutName=await harness().validate(raw,mode);
+  assert.equal(oldWithoutName.prepared.meta.some(item=>
+    String(item.key).startsWith('exhibit_visit_nickname_v1:')),false);
+  // A tampered name invalidates the checksum like every other record.
+  const namedTampered=JSON.parse(namedRaw);
+  namedTampered.payload.stores.meta.at(-1).value.name='改ざん';
+  await assert.rejects(withName.verifySaved({
+    name:'altered.json',size:Buffer.byteLength(JSON.stringify(namedTampered)),
+    async text(){return JSON.stringify(namedTampered)}
+  },mode),/整合性検証/);
+  assert.equal(withName.openCalls,0);
+
   // Bad checksum, wrong mode and missing current DNA must FAIL verification
   // while preserving any saved experiment data.
   const forgedChecksum=JSON.parse(raw);forgedChecksum.checksum='0'.repeat(64);
