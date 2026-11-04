@@ -30,7 +30,12 @@ function setup() {
     const obj={id,hidden:true,disabled:false,value:'',files:[],textContent:'',
       scrollIntoView(){},
       addEventListener(type,fn){events.set(id+':'+type,fn)},
-      click(){clicks.push(id);return events.get(id+':click')?.()}
+      click(){
+        // Count the file inputs opened, not the button the human pressed.
+        if(id==='exhibitBackupVerifyFile'||id==='exhibitBackupV2Files')
+          clicks.push(id);
+        return events.get(id+':click')?.();
+      }
     };
     return obj;
   }
