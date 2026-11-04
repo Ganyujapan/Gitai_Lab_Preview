@@ -1384,7 +1384,7 @@
   // File re-selection must be explicit. File.text() reads the saved copy;
   // it is not enough to re-check the in-memory object from exportMode().
   const verifyBackupInput=document.getElementById('exhibitBackupVerifyFile');
-  const verifyBackupResult=document.getElementById('exhibitBackupVerifyResult');
+  const verifyBackupResult=document.querySelector?.('#exhibitBackupVerifyResult');
   function displayVerification(resultNode, text) {
     if (!resultNode) return;
     resultNode.textContent = text;
@@ -1428,7 +1428,7 @@
   // writer's in-memory File objects or an unconfirmed Share sheet operation.
   const v2VerifyButton = document.getElementById('exhibitBackupV2Verify');
   const v2FilesInput = document.getElementById('exhibitBackupV2Files');
-  const v2VerifyResult = document.getElementById('exhibitBackupV2Result');
+  const v2VerifyResult = document.querySelector?.('#exhibitBackupV2Result');
   let v2Selection = null;
   v2VerifyButton.addEventListener('click', () => {
     if (!unlocked || preparingBackup || restoreMutationBusy) {
