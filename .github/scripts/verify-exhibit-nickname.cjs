@@ -11,7 +11,9 @@ const admin = fs.readFileSync('exhibit/admin.js', 'utf8');
 const cryptic = 'gitai-exhibit-2026-gitai-pages-preview-v3-kusagi_001-continuous_v1-konchu2026_cryptic';
 const warning = 'gitai-exhibit-2026-gitai-pages-preview-v3-kusagi_001-continuous_v1-warning_color_fog_v2';
 assert.match(html, /id="exhibitHandoverNickname"/);
-assert.match(html, /id="exhibitTheaterNickname"/);
+assert.doesNotMatch(html, /id="exhibitTheaterNickname"/);
+assert.match(html, /enterkeyhint="done"/);
+assert.doesNotMatch(html, /maxlength="20"/);
 assert.match(html, /src="nickname_store.js" defer/);
 assert.ok(html.indexOf('src="nickname_store.js"') <
   html.indexOf('src="theater_canvas_20261026.js"'));
@@ -123,7 +125,13 @@ function harness(generation = 'gen00026', database = cryptic) {
   await assert.rejects(h.api.save('unrelated-database',21,25,'X'),/展示モード/);
   assert.equal(h.writes.length,previouslyWritten);
   assert.equal(h.api.cleanedName('\u202e  abc\n'), 'abc');
-  assert.equal([...h.api.cleanedName('あ'.repeat(100))].length,20);
+  assert.equal(h.api.cleanedName('あ'.repeat(100)), 'あ'.repeat(10));
+  assert.equal(h.api.cleanedName('A'.repeat(100)), 'A'.repeat(15));
+  assert.equal(h.api.cleanedName('ｱ'.repeat(100)), 'ｱ'.repeat(15));
+  assert.equal(h.api.cleanedName('あ'.repeat(5)+'abcdefghi'), 'あ'.repeat(5)+'abcdefg',
+    'mixed width consumes a shared budget without splitting a character');
+  assert.equal(h.api.cleanedName('😀'.repeat(100)), '😀'.repeat(10),
+    'emoji must not be cut between surrogate halves');
 
   // An administrator-reset database has no old nickname records.
   const reset=harness('gen00001');
