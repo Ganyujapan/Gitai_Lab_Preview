@@ -87,8 +87,8 @@ for(const db of [crypticDb,warningDb]){assert.ok(admin.includes(db));assert.ok(t
 const HANDOVER_KEY='gitai-exhibit-handover-v1';
 const VISIT_KEY='gitai-exhibit-visit-start-v1';
 
-function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
- const elements=new Map(), windowListeners={}, documentListeners={}, transactions=[], missingAborts=[],urls=[],revoked=[],navigated=[],timeouts=[],intervals=[];
+function setup({handover=false,absentWarning=false,largeWarning=false,visitorNames=[],saveError=false}={}) {
+ const elements=new Map(), windowListeners={}, documentListeners={}, transactions=[], missingAborts=[],urls=[],revoked=[],navigated=[],timeouts=[],intervals=[],nameSaves=[],nameReads=[];
  function node(id='') {
   const cl=new Set();
   const n={id,hidden:false,disabled:false,value:'0',children:[],style:{overflow:''},dataset:{},listeners:{},textContent:'',
@@ -99,7 +99,7 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
    appendChild(x){n.children.push(x)},
    focus(){doc.activeElement=n},
    decode(){return Promise.resolve()},
-   trigger(event,value){if(value!==undefined)n.value=String(value);n.listeners[event]?.({key:'',preventDefault(){},stopImmediatePropagation(){}})}
+   trigger(event,value){if(value!==undefined)n.value=String(value);return n.listeners[event]?.({key:'',preventDefault(){},stopImmediatePropagation(){}})}
   };
   let src;
   Object.defineProperty(n,'src',{get(){return src},set(v){src=v;if(v)queueMicrotask(()=>n.onload?.())}});
@@ -111,7 +111,8 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
   'exhibitTheaterPrev','exhibitTheaterNext','exhibitTheaterPlay',
   'exhibitGenerationCryptic','exhibitGenerationWarning',
   'exhibitTheaterPlayed','exhibitTheaterMarkers','exhibitHandoverFinished',
-  'exhibitHandoverFinishNext']) elements.set(id,node(id));
+  'exhibitHandoverFinishNext','exhibitHandoverNickname','exhibitHandoverNicknameStatus',
+  'exhibitTheaterNickname']) elements.set(id,node(id));
  const stage=node('theaterStage');
  const paints=[];
  elements.get('exhibitTheaterCanvas').getContext=()=>({
@@ -183,7 +184,12 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
  FakeURL.revokeObjectURL=u=>revoked.push(u);
  const globals={
   document:doc,window:{addEventListener:(evt,cb)=>windowListeners[evt]=cb,
-   GitaiExhibitLanding:{showMenu(){},showSplash(){}}},location:loc,
+   GitaiExhibitLanding:{showMenu(){},showSplash(){}},
+   GitaiExhibitNicknameStore:{
+    cleanedName(value){return [...String(value||'').normalize('NFC').trim()].slice(0,20).join('')},
+    async read(db){nameReads.push(db);return visitorNames},
+    async save(db,start,end,name){nameSaves.push({db,start,end,name});if(saveError)throw Error('simulated storage failure');return true}
+   }},location:loc,
   Blob,indexedDB,URL:FakeURL,sessionStorage,
   Image:class FakeImage {
    set src(value){this._src=value;queueMicrotask(()=>this.onload?.())}
@@ -197,7 +203,7 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
   clearTimeout:()=>{}
  };
  vm.runInNewContext(theater,globals,{filename:'exhibit/theater_canvas_20261026.js',timeout:5000});
- return {elements,stage,paints,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,
+ return {elements,stage,paints,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,nameSaves,nameReads,
   async settle(){await new Promise(resolve=>setTimeout(resolve,6))},
   open(which){(which==='warning'?wButton:cButton).trigger('click')},
   tick(){const cb=intervals.at(-1);if(cb)cb()},
