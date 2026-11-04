@@ -290,11 +290,36 @@
       const record = frames[index];
       if (!record) return;
       picture.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      // Older saved snapshots embed an obsolete model label on row two.
-      // Mask it on the DISPLAY canvas only; never change the saved image.
-      if (typeof picture.fillRect === 'function') {
-        picture.fillStyle = '#0b120e';
-        picture.fillRect(0, 48, canvas.width, 43);
+      // Historical snapshots contain the obsolete "エンタメ型" glyphs
+      // at x=22, y=68. Inpaint only that label on the VIEWER canvas,
+      // interpolating nearby clean rows of the composited header. The
+      // original snapshot Blob and all moth images remain unchanged.
+      if (typeof picture.getImageData === 'function' &&
+          typeof picture.createImageData === 'function' &&
+          typeof picture.putImageData === 'function') {
+        try {
+          const left = 18, width = 142, startY = 53, height = 28;
+          const upper = picture.getImageData(left, 49, width, 1).data;
+          const lower = picture.getImageData(left, 85, width, 1).data;
+          const patch = picture.createImageData(width, height);
+          for (let y = 0; y < height; y++) {
+            const t = (y + 1) / (height + 1);
+            for (let x = 0; x < width; x++) {
+              const pos = (y * width + x) * 4;
+              const source = x * 4;
+              for (let color = 0; color < 3; color++) {
+                patch.data[pos + color] = Math.round(
+                  upper[source + color] * (1 - t) + lower[source + color] * t);
+              }
+              patch.data[pos + 3] = 255;
+            }
+          }
+          picture.putImageData(patch, left, startY);
+        } catch (_) {
+          // If pixel reads are prohibited, cover just the small label area.
+          picture.fillStyle = '#0b120e';
+          picture.fillRect(18, 53, 142, 28);
+        }
       }
       cursor = index;
       pendingFrameIndex = null;
