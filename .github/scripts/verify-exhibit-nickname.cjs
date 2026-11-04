@@ -15,9 +15,9 @@ assert.match(html, /src="nickname_store.js" defer/);
 assert.ok(html.indexOf('src="nickname_store.js"') <
   html.indexOf('src="theater_canvas_20261026.js"'));
 assert.match(build, /"nickname_store.js"/);
-assert.match(theater, /picture\\.putImageData\\(patch, left, startY\\)/);
-assert.match(theater, /picture\\.getImageData\\(left, 49/);
-assert.doesNotMatch(theater, /store\\.put\\(.*nickname/i);
+assert.match(theater, /picture\.putImageData\(patch, left, startY\)/);
+assert.match(theater, /picture\.getImageData\(left, 49/);
+assert.doesNotMatch(theater, /store\.put\(.*nickname/i);
 assert.match(theater, /await store\.save\(mode\.db, handoverData\.start, handoverData\.end, name\)/);
 // Existing v1 exporter snapshots the entire meta store and includes all keys.
 assert.match(admin, /const STORES = \['images', 'meta', 'theater_frames'\]/);
