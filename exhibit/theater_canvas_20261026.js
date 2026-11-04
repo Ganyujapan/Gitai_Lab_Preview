@@ -29,6 +29,9 @@
   const markers = document.getElementById('exhibitTheaterMarkers');
   const handoverFinished = document.getElementById('exhibitHandoverFinished');
   const handoverFinishNext = document.getElementById('exhibitHandoverFinishNext');
+  const nicknameInput = document.getElementById('exhibitHandoverNickname');
+  const nicknameStatus = document.getElementById('exhibitHandoverNicknameStatus');
+  const nicknameBadge = document.getElementById('exhibitTheaterNickname');
   const HANDOVER_KEY = 'gitai-exhibit-handover-v1';
   const VISIT_KEY = 'gitai-exhibit-visit-start-v1';
   const empty = document.getElementById('exhibitTheaterEmpty');
@@ -46,6 +49,7 @@
   let loadedImages = new Map();
   let frameUrls = [];
   let handoverData = null;
+  let visitorNames = [];
   let finalTimer = null;
   let playback = null;
   let resumeHandoverOnPageshow = false;
@@ -120,6 +124,16 @@
 
   function numberOf(generation) {
     return Number(String(generation).slice(3));
+  }
+  function setNicknameForFrame(generation, isCurrentVisitor) {
+    if (!nicknameBadge) return;
+    const record = visitorNames.find(entry =>
+      generation >= entry.start && generation <= entry.end);
+    const preview = isCurrentVisitor && nicknameInput && handoverData
+      ? window.GitaiExhibitNicknameStore?.cleanedName(nicknameInput.value) : '';
+    const name = preview || record?.name || '';
+    nicknameBadge.hidden = !name;
+    nicknameBadge.textContent = name ? '参加者：' + name : '';
   }
   async function refreshGenerations() {
     await Promise.all(Object.values(MODES).map(async mode => {
@@ -276,6 +290,12 @@
       const record = frames[index];
       if (!record) return;
       picture.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      // Older saved snapshots embed an obsolete model label on row two.
+      // Mask it on the DISPLAY canvas only; never change the saved image.
+      if (typeof picture.fillRect === 'function') {
+        picture.fillStyle = '#0b120e';
+        picture.fillRect(0, 48, canvas.width, 43);
+      }
       cursor = index;
       pendingFrameIndex = null;
       const generation = numberOf(record.generation_id);
@@ -283,6 +303,7 @@
         && generation >= handoverData.start && generation <= handoverData.end;
       playedLabel.hidden = !marked;
       stage.classList.toggle('is-played', marked);
+      setNicknameForFrame(generation, marked);
       for (let i = 0; i < markers.children.length; i++) {
         markers.children[i].classList.toggle('is-current', i === cursor);
       }
@@ -373,6 +394,10 @@
     releaseImage();
     cursor = 0;
     handoverData = handover;
+    visitorNames = [];
+    if (nicknameInput) nicknameInput.value = '';
+    if (nicknameStatus) nicknameStatus.textContent = '空欄なら記録しません';
+    if (nicknameBadge) nicknameBadge.hidden = true;
     dialog.classList.toggle('is-handover', !!handover);
     // Small footer stays visible, but never obscures the moth canvas.
     handoverFinished.hidden = !handover;
@@ -411,6 +436,18 @@
       }
       enableControls(true);
       showFrame(handover ? 0 : frames.length - 1);
+      // Metadata lookup must not delay displaying the evolution snapshots.
+      if (window.GitaiExhibitNicknameStore?.read) {
+        void window.GitaiExhibitNicknameStore.read(mode.db).then(names => {
+          if (requestToken !== token || dialog.hidden || activeMode !== modeId) return;
+          visitorNames = names;
+          if (!canvas.hidden && frames[cursor]) {
+            const generation = numberOf(frames[cursor].generation_id);
+            setNicknameForFrame(generation, !!handoverData &&
+              generation >= handoverData.start && generation <= handoverData.end);
+          }
+        }).catch(error => console.warn('参加者名を読み込めませんでした', error));
+      }
       if (handover) scheduleHandoverPlayback();
     } catch (error) {
       if (requestToken !== token || dialog.hidden) return;
