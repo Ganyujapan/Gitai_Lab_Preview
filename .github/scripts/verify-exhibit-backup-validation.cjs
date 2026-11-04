@@ -129,9 +129,12 @@ async function shouldFail(mode,payload,match) {
   // v1 validator must accept the extra meta record while still checking the
   // same 60 current-generation moth images, 60 DNA records and checksum.
   const named=createPayload(mode,gen);
+  const nameEnd=Math.min(25,Number(gen.slice(3))-1);
+  const nameStart=nameEnd-4;
   const nickname={
-    key:'exhibit_visit_nickname_v1:00000021:00000025',
-    value:{start:21,end:25,name:'蛾博士'}
+    key:'exhibit_visit_nickname_v1:'+String(nameStart).padStart(8,'0')
+      +':'+String(nameEnd).padStart(8,'0'),
+    value:{start:nameStart,end:nameEnd,name:'蛾博士'}
   };
   named.stores.meta.push(nickname);
   const namedRaw=await exportJson(named);
@@ -160,6 +163,38 @@ async function shouldFail(mode,payload,match) {
     async text(){return JSON.stringify(namedTampered)}
   },mode),/整合性検証/);
   assert.equal(withName.openCalls,0);
+
+  // The adversary may recompute SHA-256. Verify name provenance and
+  // generations independently before a restore can open a real database.
+  const forgedRange=structuredClone(named);
+  forgedRange.stores.meta.at(-1).value.end=nameEnd+1;
+  await shouldFail(mode,forgedRange,/ニックネーム記録が不正/);
+  const forgedName=structuredClone(named);
+  forgedName.stores.meta.at(-1).value.name='a'.repeat(25);
+  await shouldFail(mode,forgedName,/ニックネーム記録が不正/);
+  const forgedBidi=structuredClone(named);
+  forgedBidi.stores.meta.at(-1).value.name='ABC\\u202eDEF';
+  await shouldFail(mode,forgedBidi,/ニックネーム記録が不正/);
+  const forgedKey=structuredClone(named);
+  forgedKey.stores.meta.at(-1).key='exhibit_visit_nickname_v1:00000001:00000005';
+  await shouldFail(mode,forgedKey,/ニックネーム記録が不正/);
+  const overlapping=structuredClone(named);
+  const duplicateStart=nameStart+1, duplicateEnd=nameEnd;
+  overlapping.stores.meta.push({key:'exhibit_visit_nickname_v1:'
+    +String(duplicateStart).padStart(8,'0')+':'
+    +String(duplicateEnd).padStart(8,'0'),
+    value:{start:duplicateStart,end:duplicateEnd,name:'別の来場者'}});
+  await shouldFail(mode,overlapping,/参加世代が重複/);
+  // A valid next visitor starts AFTER the previous contribution.
+  const successive=structuredClone(named);
+  const nextStart=nameEnd+1,nextEnd=nameEnd+2;
+  if(nextEnd<Number(gen.slice(3))) {
+    successive.stores.meta.push({key:'exhibit_visit_nickname_v1:'
+      +String(nextStart).padStart(8,'0')+':'
+      +String(nextEnd).padStart(8,'0'),
+      value:{start:nextStart,end:nextEnd,name:'次の来場者'}});
+    await harness().validate(await exportJson(successive),mode);
+  }
 
   // Bad checksum, wrong mode and missing current DNA must FAIL verification
   // while preserving any saved experiment data.
