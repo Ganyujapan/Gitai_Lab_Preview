@@ -460,7 +460,25 @@
   for (const button of document.querySelectorAll('[data-view-theater]')) {
     button.addEventListener('click', () => openTheater(button.dataset.viewTheater));
   }
-  handoverFinishNext.addEventListener('click', () => {
+  handoverFinishNext.addEventListener('click', async () => {
+    if (!handoverData || handoverFinishNext.disabled) return;
+    const store = window.GitaiExhibitNicknameStore;
+    const name = store?.cleanedName(nicknameInput?.value) || '';
+    if (name) {
+      handoverFinishNext.disabled = true;
+      try {
+        if (!store?.save) throw Error('名前を保存する機能を確認できません。');
+        const mode = MODES[activeMode];
+        if (!mode) throw Error('保存先のモードが不明です。');
+        await store.save(mode.db, handoverData.start, handoverData.end, name);
+      } catch (error) {
+        if (nicknameStatus) nicknameStatus.textContent =
+          '保存できませんでした：' + (error?.message || String(error)) +
+          '。名前を空欄にすると記録せず交代できます。';
+        handoverFinishNext.disabled = false;
+        return;
+      }
+    }
     stopPlayback();
     if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     try {
@@ -468,6 +486,12 @@
       sessionStorage.removeItem(HANDOVER_KEY);
     } catch (_) {}
     location.assign(new URL('./', location.href).href);
+  });
+  nicknameInput?.addEventListener('input', () => {
+    if (!handoverData || canvas.hidden || !frames[cursor]) return;
+    const generation = numberOf(frames[cursor].generation_id);
+    setNicknameForFrame(generation, generation >= handoverData.start &&
+      generation <= handoverData.end);
   });
   closeButton.addEventListener('click', closeTheater);
   previous.addEventListener('click', () => {
