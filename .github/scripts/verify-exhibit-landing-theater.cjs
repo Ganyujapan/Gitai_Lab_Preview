@@ -290,5 +290,65 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
  h.elements.get('exhibitHandoverFinishNext').trigger('click');
  assert.deepEqual(h.navigated,['https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/']);
  assert.ok(h.transactions.every(x=>x==='readonly'));
- console.log('Exhibition: exact production title, separate modes, atomic canvas, readonly generations, five-visit handover OK');
+ assert.deepEqual(h.nameSaves,[],'blank optional name must never write meta');
+
+ // Historical nicknames appear ONLY on generations played by that visitor.
+ const historical=setup({visitorNames:[{start:21,end:25,name:'蛾博士'}]});
+ await historical.settle();
+ historical.open('warning');await historical.settle();
+ assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,true,
+   'generation 26 is not part of the previous visit');
+ historical.elements.get('exhibitTheaterPrev').trigger('click');
+ await historical.settle();
+ assert.equal(historical.elements.get('exhibitTheaterNickname').textContent,
+   '参加者：蛾博士');
+ assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,false);
+ historical.elements.get('exhibitTheaterSlider').trigger('input',0);
+ await historical.settle();
+ assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,true,
+   'generation 20 must not inherit the prior visitor name');
+ assert.deepEqual(historical.nameSaves,[],'browsing must never persist metadata');
+ assert.deepEqual(historical.nameReads,[warningDb]);
+ historical.close();
+
+ // Typing previews a name on the current five generations; writing happens
+ // only when the user explicitly taps next person after offspring commits.
+ const named=setup({handover:true});
+ await named.settle();
+ named.tick();await named.settle();
+ assert.equal(named.elements.get('exhibitTheaterNickname').hidden,true);
+ named.elements.get('exhibitHandoverNickname').trigger('input','こどもA');
+ assert.equal(named.elements.get('exhibitTheaterNickname').textContent,
+   '参加者：こどもA');
+ assert.deepEqual(named.nameSaves,[],'typing must not store metadata');
+ named.elements.get('exhibitTheaterSlider').trigger('input',0);
+ await named.settle();
+ assert.equal(named.elements.get('exhibitTheaterNickname').hidden,true);
+ named.elements.get('exhibitTheaterSlider').trigger('input',5);
+ await named.settle();
+ assert.equal(named.elements.get('exhibitTheaterNickname').textContent,
+   '参加者：こどもA');
+ named.elements.get('exhibitHandoverFinishNext').trigger('click');
+ await named.settle();
+ assert.deepEqual(named.nameSaves,[{db:warningDb,start:21,end:25,name:'こどもA'}]);
+ assert.deepEqual(named.navigated,['https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/']);
+ assert.equal(named.elements.get('exhibitHandoverFinishNext').disabled,true,
+   'successful named handover cannot be double-submitted');
+
+ // If a name cannot be written, do NOT lose a typed name or navigate away.
+ const failed=setup({handover:true,saveError:true});
+ await failed.settle();
+ failed.elements.get('exhibitHandoverNickname').trigger('input','途中保存');
+ failed.elements.get('exhibitHandoverFinishNext').trigger('click');
+ await failed.settle();
+ assert.deepEqual(failed.navigated,[],'failed save must block navigation');
+ assert.equal(failed.elements.get('exhibitHandoverFinishNext').disabled,false);
+ assert.match(failed.elements.get('exhibitHandoverNicknameStatus').textContent,/保存できませんでした/);
+ assert.equal(failed.elements.get('exhibitHandoverNickname').value,'途中保存');
+ failed.elements.get('exhibitHandoverNickname').trigger('input','');
+ failed.elements.get('exhibitHandoverFinishNext').trigger('click');
+ await failed.settle();
+ assert.equal(failed.navigated.length,1,'explicit skip permits safe handover');
+
+ console.log('Exhibition: historical nickname labels, opt-in write-on-handover, blank skip, safe failed-save recovery and read-only theater PASS');
 })().catch(e=>{console.error(e);process.exitCode=1});
