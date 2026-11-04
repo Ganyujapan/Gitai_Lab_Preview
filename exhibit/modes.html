@@ -58,13 +58,18 @@
 <button type="button" id="exhibitBackupExport">JSONバックアップを準備する</button>
 <button type="button" id="exhibitBackupShare" hidden>準備したJSONを共有シートで保存</button>
 <button type="button" id="exhibitBackupDownload" hidden>準備したJSONをダウンロード</button>
-<button type="button" id="exhibitBackupVerify">保存したJSONを検証する（読み取り専用）</button>
+<button type="button" id="exhibitBackupVerify">保存したJSONを検証する（読み取り専用・通常はこちら）</button>
+<pre id="exhibitBackupVerifyResult" role="status" aria-live="polite" hidden></pre>
 <input type="file" id="exhibitBackupVerifyFile" accept=".json,application/json">
 <hr>
+<details id="exhibitBackupV2Details"><summary>開発者用：分割バックアップ（試験形式v2）を検証する</summary>
+<p>通常のJSONバックアップには使用しません。試験用の分割形式だけが対象です。</p>
 <p>分割バックアップ（試験形式v2）：保存済みの索引 `manifest.json` と全ての `part-*.json` を一度に選択して内容を検証します。<strong>検証だけ</strong>を行い、実験データは変更・復元しません。大容量の本番書き出し・復元はまだ有効になっていません。</p>
 <button type="button" id="exhibitBackupV2Verify">保存済み分割ファイルを検証する（読み取り専用）</button>
+<pre id="exhibitBackupV2Result" role="status" aria-live="polite" hidden></pre>
 <input type="file" id="exhibitBackupV2Files" accept=".json,application/json" multiple>
 <p><a href="backup_rehearsal.html" id="exhibitBackupRehearsalLink">iPadで分割バックアップの隔離テストを開く（実験データは使わない）</a></p>
+</details>
 <hr>
 <button type="button" id="exhibitBackupRestore">JSONから復元する</button>
 <button type="button" id="exhibitBackupLifeRetry">ライフ情報だけ再試行（進化データは変更しない）</button>
