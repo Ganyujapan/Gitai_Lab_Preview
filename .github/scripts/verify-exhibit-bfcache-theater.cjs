@@ -10,7 +10,8 @@ assert.ok(a>0&&b>a);
 const handlers=source.slice(a,b);
 assert.match(handlers,/event\.persisted/);
 assert.match(handlers,/assignFrameUrls\(\)/);
-assert.match(handlers,/openTheater\(activeMode, handoverData\)/);
+assert.match(handlers,/openTheater\(activeMode, handoverData, \{ preserveNickname: true \}\)/);
+assert.match(source,/if \(!options\.preserveNickname && nicknameInput\)/);
 function fixture({visible=true,frames=3,handover=false,finished=false}={}){
  const listeners={};
  const calls=[];
@@ -22,6 +23,7 @@ function fixture({visible=true,frames=3,handover=false,finished=false}={}){
   cursor:Math.max(0,frames-1),token:3,finalTimer:42,
   handoverData:handover?{mode:'warning',start:21,end:25}:null,
   handoverFinished:{hidden:!handover},
+  nicknameInput:{value:'子どもA'},
   playback:handover&&!finished?42:null,
   resumeHandoverOnPageshow:false,
   stopPlayback:()=>{calls.push('stop');ctx.playback=null;},
@@ -31,7 +33,12 @@ function fixture({visible=true,frames=3,handover=false,finished=false}={}){
   assignFrameUrls:()=>{calls.push('assign');ctx.frameUrls=ctx.frames.map((_,i)=>'blob:new-'+i);},
   showFrame(index){calls.push('paint:'+index);},
   scheduleHandoverPlayback(){calls.push('handover-play');},
-  openTheater(mode,data){calls.push('reload:'+mode+':'+(data?.start||'none'));return Promise.resolve()}
+  openTheater(mode,data,options={}){
+    calls.push('reload:'+mode+':'+(data?.start||'none'));
+    if(!options.preserveNickname)ctx.nicknameInput.value='';
+    calls.push('retain-name:'+Boolean(options.preserveNickname));
+    return Promise.resolve();
+  }
  };
  vm.runInNewContext(handlers,ctx,{filename:'exhibit/theater_canvas_20261026.js:BFCache',timeout:3000});
  return {ctx,calls,emit:(name,event={})=>listeners[name](event)};
@@ -56,6 +63,8 @@ assert.equal(closed.calls.filter(x=>x==='assign').length,0);
 const opening=fixture({frames:0,handover:true});
 opening.emit('pagehide');opening.emit('pageshow',{persisted:true});
 assert.ok(opening.calls.includes('reload:warning:21'),'pending query is restarted with handover');
+assert.ok(opening.calls.includes('retain-name:true'),'return from page suspend retains typed nickname');
+assert.equal(opening.ctx.nicknameInput.value,'子どもA','unfinished visitor name must survive the resume');
 assert.equal(opening.calls.some(x=>x.startsWith('paint:')),false);
 const ended=fixture({handover:true,finished:true});
 ended.emit('pagehide');ended.emit('pageshow',{persisted:true});
