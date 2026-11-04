@@ -125,6 +125,21 @@
   function numberOf(generation) {
     return Number(String(generation).slice(3));
   }
+  function positionPlayedLabel() {
+    // The stage fills the available viewport, while the 3:5 canvas is
+    // centered inside it. On the mode-selection viewer, the empty space
+    // above/alongside the image is often much larger than on handover.
+    // Anchor the badge to the ACTUAL rendered canvas rectangle instead.
+    if (dialog.hidden || canvas.hidden || playedLabel.hidden ||
+        !playedLabel.style || !stage.getBoundingClientRect ||
+        !canvas.getBoundingClientRect) return;
+    const image = canvas.getBoundingClientRect();
+    const area = stage.getBoundingClientRect();
+    if (!(image.width > 0 && image.height > 0 && area.width > 0)) return;
+    playedLabel.style.top = Math.max(0, Math.round(image.top - area.top + 9)) + 'px';
+    playedLabel.style.right = Math.max(0, Math.round(area.right - image.right + 8)) + 'px';
+    playedLabel.style.maxWidth = Math.max(0, Math.round(image.width - 18)) + 'px';
+  }
   function setNicknameForFrame(generation, isCurrentVisitor) {
     const record = visitorNames.find(entry =>
       generation >= entry.start && generation <= entry.end);
@@ -135,6 +150,7 @@
     // never cover moths with another label at the bottom of the canvas.
     playedLabel.hidden = !isCurrentVisitor && !name;
     playedLabel.textContent = name ? name + 'のプレイ' : 'あなたのプレイ';
+    positionPlayedLabel();
   }
   async function refreshGenerations() {
     await Promise.all(Object.values(MODES).map(async mode => {
@@ -342,6 +358,7 @@
       next.disabled = cursor === frames.length - 1;
       canvas.hidden = false;
       empty.hidden = true;
+      positionPlayedLabel();
       // Warm up the next slide while preserving a bounded decoded cache.
       if (index + 1 < frames.length) void decodeFrame(index + 1).catch(() => {});
     }).catch(error => {
@@ -578,6 +595,15 @@
       }
     }
   });
+  // Rotation, keyboard and footer changes can resize or letterbox the canvas
+  // independently of the visit label. Follow it without repainting a frame.
+  window.addEventListener('resize', positionPlayedLabel);
+  window.visualViewport?.addEventListener?.('resize', positionPlayedLabel);
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(positionPlayedLabel);
+    observer.observe(stage);
+    observer.observe(canvas);
+  }
   window.addEventListener('pagehide', () => {
     // Invalidate a pending IDB read as well as pending image decoding.
     // BFCache retains JavaScript state but our object URLs are revoked.
