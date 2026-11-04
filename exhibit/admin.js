@@ -1407,7 +1407,7 @@
     const requestedMode=selectedModeForFileCheck;
     selectedModeForFileCheck=null;
     say('「ファイル」アプリから選択したJSONを検証中…保存データは変更しません。');
-    displayVerification(verifyBackupResult, message.textContent);
+    if (verifyBackupResult && typeof message !== 'undefined') displayVerification(verifyBackupResult, message.textContent);
     try{
       const result=await verifySavedBackupFile(file,requestedMode);
       say('保存済みJSONの検証成功：'+result.fileName
@@ -1415,12 +1415,12 @@
         +'／'+result.count+'件。SHA-256、現世代の画像60匹とDNA60匹を確認しました。'
         +'実験データは変更していません。'
         +'これは選択したファイルの形式・内容の検証であり、実際の復元やiPadの将来の保存保証ではありません。');
-      displayVerification(verifyBackupResult, message.textContent);
+      if (verifyBackupResult && typeof message !== 'undefined') displayVerification(verifyBackupResult, message.textContent);
     }catch(error){
       say('保存済みJSONの検証失敗：'+(error?.message||String(error))
         +'。ゲームの進化データは変更していません。'
         +'元のバックアップや保存済み実験を削除しないでください。');
-      displayVerification(verifyBackupResult, message.textContent);
+      if (verifyBackupResult && typeof message !== 'undefined') displayVerification(verifyBackupResult, message.textContent);
     }finally{verifyBackupInput.value='';}
   });
 
@@ -1446,7 +1446,7 @@
     if (!unlocked || !selection || !v2FilesInput.files?.length) return;
     v2VerifyButton.disabled = true;
     say('選択された分割ファイルのSHA-256と現在世代のPNG・DNAを読み取り専用で検証中…');
-    displayVerification(v2VerifyResult, message.textContent);
+    if (v2VerifyResult && typeof message !== 'undefined') displayVerification(v2VerifyResult, message.textContent);
     try {
       const result = await verifySavedMultipartFiles(v2FilesInput.files, selection.mode);
       if (!unlocked || selection.request !== preparationId
@@ -1457,14 +1457,14 @@
         + '実験データは読み書きしていません。'
         + 'これは選択されたファイル群の検証であり、復元の成功や将来の保存は保証しません。'
         + '現在の管理画面から分割ファイルを復元することはできません。');
-      displayVerification(v2VerifyResult, message.textContent);
+      if (v2VerifyResult && typeof message !== 'undefined') displayVerification(v2VerifyResult, message.textContent);
     } catch (error) {
       if (unlocked && selection.request === preparationId
           && selector.value === selection.mode) {
         say('分割ファイルの検証失敗：' + (error?.message || String(error))
           + '。元の分割ファイルと実験データは削除しないでください。'
           + 'ゲームの保存データへの変更は行っていません。');
-        displayVerification(v2VerifyResult, message.textContent);
+        if (v2VerifyResult && typeof message !== 'undefined') displayVerification(v2VerifyResult, message.textContent);
       }
     } finally {
       v2VerifyButton.disabled = false;
