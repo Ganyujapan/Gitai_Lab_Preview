@@ -501,7 +501,7 @@ def main() -> None:
         ), encoding="utf-8"
     )
     # The exhibition bundles only the currently supported public simulator.
-    for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css",
+    for name in ("index.html", "modes.html", "title.css", "landing.js", "landing.css", "theater_canvas_20261026.js", "theater_canvas_20261026.css", "nickname_store.js",
                  "manifest.webmanifest", "game.js", "game.css", "ambient_ios.js", "admin.js", "admin.css",
                  "bgm_diagnostic.html", "bgm_diagnostic.js",
                  "backup_readiness.js",
@@ -580,6 +580,15 @@ def main() -> None:
     assert "bgm_diagnostic" not in (exhibit / "modes.html").read_text(encoding="utf-8")
     # Capacity inspector never imports v3 rehearsal code into production.
     assert "js/game_sfx.js" in runtime_files
+    # Names are optional to the visitor but part of a complete offline
+    # exhibition bundle. Check both asset presence and script loading order;
+    # never silently fall back to an online fetch on the exhibition iPad.
+    assert "nickname_store.js" in runtime_files
+    nameplate_page = (exhibit / "modes.html").read_text(encoding="utf-8")
+    assert 'src="nickname_store.js" defer' in nameplate_page
+    assert nameplate_page.index('src="nickname_store.js"') < nameplate_page.index(
+        'src="theater_canvas_20261026.js"'
+    )
     assert "theater_canvas_20261026.js" in runtime_files and "theater_canvas_20261026.css" in runtime_files
     assert "exhibitTheaterDialog" in (exhibit / "modes.html").read_text(encoding="utf-8")
     assert 'id="portalArt"' in (exhibit / "index.html").read_text(encoding="utf-8")

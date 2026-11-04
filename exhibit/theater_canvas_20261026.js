@@ -29,6 +29,9 @@
   const markers = document.getElementById('exhibitTheaterMarkers');
   const handoverFinished = document.getElementById('exhibitHandoverFinished');
   const handoverFinishNext = document.getElementById('exhibitHandoverFinishNext');
+  const nicknameInput = document.getElementById('exhibitHandoverNickname');
+  const nicknameStatus = document.getElementById('exhibitHandoverNicknameStatus');
+  const nicknameBadge = document.getElementById('exhibitTheaterNickname');
   const HANDOVER_KEY = 'gitai-exhibit-handover-v1';
   const VISIT_KEY = 'gitai-exhibit-visit-start-v1';
   const empty = document.getElementById('exhibitTheaterEmpty');
@@ -46,6 +49,7 @@
   let loadedImages = new Map();
   let frameUrls = [];
   let handoverData = null;
+  let visitorNames = [];
   let finalTimer = null;
   let playback = null;
   let resumeHandoverOnPageshow = false;
@@ -120,6 +124,16 @@
 
   function numberOf(generation) {
     return Number(String(generation).slice(3));
+  }
+  function setNicknameForFrame(generation, isCurrentVisitor) {
+    if (!nicknameBadge) return;
+    const record = visitorNames.find(entry =>
+      generation >= entry.start && generation <= entry.end);
+    const preview = isCurrentVisitor && nicknameInput && handoverData
+      ? window.GitaiExhibitNicknameStore?.cleanedName(nicknameInput.value) : '';
+    const name = preview || record?.name || '';
+    nicknameBadge.hidden = !name;
+    nicknameBadge.textContent = name ? '参加者：' + name : '';
   }
   async function refreshGenerations() {
     await Promise.all(Object.values(MODES).map(async mode => {
@@ -276,6 +290,37 @@
       const record = frames[index];
       if (!record) return;
       picture.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      // Historical snapshots contain the obsolete "エンタメ型" glyphs
+      // at x=22, y=68. Inpaint only that label on the VIEWER canvas,
+      // interpolating nearby clean rows of the composited header. The
+      // original snapshot Blob and all moth images remain unchanged.
+      if (typeof picture.getImageData === 'function' &&
+          typeof picture.createImageData === 'function' &&
+          typeof picture.putImageData === 'function') {
+        try {
+          const left = 18, width = 142, startY = 53, height = 28;
+          const upper = picture.getImageData(left, 49, width, 1).data;
+          const lower = picture.getImageData(left, 85, width, 1).data;
+          const patch = picture.createImageData(width, height);
+          for (let y = 0; y < height; y++) {
+            const t = (y + 1) / (height + 1);
+            for (let x = 0; x < width; x++) {
+              const pos = (y * width + x) * 4;
+              const source = x * 4;
+              for (let color = 0; color < 3; color++) {
+                patch.data[pos + color] = Math.round(
+                  upper[source + color] * (1 - t) + lower[source + color] * t);
+              }
+              patch.data[pos + 3] = 255;
+            }
+          }
+          picture.putImageData(patch, left, startY);
+        } catch (_) {
+          // If pixel reads are prohibited, cover just the small label area.
+          picture.fillStyle = '#0b120e';
+          picture.fillRect(18, 53, 142, 28);
+        }
+      }
       cursor = index;
       pendingFrameIndex = null;
       const generation = numberOf(record.generation_id);
@@ -283,6 +328,7 @@
         && generation >= handoverData.start && generation <= handoverData.end;
       playedLabel.hidden = !marked;
       stage.classList.toggle('is-played', marked);
+      if (typeof setNicknameForFrame === 'function') setNicknameForFrame(generation, marked);
       for (let i = 0; i < markers.children.length; i++) {
         markers.children[i].classList.toggle('is-current', i === cursor);
       }
@@ -363,7 +409,7 @@
     focusReturn = null;
     void refreshGenerations();
   }
-  async function openTheater(modeId, handover = null) {
+  async function openTheater(modeId, handover = null, options = {}) {
     const mode = MODES[modeId];
     if (!mode) return;
     activeMode = modeId;
@@ -373,6 +419,13 @@
     releaseImage();
     cursor = 0;
     handoverData = handover;
+    visitorNames = [];
+    // Reopening an unfinished read after iPad BFCache restore is NOT a new
+    // visitor. Preserve an already typed but not-yet-submitted nickname.
+    if (!options.preserveNickname && nicknameInput) nicknameInput.value = '';
+    if (!options.preserveNickname && nicknameStatus)
+      nicknameStatus.textContent = '他の来場者にも表示されます。空欄なら保存しません';
+    if (nicknameBadge) nicknameBadge.hidden = true;
     dialog.classList.toggle('is-handover', !!handover);
     // Small footer stays visible, but never obscures the moth canvas.
     handoverFinished.hidden = !handover;
@@ -411,6 +464,18 @@
       }
       enableControls(true);
       showFrame(handover ? 0 : frames.length - 1);
+      // Metadata lookup must not delay displaying the evolution snapshots.
+      if (window.GitaiExhibitNicknameStore?.read) {
+        void window.GitaiExhibitNicknameStore.read(mode.db).then(names => {
+          if (requestToken !== token || dialog.hidden || activeMode !== modeId) return;
+          visitorNames = names;
+          if (!canvas.hidden && frames[cursor]) {
+            const generation = numberOf(frames[cursor].generation_id);
+            setNicknameForFrame(generation, !!handoverData &&
+              generation >= handoverData.start && generation <= handoverData.end);
+          }
+        }).catch(error => console.warn('参加者名を読み込めませんでした', error));
+      }
       if (handover) scheduleHandoverPlayback();
     } catch (error) {
       if (requestToken !== token || dialog.hidden) return;
@@ -423,7 +488,25 @@
   for (const button of document.querySelectorAll('[data-view-theater]')) {
     button.addEventListener('click', () => openTheater(button.dataset.viewTheater));
   }
-  handoverFinishNext.addEventListener('click', () => {
+  handoverFinishNext.addEventListener('click', async () => {
+    if (!handoverData || handoverFinishNext.disabled) return;
+    const store = window.GitaiExhibitNicknameStore;
+    const name = store?.cleanedName(nicknameInput?.value) || '';
+    if (name) {
+      handoverFinishNext.disabled = true;
+      try {
+        if (!store?.save) throw Error('名前を保存する機能を確認できません。');
+        const mode = MODES[activeMode];
+        if (!mode) throw Error('保存先のモードが不明です。');
+        await store.save(mode.db, handoverData.start, handoverData.end, name);
+      } catch (error) {
+        if (nicknameStatus) nicknameStatus.textContent =
+          '保存できませんでした：' + (error?.message || String(error)) +
+          '。名前を空欄にすると記録せず交代できます。';
+        handoverFinishNext.disabled = false;
+        return;
+      }
+    }
     stopPlayback();
     if (finalTimer !== null) { clearTimeout(finalTimer); finalTimer = null; }
     try {
@@ -431,6 +514,12 @@
       sessionStorage.removeItem(HANDOVER_KEY);
     } catch (_) {}
     location.assign(new URL('./', location.href).href);
+  });
+  nicknameInput?.addEventListener('input', () => {
+    if (!handoverData || canvas.hidden || !frames[cursor]) return;
+    const generation = numberOf(frames[cursor].generation_id);
+    setNicknameForFrame(generation, generation >= handoverData.start &&
+      generation <= handoverData.end);
   });
   closeButton.addEventListener('click', closeTheater);
   previous.addEventListener('click', () => {
@@ -494,7 +583,7 @@
     } else {
       // The page was suspended before the readonly theater query finished.
       // It was invalidated on pagehide, so restart that read deliberately.
-      void openTheater(activeMode, handoverData);
+      void openTheater(activeMode, handoverData, { preserveNickname: true });
     }
   });
   document.addEventListener('visibilitychange', () => {

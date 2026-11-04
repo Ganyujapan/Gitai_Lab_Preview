@@ -37,7 +37,7 @@
 <button id="exhibitTheaterClose" class="exhibit-theater-close" type="button" aria-label="進化シアターを閉じる">閉じる ×</button>
 </header>
 <p id="exhibitTheaterMeta" class="exhibit-theater-meta" aria-live="polite">世代を読み込み中…</p>
-<div class="exhibit-theater-stage"><canvas id="exhibitTheaterCanvas" width="600" height="1000" role="img" aria-label="保存された世代の蛾60匹" hidden></canvas><p id="exhibitTheaterEmpty">保存された世代の画像を確認しています…</p><span id="exhibitTheaterPlayed" class="exhibit-theater-played" hidden>あなたのプレイ</span></div>
+<div class="exhibit-theater-stage"><canvas id="exhibitTheaterCanvas" width="600" height="1000" role="img" aria-label="保存された世代の蛾60匹" hidden></canvas><p id="exhibitTheaterEmpty">保存された世代の画像を確認しています…</p><span id="exhibitTheaterPlayed" class="exhibit-theater-played" hidden>あなたのプレイ</span><span id="exhibitTheaterNickname" class="exhibit-theater-nickname" hidden></span></div>
 <div id="exhibitTheaterMarkers" class="exhibit-theater-markers" aria-label="世代の進行" hidden></div>
 <div class="exhibit-theater-slider"><input id="exhibitTheaterSlider" type="range" min="0" max="0" value="0" step="1" aria-label="進化シアターの世代を選択"><span id="exhibitTheaterProgress">-- / --</span></div>
 <div class="exhibit-theater-controls">
@@ -45,8 +45,10 @@
 <button type="button" id="exhibitTheaterPlay">再生</button>
 <button type="button" id="exhibitTheaterNext">次へ ▶</button>
 </div>
-<p class="exhibit-theater-footnote">閲覧専用：進化データは変更されません。</p>
-<div id="exhibitHandoverFinished" class="exhibit-handover-finished" hidden><button id="exhibitHandoverFinishNext" type="button">次の人へ →</button></div>
+<p class="exhibit-theater-footnote">進化データは変更されません。ニックネームは任意で保存されます。</p>
+<div id="exhibitHandoverFinished" class="exhibit-handover-finished" hidden>
+<div class="exhibit-handover-name-field"><label for="exhibitHandoverNickname">ニックネーム（任意）</label><input id="exhibitHandoverNickname" type="text" inputmode="text" maxlength="20" autocomplete="off" placeholder="名前を残す（任意）"><small id="exhibitHandoverNicknameStatus" role="status" aria-live="polite">他の来場者にも表示されます。空欄なら保存しません</small></div>
+<button id="exhibitHandoverFinishNext" type="button">次の人へ →</button></div>
 </div></section>
 <button id="exhibitAdminOpen" type="button">管理者用</button>
 <section id="exhibitAdminPanel" hidden aria-label="管理者専用設定">
@@ -58,13 +60,18 @@
 <button type="button" id="exhibitBackupExport">JSONバックアップを準備する</button>
 <button type="button" id="exhibitBackupShare" hidden>準備したJSONを共有シートで保存</button>
 <button type="button" id="exhibitBackupDownload" hidden>準備したJSONをダウンロード</button>
-<button type="button" id="exhibitBackupVerify">保存したJSONを検証する（読み取り専用）</button>
+<button type="button" id="exhibitBackupVerify">保存したJSONを検証する（読み取り専用・通常はこちら）</button>
+<pre id="exhibitBackupVerifyResult" role="status" aria-live="polite" hidden></pre>
 <input type="file" id="exhibitBackupVerifyFile" accept=".json,application/json">
 <hr>
+<details id="exhibitBackupV2Details"><summary>開発者用：分割バックアップ（試験形式v2）を検証する</summary>
+<p>通常のJSONバックアップには使用しません。試験用の分割形式だけが対象です。</p>
 <p>分割バックアップ（試験形式v2）：保存済みの索引 `manifest.json` と全ての `part-*.json` を一度に選択して内容を検証します。<strong>検証だけ</strong>を行い、実験データは変更・復元しません。大容量の本番書き出し・復元はまだ有効になっていません。</p>
 <button type="button" id="exhibitBackupV2Verify">保存済み分割ファイルを検証する（読み取り専用）</button>
+<pre id="exhibitBackupV2Result" role="status" aria-live="polite" hidden></pre>
 <input type="file" id="exhibitBackupV2Files" accept=".json,application/json" multiple>
 <p><a href="backup_rehearsal.html" id="exhibitBackupRehearsalLink">iPadで分割バックアップの隔離テストを開く（実験データは使わない）</a></p>
+</details>
 <hr>
 <button type="button" id="exhibitBackupRestore">JSONから復元する</button>
 <button type="button" id="exhibitBackupLifeRetry">ライフ情報だけ再試行（進化データは変更しない）</button>
@@ -83,4 +90,4 @@
 <p id="exhibitAdminMessage" role="status" aria-live="polite"></p>
 <button type="button" id="exhibitAdminClose">管理画面を閉じる・ロックする</button>
 </section>
-</main><script src="landing.js" defer></script><script src="theater_canvas_20261026.js" defer></script><script src="backup_readiness.js" defer></script><script src="backup_v2.js" defer></script><script src="backup_restore_preflight_v2.js" defer></script><script src="admin.js" defer></script></body></html>
+</main><script src="landing.js" defer></script><script src="nickname_store.js" defer></script><script src="theater_canvas_20261026.js" defer></script><script src="backup_readiness.js" defer></script><script src="backup_v2.js" defer></script><script src="backup_restore_preflight_v2.js" defer></script><script src="admin.js" defer></script></body></html>

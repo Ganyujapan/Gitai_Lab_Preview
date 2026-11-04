@@ -87,8 +87,8 @@ for(const db of [crypticDb,warningDb]){assert.ok(admin.includes(db));assert.ok(t
 const HANDOVER_KEY='gitai-exhibit-handover-v1';
 const VISIT_KEY='gitai-exhibit-visit-start-v1';
 
-function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
- const elements=new Map(), windowListeners={}, documentListeners={}, transactions=[], missingAborts=[],urls=[],revoked=[],navigated=[],timeouts=[],intervals=[];
+function setup({handover=false,absentWarning=false,largeWarning=false,visitorNames=[],saveError=false}={}) {
+ const elements=new Map(), windowListeners={}, documentListeners={}, transactions=[], missingAborts=[],urls=[],revoked=[],navigated=[],timeouts=[],intervals=[],nameSaves=[],nameReads=[];
  function node(id='') {
   const cl=new Set();
   const n={id,hidden:false,disabled:false,value:'0',children:[],style:{overflow:''},dataset:{},listeners:{},textContent:'',
@@ -99,7 +99,7 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
    appendChild(x){n.children.push(x)},
    focus(){doc.activeElement=n},
    decode(){return Promise.resolve()},
-   trigger(event,value){if(value!==undefined)n.value=String(value);n.listeners[event]?.({key:'',preventDefault(){},stopImmediatePropagation(){}})}
+   trigger(event,value){if(value!==undefined)n.value=String(value);return n.listeners[event]?.({key:'',preventDefault(){},stopImmediatePropagation(){}})}
   };
   let src;
   Object.defineProperty(n,'src',{get(){return src},set(v){src=v;if(v)queueMicrotask(()=>n.onload?.())}});
@@ -111,7 +111,8 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
   'exhibitTheaterPrev','exhibitTheaterNext','exhibitTheaterPlay',
   'exhibitGenerationCryptic','exhibitGenerationWarning',
   'exhibitTheaterPlayed','exhibitTheaterMarkers','exhibitHandoverFinished',
-  'exhibitHandoverFinishNext']) elements.set(id,node(id));
+  'exhibitHandoverFinishNext','exhibitHandoverNickname','exhibitHandoverNicknameStatus',
+  'exhibitTheaterNickname']) elements.set(id,node(id));
  const stage=node('theaterStage');
  const paints=[];
  elements.get('exhibitTheaterCanvas').getContext=()=>({
@@ -183,7 +184,12 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
  FakeURL.revokeObjectURL=u=>revoked.push(u);
  const globals={
   document:doc,window:{addEventListener:(evt,cb)=>windowListeners[evt]=cb,
-   GitaiExhibitLanding:{showMenu(){},showSplash(){}}},location:loc,
+   GitaiExhibitLanding:{showMenu(){},showSplash(){}},
+   GitaiExhibitNicknameStore:{
+    cleanedName(value){return [...String(value||'').normalize('NFC').trim()].slice(0,20).join('')},
+    async read(db){nameReads.push(db);return visitorNames},
+    async save(db,start,end,name){nameSaves.push({db,start,end,name});if(saveError)throw Error('simulated storage failure');return true}
+   }},location:loc,
   Blob,indexedDB,URL:FakeURL,sessionStorage,
   Image:class FakeImage {
    set src(value){this._src=value;queueMicrotask(()=>this.onload?.())}
@@ -197,7 +203,7 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
   clearTimeout:()=>{}
  };
  vm.runInNewContext(theater,globals,{filename:'exhibit/theater_canvas_20261026.js',timeout:5000});
- return {elements,stage,paints,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,
+ return {elements,stage,paints,cButton,wButton,database,missingAborts,transactions,urls,revoked,navigated,timeouts,intervals,stash,nameSaves,nameReads,
   async settle(){await new Promise(resolve=>setTimeout(resolve,6))},
   open(which){(which==='warning'?wButton:cButton).trigger('click')},
   tick(){const cb=intervals.at(-1);if(cb)cb()},
@@ -284,5 +290,65 @@ function setup({handover=false,absentWarning=false,largeWarning=false}={}) {
  h.elements.get('exhibitHandoverFinishNext').trigger('click');
  assert.deepEqual(h.navigated,['https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/']);
  assert.ok(h.transactions.every(x=>x==='readonly'));
- console.log('Exhibition: exact production title, separate modes, atomic canvas, readonly generations, five-visit handover OK');
+ assert.deepEqual(h.nameSaves,[],'blank optional name must never write meta');
+
+ // Historical nicknames appear ONLY on generations played by that visitor.
+ const historical=setup({visitorNames:[{start:21,end:25,name:'蛾博士'}]});
+ await historical.settle();
+ historical.open('warning');await historical.settle();
+ assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,true,
+   'generation 26 is not part of the previous visit');
+ historical.elements.get('exhibitTheaterPrev').trigger('click');
+ await historical.settle();
+ assert.equal(historical.elements.get('exhibitTheaterNickname').textContent,
+   '参加者：蛾博士');
+ assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,false);
+ historical.elements.get('exhibitTheaterSlider').trigger('input',0);
+ await historical.settle();
+ assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,true,
+   'generation 20 must not inherit the prior visitor name');
+ assert.deepEqual(historical.nameSaves,[],'browsing must never persist metadata');
+ assert.deepEqual(historical.nameReads,[warningDb]);
+ historical.close();
+
+ // Typing previews a name on the current five generations; writing happens
+ // only when the user explicitly taps next person after offspring commits.
+ const named=setup({handover:true});
+ await named.settle();
+ named.tick();await named.settle();
+ assert.equal(named.elements.get('exhibitTheaterNickname').hidden,true);
+ named.elements.get('exhibitHandoverNickname').trigger('input','こどもA');
+ assert.equal(named.elements.get('exhibitTheaterNickname').textContent,
+   '参加者：こどもA');
+ assert.deepEqual(named.nameSaves,[],'typing must not store metadata');
+ named.elements.get('exhibitTheaterSlider').trigger('input',0);
+ await named.settle();
+ assert.equal(named.elements.get('exhibitTheaterNickname').hidden,true);
+ named.elements.get('exhibitTheaterSlider').trigger('input',5);
+ await named.settle();
+ assert.equal(named.elements.get('exhibitTheaterNickname').textContent,
+   '参加者：こどもA');
+ named.elements.get('exhibitHandoverFinishNext').trigger('click');
+ await named.settle();
+ assert.deepEqual(named.nameSaves,[{db:warningDb,start:21,end:25,name:'こどもA'}]);
+ assert.deepEqual(named.navigated,['https://ganyujapan.github.io/Gitai_Lab_Preview/exhibit/']);
+ assert.equal(named.elements.get('exhibitHandoverFinishNext').disabled,true,
+   'successful named handover cannot be double-submitted');
+
+ // If a name cannot be written, do NOT lose a typed name or navigate away.
+ const failed=setup({handover:true,saveError:true});
+ await failed.settle();
+ failed.elements.get('exhibitHandoverNickname').trigger('input','途中保存');
+ failed.elements.get('exhibitHandoverFinishNext').trigger('click');
+ await failed.settle();
+ assert.deepEqual(failed.navigated,[],'failed save must block navigation');
+ assert.equal(failed.elements.get('exhibitHandoverFinishNext').disabled,false);
+ assert.match(failed.elements.get('exhibitHandoverNicknameStatus').textContent,/保存できませんでした/);
+ assert.equal(failed.elements.get('exhibitHandoverNickname').value,'途中保存');
+ failed.elements.get('exhibitHandoverNickname').trigger('input','');
+ failed.elements.get('exhibitHandoverFinishNext').trigger('click');
+ await failed.settle();
+ assert.equal(failed.navigated.length,1,'explicit skip permits safe handover');
+
+ console.log('Exhibition: historical nickname labels, opt-in write-on-handover, blank skip, safe failed-save recovery and read-only theater PASS');
 })().catch(e=>{console.error(e);process.exitCode=1});

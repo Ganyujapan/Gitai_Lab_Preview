@@ -9,8 +9,13 @@ const script = fs.readFileSync('exhibit/theater_canvas_20261026.js','utf8');
 const from = script.indexOf('  function followCurrentMarker() {');
 const to = script.indexOf('  function showFrame(index) {',from);
 assert.ok(from >= 0 && to > from,'follow helper must precede showFrame');
-assert.match(script.slice(to,to+1600),/followCurrentMarker\(\)/,
+const renderEnd = script.indexOf('  function finishHandover(',to);
+const renderFrame = script.slice(to,renderEnd);
+assert.match(renderFrame,/followCurrentMarker\(\)/,
   'follow the generation actually drawn and highlighted');
+assert.ok(renderFrame.indexOf('picture.drawImage(bitmap') <
+  renderFrame.indexOf('followCurrentMarker()'),
+  'scroll only after the new generation image has been drawn');
 const helper = script.slice(from,to);
 
 const viewportLeft=100, viewportWidth=280, chipWidth=38, pitch=43;

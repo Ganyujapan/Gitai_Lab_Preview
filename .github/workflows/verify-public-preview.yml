@@ -74,6 +74,8 @@ jobs:
         run: node .github/scripts/verify-sfx-latency-rehearsal.cjs
       - name: Verify iPad exhibition defaults to low latency Web Audio with AAC fallback
         run: node .github/scripts/verify-exhibit-web-audio-default.cjs
+      - name: SFX-IDLE-01 ensure frozen or interrupted iPad sound always falls back to native AAC
+        run: node .github/scripts/verify-exhibit-sfx-idle-recovery.cjs
       - name: Verify native audio ended-listener cleanup and voice cap
         run: node .github/scripts/verify-native-sfx-listener-lifecycle.cjs
       - name: Keep rainforest BGM alive on inactive iPad decoder failures
@@ -94,6 +96,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-theater-marker-follow.cjs
       - name: Verify exhibition theater's image and generation label remain consistent
         run: node .github/scripts/verify-exhibit-theater-image-label.cjs
+      - name: Verify optional exhibition nicknames are saved only after safe handover
+        run: node .github/scripts/verify-exhibit-nickname.cjs
       - name: Verify obsolete exhibition theater image errors cannot evict current decode
         run: node .github/scripts/verify-exhibit-theater-decode-cache.cjs
       - name: Verify exhibition theater reconstructs decoded frames after BFCache restore
@@ -124,6 +128,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-backup-readiness.cjs
       - name: Verify exhibition backup cannot overwrite existing data with malformed JSON
         run: node .github/scripts/verify-exhibit-backup-validation.cjs
+      - name: Verify single JSON file picker never opens experimental multipart picker
+        run: node .github/scripts/verify-exhibit-backup-ui-routing.cjs
       - name: Verify exhibition backup restore reports partial success accurately
         run: node .github/scripts/verify-exhibit-restore-result.cjs
       - name: Verify exhibit admin opens DB without creation or upgrade and preflights archive size
