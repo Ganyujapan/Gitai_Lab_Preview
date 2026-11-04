@@ -31,7 +31,6 @@
   const handoverFinishNext = document.getElementById('exhibitHandoverFinishNext');
   const nicknameInput = document.getElementById('exhibitHandoverNickname');
   const nicknameStatus = document.getElementById('exhibitHandoverNicknameStatus');
-  const nicknameBadge = document.getElementById('exhibitTheaterNickname');
   const HANDOVER_KEY = 'gitai-exhibit-handover-v1';
   const VISIT_KEY = 'gitai-exhibit-visit-start-v1';
   const empty = document.getElementById('exhibitTheaterEmpty');
@@ -53,6 +52,7 @@
   let finalTimer = null;
   let playback = null;
   let resumeHandoverOnPageshow = false;
+  let composingNickname = false;
   let token = 0;
   let focusReturn = null;
   let originalOverflow = '';
@@ -126,14 +126,15 @@
     return Number(String(generation).slice(3));
   }
   function setNicknameForFrame(generation, isCurrentVisitor) {
-    if (!nicknameBadge) return;
     const record = visitorNames.find(entry =>
       generation >= entry.start && generation <= entry.end);
     const preview = isCurrentVisitor && nicknameInput && handoverData
       ? window.GitaiExhibitNicknameStore?.cleanedName(nicknameInput.value) : '';
     const name = preview || record?.name || '';
-    nicknameBadge.hidden = !name;
-    nicknameBadge.textContent = name ? '参加者：' + name : '';
+    // The original upper-right label is the only visitor nameplate:
+    // never cover moths with another label at the bottom of the canvas.
+    playedLabel.hidden = !isCurrentVisitor && !name;
+    playedLabel.textContent = name ? name + 'のプレイ' : 'あなたのプレイ';
   }
   async function refreshGenerations() {
     await Promise.all(Object.values(MODES).map(async mode => {
@@ -326,7 +327,6 @@
       const generation = numberOf(record.generation_id);
       const marked = !!handoverData
         && generation >= handoverData.start && generation <= handoverData.end;
-      playedLabel.hidden = !marked;
       stage.classList.toggle('is-played', marked);
       if (typeof setNicknameForFrame === 'function') setNicknameForFrame(generation, marked);
       for (let i = 0; i < markers.children.length; i++) {
@@ -425,12 +425,12 @@
     if (!options.preserveNickname && nicknameInput) nicknameInput.value = '';
     if (!options.preserveNickname && nicknameStatus)
       nicknameStatus.textContent = '他の来場者にも表示されます。空欄なら保存しません';
-    if (nicknameBadge) nicknameBadge.hidden = true;
     dialog.classList.toggle('is-handover', !!handover);
     // Small footer stays visible, but never obscures the moth canvas.
     handoverFinished.hidden = !handover;
     markers.hidden = true;
     playedLabel.hidden = true;
+    playedLabel.textContent = 'あなたのプレイ';
     stage.classList.remove('is-played');
     focusReturn = document.activeElement;
     originalOverflow = document.body.style.overflow;
@@ -515,11 +515,30 @@
     } catch (_) {}
     location.assign(new URL('./', location.href).href);
   });
-  nicknameInput?.addEventListener('input', () => {
+  function syncNicknameInput() {
+    if (!nicknameInput) return;
+    // Do not cut Japanese text while the IME is composing a candidate.
+    const sanitized = window.GitaiExhibitNicknameStore?.cleanedName(nicknameInput.value);
+    if (typeof sanitized === 'string' && sanitized !== nicknameInput.value)
+      nicknameInput.value = sanitized;
     if (!handoverData || canvas.hidden || !frames[cursor]) return;
     const generation = numberOf(frames[cursor].generation_id);
     setNicknameForFrame(generation, generation >= handoverData.start &&
       generation <= handoverData.end);
+  }
+  nicknameInput?.addEventListener('compositionstart', () => { composingNickname = true; });
+  nicknameInput?.addEventListener('compositionend', () => {
+    composingNickname = false;
+    syncNicknameInput();
+  });
+  nicknameInput?.addEventListener('input', event => {
+    if (!composingNickname && !event?.isComposing) syncNicknameInput();
+  });
+  nicknameInput?.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || composingNickname || event.isComposing ||
+        event.keyCode === 229) return;
+    event.preventDefault();
+    nicknameInput.blur(); // iPad software keyboard closes; no name is saved yet.
   });
   closeButton.addEventListener('click', closeTheater);
   previous.addEventListener('click', () => {

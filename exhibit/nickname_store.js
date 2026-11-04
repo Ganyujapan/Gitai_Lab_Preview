@@ -8,12 +8,26 @@
     'gitai-exhibit-2026-gitai-pages-preview-v3-kusagi_001-continuous_v1-konchu2026_cryptic',
     'gitai-exhibit-2026-gitai-pages-preview-v3-kusagi_001-continuous_v1-warning_color_fog_v2'
   ]);
-  const MAX_NAME_CHARS = 20;
+  // 10 full-width characters or 15 half-width characters. Mixed text
+  // shares a 30-unit budget: full-width=3, half-width=2.
+  const MAX_NAME_UNITS = 30;
+  const segmenter = typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
+    ? new Intl.Segmenter('ja', {granularity:'grapheme'}) : null;
 
   function cleanedName(value) {
-    return [...String(value || '').normalize('NFC')
-      .replace(/[\u0000-\u001f\u007f\u202a-\u202e]/g, '').trim()]
-      .slice(0, MAX_NAME_CHARS).join('');
+    const source = String(value || '').normalize('NFC')
+      .replace(/[\u0000-\u001f\u007f\u202a-\u202e]/g, '').trim();
+    const graphemes = segmenter
+      ? Array.from(segmenter.segment(source), item => item.segment)
+      : Array.from(source);
+    let result = '', units = 0;
+    for (const char of graphemes) {
+      const cost = /^[\u0020-\u007e\uff61-\uff9f]$/.test(char) ? 2 : 3;
+      if (units + cost > MAX_NAME_UNITS) break;
+      result += char;
+      units += cost;
+    }
+    return result;
   }
   function validRange(start, end) {
     return Number.isSafeInteger(start) && start > 0 &&

@@ -55,6 +55,10 @@ assert.match(sw,/cache\.match\(request, \{ ignoreSearch: true \}\)/);
 
 assertHas(html,/id="exhibitTheaterMarkers"/);
 assertHas(html,/id="exhibitTheaterPlayed"/);
+assert.doesNotMatch(html,/id="exhibitTheaterNickname"/,'extra badge must not cover the moths');
+assert.match(html,/autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="done"/);
+assert.doesNotMatch(css,/\.exhibit-theater-nickname\{position:absolute/);
+assert.match(css,/\.exhibit-theater-played\{[^}]*max-width:/);
 assertHas(html,/id="exhibitHandoverFinished"/);
 assertHas(html,/id="exhibitHandoverFinishNext"/);
 assert.doesNotMatch(html,/何度でも再生できます/,'requested theater explanation is removed');
@@ -98,8 +102,15 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
    replaceChildren(...newChildren){n.children=[...newChildren]},
    appendChild(x){n.children.push(x)},
    focus(){doc.activeElement=n},
+   blur(){n.blurred=true;doc.activeElement=null},
    decode(){return Promise.resolve()},
-   trigger(event,value){if(value!==undefined)n.value=String(value);return n.listeners[event]?.({key:'',preventDefault(){},stopImmediatePropagation(){}})}
+   trigger(event,value){
+     if(value!==undefined && event!=='keydown')n.value=String(value);
+     const e={key:event==='keydown'?value:'',isComposing:false,keyCode:0,
+       defaultPrevented:false,preventDefault(){this.defaultPrevented=true},
+       stopImmediatePropagation(){}};
+     n.listeners[event]?.(e);return e;
+   }
   };
   let src;
   Object.defineProperty(n,'src',{get(){return src},set(v){src=v;if(v)queueMicrotask(()=>n.onload?.())}});
@@ -186,7 +197,15 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
   document:doc,window:{addEventListener:(evt,cb)=>windowListeners[evt]=cb,
    GitaiExhibitLanding:{showMenu(){},showSplash(){}},
    GitaiExhibitNicknameStore:{
-    cleanedName(value){return [...String(value||'').normalize('NFC').trim()].slice(0,20).join('')},
+    cleanedName(value){
+      let result='',units=0;
+      for(const char of [...String(value||'').normalize('NFC').trim()]){
+        const width=/^[\u0020-\u007e\uff61-\uff9f]$/.test(char)?2:3;
+        if(units+width>30)break;
+        result+=char;units+=width;
+      }
+      return result;
+    },
     async read(db){nameReads.push(db);return visitorNames},
     async save(db,start,end,name){nameSaves.push({db,start,end,name});if(saveError)throw Error('simulated storage failure');return true}
    }},location:loc,
@@ -296,16 +315,16 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
  const historical=setup({visitorNames:[{start:21,end:25,name:'蛾博士'}]});
  await historical.settle();
  historical.open('warning');await historical.settle();
- assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,true,
+ assert.equal(historical.elements.get('exhibitTheaterPlayed').hidden,true,
    'generation 26 is not part of the previous visit');
  historical.elements.get('exhibitTheaterPrev').trigger('click');
  await historical.settle();
- assert.equal(historical.elements.get('exhibitTheaterNickname').textContent,
-   '参加者：蛾博士');
- assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,false);
+ assert.equal(historical.elements.get('exhibitTheaterPlayed').textContent,
+   '蛾博士のプレイ');
+ assert.equal(historical.elements.get('exhibitTheaterPlayed').hidden,false);
  historical.elements.get('exhibitTheaterSlider').trigger('input',0);
  await historical.settle();
- assert.equal(historical.elements.get('exhibitTheaterNickname').hidden,true,
+ assert.equal(historical.elements.get('exhibitTheaterPlayed').hidden,true,
    'generation 20 must not inherit the prior visitor name');
  assert.deepEqual(historical.nameSaves,[],'browsing must never persist metadata');
  assert.deepEqual(historical.nameReads,[warningDb]);
@@ -316,18 +335,34 @@ function setup({handover=false,absentWarning=false,largeWarning=false,visitorNam
  const named=setup({handover:true});
  await named.settle();
  named.tick();await named.settle();
- assert.equal(named.elements.get('exhibitTheaterNickname').hidden,true);
+ assert.equal(named.elements.get('exhibitTheaterPlayed').textContent,'あなたのプレイ');
  named.elements.get('exhibitHandoverNickname').trigger('input','こどもA');
- assert.equal(named.elements.get('exhibitTheaterNickname').textContent,
-   '参加者：こどもA');
+ assert.equal(named.elements.get('exhibitTheaterPlayed').textContent,
+   'こどもAのプレイ');
  assert.deepEqual(named.nameSaves,[],'typing must not store metadata');
+ const input=named.elements.get('exhibitHandoverNickname');
+ input.trigger('compositionstart');
+ input.trigger('input','あ'.repeat(13)); // IME is still converting
+ assert.equal(input.value,'あ'.repeat(13),'do not truncate an unfinished Japanese conversion');
+ input.trigger('compositionend');
+ assert.equal(input.value,'あ'.repeat(10),'truncate immediately after composition completes');
+ input.trigger('input','こどもA');
+ const imeEnter=input.trigger('keydown','Enter');
+ assert.equal(imeEnter.defaultPrevented,true,'Enter is handled without submitting name');
+ assert.equal(input.blurred,true,'Enter dismisses the iPad keyboard');
+ assert.deepEqual(named.nameSaves,[],'Enter must not save a visitor name');
+ input.blurred=false;
+ input.trigger('compositionstart');
+ input.trigger('keydown','Enter');
+ assert.equal(input.blurred,false,'IME candidate confirmation must not dismiss keyboard');
+ input.trigger('compositionend');
  named.elements.get('exhibitTheaterSlider').trigger('input',0);
  await named.settle();
- assert.equal(named.elements.get('exhibitTheaterNickname').hidden,true);
+ assert.equal(named.elements.get('exhibitTheaterPlayed').hidden,true);
  named.elements.get('exhibitTheaterSlider').trigger('input',5);
  await named.settle();
- assert.equal(named.elements.get('exhibitTheaterNickname').textContent,
-   '参加者：こどもA');
+ assert.equal(named.elements.get('exhibitTheaterPlayed').textContent,
+   'こどもAのプレイ');
  named.elements.get('exhibitHandoverFinishNext').trigger('click');
  await named.settle();
  assert.deepEqual(named.nameSaves,[{db:warningDb,start:21,end:25,name:'こどもA'}]);

@@ -36,6 +36,10 @@ const ctx={
  handoverData:{start:2,end:3},
  empty:{hidden:false,textContent:'loading'},
  numberOf:g=>Number(g.slice(3)),
+ setNicknameForFrame(generation,marked){
+   ctx.playedLabel.hidden=!marked;
+   ctx.playedLabel.textContent=marked?'あなたのプレイ':'';
+ },
  followCurrentMarker(){followed.push(ctx.cursor)},
  console:{warn:()=>{}},
  decodeFrame(index){
