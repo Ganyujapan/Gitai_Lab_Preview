@@ -94,6 +94,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-theater-marker-follow.cjs
       - name: Verify exhibition theater's image and generation label remain consistent
         run: node .github/scripts/verify-exhibit-theater-image-label.cjs
+      - name: Verify optional exhibition nicknames are saved only after safe handover
+        run: node .github/scripts/verify-exhibit-nickname.cjs
       - name: Verify obsolete exhibition theater image errors cannot evict current decode
         run: node .github/scripts/verify-exhibit-theater-decode-cache.cjs
       - name: Verify exhibition theater reconstructs decoded frames after BFCache restore
