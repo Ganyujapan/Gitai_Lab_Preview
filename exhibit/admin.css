@@ -16,3 +16,9 @@
 #exhibitBackupV2Files{display:none}
 #exhibitBackupRehearsalLink{color:#b7e9ce;display:block;margin:5px 0 12px;overflow-wrap:anywhere}
 #exhibitBackupRehearsalLink:focus-visible{outline:3px solid #d9f1b5;outline-offset:3px}
+
+/* Keep normal JSON verification feedback directly below the action. */
+#exhibitBackupVerifyResult,#exhibitBackupV2Result{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border:1px solid #7ca387;background:#13231a;color:#f2e9be;font:14px/1.65 system-ui,sans-serif;border-radius:8px;margin:6px 0 10px}
+#exhibitBackupV2Details{border:1px solid #526f5a;border-radius:8px;padding:10px;margin:12px 0}
+#exhibitBackupV2Details>summary{cursor:pointer;min-height:44px;display:list-item;padding:9px 4px;color:#d2dace;font-weight:700}
+#exhibitBackupV2Details>p{font-size:13px}
