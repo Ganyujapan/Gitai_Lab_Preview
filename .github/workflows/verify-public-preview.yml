@@ -128,6 +128,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-backup-readiness.cjs
       - name: Verify exhibition backup cannot overwrite existing data with malformed JSON
         run: node .github/scripts/verify-exhibit-backup-validation.cjs
+      - name: Long-history v1 codec preserves 1000 theater frames and 200 visitor nicknames
+        run: node .github/scripts/verify-exhibit-long-history-v1-codec.cjs
       - name: Verify single JSON file picker never opens experimental multipart picker
         run: node .github/scripts/verify-exhibit-backup-ui-routing.cjs
       - name: Verify exhibition backup restore reports partial success accurately
