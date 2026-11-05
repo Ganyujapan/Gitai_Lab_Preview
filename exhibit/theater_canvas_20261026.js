@@ -44,6 +44,11 @@
   let cursor = 0;
   let activeMode = null;
   let frameLoadId = 0;
+  // Separate session lifetime from per-slide draw tickets. A pending IDB
+  // read or a hung image decoder must not retain a Blob URL after closing,
+  // switching modes or entering iPad BFCache.
+  let frameDecodeSession = 0;
+  const pendingFrameDecodes = new Set();
   let pendingFrameIndex = null;
   let loadedImages = new Map();
   let frameUrls = [];
@@ -62,18 +67,26 @@
   // even an empty database simply by looking at the exhibition landing.
   function openExisting(name) {
     return new Promise((resolve, reject) => {
-      let absent = false;
+      let absent = false, blocked = false;
       const request = indexedDB.open(name);
       request.onupgradeneeded = () => {
         absent = true;
         request.transaction.abort();
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        // IndexedDB can open successfully long after onblocked rejected this
+        // attempt. Never leave that unclaimed connection open on the iPad.
+        if (blocked) { request.result.close(); return; }
+        resolve(request.result);
+      };
       request.onerror = () => {
         if (absent) resolve(null);
         else reject(request.error || Error('進化データの読み込みに失敗しました'));
       };
-      request.onblocked = () => reject(Error('進化データを別のタブで使用中です'));
+      request.onblocked = () => {
+        blocked = true;
+        reject(Error('進化データを別のタブで使用中です'));
+      };
     });
   }
 
@@ -170,6 +183,11 @@
 
   function releaseImage() {
     ++frameLoadId;
+    ++frameDecodeSession;
+    // Cancel even decoders that never fire onload/onerror (e.g. iPad page
+    // suspension), not only images that have already finished loading.
+    for (const cancel of Array.from(pendingFrameDecodes)) cancel();
+    pendingFrameDecodes.clear();
     pendingFrameIndex = null;
     canvas.hidden = true;
     // The gallery's object URLs follow the regular entertainment theater:
@@ -209,19 +227,43 @@
   function decodeFrame(index) {
     if (!frames[index]) return Promise.reject(Error('Frame unavailable'));
     if (loadedImages.has(index)) return loadedImages.get(index);
-    const ready = loadFrameBlob(index).then(blob => new Promise((resolve, reject) => {
-      const preview = new Image();
-      preview.decoding = 'async';
-      const url = URL.createObjectURL(blob);
-      const release = () => URL.revokeObjectURL(url);
-      preview.onload = () => {
-        const decoded = typeof preview.decode === 'function'
-          ? preview.decode().catch(() => {}) : Promise.resolve();
-        Promise.resolve(decoded).then(() => { release(); resolve(preview); }, error => { release(); reject(error); });
-      };
-      preview.onerror = () => { release(); reject(Error('Frame image could not be read')); };
-      preview.src = url;
-    }));
+    const session = frameDecodeSession;
+    const ready = loadFrameBlob(index).then(blob => {
+      // A slow IDB read may finish AFTER the viewer has closed. Do not
+      // allocate a new object URL in an obsolete session.
+      if (session !== frameDecodeSession) {
+        throw Error('Frame image request was cancelled');
+      }
+      return new Promise((resolve, reject) => {
+        const preview = new Image();
+        preview.decoding = 'async';
+        const url = URL.createObjectURL(blob);
+        let settled = false;
+        function finish(error) {
+          if (settled) return;
+          settled = true;
+          pendingFrameDecodes.delete(cancel);
+          preview.onload = null;
+          preview.onerror = null;
+          URL.revokeObjectURL(url);
+          if (error) reject(error);
+          else resolve(preview);
+        }
+        function cancel() { finish(Error('Frame image request was cancelled')); }
+        pendingFrameDecodes.add(cancel);
+        preview.onload = () => {
+          let decoded;
+          try {
+            decoded = typeof preview.decode === 'function'
+              ? preview.decode().catch(() => {}) : Promise.resolve();
+          } catch (error) { finish(error); return; }
+          Promise.resolve(decoded).then(() => finish(null), finish);
+        };
+        preview.onerror = () => finish(Error('Frame image could not be read'));
+        try { preview.src = url; }
+        catch (error) { finish(error); }
+      });
+    });
     loadedImages.set(index, ready);
     ready.catch(() => {
       // An old session's failure must not delete a newer session's

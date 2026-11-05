@@ -9,6 +9,10 @@ const a=source.indexOf('  function decodeFrame(index) {');
 const b=source.indexOf('  function stopPlayback()',a);
 assert.ok(a>0&&b>a);
 const original=source.slice(a,b);
+const ra=source.indexOf('  function releaseImage() {');
+const rb=source.indexOf('  function assignFrameUrls()',ra);
+assert.ok(ra>0&&rb>ra);
+const release=source.slice(ra,rb);
 assert.match(original,/loadedImages\.get\(index\) === ready/);
 const launched=[];
 class FakeImage{
@@ -20,11 +24,13 @@ class FakeImage{
 }
 const urls=[],revoked=[];
 const ctx={frames:[{generation_id:'gen00021'}],loadedImages:new Map(),
-  frameUrls:[],cursor:0,Image:FakeImage,Math,Promise,Error,
+  frameUrls:[],frameLoadId:0,frameDecodeSession:0,pendingFrameDecodes:new Set(),
+  pendingFrameIndex:null,canvas:{hidden:false},cursor:0,Image:FakeImage,
+  Math,Promise,Error,Array,
   loadFrameBlob:()=>Promise.resolve(new Blob(['original'],{type:'image/webp'})),
   URL:{createObjectURL:()=>{const u='blob:test-'+(urls.length+1);urls.push(u);return u},
        revokeObjectURL:u=>revoked.push(u)}};
-vm.runInNewContext(original+'\nglobalThis.read=decodeFrame;',ctx,{
+vm.runInNewContext(release+original+'\nglobalThis.read=decodeFrame;globalThis.release=releaseImage;',ctx,{
  filename:'exhibit/theater_canvas_20261026.js:decodeFrame',timeout:3000
 });
 const flush=async()=>{for(let i=0;i<20;i++)await Promise.resolve()};
@@ -55,5 +61,47 @@ const flush=async()=>{for(let i=0;i<20;i++)await Promise.resolve()};
  assert.equal(launched.length,4);
  launched[3].succeed();await retried;
  assert.equal(revoked.length,4,'each lazily loaded frame URL must be released');
- console.log('RE2-PF-03: old failure preserves new-session cache, current failures clean up and retry.');
+
+ // An iPad can suspend a page without ever delivering onload/onerror. Close
+ // the viewer while the actual decoder has a live URL and a stalled image.
+ ctx.loadedImages.clear();
+ const stalled=ctx.read(0);
+ void stalled.catch(()=>{});
+ await flush();
+ assert.equal(urls.length,5,'stalled image has a temporary object URL');
+ assert.equal(ctx.pendingFrameDecodes.size,1);
+ const stalledImage=launched.at(-1);
+ ctx.release();
+ await assert.rejects(stalled,/cancelled/);
+ assert.equal(ctx.pendingFrameDecodes.size,0);
+ assert.equal(revoked.length,5,'closing viewer revokes the stalled URL once');
+ stalledImage.succeed();stalledImage.fail();await flush();
+ assert.equal(revoked.length,5,'late callbacks must not double-revoke');
+
+ // IDB can finish late too. An obsolete read must NOT allocate an URL after
+ // the mode switched or the dialog was closed.
+ let resolveRead;
+ ctx.loadFrameBlob=()=>new Promise(resolve=>{resolveRead=resolve});
+ const delayed=ctx.read(0);
+ void delayed.catch(()=>{});
+ await flush();
+ assert.equal(ctx.pendingFrameDecodes.size,0);
+ ctx.release();
+ resolveRead(new Blob(['late']));
+ await assert.rejects(delayed,/cancelled/);
+ await flush();
+ assert.equal(urls.length,5,'late IDB read creates no URL');
+ assert.equal(ctx.loadedImages.size,0);
+
+ // A fresh viewer session continues to decode normally.
+ ctx.loadFrameBlob=()=>Promise.resolve(new Blob(['new']));
+ const freshAfterCancel=ctx.read(0);
+ await flush();
+ assert.equal(urls.length,6);
+ launched.at(-1).succeed();
+ await freshAfterCancel;
+ assert.equal(revoked.length,6);
+ assert.equal(ctx.pendingFrameDecodes.size,0);
+
+ console.log('RE2-PF-03: decoder failures, suspended image close, stale IDB completion, URL cancellation and fresh reopening OK.');
 })().catch(error=>{console.error(error);process.exitCode=1});

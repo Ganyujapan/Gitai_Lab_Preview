@@ -100,6 +100,8 @@ jobs:
         run: node .github/scripts/verify-exhibit-nickname.cjs
       - name: Verify obsolete exhibition theater image errors cannot evict current decode
         run: node .github/scripts/verify-exhibit-theater-decode-cache.cjs
+      - name: Verify exhibition theater closes late database opens after blocked read
+        run: node .github/scripts/verify-exhibit-theater-open-existing.cjs
       - name: Verify exhibition theater reconstructs decoded frames after BFCache restore
         run: node .github/scripts/verify-exhibit-bfcache-theater.cjs
       - name: Verify theater snapshot version upgrades per evolution mode
