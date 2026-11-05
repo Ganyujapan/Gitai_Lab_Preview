@@ -12,6 +12,9 @@
   'use strict';
   const STORES=Object.freeze(['images','meta','theater_frames']);
   const MAX_V1_ENTRIES=20000;
+  // Early warning is based on counts only. Bytes/JSON tree depth can still
+  // reject an export sooner; never describe this as a guaranteed safe margin.
+  const WARN_V1_ENTRIES=16000;
   const GEN=/^gen(?:\d{5}|[1-9]\d{5,})$/;
   const KEY_COUNT=60;
   function inspectDatabase(name,indexedDb){
@@ -90,8 +93,10 @@
               generation:exists?generation:null,
               counts:Object.freeze({...counts}),total,
               missingImages,missingGenomes,
-              status:!exists?'not-ready':!intact?'incomplete':tooMany?'v1-entry-limit':'eligible-for-v1-check',
+              status:!exists?'not-ready':!intact?'incomplete':tooMany?'v1-entry-limit'
+                :total>=WARN_V1_ENTRIES?'v1-entry-warning':'eligible-for-v1-check',
               v1EntryLimit:MAX_V1_ENTRIES,
+              v1RemainingEntries:Math.max(0,MAX_V1_ENTRIES-total),
               // Only a preflight. PNG decoding, DNA semantics, node count and
               // serialized bytes are verified in the actual v1 exporter.
               exportVerified:false,
@@ -140,6 +145,12 @@
     else if(result.status==='v1-entry-limit')
       lines.push('注意：既存のJSONバックアップ上限20,000件を超えています。'
         +'現在の書き出しを試みず、データは消さずに保管してください。');
+    else if(result.status==='v1-entry-warning')
+      lines.push('注意：既存のJSONバックアップ上限20,000件に近づいています（件数の残り'
+        +result.v1RemainingEntries+'件）。'
+        +'今のうちにv1 JSONを保存し、実ファイルを再選択して検証してください。'
+        +'150MiB・構造ノード等の制限では件数上限より先に失敗する場合があります。'
+        +'この診断は書き出しの成功を保証しません。');
     else
       lines.push('項目数と現在世代の参照は確認できました。'
         +'JSONファイル容量・PNG/DNAの完全性は「書き出す」操作で別途検査します。'
@@ -153,5 +164,5 @@
       +'復元やデータの変更も行いません。');
     return lines.join('\n');
   }
-  return Object.freeze({inspect,inspectDatabase,format,MAX_V1_ENTRIES});
+  return Object.freeze({inspect,inspectDatabase,format,MAX_V1_ENTRIES,WARN_V1_ENTRIES});
 });
