@@ -142,6 +142,29 @@ function assertWindow(h, radius=2) {
   assert.equal(h.created.length,h.revoked.length,
     'every allocated URL must be released once when closed');
 
+  // Exhibition visitors may open the same large theater over and over. The
+  // real production controls must release EVERY Blob URL across 25 cycles,
+  // including long jumps between the first and last generations. Only
+  // synthetic Blob objects are used; this is not an iPad RAM benchmark.
+  for(let cycle=0;cycle<25;cycle++){
+    await h.open();
+    assert.equal(h.state.theaterFrames.length,1000,
+      'a new viewer session must still load historical frames');
+    assertWindow(h);
+    for(const index of [999,0,500,1,998,0]){
+      h.state.theaterFrameIndex=index;
+      h.render();
+      assertWindow(h);
+    }
+    h.close();
+    assert.equal(h.active.size,0,
+      'Blob URLs must be released after theater close cycle '+cycle);
+    assert.equal(h.state.theaterFrames.length,0,
+      'theater records must be released from the view after close');
+    assert.equal(h.created.length,h.revoked.length,
+      'no Blob URL leak across repeated theater visits');
+  }
+
   // A delayed IDB load completing AFTER close must never recreate 1,000 URLs,
   // resurrect the hidden overlay, or strand the open button disabled.
   const staleRead=deferred();
@@ -172,5 +195,5 @@ function assertWindow(h, radius=2) {
   race.close();
   assert.equal(race.active.size,0);
 
-  console.log('PF06: 1,000-frame window <=5 URLs, seek/playback, close/reopen, obsolete IDB reads and Blob cleanup OK.');
+  console.log('PF06: 1,000-frame window <=5 URLs, 25 repeated viewer sessions, seek/playback, obsolete IDB reads and Blob cleanup OK.');
 })().catch(error=>{console.error(error);process.exitCode=1});

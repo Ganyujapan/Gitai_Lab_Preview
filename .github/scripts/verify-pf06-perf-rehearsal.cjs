@@ -154,11 +154,68 @@ const keyRange={bound:(lower,upper)=>({lower,upper})};
    assert.deepEqual(m.deleted,m.opened);
    assert.equal(m.existing.size,0);
  }
+ // Inject a URL allocation failure both during theater preview (3rd
+ // allocation) and during DOM cards (17th: 14 preview + 3 cards). Even if
+ // rendering fails, the isolated test DB, temporary DOM and every created
+ // Blob URL must be cleaned up. No real IndexedDB is opened by this test.
+ for(const failAt of [3,17]){
+   const broken=mockIDB(),doc=mockDom();
+   const allocated=new Set(),released=new Set();
+   let attempted=0;
+   const failingUrls={
+     createObjectURL(blob){
+       assert.ok(blob instanceof Blob);
+       attempted++;
+       if(attempted===failAt)throw Error('synthetic-object-url-failure-'+failAt);
+       const url='blob:failed-test-'+attempted;
+       allocated.add(url);
+       return url;
+     },
+     revokeObjectURL(url){
+       assert.ok(allocated.has(url),'unknown synthetic URL');
+       assert.ok(!released.has(url),'synthetic URL revoked twice');
+       released.add(url);
+     }
+   };
+   await assert.rejects(api.run({
+     count:100,indexedDB:broken.idb,IDBKeyRange:keyRange,
+     crypto:cryptoSource,now:()=>0,urlApi:failingUrls,
+     document:doc,onPhase:()=>{}
+   }),new RegExp('synthetic-object-url-failure-'+failAt));
+   assert.equal(attempted,failAt,'failure injection reached the intended stage');
+   assert.equal(released.size,allocated.size,
+     'failed visualization must not leak Blob URLs');
+   assert.equal(doc.body.children.length,0,'temporary test cards cleaned up');
+   assert.deepEqual(broken.deleted,broken.opened,
+     'error cleanup deletes only its own synthetic DB');
+   assert.equal(broken.existing.size,0,'no failed trial DB is left behind');
+ }
+
+ // Simulate Safari refusing to delete a trial database. The benchmark
+ // must loudly report incomplete cleanup, never claim success. Its
+ // separately gated cleanup helper may later remove only trial DB names.
+ const cleanupBlocked=mockIDB();
+ const originalDelete=cleanupBlocked.idb.deleteDatabase;
+ cleanupBlocked.idb.deleteDatabase=name=>{
+   assert.match(name,/^gitailab-pf06-isolated-benchmark-[a-f0-9]{32}$/);
+   const req={error:Error('synthetic deletion denied'),onerror:null};
+   queueMicrotask(()=>req.onerror?.());
+   return req;
+ };
+ await assert.rejects(api.run({
+   count:100,indexedDB:cleanupBlocked.idb,IDBKeyRange:keyRange,
+   crypto:cryptoSource,now:()=>0,urlApi,document:mockDom(),onPhase:()=>{}
+ }),/試験専用DBの削除を確認できませんでした/);
+ assert.equal(cleanupBlocked.existing.size,1,
+   'failed deletion is reported rather than mistaken for success');
+ cleanupBlocked.idb.deleteDatabase=originalDelete;
+ assert.equal(await api.purgeOrphans(cleanupBlocked.idb),1);
+ assert.equal(cleanupBlocked.existing.size,0);
  const m=mockIDB();
  const orphan=api.makeDbName(cryptoSource);
  m.existing.set(orphan,new Map());
  assert.equal(await api.purgeOrphans(m.idb),1);
  assert.deepEqual(m.deleted,[orphan]);
  assert.equal(m.existing.size,0);
- console.log('PF06: opt-in 100/1000 synthetic rehearsal, readonly scans, <=5 URLs, 30 DOM cards, cleanup and production DB isolation OK.');
+ console.log('PF06: opt-in 100/1000 synthetic rehearsal, <=5 URLs, 30 cards, image/DOM failure cleanup, blocked DB delete reporting, orphan cleanup and production DB isolation OK.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
