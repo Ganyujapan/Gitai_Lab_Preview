@@ -24,7 +24,8 @@ vm.runInNewContext(code+
 const {encode,decode}=sandbox.codec;
 const id = n => 'gen'+String(n).padStart(5,'0');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-// Use the current published nickname META namespace; no historical names or real blobs are read.\nconst snapshot = {
+// Use the current published nickname META namespace; no historical names or real blobs are read.
+const snapshot = {
   // Saved images are simulated; real image size and OS quota remain unknown.
   theater_frames:Array.from({length:1000},(_,i)=>{
     const generation=i+1;
