@@ -104,12 +104,14 @@ function fixture({missingDb=false,version=2,omitStore=null,
 }
 (async()=>{
   assert.equal(inspector.MAX_V1_ENTRIES,20000);
+  assert.equal(inspector.WARN_V1_ENTRIES,16000);
   const ok=fixture();
   const health=await inspector.inspect({name:NAME,indexedDb:ok.indexedDb,
     storage:{estimate:async()=>({usage:31457280,quota:209715200})}});
   assert.equal(health.status,'eligible-for-v1-check');
   assert.equal(health.generation,GEN);
   assert.equal(health.total,122);
+  assert.equal(health.v1RemainingEntries,20000-122);
   assert.deepEqual({...health.counts},{images:60,meta:61,theater_frames:1});
   assert.equal(health.missingImages,0);assert.equal(health.missingGenomes,0);
   assert.equal(health.exportVerified,false,'readiness must not promise export');
@@ -119,6 +121,29 @@ function fixture({missingDb=false,version=2,omitStore=null,
   assert.equal(ok.values,1,'only read generation pointer as a value');
   assert.equal(ok.keys,120,'verify all 60 image and DNA keys');
   assert.equal(ok.mutations,0);
+
+  // A read-only early warning must trigger BEFORE reaching the old v1
+  // 20,000-entry hard cap; the boundary itself is still eligible by count.
+  const justBelow=await inspector.inspectDatabase(NAME,fixture({entryCount:15938}).indexedDb);
+  assert.equal(justBelow.total,15999);
+  assert.equal(justBelow.status,'eligible-for-v1-check');
+  const atWarningFixture=fixture({entryCount:15939});
+  const atWarning=await inspector.inspectDatabase(NAME,atWarningFixture.indexedDb);
+  assert.equal(atWarning.total,16000);
+  assert.equal(atWarning.status,'v1-entry-warning');
+  assert.equal(atWarning.v1RemainingEntries,4000);
+  assert.equal(atWarningFixture.mutations,0,'warning must only read keys');
+  assert.match(inspector.format({...atWarning,originStorage:{usage:null,quota:null}},
+    '隠れるギタイ'),/残り4000件/);
+  assert.doesNotMatch(inspector.format({...atWarning,originStorage:{}},
+    '隠れるギタイ'),/書き出し成功です|復元できます/);
+  const atLimit=await inspector.inspectDatabase(NAME,fixture({entryCount:19939}).indexedDb);
+  assert.equal(atLimit.total,20000);
+  assert.equal(atLimit.status,'v1-entry-warning');
+  assert.equal(atLimit.v1RemainingEntries,0);
+  const overByOne=await inspector.inspectDatabase(NAME,fixture({entryCount:19940}).indexedDb);
+  assert.equal(overByOne.total,20001);
+  assert.equal(overByOne.status,'v1-entry-limit');
 
   const oversize=fixture({entryCount:20100});
   const huge=await inspector.inspectDatabase(NAME,oversize.indexedDb);
@@ -197,5 +222,5 @@ function fixture({missingDb=false,version=2,omitStore=null,
     assert.doesNotMatch(fs.readFileSync(production,'utf8'),
       /backup_readiness\.js/,'read-only inspector must be admin-only');
   }
-  console.log('EXH-02: production read-only iPad backup readiness inspector, 120 exact key probes, 20k limit warning, nonexistent DB abort, closed connections, no writes and no misleading export guarantee verified.');
+  console.log('EXH-02: read-only backup readiness, 16k early warning, exact 20k boundary, 120 keys, no DB writes or misleading export guarantees OK.');
 })().catch(error=>{console.error(error);process.exitCode=1});
