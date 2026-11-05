@@ -373,6 +373,56 @@ async function produce(recordStream, opts={}) {
   corrupted[0]=new File(['!' + firstText.slice(1)],first.name,{type:'application/json'});
   await assert.rejects(verifyPartIntegrity(many.manifestFile,corrupted,'cryptic',db),/破損/);
 
+  // Long-running exhibition: generations retain lightweight theater
+  // snapshots, but do NOT retain 60 historical moth PNGs and 60 DNAs for
+  // every old generation. Model that real retention layout at generation
+  // 5,001, with 1,000 retained theater frames and only founder/current
+  // moth pairs. This tests the actual v2 writer and SHA verifier, not IDB,
+  // PNG decoding, quota availability or live iPad export.
+  const longGen='gen05001', longDb='gitai-exhibit-2026-test-warning';
+  const theaterFrom=4002, theaterCount=1000;
+  const makeLongSnapshot=async function* (){
+    for(const g of [1,5001])for(let i=1;i<=60;i++){
+      yield {store:'images',
+        key:'gen'+String(g).padStart(5,'0')+':'+name(i),value:image()};
+    }
+    yield {store:'meta',key:'current_generation_id',value:longGen};
+    for(let i=0;i<100;i++){
+      yield {store:'meta',key:'diagnostic:'+String(i).padStart(7,'0'),
+        value:{saved_generation:i,notes:'synthetic fixture - no real user data'}};
+    }
+    for(const g of [1,5001])for(let i=1;i<=60;i++){
+      yield {store:'meta',key:'genome:gen'+String(g).padStart(5,'0')+':'+name(i),
+        value:{schema_version:1,baseHue:i,modules:[]}};
+    }
+    for(let g=theaterFrom;g<theaterFrom+theaterCount;g++){
+      const id='gen'+String(g).padStart(5,'0');
+      yield {store:'theater_frames',key:id,
+        value:{generation_id:id,generation_number:g,
+          image_blob:new Blob([new Uint8Array(512)],{type:'image/webp'})}};
+    }
+  };
+  const longFiles=[];
+  const longOutput=await writePartsFromRecords(makeLongSnapshot(),{
+    mode:'warning',database:longDb,currentGeneration:longGen,
+    warningLife:JSON.stringify({generation_id:longGen,thirds:30}),
+    maxPartEntries:100,maxPartBytes:65536,createdAt:'2026-11-05T00:00:00Z'
+  },async(file,desc)=>{
+    assert.equal(file.name,desc.file);
+    assert.ok(file.size<=65536);
+    longFiles.push(file);
+  });
+  assert.equal(longOutput.manifest.totals.entries,1341);
+  assert.deepEqual(longOutput.manifest.totals.byStore,
+    {images:120,meta:221,theater_frames:1000});
+  assert.ok(longFiles.length>10);
+  const longResult=await verifyPartIntegrity(longOutput.manifestFile,longFiles,
+    'warning',longDb);
+  assert.equal(longResult.entries,1341);
+  assert.equal(longResult.generation,longGen);
+  const brokenFiles=longFiles.slice(1);
+  await assert.rejects(verifyPartIntegrity(longOutput.manifestFile,
+    brokenFiles,'warning',longDb),/不足|過剰/);
   assert.equal(typeof indexedDB.open,'function');
-  console.log('RE2-EXH-02: bounded multipart writer, 22,172 records, 250k preflight ceiling, verifier round-trip, v1 codec, corrupt/missing/order/disk-full cases OK. No IndexedDB accessed.');
+  console.log('RE2-EXH-02: bounded multipart writer, 22,172 records, 1,000 historical snapshots + gen5001 founder/current only, 250k ceiling, SHA verifier, corruption/cancellation cases OK. No IndexedDB accessed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
