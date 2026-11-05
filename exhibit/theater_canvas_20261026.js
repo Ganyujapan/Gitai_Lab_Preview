@@ -67,18 +67,26 @@
   // even an empty database simply by looking at the exhibition landing.
   function openExisting(name) {
     return new Promise((resolve, reject) => {
-      let absent = false;
+      let absent = false, blocked = false;
       const request = indexedDB.open(name);
       request.onupgradeneeded = () => {
         absent = true;
         request.transaction.abort();
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        // IndexedDB can open successfully long after onblocked rejected this
+        // attempt. Never leave that unclaimed connection open on the iPad.
+        if (blocked) { request.result.close(); return; }
+        resolve(request.result);
+      };
       request.onerror = () => {
         if (absent) resolve(null);
         else reject(request.error || Error('進化データの読み込みに失敗しました'));
       };
-      request.onblocked = () => reject(Error('進化データを別のタブで使用中です'));
+      request.onblocked = () => {
+        blocked = true;
+        reject(Error('進化データを別のタブで使用中です'));
+      };
     });
   }
 
