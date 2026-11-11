@@ -78,7 +78,7 @@
   const exhibitGame = /\/exhibit\/game\.html$/.test(pathname);
   // The normal game is at the repository root or /index.html; do not
   // switch diagnostic pages or the exhibition menu to the fast route.
-  const publicGame = /(?:^|\/)(?:index\.html)?$/.test(pathname)
+  const publicGame = /\/(?:index\.html)?$/.test(pathname)
     && !/\/exhibit\//.test(pathname);
   const lowLatencyIOS = iosDevice
     && (soundParam === 'fast'
