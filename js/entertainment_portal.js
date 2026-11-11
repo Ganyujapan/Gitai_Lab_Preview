@@ -675,6 +675,9 @@
   let experimentExamplesLoaded = false;
   let experimentExamplesPending = null;
   function populateExperimentCardMoths() {
+    // The new normal menu uses the exhibition's saved WebP art, so do not
+    // initialize the optional genome renderer unless a legacy moth slot exists.
+    if (!experimentModes?.querySelector('img[data-experiment-moth]')) return;
     if (experimentExamplesLoaded || experimentExamplesPending) return;
     const renderer = window.GitaiPortalRandomMoth;
     if (!renderer?.initialize || !renderer?.experimentExamples) return;
