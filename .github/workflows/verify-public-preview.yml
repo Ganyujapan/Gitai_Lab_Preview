@@ -88,6 +88,8 @@ jobs:
         run: node .github/scripts/verify-portal-intro-aspect.cjs
       - name: Verify offline exhibit mode thumbnails and responsive tap targets
         run: node .github/scripts/verify-exhibit-mode-thumbnails.cjs
+      - name: Verify normal evolution mode cards preserve routes, saves and exhibition isolation
+        run: node .github/scripts/verify-normal-exhibit-mode-ui.cjs
       - name: Verify exhibition generation counters and read-only theater
         run: node .github/scripts/verify-exhibit-landing-theater.cjs
       - name: Verify exhibition play buttons stand out without losing thumbnail space
