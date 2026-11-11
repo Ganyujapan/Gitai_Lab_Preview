@@ -336,11 +336,11 @@ def main() -> None:
         )
 
     page = (site / "index.html").read_text(encoding="utf-8")
-    # iPhone/iPad native Ogg looping and second-player overlap fail after one
-    # track in real tests. Use the self-contained 45s gapless AAC controller
-    # ONLY in the exhibition game; normal index.html remains unchanged.
+    # The normal game now loads a copy of the exhibition-tested AAC controller.
+    # Always point the built exhibition game at its OWN unchanged ambient_ios.js.
+    # Also accept the old normal source tag for safe rollback.
     page, audio_tags = re.subn(
-        r'<script src="js/ambient_audio\.js(?:\?[^"]*)?"></script>',
+        r'<script src="js/(?:ambient_audio|ambient_ios)\.js(?:\?[^"]*)?"></script>',
         '<script src="ambient_ios.js"></script>', page
     )
     assert audio_tags == 1, "Missing exhibition sound-controller entry"
