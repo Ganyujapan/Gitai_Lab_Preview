@@ -20,9 +20,9 @@ assert.equal(crypto.createHash('sha256').update(audio).digest('hex'),
 assert.equal(audio.toString('ascii',4,12),'ftypM4A ');
 assert.match(game,/<script src="ambient_ios\.js"><\/script>/);
 assert.doesNotMatch(game,/src="js\/ambient_audio\.js/,'only ONE BGM controller');
-assert.match(publicGame,/src="js\\/ambient_ios\\.js\\?v=20261111-main-aac1"/,
+assert.match(publicGame,/src="js\/ambient_ios\.js\?v=20261111-main-aac1"/,
   'public game must use the validated single-player AAC controller');
-assert.doesNotMatch(publicGame,/src="js\\/ambient_audio\\.js/,
+assert.doesNotMatch(publicGame,/src="js\/ambient_audio\.js/,
   'legacy overlapping Ogg players must not load in public game');
 const publicJs=fs.readFileSync(path.join(site,'js/ambient_ios.js'),'utf8');
 assert.equal(publicJs,js,'public and exhibit use identical AAC controller code');
