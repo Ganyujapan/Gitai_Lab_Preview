@@ -65,21 +65,25 @@
   // claiming that subsequent pointerdown buffer starts are audible.
   let fastUnlocked = false;
   const touchDevice = Number(w.navigator?.maxTouchPoints || 0) > 0;
-  // iPad exhibition acceptance (2026-10-29): the user heard far less
-  // latency from the existing Web Audio route, including 13 captures and
-  // four poison sounds with rainforest ambience. Make that route the default
-  // ONLY in the exhibition game; ordinary public iOS play remains unchanged.
-  // The AAC native path is still available with ?sfx=native or ?sfx=release.
-  // The low-latency engine already falls back to AAC on an interrupted,
-  // suspended, unsupported or frozen Web Audio context.
+  // The iPad-validated exhibition low-latency Web Audio route is also
+  // enabled for the ordinary public game's iOS entry (2026-11-11).
+  // Keep diagnostic pages and explicit ?sfx=native / ?sfx=release untouched.
+  // On interrupted, suspended or frozen Web Audio the existing AAC fallback
+  // remains available; the simulator's genetic RNG is unchanged.
   const iosDevice = /iPad|iPhone|iPod/.test(w.navigator?.userAgent || '')
     || (w.navigator?.platform === 'MacIntel' && touchDevice);
   const soundParam = (w.location?.search || '')
     .match(/(?:^|[?&])sfx=(fast|native|release)(?:&|$)/)?.[1] || null;
-  const exhibitGame = /\/exhibit\/game\.html$/.test(w.location?.pathname || '');
+  const pathname = w.location?.pathname || '';
+  const exhibitGame = /\/exhibit\/game\.html$/.test(pathname);
+  // The normal game is at the repository root or /index.html; do not
+  // switch diagnostic pages or the exhibition menu to the fast route.
+  const publicGame = /\/(?:index\.html)?$/.test(pathname)
+    && !/\/exhibit\//.test(pathname);
   const lowLatencyIOS = iosDevice
     && (soundParam === 'fast'
-      || (exhibitGame && soundParam !== 'native' && soundParam !== 'release'));
+      || ((exhibitGame || publicGame)
+        && soundParam !== 'native' && soundParam !== 'release'));
   // Retain the old low-latency-unfriendly routes as emergency fallbacks.
   const instantNativeIOS = iosDevice && !lowLatencyIOS && soundParam !== 'release';
   function contextHealthy() {

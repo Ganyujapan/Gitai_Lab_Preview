@@ -1,13 +1,13 @@
 'use strict';
 // T-003 B-2: the real sound module must default to the user-validated
-// low-latency Web Audio path in /exhibit/game.html only. No real device/DB.
+// low-latency Web Audio path in both normal and exhibit games. No real device/DB.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('js/game_sfx.js', 'utf8');
 const mainHtml = fs.readFileSync('index.html', 'utf8');
 const bench = fs.readFileSync('exhibit/sfx_latency_rehearsal.html', 'utf8');
-assert.match(mainHtml, /src="js\/game_sfx\.js\?v=20261029-exhibit-default-webaudio1"/);
+assert.match(mainHtml, /src="js\/game_sfx\.js\?v=20261111-main-fast1"/);
 assert.match(bench, /sfx_latency_rehearsal\.html\?sfx=native/);
 assert.match(bench, /sfx_latency_rehearsal\.html\?sfx=fast/);
 assert.match(bench, /sfx_latency_rehearsal\.html\?sfx=release/);
@@ -95,11 +95,12 @@ function makeSession({pathname='/exhibit/game.html', search='', browser='iPad', 
 }
 
 (async()=>{
-  // Both supported exhibition modes share the same generated game.html and
-  // work with a query string containing mode, env and generation data.
+  // The same low-latency route serves both exhibition and normal iOS game
+  // entry points, including directory-index navigation on GitHub Pages.
   for(const pathname of [
     '/Gitai_Lab_Preview/exhibit/game.html',
-    '/Gitai_Lab_Preview/exhibit/game.html'
+    '/Gitai_Lab_Preview/',
+    '/Gitai_Lab_Preview/index.html'
   ]) {
     const s=makeSession({pathname,search:'?mode=warning&gen=26'});
     await s.prepared();
@@ -129,15 +130,14 @@ function makeSession({pathname='/exhibit/game.html', search='', browser='iPad', 
     assert.equal(next.starts.length,2,'later hit is synchronous again');
   }
 
-  // The regular preview and the isolated listening bench keep their prior
-  // default to avoid changing behavior on non-exhibition iPhones/iPads.
-  for(const pathname of ['/Gitai_Lab_Preview/', '/Gitai_Lab_Preview/exhibit/sfx_latency_rehearsal.html']){
+  // The isolated listening bench must retain its old native default.
+  for(const pathname of ['/Gitai_Lab_Preview/exhibit/sfx_latency_rehearsal.html']){
     const s=makeSession({pathname});
     await s.prepared();
-    assert.equal(s.decoded.length,0,'public/bench default stays AAC');
+    assert.equal(s.decoded.length,0,'bench default remains native AAC');
     s.tap();
     assert.equal(s.nativeStarts.length,1,'native starts at pointerdown');
-    assert.equal(s.starts.length,0,'public/bench do not implicitly enable Web Audio');
+    assert.equal(s.starts.length,0,'bench must not implicitly enable Web Audio');
   }
   // Emergency fallback can be selected on the exhibition URL at any time.
   for(const search of ['?sfx=native','?mode=cryptic&sfx=native&play=1']){
@@ -151,7 +151,7 @@ function makeSession({pathname='/exhibit/game.html', search='', browser='iPad', 
   assert.equal(release.nativeStarts.length,0);
   release.up();
   assert.equal(release.nativeStarts.length,1,'old pointerup compatibility survives');
-  // Opt-in fast is still available outside of exhibition for diagnostics.
+  // Explicit fast is still available outside both games for diagnostics.
   const opt=makeSession({pathname:'/Gitai_Lab_Preview/',search:'?sfx=fast'});
   await opt.prepared();assert.equal(opt.decoded.length,10);
   opt.tap();opt.up();await Promise.resolve();await Promise.resolve();
@@ -169,5 +169,5 @@ function makeSession({pathname='/exhibit/game.html', search='', browser='iPad', 
   const desktop=makeSession({browser:'desktop',pathname:'/Gitai_Lab_Preview/exhibit/game.html'});
   await desktop.prepared();
   assert.equal(desktop.decoded.length,10);
-  console.log('EXHIBIT SFX: default fast route, first/next-generation rearm, capture/poison/death, native/release escape hatch, isolation and unsupported fallback verified in production JS. Acoustic latency awaits iPad.');
+  console.log('MAIN+EXHIBIT SFX: default fast route on both games, new-document rearm, native/release fallback and diagnostic isolation verified in production JS. Acoustic behavior remains device-dependent.');
 })().catch(error=>{console.error(error);process.exitCode=1});
