@@ -19,7 +19,7 @@ assert.match(html, /id="portalShared"/, 'Shared evolution preparing UI must rema
 assert.match(html, /id="portalMystery"/, 'Unrelated locked menu must remain');
 assert.match(html, /id="specimenBoxButton"/, 'Independent specimen box must remain');
 assert.match(html, /js\/experiment_saves\.js\?v=/, 'Experiment saves must remain');
-assert.match(html, /js\/ambient_audio\.js\?v=/, 'Rainforest audio must remain');
+assert.match(html, /js\/ambient_ios\.js\?v=/, 'Rainforest AAC audio must remain');
 assert.match(html, /js\/game_sfx\.js\?v=/, 'Recorded effects must remain');
 
 const urls = ['192','168','1','25'].join('.') + ':3000';
