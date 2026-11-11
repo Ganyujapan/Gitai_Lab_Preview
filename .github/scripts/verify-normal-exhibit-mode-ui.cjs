@@ -15,15 +15,12 @@ assert.match(html,/id="portalNickname"/);
 assert.match(html,/id="portalEvolutionBack"/);
 assert.match(html,/id="specimenBoxButton"/);
 assert.match(html,/id="portalAuthorNews"/);
-const portalBegin = '<section id="entertainmentPortal"';
-const portalEnd = '</section>\n  </main>';
-function getPortal(page) {
-  const start=page.indexOf(portalBegin), end=page.indexOf(portalEnd,start);
-  assert.ok(start>=0 && end>start, 'portal must exist in both documents');
-  return page.slice(start,end);
-}
-assert.equal(getPortal(html), getPortal(exhibitTitle),
-  'exhibit and public must keep identical original title markup');
+// The exhibit title intentionally has a different outer <main> indent.
+const begin = html.indexOf('    <section id="entertainmentPortal"');
+const end = html.indexOf('\\n  </main>', begin);
+assert.ok(begin >= 0 && end > begin, 'normal portal must exist');
+assert.ok(exhibitTitle.includes(html.slice(begin,end)),
+  'exhibit title must reuse the normal portal DOM, byte for byte');
 assert.match(html,/id="portalCrypticMode"/);
 assert.match(html,/id="portalWarningMode"/);
 assert.match(source,/function hydrateNormalModeCards\(\)/);
