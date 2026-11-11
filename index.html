@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/experiment_saves.css?v=20261025-start-screen1">
   <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
   <link rel="stylesheet" href="css/portal_minimal.css?v=20261017-minimal1">
+  <link rel="stylesheet" href="css/portal_exhibit_modes.css?v=20261111-mode-cards1">
   <link rel="stylesheet" href="css/solo_tutorial.css?v=20261029-warning-image1">
   <link rel="stylesheet" href="css/author_news_link.css?v=20261025-soft-blue1">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
@@ -2009,22 +2010,23 @@
           aria-labelledby="portalEvolutionTitle" aria-modal="true" hidden>
           <div class="portal-experiment-content">
             <h2 id="portalEvolutionTitle">進化実験を選ぶ</h2>
+            <p class="portal-experiment-lead">蛾を捕食すると、生き残った個体が次の世代の親になります。</p>
             <div class="portal-experiment-list">
-              <button id="portalCrypticMode" class="portal-experiment-button" type="button">
+              <button id="portalCrypticMode" class="portal-experiment-button portal-experiment-cryptic" type="button">
+                <span class="portal-experiment-index">01 / CRYPTIC</span>
                 <strong>隠れるギタイ</strong>
-                <span class="portal-experiment-moth-stage" aria-hidden="true">
-                  <img class="portal-experiment-moth-image" data-experiment-moth="white" alt="">
-                  <span class="portal-experiment-change-arrow">→</span>
-                  <img class="portal-experiment-moth-image" data-experiment-moth="cryptic" alt="">
-                </span>
+                <span class="portal-experiment-subtitle">隠蔽擬態</span>
+                <img class="portal-experiment-thumbnail" src="img/modeselect/gitailab_thumbnail_hide_960x300.webp"
+                  width="960" height="300" alt="白い蛾が葉に似た緑色へ変化する様子" decoding="async">
+                <span class="portal-experiment-action" aria-hidden="true">実験開始 ▶</span>
               </button>
-              <button id="portalWarningMode" class="portal-experiment-button" type="button">
+              <button id="portalWarningMode" class="portal-experiment-button portal-experiment-warning" type="button">
+                <span class="portal-experiment-index">02 / WARNING</span>
                 <strong>目立つギタイ</strong>
-                <span class="portal-experiment-moth-stage" aria-hidden="true">
-                  <img class="portal-experiment-moth-image" data-experiment-moth="white" alt="">
-                  <span class="portal-experiment-change-arrow">→</span>
-                  <img class="portal-experiment-moth-image" data-experiment-moth="warning" alt="">
-                </span>
+                <span class="portal-experiment-subtitle">警告色の進化とベイツ型擬態</span>
+                <img class="portal-experiment-thumbnail" src="img/modeselect/gitailab_thumbnail_warning_960x300.webp"
+                  width="960" height="300" alt="白い蛾が鮮やかな赤い警告模様へ変化する様子" decoding="async">
+                <span class="portal-experiment-action" aria-hidden="true">実験開始 ▶</span>
               </button>
             </div>
             <button id="portalEvolutionBack" class="portal-experiment-back" type="button">← 戻る</button>
