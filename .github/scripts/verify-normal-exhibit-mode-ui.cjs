@@ -17,7 +17,7 @@ assert.match(html,/id="specimenBoxButton"/);
 assert.match(html,/id="portalAuthorNews"/);
 // The exhibit title intentionally has a different outer <main> indent.
 const begin = html.indexOf('    <section id="entertainmentPortal"');
-const end = html.indexOf('\\n  </main>', begin);
+const end = html.indexOf('\n  </main>', begin);
 assert.ok(begin >= 0 && end > begin, 'normal portal must exist');
 assert.ok(exhibitTitle.includes(html.slice(begin,end)),
   'exhibit title must reuse the normal portal DOM, byte for byte');
