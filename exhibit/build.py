@@ -10,6 +10,11 @@ from pathlib import Path
 def main() -> None:
     site = Path(sys.argv[1]).resolve()
     build = sys.argv[2] if len(sys.argv) > 2 else "local"
+    # Freeze the exhibition to its last deployed, verified runtime while the
+    # regular game receives UI changes. Matching source bytes retain their
+    # original build provenance, service-worker cache and update version.
+    # Remove this pin only as part of a separately approved exhibit release.
+    exhibit_frozen_build = "2bf70e0a3e723d79f3486e973f72fb3abb01931c"
     root = Path(__file__).resolve().parent
     exhibit = site / "exhibit"
     exhibit.mkdir(parents=True, exist_ok=True)
@@ -32,6 +37,13 @@ def main() -> None:
     # worker must not control/cache normal public-preview paths.
     for folder in ("audio", "config", "css", "data", "environments", "img", "js", "species"):
         shutil.copytree(site / folder, exhibit / folder, dirs_exist_ok=True)
+
+    # Normal-game-only UI assets must not enter the offline exhibition cache.
+    # Their tags are separately removed from the generated exhibit/game.html.
+    for normal_only in ("css/portal_exhibit_modes.css", "js/portal_exhibit_mode_cards.js"):
+        item = exhibit / normal_only
+        assert item.is_file(), "Missing isolated normal-mode UI asset: " + normal_only
+        item.unlink()
 
     # iPad exhibition-only audio recovery. Keep standard preview modules
     # byte-identical: only the copied exhibit/js/ambient_audio.js is patched.
@@ -325,17 +337,29 @@ def main() -> None:
     # mutation profile is recorded separately. Rebuilding never edits user DBs.
     source_marker = "const EVOLUTION_BUILD_COMMIT = '__GITAI_BUILD__';"
     build_label = build if re.fullmatch(r"[0-9a-f]{40}", build) else "local"
-    for engine_file in (site / "js" / "pages_preview.js",
-                        exhibit / "js" / "pages_preview.js"):
+    for engine_file, version in (
+        (site / "js" / "pages_preview.js", build_label),
+        (exhibit / "js" / "pages_preview.js", exhibit_frozen_build),
+    ):
         source = engine_file.read_text(encoding="utf-8")
         assert source.count(source_marker) == 1, "Missing build marker"
         engine_file.write_text(
             source.replace(source_marker,
-                           "const EVOLUTION_BUILD_COMMIT = '" + build_label + "';", 1),
+                           "const EVOLUTION_BUILD_COMMIT = '" + version + "';", 1),
             encoding="utf-8"
         )
 
     page = (site / "index.html").read_text(encoding="utf-8")
+    # Strictly strip regular-only assets; the PWA must remain byte-for-byte
+    # the previously deployed exhibition game (apart from NO runtime changes).
+    regular_css = '  <link rel="stylesheet" href="css/portal_exhibit_modes.css?v=20261111-mode-cards1">\\n'
+    regular_js = '<script src="js/portal_exhibit_mode_cards.js?v=20261112-main-only1" defer></script>\\n'
+    # Replacing only known exact lines prevents a future normal-only asset
+    # from leaking into /exhibit/ or causing a broken offline fetch.
+    for original in (regular_css, regular_js):
+        assert page.count(original) == 1, "Normal-only asset tag missing from public page"
+        page = page.replace(original, "", 1)
+    assert "portal_exhibit_mode_cards" not in page and "portal_exhibit_modes.css" not in page
     # The normal game now loads a copy of the exhibition-tested AAC controller.
     # Always point the built exhibition game at its OWN unchanged ambient_ios.js.
     # Also accept the old normal source tag for safe rollback.
@@ -517,10 +541,10 @@ def main() -> None:
         shutil.copy2(root / name, exhibit / name)
     worker = (root / "sw.template.js").read_text(encoding="utf-8")
     (exhibit / "sw.js").write_text(
-        worker.replace("__GITAI_BUILD__", build), encoding="utf-8"
+        worker.replace("__GITAI_BUILD__", exhibit_frozen_build), encoding="utf-8"
     )
     (exhibit / "version.json").write_text(
-        json.dumps({"build": build, "schema": 1}, ensure_ascii=False), encoding="utf-8"
+        json.dumps({"build": exhibit_frozen_build, "schema": 1}, ensure_ascii=False), encoding="utf-8"
     )
     runtime_files = sorted(
         p.relative_to(exhibit).as_posix() for p in exhibit.rglob("*")
