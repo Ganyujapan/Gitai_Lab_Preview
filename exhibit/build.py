@@ -40,7 +40,8 @@ def main() -> None:
 
     # Normal-game-only UI assets must not enter the offline exhibition cache.
     # Their tags are separately removed from the generated exhibit/game.html.
-    for normal_only in ("css/portal_exhibit_modes.css", "js/portal_exhibit_mode_cards.js"):
+    for normal_only in ("css/portal_exhibit_modes.css", "css/portal_exhibit_results.css",
+                        "js/portal_exhibit_mode_cards.js"):
         item = exhibit / normal_only
         assert item.is_file(), "Missing isolated normal-mode UI asset: " + normal_only
         item.unlink()
@@ -360,13 +361,16 @@ def main() -> None:
     # Strictly strip regular-only assets; the PWA must remain byte-for-byte
     # the previously deployed exhibition game (apart from NO runtime changes).
     regular_css = '  <link rel="stylesheet" href="css/portal_exhibit_modes.css?v=20261111-mode-cards1">\n'
+    regular_results_css = '  <link rel="stylesheet" href="css/portal_exhibit_results.css?v=20261112-results-first1">\n'
     regular_js = '<script src="js/portal_exhibit_mode_cards.js?v=20261112-main-only1" defer></script>\n'
     # Replacing only known exact lines prevents a future normal-only asset
     # from leaking into /exhibit/ or causing a broken offline fetch.
-    for original in (regular_css, regular_js):
+    for original in (regular_css, regular_results_css, regular_js):
         assert page.count(original) == 1, "Normal-only asset tag missing from public page"
         page = page.replace(original, "", 1)
-    assert "portal_exhibit_mode_cards" not in page and "portal_exhibit_modes.css" not in page
+    assert ("portal_exhibit_mode_cards" not in page
+            and "portal_exhibit_modes.css" not in page
+            and "portal_exhibit_results.css" not in page)
     # The normal game now loads a copy of the exhibition-tested AAC controller.
     # Always point the built exhibition game at its OWN unchanged ambient_ios.js.
     # Also accept the old normal source tag for safe rollback.
@@ -401,8 +405,12 @@ def main() -> None:
       // Exhibition: results and visitor handover must be visible first.
       return;
     }"""
-    assert page.count(auto_gallery) == 1, "Missing normal auto-gallery hook"
-    page = page.replace(auto_gallery, review_first, 1)
+    # The normal game now also shows results first, using precisely the
+    # exhibition-tested text. Accept either source but emit the SAME old PWA.
+    if page.count(auto_gallery) == 1:
+        page = page.replace(auto_gallery, review_first, 1)
+    else:
+        assert page.count(review_first) == 1, "Missing results-first hook"
     rank_auto_gallery = """    acknowledgeRankMilestone();
     showEvolutionComparison();
   }
@@ -413,8 +421,10 @@ def main() -> None:
   }
 
   function revealEvolutionTheaterAtBottom()"""
-    assert page.count(rank_auto_gallery) == 1, "Missing rare-rank gallery hook"
-    page = page.replace(rank_auto_gallery, rank_to_review, 1)
+    if page.count(rank_auto_gallery) == 1:
+        page = page.replace(rank_auto_gallery, rank_to_review, 1)
+    else:
+        assert page.count(rank_to_review) == 1, "Missing rank review hook"
 
     # Exhibition-only: do not send a poisoned visitor to the mode picker
     # after 2.8 seconds. Let them retry the same uncommitted generation or
