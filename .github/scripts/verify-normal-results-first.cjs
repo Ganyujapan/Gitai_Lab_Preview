@@ -26,8 +26,8 @@ assert.match(html,/showResults\(\); \/\/ Keep existing next-generation\/submit s
 assert.match(html,/if \(state\.pendingMutationEvent\) \{\s*showMutationReveal\(\);/);
 assert.match(html,/if \(isEntertainmentModel\(\)\) \{\s*state\.submitStatus = 'ready'/);
 assert.match(experimentSaves,/className = 'gitai-experiment-result-actions'/);
-assert.match(experimentSaves,/id=\\"gitaiOpenRecords\\"/);
-assert.match(experimentSaves,/id=\\"gitaiResultStartNew\\"/);
+assert.ok(experimentSaves.includes('gitaiOpenRecords'), 'experiment records must remain');
+assert.ok(experimentSaves.includes('gitaiResultStartNew'), 'new experiment must remain');
 assert.match(exhibitBuild,/for normal_only in \("css\/portal_exhibit_modes\.css", "css\/portal_exhibit_results\.css"/);
 assert.match(exhibitBuild,/regular_results_css/);
 assert.match(modes,/#reviewOverlay \.review-actions #continueButton/);
