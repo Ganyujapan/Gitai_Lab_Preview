@@ -1,7 +1,6 @@
 'use strict';
-// Regression: on the real iPad the exhibition auto-opened the moth gallery
-// immediately after the result. The result was present but covered, hiding
-// the "次の人へ変わる" button. Execute functions FROM the built game.
+// Regression: both versions show results before optional gallery, while
+// exhibition-only visitor handover remains preserved. Execute real built code.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
@@ -21,8 +20,8 @@ function sliceFunction(text,fn,next) {
 const normalRank=sliceFunction(normal,'showRankMilestoneOrGallery','closeRankMilestone');
 const exhibitRank=sliceFunction(generated,'showRankMilestoneOrGallery','closeRankMilestone');
 const exhibitClose=sliceFunction(generated,'closeRankMilestone','revealEvolutionTheaterAtBottom');
-assert.match(normalRank,/showEvolutionComparison\(\)/,
-  'normal entertainment version must retain automatic gallery');
+assert.doesNotMatch(normalRank,/showEvolutionComparison\(\)/,
+  'normal game must now display results before optional gallery');
 assert.doesNotMatch(exhibitRank,/showEvolutionComparison\(\)/,
   'exhibit must not cover the handover panel with the gallery');
 assert.doesNotMatch(exhibitClose,/showEvolutionComparison\(\)/,
@@ -40,8 +39,9 @@ assert.match(controller,/if \(!committedOffspringForHandover\) throw Error\(/,
   'handover must still confirm the saved offspring before navigation');
 assert.match(build,/page\.replace\(auto_gallery, review_first, 1\)/);
 assert.match(build,/page\.replace\(rank_auto_gallery, rank_to_review, 1\)/);
-assert.match(original,/function showRankMilestoneOrGallery\(\) \{[\s\S]*?showEvolutionComparison\(\)/,
-  'source site must remain untouched');
+assert.doesNotMatch(sliceFunction(original,'showRankMilestoneOrGallery','closeRankMilestone'),
+  /showEvolutionComparison\(\)/,
+  'normal source must keep results-first flow');
 
 const called={gallery:0,rank:0,acknowledge:0,removed:0};
 const c={
@@ -78,4 +78,4 @@ c.testClose();
 assert.equal(called.removed,1);
 assert.equal(called.acknowledge,1);
 assert.equal(called.gallery,0,'rare-rank close returns to result, not gallery');
-console.log('Exhibit-only final round shows result/visitor handover first, preserves mutation/rank and click-to-view gallery; public preview unchanged.');
+console.log('Both game variants show results first, preserving exhibition-only handover and user-triggered gallery, mutation and rank.');
