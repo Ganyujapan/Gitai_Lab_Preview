@@ -9,6 +9,10 @@ const controller=fs.readFileSync('js/entertainment_portal.js','utf8');
 const code=fs.readFileSync('js/portal_exhibit_mode_cards.js','utf8');
 const css=fs.readFileSync('css/portal_exhibit_modes.css','utf8');
 const exhibitModes=fs.readFileSync('exhibit/modes.html','utf8');
+// The normal site's shared-link title must not advertise the exhibition.
+assert.ok(html.includes('<title>ギタイラボ | 進化シミュレーター</title>'));
+assert.ok(!html.includes('<title>ギタイラボ — 昆虫大学 α</title>'));
+assert.ok(title.includes('<title>ギタイラボ | 昆虫大学 2026</title>'));
 
 assert.match(html,/href="css\/portal_exhibit_modes\.css\?v=20261111-mode-cards1"/);
 assert.match(html,/src="js\/portal_exhibit_mode_cards\.js\?v=20261112-main-only1" defer/);
@@ -84,6 +88,8 @@ assert.equal(isolated.elements.portalCrypticMode.children.length,0);
 assert.equal(isolated.elements.portalWarningMode.children.length,0);
 if(fs.existsSync('_site/exhibit/game.html')){
  const game=fs.readFileSync('_site/exhibit/game.html','utf8');
+ assert.ok(game.includes('<title>ギタイラボ — 昆虫大学 α</title>'),
+   'exhibition game must keep its originally deployed title');
  const precache=fs.readFileSync('_site/exhibit/precache.json','utf8');
  assert.ok(!game.includes('portal_exhibit_mode_cards.js'));
  assert.ok(!game.includes('portal_exhibit_modes.css'));
