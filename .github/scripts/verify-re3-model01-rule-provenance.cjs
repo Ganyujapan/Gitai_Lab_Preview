@@ -99,7 +99,10 @@ vm.runInNewContext(source.slice(begin,end)+'\nglobalThis.getReport=collectDiagno
    const normalBuild=match(normalJs),exhibitBuild=match(exhibitJs);
    assert.ok(/^[a-f0-9]{40}$/.test(normalBuild||''),
      'built normal engine must embed a genuine SHA');
-   assert.equal(exhibitBuild,normalBuild,'normal and exhibit share the same source commit');
+   // Normal UI-only releases do not change the exhibition engine.
+   // Keep the previously deployed exhibition build recorded unchanged.
+   const lastExhibitBuild='2bf70e0a3e723d79f3486e973f72fb3abb01931c';
+   assert.equal(exhibitBuild,lastExhibitBuild,'exhibition PWA stays at the verified source commit');
    assert.ok(normalJs.includes('rule_provenance: ruleProvenanceForGeneration(),'));
    assert.ok(exhibitJs.includes('rule_provenance: ruleProvenanceForGeneration(),'));
    assert.ok(exhibitJs.includes('exhibit_mutation_rate_factor: EXHIBIT_MUTATION_RATE_FACTOR,'));
