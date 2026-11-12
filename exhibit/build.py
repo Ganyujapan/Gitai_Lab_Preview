@@ -350,6 +350,13 @@ def main() -> None:
         )
 
     page = (site / "index.html").read_text(encoding="utf-8")
+    # The normal site's link-preview title is separate from the already
+    # deployed exhibition game. Restore its exact old title in the generated
+    # exhibit copy only, so its offline PWA stays byte-identical.
+    regular_title = "<title>ギタイラボ | 進化シミュレーター</title>"
+    exhibit_title = "<title>ギタイラボ — 昆虫大学 α</title>"
+    assert page.count(regular_title) == 1, "Missing normal site title"
+    page = page.replace(regular_title, exhibit_title, 1)
     # Strictly strip regular-only assets; the PWA must remain byte-for-byte
     # the previously deployed exhibition game (apart from NO runtime changes).
     regular_css = '  <link rel="stylesheet" href="css/portal_exhibit_modes.css?v=20261111-mode-cards1">\n'
