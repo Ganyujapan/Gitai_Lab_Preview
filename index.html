@@ -19,6 +19,7 @@
   </script>
   <link rel="stylesheet" href="css/entertainment_portal.css?v=20261021-tagline1">
   <link rel="stylesheet" href="css/experiment_saves.css?v=20261025-start-screen1">
+  <link rel="stylesheet" href="css/portal_exhibit_results.css?v=20261112-results-first1">
   <link rel="stylesheet" href="css/portal_trophies.css?v=20261015-trophy1">
   <link rel="stylesheet" href="css/portal_minimal.css?v=20261017-minimal1">
   <link rel="stylesheet" href="css/portal_exhibit_modes.css?v=20261111-mode-cards1">
@@ -4262,7 +4263,7 @@
 
   function showRankMilestoneOrGallery() {
     if (!state.pendingRankMilestone) {
-      showEvolutionComparison();
+      // Exhibition: results and visitor handover must be visible first.
       return;
     }
     const event = state.pendingRankMilestone;
@@ -4288,7 +4289,7 @@
     if (!rankMilestoneOverlay.classList.contains('visible')) return;
     rankMilestoneOverlay.classList.remove('visible');
     acknowledgeRankMilestone();
-    showEvolutionComparison();
+    // Exhibition: after the rare-rank notice, reveal the existing results.
   }
 
   function revealEvolutionTheaterAtBottom() {
