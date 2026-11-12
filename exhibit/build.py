@@ -352,8 +352,8 @@ def main() -> None:
     page = (site / "index.html").read_text(encoding="utf-8")
     # Strictly strip regular-only assets; the PWA must remain byte-for-byte
     # the previously deployed exhibition game (apart from NO runtime changes).
-    regular_css = '  <link rel="stylesheet" href="css/portal_exhibit_modes.css?v=20261111-mode-cards1">\\n'
-    regular_js = '<script src="js/portal_exhibit_mode_cards.js?v=20261112-main-only1" defer></script>\\n'
+    regular_css = '  <link rel="stylesheet" href="css/portal_exhibit_modes.css?v=20261111-mode-cards1">\n'
+    regular_js = '<script src="js/portal_exhibit_mode_cards.js?v=20261112-main-only1" defer></script>\n'
     # Replacing only known exact lines prevents a future normal-only asset
     # from leaking into /exhibit/ or causing a broken offline fetch.
     for original in (regular_css, regular_js):
