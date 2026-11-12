@@ -305,3 +305,20 @@ jobs:
           assert "fonts.googleapis.com" not in (site / "js/entertainment_portal.js").read_text()
           print("Exhibition offline assets and isolated saves: OK")
           PY
+      - name: Assert exhibition PWA is byte-identical to last deployed release
+        run: |
+          set -euo pipefail
+          baseline=2bf70e0a3e723d79f3486e973f72fb3abb01931c
+          git fetch --depth=1 origin refs/heads/archive/pre-normal-mode-ui-20261111
+          test "$(git rev-parse FETCH_HEAD)" = "$baseline"
+          frozen="$(mktemp -d)"
+          git archive "$baseline" | tar -xf - -C "$frozen"
+          mkdir -p "$frozen/_site"
+          (
+            cd "$frozen"
+            cp index.html author_news.html warning_fog.html manifest.webmanifest .nojekyll _site/
+            cp -R audio config css data environments img js species _site/
+            python3 exhibit/build.py _site "$baseline"
+          )
+          diff -qr "$frozen/_site/exhibit" "_site/exhibit"
+          echo "Exhibition PWA all files byte-for-byte identical to frozen release"
