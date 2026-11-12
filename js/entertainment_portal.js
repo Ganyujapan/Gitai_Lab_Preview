@@ -675,9 +675,6 @@
   let experimentExamplesLoaded = false;
   let experimentExamplesPending = null;
   function populateExperimentCardMoths() {
-    // The new normal menu uses the exhibition's saved WebP art, so do not
-    // initialize the optional genome renderer unless a legacy moth slot exists.
-    if (!experimentModes?.querySelector('img[data-experiment-moth]')) return;
     if (experimentExamplesLoaded || experimentExamplesPending) return;
     const renderer = window.GitaiPortalRandomMoth;
     if (!renderer?.initialize || !renderer?.experimentExamples) return;
@@ -697,53 +694,12 @@
     });
   }
 
-  // Only the regular game hydrates these exhibition-style cards. The
-  // original shared HTML must remain byte-identical in the exhibit PWA.
-  // Existing button elements and event handlers are intentionally retained.
-  let normalModeCardsHydrated = false;
-  function hydrateNormalModeCards() {
-    const path = window.location?.pathname || '';
-    if (normalModeCardsHydrated ||
-        !(path.endsWith('/') || path.endsWith('/index.html')) ||
-        path.includes('/exhibit/')) return;
-    const list = experimentModes?.querySelector('.portal-experiment-list');
-    if (!list || !crypticMode || !warningMode) return;
-
-    const lead = document.createElement('p');
-    lead.className = 'portal-experiment-lead';
-    lead.textContent = '蛾を捕食すると、生き残った個体が次の世代の親になります。';
-    list.insertAdjacentElement('beforebegin', lead);
-
-    const setCard = (button, style, index, title, subtitle, banner, alt) => {
-      button.classList.add(style);
-      // Every interpolation here is a constant authored in source code.
-      // Never insert a nickname, a genome, or saved content as markup.
-      button.innerHTML =
-        '<span class="portal-experiment-index">' + index + '</span>' +
-        '<strong>' + title + '</strong>' +
-        '<span class="portal-experiment-subtitle">' + subtitle + '</span>' +
-        '<img class="portal-experiment-thumbnail" src="img/modeselect/' + banner +
-        '" width="960" height="300" alt="' + alt + '" decoding="async">' +
-        '<span class="portal-experiment-action" aria-hidden="true">実験開始 ▶</span>';
-    };
-    setCard(crypticMode, 'portal-experiment-cryptic',
-      '01 / CRYPTIC', '隠れるギタイ', '隠蔽擬態',
-      'gitailab_thumbnail_hide_960x300.webp',
-      '白い蛾が葉に似た緑色へ変化する様子');
-    setCard(warningMode, 'portal-experiment-warning',
-      '02 / WARNING', '目立つギタイ', '警告色の進化とベイツ型擬態',
-      'gitailab_thumbnail_warning_960x300.webp',
-      '白い蛾が鮮やかな赤い警告模様へ変化する様子');
-    normalModeCardsHydrated = true;
-  }
-
   function openEvolutionModePicker() {
     if (!ensureNickname()) return;
     if (!experimentModes) {
       beginSoloTutorial();
       return;
     }
-    hydrateNormalModeCards();
     experimentModes.hidden = false;
     populateExperimentCardMoths();
     if (menuContent) menuContent.inert = true;
